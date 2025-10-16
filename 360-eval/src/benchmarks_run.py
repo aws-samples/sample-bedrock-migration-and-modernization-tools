@@ -20,6 +20,7 @@ from utils import (get_timestamp,
                    llm_judge_template,
                    optimize_prompt_bedrock)
 from config_validator import validate_jsonl_file
+from rate_limiter import TokenBucketRateLimiter
 
 env = load_dotenv()
 
@@ -309,14 +310,25 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
     unprocessed_records = []
     lock = Lock()
 
+    # Initialize rate limiter for RPM control
+    rate_limiter = TokenBucketRateLimiter()
+
     def run_scn(scn):
         recs = []
         local_unprocessed = []
 
         for invocation in range(cfg["invocations_per_scenario"]):
             try:
+                # Apply rate limiting if target_rpm is configured for this model
+                target_rpm = scn.get("target_rpm")
+                if target_rpm:
+                    throttle_info = rate_limiter.acquire(scn["model_id"], scn["region"], target_rpm)
+                else:
+                    throttle_info = {"throttled": False, "wait_time": 0}
+
                 logging.info(
                     f"Running scenario: {scn['model_id']}@{scn['region']}, temp={scn['TEMPERATURE']}, invocation {invocation + 1}/{cfg['invocations_per_scenario']}")
+
                 # Use per-scenario user_defined_metrics if available, otherwise fall back to global
                 scenario_metrics = scn.get("user_defined_metrics", "")
                 if scenario_metrics:
@@ -342,6 +354,11 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
                     yard_stick=yard_stick,
                     vision_enabled=scn.get("image_path", None),
                 )
+
+                # Add throttle metrics to result
+                r["throttled"] = throttle_info["throttled"]
+                r["throttle_wait_time"] = throttle_info["wait_time"]
+                r["target_rpm"] = target_rpm
 
                 # Check if the record was processed successfully
                 if r["api_call_status"] != "Success" or r["error_code"] is not None:
@@ -395,6 +412,27 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
                         "reason": "Exception in ThreadPoolExecutor task",
                         "timestamp": get_timestamp()
                     })
+
+    # Log RPM metrics for models with rate limiting
+    rpm_metrics = rate_limiter.get_all_metrics()
+    if rpm_metrics:
+        logging.info("=== RPM Rate Limiting Summary ===")
+        for model_key, metrics in rpm_metrics.items():
+            logging.info(f"Model: {model_key}")
+            logging.info(f"  Target RPM: {metrics.get('target_rpm', 'N/A')}")
+            logging.info(f"  Actual RPM: {metrics.get('actual_rpm', 0)}")
+            logging.info(f"  Throttle Events: {metrics.get('throttle_count', 0)}")
+            logging.info(f"  Total Wait Time: {metrics.get('total_wait_time', 0):.2f}s")
+
+    # Add actual_rpm metrics to results
+    for rec in all_recs:
+        model_key = f"{rec.get('model_id')}@{rec.get('region')}"
+        if model_key in rpm_metrics:
+            rec["actual_rpm"] = rpm_metrics[model_key].get("actual_rpm", 0)
+            rec["throttle_events_count"] = rpm_metrics[model_key].get("throttle_count", 0)
+        else:
+            rec["actual_rpm"] = None
+            rec["throttle_events_count"] = 0
 
     # Write unprocessed records to file if any exist
     unprocessed_file_path = None

@@ -64,6 +64,7 @@ This project provides tools for:
 - **Regional performance analysis**: Analyze performance by AWS region with timezone-aware reporting
 - **Unprocessed record tracking**: Automatically log failed evaluations for debugging
 - **Composite scoring**: Multi-dimensional performance scoring combining accuracy, latency, and cost
+- **Rate limiting & reliability testing**: Configure target requests-per-minute (RPM) for models to test reliability at specific load levels
 
 ## Installation
 
@@ -176,9 +177,20 @@ The benchmarking tool requires model profiles in JSONL format, with each line co
 - `output_token_cost`: Cost per 1,000 output tokens (example: 0.0032)
   - Used for cost calculation and reporting
 
+- `target_rpm` (optional): Target requests per minute for rate limiting (example: 60)
+  - Used for reliability testing at specific load levels
+  - When set, the framework will throttle requests to maintain this rate
+  - Useful for identifying error rates and throttling thresholds
+  - Set to `null` or omit the field for no rate limiting
+
 Examples:
 
-**Bedrock Model:**
+**Bedrock Model with Rate Limiting:**
+```json
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "target_rpm": 60}
+```
+
+**Bedrock Model without Rate Limiting:**
 ```json
 {"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032}
 ```
@@ -431,6 +443,36 @@ Reports include timezone-aware regional analysis showing:
 - Time-of-day correlation with performance
 - Average retry counts by region
 - Composite scores for optimal region selection
+
+### Rate Limiting & Reliability Testing
+The framework supports configurable rate limiting (target RPM) for testing model reliability at specific load levels. This helps identify optimal production settings and throttling thresholds.
+
+**How it works:**
+- Configure `target_rpm` in model profiles to set requests per minute limit
+- The framework uses a token bucket algorithm to throttle requests
+- Rate limiting is applied per model-region combination
+- Metrics are tracked for each throttled request
+
+**Metrics tracked:**
+- **Target RPM**: Configured requests per minute limit
+- **Actual RPM**: Actual average rate achieved during evaluation
+- **Throttle Events**: Number of times requests were delayed
+- **Wait Time**: Total and average time spent waiting due to rate limiting
+- **Success/Error Rates**: Model reliability at the configured RPM
+
+**Use cases:**
+- Test model reliability at expected production load
+- Identify throttling thresholds before deployment
+- Compare error rates across different RPM settings
+- Optimize request rate for cost vs. throughput
+
+**Example configuration:**
+```json
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "target_rpm": 60}
+```
+
+**Viewing results:**
+In the Streamlit dashboard, completed evaluations will display RPM metrics including target vs actual RPM, throttle events, and success/error rates for models configured with rate limiting.
 
 ## License
 
