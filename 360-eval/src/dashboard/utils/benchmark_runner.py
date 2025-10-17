@@ -820,24 +820,24 @@ def _update_status_file(status_file, status, progress, results=None, logs_dir=No
         model_judge_data = _store_model_judge_data_and_cleanup(eval_id, eval_name, output_dir)
         status_data["models_data"] = model_judge_data["models_data"]
         status_data["judges_data"] = model_judge_data["judges_data"]
-        
-        # Store evaluation configuration parameters
-        if evaluation_config:
-            status_data["evaluation_config"] = {
-                "parallel_calls": evaluation_config.get("parallel_calls"),
-                "invocations_per_scenario": evaluation_config.get("invocations_per_scenario"),
-                "experiment_counts": evaluation_config.get("experiment_counts"),
-                "temperature_variations": evaluation_config.get("temperature_variations"),
-                "failure_threshold": evaluation_config.get("failure_threshold"),
-                "user_defined_metrics": evaluation_config.get("user_defined_metrics"),
-                "sleep_between_invocations": evaluation_config.get("sleep_between_invocations"),
-                "experiment_wait_time": evaluation_config.get("experiment_wait_time", 0),
-                "task_type": evaluation_config.get("task_type"),
-                "task_criteria": evaluation_config.get("task_criteria"),
-                "temperature": evaluation_config.get("temperature"),
-                "csv_file_name": evaluation_config.get("csv_file_name")
-            }
-    
+
+    # Store evaluation configuration parameters for ALL statuses (not just completed)
+    if evaluation_config:
+        status_data["evaluation_config"] = {
+            "parallel_calls": evaluation_config.get("parallel_calls"),
+            "invocations_per_scenario": evaluation_config.get("invocations_per_scenario"),
+            "experiment_counts": evaluation_config.get("experiment_counts"),
+            "temperature_variations": evaluation_config.get("temperature_variations"),
+            "failure_threshold": evaluation_config.get("failure_threshold"),
+            "user_defined_metrics": evaluation_config.get("user_defined_metrics"),
+            "sleep_between_invocations": evaluation_config.get("sleep_between_invocations"),
+            "experiment_wait_time": evaluation_config.get("experiment_wait_time", 0),
+            "task_type": evaluation_config.get("task_type"),
+            "task_criteria": evaluation_config.get("task_criteria"),
+            "temperature": evaluation_config.get("temperature"),
+            "csv_file_name": evaluation_config.get("csv_file_name")
+        }
+
     with open(status_file, 'w') as f:
         json.dump(status_data, f)
 
