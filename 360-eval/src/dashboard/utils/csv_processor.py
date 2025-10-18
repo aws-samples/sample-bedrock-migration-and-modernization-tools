@@ -160,6 +160,10 @@ def create_model_profiles_jsonl(models, output_dir, custom_filename=None):
                     "input_token_cost": model["input_cost"],
                     "output_token_cost": model["output_cost"]
                 }
+                # Add target_rpm if it's configured (not None)
+                if model.get("target_rpm") is not None:
+                    entry["target_rpm"] = model["target_rpm"]
+
                 f.write(json.dumps(entry) + '\n')
     except IOError as e:
         raise Exception(f"Failed to write model profiles to {jsonl_path}: {e}")

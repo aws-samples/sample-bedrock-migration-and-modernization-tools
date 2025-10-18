@@ -24,6 +24,7 @@ from src.dashboard.components.model_configuration import ModelConfigurationCompo
 from src.dashboard.components.evaluation_monitor import EvaluationMonitorComponent
 from src.dashboard.components.results_viewer import ResultsViewerComponent
 from src.dashboard.components.report_viewer import ReportViewerComponent
+from src.dashboard.components.unprocessed_viewer import UnprocessedRecordsViewer
 from src.dashboard.utils.state_management import initialize_session_state
 from src.dashboard.utils.constants import APP_TITLE, SIDEBAR_INFO, PROJECT_ROOT
 
@@ -89,14 +90,14 @@ def main():
             st.markdown(SIDEBAR_INFO)
             st.divider()
             
-            # Navigation tabs in sidebar - always include Reports tab
-            tab_names = ["Setup", "Monitor", "Evaluations", "Reports"]
-            
+            # Navigation tabs in sidebar - include Unprocessed tab
+            tab_names = ["Setup", "Monitor", "Evaluations", "Reports", "Unprocessed"]
+
             # Check if we need to navigate to Setup tab
             if "navigate_to_setup" in st.session_state and st.session_state.navigate_to_setup:
                 st.session_state.nav_radio = "Setup"
                 del st.session_state.navigate_to_setup
-            
+
             active_tab = st.radio("Navigation", tab_names, key="nav_radio")
             logger.info(f"Selected tab: {active_tab}")
         
@@ -124,7 +125,11 @@ def main():
         elif active_tab == "Evaluations":
             logger.info("Rendering Results Viewer component")
             ResultsViewerComponent().render()
-            
+
+        elif active_tab == "Unprocessed":
+            logger.info("Rendering Unprocessed Records Viewer component")
+            UnprocessedRecordsViewer().render()
+
         elif active_tab == "Reports":
             logger.info("Rendering Report Viewer component")
             ReportViewerComponent().render()

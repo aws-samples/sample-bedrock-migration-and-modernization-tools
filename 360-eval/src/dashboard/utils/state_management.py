@@ -3,10 +3,11 @@
 import streamlit as st
 import uuid
 import time
+import copy
 from datetime import datetime
 import os
 from .constants import (
-    DEFAULT_OUTPUT_DIR, DEFAULT_PARALLEL_CALLS, 
+    DEFAULT_OUTPUT_DIR, DEFAULT_PARALLEL_CALLS,
     DEFAULT_INVOCATIONS_PER_SCENARIO, DEFAULT_SLEEP_BETWEEN_INVOCATIONS,
     DEFAULT_EXPERIMENT_COUNTS, DEFAULT_TEMPERATURE_VARIATIONS, STATUS_FILES_DIR, DEFAULT_FAILURE_THRESHOLD
 )
@@ -67,6 +68,7 @@ def initialize_session_state():
             "temperature_variations": DEFAULT_TEMPERATURE_VARIATIONS,
             "failure_threshold": DEFAULT_FAILURE_THRESHOLD,
             "experiment_wait_time": 0,  # Wait time in seconds between experiments
+            "prompt_optimization_mode": "none",  # Prompt optimization mode: none, optimize_only, evaluate_both
             "selected_models": [],
             "judge_models": [],
             "user_defined_metrics": "",
@@ -101,6 +103,7 @@ def create_new_evaluation():
         "temperature_variations": DEFAULT_TEMPERATURE_VARIATIONS,
         "failure_threshold": DEFAULT_FAILURE_THRESHOLD,
         "experiment_wait_time": 0,  # Wait time in seconds between experiments
+        "prompt_optimization_mode": "none",  # Prompt optimization mode: none, optimize_only, evaluate_both
         "selected_models": [],
         "judge_models": [],
         "user_defined_metrics": "",
@@ -129,7 +132,7 @@ def save_current_evaluation():
     for i, task_eval in enumerate(task_evaluations):
         if st.session_state.current_evaluation_config["id"] is None:
             # This is a new evaluation
-            new_eval = st.session_state.current_evaluation_config.copy()
+            new_eval = copy.deepcopy(st.session_state.current_evaluation_config)
             new_eval["id"] = str(uuid.uuid4())
             new_eval["created_at"] = datetime.now().isoformat()
             new_eval["updated_at"] = datetime.now().isoformat()
@@ -167,7 +170,7 @@ def save_current_evaluation():
                 # Update existing evaluation
                 for j, eval_config in enumerate(st.session_state.evaluations):
                     if eval_config["id"] == eval_id:
-                        updated_eval = st.session_state.current_evaluation_config.copy()
+                        updated_eval = copy.deepcopy(st.session_state.current_evaluation_config)
                         updated_eval["updated_at"] = datetime.now().isoformat()
                         updated_eval["task_type"] = task_eval["task_type"]
                         updated_eval["task_criteria"] = task_eval["task_criteria"]
@@ -189,7 +192,7 @@ def save_current_evaluation():
                 if not updated:
                     # If not found (unusual case), add as new
                     print(f"Evaluation with ID {eval_id} not found in list, adding as new")
-                    new_eval = st.session_state.current_evaluation_config.copy()
+                    new_eval = copy.deepcopy(st.session_state.current_evaluation_config)
                     new_eval["updated_at"] = datetime.now().isoformat()
                     new_eval["task_type"] = task_eval["task_type"]
                     new_eval["task_criteria"] = task_eval["task_criteria"]

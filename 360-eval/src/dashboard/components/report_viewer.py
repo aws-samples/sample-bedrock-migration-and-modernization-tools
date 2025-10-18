@@ -200,7 +200,7 @@ class ReportViewerComponent:
         
         # Display the table
         df = pd.DataFrame(table_data)
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.dataframe(df, width='stretch', hide_index=True)
         
         # Show detailed information about evaluations used
         with st.expander("📋 Evaluations Used by Report"):

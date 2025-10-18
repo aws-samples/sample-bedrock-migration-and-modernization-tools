@@ -17,8 +17,10 @@ from utils import (get_timestamp,
                    calculate_average_scores,
                    run_inference,
                    extract_json_response,
-                   llm_judge_template)
+                   llm_judge_template,
+                   optimize_prompt_bedrock)
 from config_validator import validate_jsonl_file
+from rate_limiter import TokenBucketRateLimiter
 
 env = load_dotenv()
 
@@ -58,15 +60,31 @@ def evaluate_with_llm_judge(judge_model_id,
                              stream=False)
         text = resp['text']
     except Exception as e:
-        logging.error(f"Judge error ({judge_model_id}): {e}")
-        return {"judgment": "Error inference response", "explanation": str(e), "full_response": "",
-                "scores": {"score": "NULL"}}
+        logging.error(f"Judge inference failed ({judge_model_id}): {e}", exc_info=True)
+        return {
+            "judgment": "Error inference response",
+            "explanation": str(e),
+            "full_response": "",
+            "scores": {"score": "NULL"},
+            "judge_input_tokens": 0,
+            "judge_output_tokens": 0,
+            "error_type": "inference_failure",
+            "original_error": str(e)
+        }
 
     try:
         eval_results = extract_json_response(all_metrics, text, judge_model_id, cfg)
         if not eval_results:
-            return {"judgment": "Error Parsing response", "explanation": "JSON NOT FOUND", "full_response": text,
-                    "scores": {"score": "NULL"}}
+            logging.warning(f"Judge response parsing failed ({judge_model_id}): JSON NOT FOUND in response")
+            return {
+                "judgment": "Error Parsing response",
+                "explanation": "JSON NOT FOUND",
+                "full_response": text,
+                "scores": {"score": "NULL"},
+                "judge_input_tokens": resp.get('inputTokens', 0),
+                "judge_output_tokens": resp.get('outputTokens', 0),
+                "error_type": "json_not_found"
+            }
 
         judgment = "PASS"
         explanation = [key for key, val in eval_results["scores"].items() if val < yard_stick]
@@ -83,9 +101,17 @@ def evaluate_with_llm_judge(judge_model_id,
             "judge_output_tokens": resp['outputTokens']
         }
     except Exception as e:
-        logging.error(f"Error when evaluation with {judge_model_id}: {e}")
-        return {"judgment": "Error Parsing response", "explanation": str(e), "full_response": text,
-                "scores": {"score": "NULL"}}
+        logging.error(f"Judge evaluation parsing failed ({judge_model_id}): {e}", exc_info=True)
+        return {
+            "judgment": "Error Parsing response",
+            "explanation": str(e),
+            "full_response": text,
+            "scores": {"score": "NULL"},
+            "judge_input_tokens": resp.get('inputTokens', 0),
+            "judge_output_tokens": resp.get('outputTokens', 0),
+            "error_type": "parsing_failure",
+            "original_error": str(e)
+        }
 
     return payload
 
@@ -105,11 +131,9 @@ def evaluate_with_judges(judges,
     for j in judges:
         try:
             logging.debug(f"Evaluating with judge model {j['model_id']}")
-            model_identification = j["model_id"]
-            if "bedrock" in j["model_id"]:
-                model_identification = model_identification.replace("bedrock", "bedrock/converse")
+            # Model ID preparation for litellm is now handled centrally in run_inference()
             r = evaluate_with_llm_judge(
-                judge_model_id=model_identification,
+                judge_model_id=j["model_id"],
                 judge_region=j["region"],
                 prompt=prompt,
                 model_response=model_response,
@@ -134,20 +158,30 @@ def evaluate_with_judges(judges,
                 results.append({"model": j["model_id"], **r})
                 continue
 
-            r['judge_input_token_cost'] = r["judge_input_tokens"] * (
-                        j["input_cost_per_1k"] / 1000)  # After 15 years I still don't trust the order of operators :)
-            r['judge_output_token_cost'] = r["judge_output_tokens"] * (j["output_cost_per_1k"] / 1000)
+            # Defensive cost calculation with defaults
+            judge_input_tokens = r.get("judge_input_tokens", 0)
+            judge_output_tokens = r.get("judge_output_tokens", 0)
+            r['judge_input_token_cost'] = judge_input_tokens * (j["input_cost_per_1k"] / 1000)
+            r['judge_output_token_cost'] = judge_output_tokens * (j["output_cost_per_1k"] / 1000)
             results.append({"model": j["model_id"], **r})
             logging.debug(
                 f"Successfully evaluated with judge {j['model_id']}, judgment: {r.get('judgment', 'Unknown')}")
         except Exception as e:
             logging.error(f"Exception evaluating with judge {j['model_id']}: {str(e)}", exc_info=True)
-            results.append({"model": j["model_id"], "judgment": "Judge Exception", "explanation": str(e),
-                            "scores": {"score": "NULL"}})
+            results.append({
+                "model": j["model_id"],
+                "judgment": "Judge Exception",
+                "explanation": str(e),
+                "scores": {"score": "NULL"},
+                "judge_input_tokens": 0,
+                "judge_output_tokens": 0,
+                "error_type": "judge_exception"
+            })
 
-    pass_ct = sum(1 for r in results if r["judgment"] == "PASS")
-    fail_ct = sum(1 for r in results if r["judgment"] == "FAIL")
-    tot_cost = sum(r["judge_input_token_cost"] + r['judge_output_token_cost'] for r in results)
+    pass_ct = sum(1 for r in results if r.get("judgment") == "PASS")
+    fail_ct = sum(1 for r in results if r.get("judgment") == "FAIL")
+    # Defensive cost calculation - handle missing cost fields gracefully
+    tot_cost = sum(r.get("judge_input_token_cost", 0) + r.get('judge_output_token_cost', 0) for r in results)
 
     avg_scores = calculate_average_scores([result['scores'] for result in results])
     maj = "PASS" if pass_ct > fail_ct else "FAIL"
@@ -196,8 +230,7 @@ def benchmark(
             params['api_key'] = os.getenv('AZURE_API_KEY')
         elif "bedrock" in model_id:
             params['aws_region_name'] = region
-            if 'converse' not in model_id:
-                model_id = model_id.replace("bedrock", "bedrock/converse")
+            # Model ID preparation for litellm is now handled centrally in run_inference()
         elif 'openai/' in model_id:
             params['api_key'] = os.getenv('OPENAI_API')
         else:
@@ -242,15 +275,49 @@ def benchmark(
             logging.error(f"Target model error: Model {model_id} returned an empty output.")
 
     except ClientError as err:
-        status = err.response["Error"]["Code"]
-        status += f" {str(err)}"
-        logging.error(f"API error evaluating {model_id}: {status}")
+        # Log detailed error BEFORE converting to status string
+        error_code = err.response["Error"]["Code"]
+        error_message = err.response["Error"].get("Message", str(err))
+        logging.error(
+            f"AWS API ClientError for {model_id}@{region}: {error_code} - {error_message}",
+            exc_info=True,
+            extra={
+                "error_type": "client_error",
+                "error_code": error_code,
+                "model_id": model_id,
+                "region": region
+            }
+        )
+        status = f"{error_code}: {error_message}"
+        err_code = error_code
     except KeyError as key_err:
+        # Log KeyError with full context to identify root cause
+        logging.error(
+            f"KeyError for {model_id}@{region}: Missing key '{str(key_err)}' - This indicates a data structure issue",
+            exc_info=True,
+            extra={
+                "error_type": "key_error",
+                "missing_key": str(key_err),
+                "model_id": model_id,
+                "region": region
+            }
+        )
         status = f"KeyError: {str(key_err)}"
-        logging.error(f"Unexpected error evaluating {model_id}: {status}")
+        err_code = "KEY_ERROR"
     except Exception as e:
-        status = str(e)
-        logging.error(f"Unexpected error evaluating {model_id}: {status}")
+        # Log general exception with full stack trace
+        logging.error(
+            f"Unexpected exception for {model_id}@{region}: {type(e).__name__} - {str(e)}",
+            exc_info=True,
+            extra={
+                "error_type": "general_exception",
+                "exception_class": type(e).__name__,
+                "model_id": model_id,
+                "region": region
+            }
+        )
+        status = f"{type(e).__name__}: {str(e)}"
+        err_code = type(e).__name__.upper()
 
     return {
         "time_to_first_byte": time_to_first_byte,
@@ -308,14 +375,35 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
     unprocessed_records = []
     lock = Lock()
 
+    # Initialize rate limiter for RPM control
+    rate_limiter = TokenBucketRateLimiter()
+
     def run_scn(scn):
         recs = []
         local_unprocessed = []
 
         for invocation in range(cfg["invocations_per_scenario"]):
             try:
-                logging.info(
-                    f"Running scenario: {scn['model_id']}@{scn['region']}, temp={scn['TEMPERATURE']}, invocation {invocation + 1}/{cfg['invocations_per_scenario']}")
+                # Apply rate limiting if target_rpm is configured for this model
+                target_rpm = scn.get("target_rpm")
+                if target_rpm:
+                    throttle_info = rate_limiter.acquire(scn["model_id"], scn["region"], target_rpm)
+                else:
+                    throttle_info = {"throttled": False, "wait_time": 0}
+
+                # Smart logging: log first, every 10th, and last invocation to reduce noise
+                total_invocations = cfg['invocations_per_scenario']
+                is_first = invocation == 0
+                is_last = invocation == total_invocations - 1
+                is_milestone = (invocation + 1) % 10 == 0
+
+                if is_first or is_last or is_milestone:
+                    logging.info(
+                        f"Running scenario: {scn['model_id']}@{scn['region']}, temp={scn['TEMPERATURE']}, invocation {invocation + 1}/{total_invocations}")
+                else:
+                    logging.debug(
+                        f"Running scenario: {scn['model_id']}@{scn['region']}, temp={scn['TEMPERATURE']}, invocation {invocation + 1}/{total_invocations}")
+
                 # Use per-scenario user_defined_metrics if available, otherwise fall back to global
                 scenario_metrics = scn.get("user_defined_metrics", "")
                 if scenario_metrics:
@@ -342,20 +430,97 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
                     vision_enabled=scn.get("image_path", None),
                 )
 
-                # Check if the record was processed successfully
-                if r["api_call_status"] != "Success" or r["error_code"] is not None:
+                # Add throttle metrics to result
+                r["throttled"] = throttle_info["throttled"]
+                r["throttle_wait_time"] = throttle_info["wait_time"]
+                r["target_rpm"] = target_rpm
+
+                # Enhanced error detection - check API status, error code, and evaluation success
+                perf = r.get("performance_metrics", {})
+                judge_details = perf.get("judge_details", [])
+
+                # Check for failures: API errors OR empty performance metrics OR judge evaluation failures
+                has_api_error = r["api_call_status"] != "Success" or r["error_code"] is not None
+                has_no_evaluation = not perf or not judge_details
+                has_judge_errors = any(
+                    j.get("error_type") in ["inference_failure", "parsing_failure", "judge_exception", "json_not_found"]
+                    for j in judge_details
+                ) if judge_details else False
+
+                if has_api_error or has_no_evaluation or has_judge_errors:
+                    # Determine failure reason and error classification for better context
+                    if has_api_error:
+                        reason = f"API error: {r.get('api_call_status', 'Unknown')} - {r.get('error_code', 'No error code')}"
+                        error_classification = "api_failure"
+                    elif has_no_evaluation:
+                        reason = "Evaluation failure: No judge evaluation performed"
+                        error_classification = "evaluation_missing"
+                    else:
+                        failed_judges = [j.get("model") for j in judge_details if j.get("error_type")]
+                        reason = f"Judge evaluation failure: {', '.join(failed_judges)}"
+                        error_classification = "judge_failure"
+
                     logging.warning(
-                        f"Record processing failed: {scn['model_id']}@{scn['region']}, error: {r['error_code']}")
-                    local_unprocessed.append({"scenario": scn, "result": r, "reason": f"API error: {r['error_code']}"})
+                        f"Record processing failed: {scn['model_id']}@{scn['region']}, reason: {reason}",
+                        extra={
+                            "error_classification": error_classification,
+                            "invocation": invocation,
+                            "scenario": scn['model_id']
+                        }
+                    )
+
+                    # Enhanced unprocessed record with full context
+                    local_unprocessed.append({
+                        "scenario": scn,
+                        "result": r,
+                        "reason": reason,
+                        "error_classification": error_classification,
+                        "timestamp": get_timestamp(),
+                        "invocation": invocation,
+                        "judge_errors": [
+                            {
+                                "judge": j.get("model"),
+                                "error_type": j.get("error_type"),
+                                "explanation": j.get("explanation")
+                            }
+                            for j in judge_details if j.get("error_type")
+                        ] if has_judge_errors else []
+                    })
                 else:
-                    recs.append({**scn, **r})
+                    # Combine scenario and result
+                    result_record = {**scn, **r}
+
+                    # If this is an optimized prompt, append label to model_id for display
+                    if scn.get("prompt_optimization_label"):
+                        result_record["model_id"] = f"{scn['model_id']}_{scn['prompt_optimization_label']}"
+
+                    recs.append(result_record)
                     logging.debug(
                         f"Successfully processed: {scn['model_id']}@{scn['region']}, invocation {invocation + 1}")
             except Exception as e:
-                error_msg = f"Exception processing record: {str(e)}"
-                logging.error(error_msg)
-                local_unprocessed.append(
-                    {"scenario": scn, "exception": str(e), "reason": "Exception during processing"})
+                # Log exception with full context and stack trace
+                logging.error(
+                    f"Exception processing record for {scn['model_id']}@{scn['region']}: {type(e).__name__} - {str(e)}",
+                    exc_info=True,
+                    extra={
+                        "error_type": "processing_exception",
+                        "exception_class": type(e).__name__,
+                        "model_id": scn['model_id'],
+                        "region": scn['region'],
+                        "invocation": invocation
+                    }
+                )
+
+                # Enhanced unprocessed record with full error context
+                local_unprocessed.append({
+                    "scenario": scn,
+                    "exception": str(e),
+                    "exception_type": type(e).__name__,
+                    "reason": f"Processing exception: {type(e).__name__}",
+                    "error_classification": "processing_exception",
+                    "timestamp": get_timestamp(),
+                    "invocation": invocation
+                })
 
             if cfg["sleep_between_invocations"]:
                 time.sleep(cfg["sleep_between_invocations"])
@@ -378,30 +543,64 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
                 else:
                     logging.warning("Received empty result from a scenario task")
             except Exception as e:
-                logging.error(f"Exception in ThreadPoolExecutor task: {str(e)}", exc_info=True)
+                # Log ThreadPoolExecutor exception with full context
+                logging.error(
+                    f"Exception in ThreadPoolExecutor task: {type(e).__name__} - {str(e)}",
+                    exc_info=True,
+                    extra={
+                        "error_type": "executor_exception",
+                        "exception_class": type(e).__name__
+                    }
+                )
                 # Record the failure but allow other tasks to continue
                 with lock:
                     unprocessed_records.append({
                         "scenario": "Unknown (future failed)",
                         "exception": str(e),
-                        "reason": "Exception in ThreadPoolExecutor task",
+                        "exception_type": type(e).__name__,
+                        "reason": f"ThreadPoolExecutor exception: {type(e).__name__}",
+                        "error_classification": "executor_exception",
                         "timestamp": get_timestamp()
                     })
 
+    # Log RPM metrics for models with rate limiting
+    rpm_metrics = rate_limiter.get_all_metrics()
+    if rpm_metrics:
+        logging.info("=== RPM Rate Limiting Summary ===")
+        for model_key, metrics in rpm_metrics.items():
+            logging.info(f"Model: {model_key}")
+            logging.info(f"  Target RPM: {metrics.get('target_rpm', 'N/A')}")
+            logging.info(f"  Actual RPM: {metrics.get('actual_rpm', 0)}")
+            logging.info(f"  Throttle Events: {metrics.get('throttle_count', 0)}")
+            logging.info(f"  Total Wait Time: {metrics.get('total_wait_time', 0):.2f}s")
+
+    # Add actual_rpm metrics to results
+    for rec in all_recs:
+        model_key = f"{rec.get('model_id')}@{rec.get('region')}"
+        if model_key in rpm_metrics:
+            rec["actual_rpm"] = rpm_metrics[model_key].get("actual_rpm", 0)
+            rec["throttle_events_count"] = rpm_metrics[model_key].get("throttle_count", 0)
+        else:
+            rec["actual_rpm"] = None
+            rec["throttle_events_count"] = 0
+
     # Write unprocessed records to file if any exist
+    unprocessed_file_path = None
     if unprocessed_records:
         ts = get_timestamp().replace(':', '-')
         uuid_ = str(uuid.uuid4()).split('-')[-1]
-        unprocessed_file = os.path.join(unprocessed_dir, f"unprocessed_{ts}_{uuid_}.json")
+        experiment_name = cfg.get("EXPERIMENT_NAME", "unknown")
+        unprocessed_file = os.path.join(unprocessed_dir, f"unprocessed_{experiment_name}_{ts}_{uuid_}.json")
         logging.warning(f"Writing {len(unprocessed_records)} unprocessed records to {unprocessed_file}")
         try:
             with open(unprocessed_file, 'w') as f:
                 json.dump(unprocessed_records, f, indent=2, default=str)
             logging.info(f"Successfully wrote unprocessed records to {unprocessed_file}")
+            unprocessed_file_path = unprocessed_file
         except Exception as e:
             logging.error(f"Failed to write unprocessed records, file: {str(e)}", exc_info=True)
 
-    return all_recs
+    return all_recs, unprocessed_file_path, len(unprocessed_records)
 
 
 def model_sanity_check(models):
@@ -419,8 +618,9 @@ def model_sanity_check(models):
             params['api_key'] = os.getenv('GOOGLE_API')
         elif 'azure' in model_id:
             params['api_key'] = os.getenv('AZURE_API_KEY')
-        elif 'bedrock' in model_id and 'converse' not in model_id:
-                model_id = model_id.replace("bedrock", "bedrock/converse")
+        elif 'bedrock' in model_id:
+            # Model ID preparation for litellm is now handled centrally in check_model_access()
+            pass
         elif 'openai/' in model_id:
             params['api_key'] = os.getenv('OPENAI_API')
         else:
@@ -498,7 +698,8 @@ def main(
         judge_file_name=None,
         yard_stick=3,
         vision_enabled=False,
-        experiment_wait_time=0
+        experiment_wait_time=0,
+        prompt_optimization_mode="none"
 ):
     user_defined_metrics_list = None
     if user_defined_metrics:
@@ -581,7 +782,8 @@ def main(
         "TOP_P": 1.0,
         "EXPERIMENT_NAME": experiment_name,
         "judge_models": judges_list,
-        "user_defined_metrics": user_defined_metrics_list
+        "user_defined_metrics": user_defined_metrics_list,
+        "prompt_optimization_mode": prompt_optimization_mode
     }
 
     # Load scenarios
@@ -627,6 +829,103 @@ def main(
     scenarios = expand_scenarios(raw_with_models, cfg)
     logging.info(f"Expanded to {len(scenarios)} scenarios")
 
+    # Handle prompt optimization if enabled
+    prompt_optimization_mode = cfg.get("prompt_optimization_mode", "none")
+
+    if prompt_optimization_mode != "none":
+        logging.info(f"Prompt optimization mode: {prompt_optimization_mode}")
+
+        # Track optimization results for verification file
+        optimization_log = []
+        optimized_scenarios = []
+
+        for scn in scenarios:
+            model_id = scn["model_id"]
+            region = scn["region"]
+
+            # Only attempt optimization for bedrock models
+            if "bedrock" in model_id:
+                # Get clean model ID for optimization
+                clean_model_id = model_id.replace("bedrock/", "").replace("converse/", "")
+
+                logging.info(f"Attempting optimization - Original model_id: {model_id}, Cleaned: {clean_model_id}, Region: {region}")
+                print(f"Optimizing for model: {clean_model_id} in region: {region}")
+
+                # Attempt optimization
+                optimization_result = optimize_prompt_bedrock(
+                    prompt=scn["prompt"],
+                    model_id=clean_model_id,
+                    region=region
+                )
+
+                # Log the result immediately
+                if optimization_result["success"]:
+                    logging.info(f"✓ Optimization SUCCESS for {clean_model_id} - Target model: {optimization_result.get('target_model_used')}")
+                    print(f"✓ Successfully optimized prompt for {clean_model_id}")
+                elif optimization_result.get("skipped"):
+                    logging.info(f"⊘ Optimization SKIPPED for {clean_model_id} - Reason: {optimization_result.get('error')}")
+                    print(f"⊘ Skipped optimization for {clean_model_id}: {optimization_result.get('error')}")
+                else:
+                    logging.error(f"✗ Optimization FAILED for {clean_model_id} - Error: {optimization_result.get('error')}")
+                    print(f"✗ Failed to optimize for {clean_model_id}: {optimization_result.get('error')}")
+
+                # Log result
+                log_entry = {
+                    "model_id": model_id,
+                    "region": region,
+                    "original_prompt": scn["prompt"][:200] + "..." if len(scn["prompt"]) > 200 else scn["prompt"],
+                    "success": optimization_result["success"],
+                    "skipped": optimization_result.get("skipped", False),
+                    "error": optimization_result.get("error")
+                }
+
+                if optimization_result["success"]:
+                    optimized_prompt = optimization_result["optimized_prompt"]
+                    log_entry["optimized_prompt"] = optimized_prompt[:200] + "..." if len(optimized_prompt) > 200 else optimized_prompt
+                    log_entry["target_model_used"] = optimization_result.get("target_model_used")
+
+                    if prompt_optimization_mode == "evaluate_both":
+                        # Add original scenario
+                        optimized_scenarios.append(scn)
+
+                        # Add optimized scenario with label (don't modify model_id as it breaks API calls)
+                        optimized_scn = scn.copy()
+                        optimized_scn["prompt"] = optimized_prompt
+                        # Add a separate tracking field instead of modifying model_id
+                        optimized_scn["prompt_optimization_label"] = "Prompt_Optimized"
+                        optimized_scenarios.append(optimized_scn)
+
+                        logging.info(f"Created both original and optimized scenarios for {model_id}")
+                    else:  # optimize_only
+                        # Replace with optimized prompt (no label needed)
+                        scn["prompt"] = optimized_prompt
+                        optimized_scenarios.append(scn)
+                        logging.info(f"Replaced prompt with optimized version for {model_id}")
+                else:
+                    # Failed or skipped - use original
+                    if optimization_result.get("skipped"):
+                        logging.info(f"Skipped optimization for {model_id}: {optimization_result['error']}")
+                    else:
+                        logging.warning(f"Failed to optimize for {model_id}: {optimization_result['error']}")
+                    optimized_scenarios.append(scn)
+
+                optimization_log.append(log_entry)
+            else:
+                # Non-Bedrock model, keep original
+                optimized_scenarios.append(scn)
+
+        # Save optimization log for user verification
+        if optimization_log:
+            log_file_path = os.path.join(output_dir, f"prompt_optimization_log_{experiment_name}_{ts}.json")
+            with open(log_file_path, 'w') as f:
+                json.dump(optimization_log, f, indent=2)
+            logging.info(f"Saved prompt optimization log to {log_file_path}")
+            print(f"Prompt optimization log saved to: {log_file_path}")
+
+        # Replace scenarios with optimized version
+        scenarios = optimized_scenarios
+        logging.info(f"Final scenario count after optimization: {len(scenarios)}")
+
     for run in range(1, experiment_counts + 1):
         # Add timestamp for time-based performance tracking
         run_start_time = time.time()
@@ -635,10 +934,12 @@ def main(
         logging.info(f"=== Run {run}/{experiment_counts} (Started: {run_timestamp}) ===")
 
         try:
-            results = execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=int(yard_stick))
+            results, unprocessed_file_path, unprocessed_count = execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=int(yard_stick))
 
             if not results:
                 logging.error(f"Run {run}/{experiment_counts} produced no results. Check the unprocessed records file.")
+                if unprocessed_file_path:
+                    logging.warning(f"Unprocessed records saved to: {unprocessed_file_path}")
                 continue
 
             try:
@@ -732,6 +1033,10 @@ if __name__ == "__main__":
     p.add_argument("--judge_file_name", default=None)
     p.add_argument("--evaluation_pass_threshold", default=3)
     p.add_argument("--vision_enabled", type=lambda x: x.lower() == 'true', default=False)
+    p.add_argument("--prompt_optimization_mode",
+                   default="none",
+                   choices=["none", "optimize_only", "evaluate_both"],
+                   help="Prompt optimization mode (Bedrock only): none, optimize_only, or evaluate_both")
     args = p.parse_args()
     main(
         args.input_file,
@@ -748,5 +1053,6 @@ if __name__ == "__main__":
         args.judge_file_name,
         args.evaluation_pass_threshold,
         args.vision_enabled,
-        args.experiment_wait_time
+        args.experiment_wait_time,
+        args.prompt_optimization_mode
     )

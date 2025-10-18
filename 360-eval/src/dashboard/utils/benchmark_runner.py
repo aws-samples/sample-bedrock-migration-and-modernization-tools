@@ -376,6 +376,10 @@ def run_benchmark_process(eval_id):
         if evaluation_config.get("vision_enabled", False):
             cmd.extend(["--vision_enabled", "True"])
 
+        # Add prompt optimization mode
+        if evaluation_config.get("prompt_optimization_mode", "none") != "none":
+            cmd.extend(["--prompt_optimization_mode", evaluation_config["prompt_optimization_mode"]])
+
         # Start benchmark execution
         working_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         dashboard_logger.info(f"Starting benchmark execution for {eval_id} - PID will be assigned, output to {output_dir}")
@@ -563,14 +567,25 @@ def run_benchmark_process(eval_id):
             
             # Only mark as completed if we have valid data
             if csv_has_valid_data or html_reports:
-                _update_status_file(status_file, "completed", 100, 
+                # Find unprocessed files for this evaluation
+                unprocessed_dir_path = output_dir / "unprocessed"
+                unprocessed_file_list = []
+                if unprocessed_dir_path.exists():
+                    # Look for unprocessed files matching this evaluation name
+                    matching_unprocessed = list(unprocessed_dir_path.glob(f"unprocessed_{composite_id}_*.json"))
+                    unprocessed_file_list = [str(f) for f in matching_unprocessed]
+                    if unprocessed_file_list:
+                        dashboard_logger.info(f"Found {len(unprocessed_file_list)} unprocessed record files for evaluation {eval_id}")
+
+                _update_status_file(status_file, "completed", 100,
                                    logs_dir=str(logs_dir),
                                    results=results_path,
                                    end_time=time.time(),
                                    eval_id=eval_id,
                                    eval_name=evaluation_config.get("name"),
                                    output_dir=str(output_dir),
-                                   evaluation_config=evaluation_config)
+                                   evaluation_config=evaluation_config,
+                                   unprocessed_files=unprocessed_file_list)
                 update_evaluation_status(eval_id, "completed", 100, results=results_path)
                 dashboard_logger.info(f"Evaluation completed successfully. Results: {'; '.join(results_info)}")
                 
@@ -592,14 +607,25 @@ def run_benchmark_process(eval_id):
                 # CSV exists but contains no valid data - treat as failure
                 error_msg = f"Evaluation failed: CSV file generated but contains no successful model responses. All invocations appear to have failed."
                 dashboard_logger.error(error_msg)
-                _update_status_file(status_file, "failed", 0, 
+
+                # Find unprocessed files for this evaluation
+                unprocessed_dir_path = output_dir / "unprocessed"
+                unprocessed_file_list = []
+                if unprocessed_dir_path.exists():
+                    matching_unprocessed = list(unprocessed_dir_path.glob(f"unprocessed_{composite_id}_*.json"))
+                    unprocessed_file_list = [str(f) for f in matching_unprocessed]
+                    if unprocessed_file_list:
+                        dashboard_logger.info(f"Found {len(unprocessed_file_list)} unprocessed record files for failed evaluation {eval_id}")
+
+                _update_status_file(status_file, "failed", 0,
                                    logs_dir=str(logs_dir),
                                    error=error_msg,
                                    end_time=time.time(),
                                    eval_id=eval_id,
                                    eval_name=evaluation_config.get("name"),
                                    output_dir=str(output_dir),
-                                   evaluation_config=evaluation_config)
+                                   evaluation_config=evaluation_config,
+                                   unprocessed_files=unprocessed_file_list)
                 update_evaluation_status(eval_id, "failed", 0, error=error_msg)
                 _cleanup_evaluation_logs(eval_id, preserve_on_failure=True, eval_name=evaluation_config.get("name"))
                 return False
@@ -607,29 +633,36 @@ def run_benchmark_process(eval_id):
             # No output files found - this indicates evaluation failure
             error_msg = f"Evaluation failed: No invocation CSV file generated. Expected pattern: invocations_*{composite_id}*.csv in {output_dir}"
             dashboard_logger.error(error_msg)
-            
-            # Check for unprocessed files to get more details about the failure
-            unprocessed_files = list(output_dir.glob("unprocessed*.json"))
-            if unprocessed_files:
-                error_msg += f". Found {len(unprocessed_files)} unprocessed error files indicating invocation failures."
-                try:
-                    # Get sample error from first unprocessed file
-                    with open(unprocessed_files[0], 'r') as f:
-                        unprocessed_data = json.load(f)
-                    if isinstance(unprocessed_data, list) and len(unprocessed_data) > 0:
-                        sample_error = unprocessed_data[0].get('result', {}).get('api_call_status', 'Unknown error')
-                        error_msg += f" Sample error: {sample_error[:200]}"
-                except Exception as e:
-                    dashboard_logger.warning(f"Could not read unprocessed files: {str(e)}")
-            
-            _update_status_file(status_file, "failed", 0, 
+
+            # Find unprocessed files for this evaluation
+            unprocessed_dir_path = output_dir / "unprocessed"
+            unprocessed_file_list = []
+            if unprocessed_dir_path.exists():
+                matching_unprocessed = list(unprocessed_dir_path.glob(f"unprocessed_{composite_id}_*.json"))
+                unprocessed_file_list = [str(f) for f in matching_unprocessed]
+
+                if unprocessed_file_list:
+                    dashboard_logger.info(f"Found {len(unprocessed_file_list)} unprocessed record files for failed evaluation {eval_id}")
+                    error_msg += f". Found {len(unprocessed_file_list)} unprocessed error files indicating invocation failures."
+                    try:
+                        # Get sample error from first unprocessed file
+                        with open(unprocessed_file_list[0], 'r') as f:
+                            unprocessed_data = json.load(f)
+                        if isinstance(unprocessed_data, list) and len(unprocessed_data) > 0:
+                            sample_error = unprocessed_data[0].get('result', {}).get('api_call_status', 'Unknown error')
+                            error_msg += f" Sample error: {sample_error[:200]}"
+                    except Exception as e:
+                        dashboard_logger.warning(f"Could not read unprocessed files: {str(e)}")
+
+            _update_status_file(status_file, "failed", 0,
                                logs_dir=str(logs_dir),
                                error=error_msg,
                                end_time=time.time(),
                                eval_id=eval_id,
                                eval_name=evaluation_config.get("name"),
                                output_dir=str(output_dir),
-                               evaluation_config=evaluation_config)
+                               evaluation_config=evaluation_config,
+                               unprocessed_files=unprocessed_file_list)
             update_evaluation_status(eval_id, "failed", 0, error=error_msg)
             _cleanup_evaluation_logs(eval_id, preserve_on_failure=True, eval_name=evaluation_config.get("name"))
             return False
@@ -728,10 +761,10 @@ def _store_model_judge_data_and_cleanup(eval_id, eval_name, output_dir):
     return {"models_data": models_data, "judges_data": judges_data}
 
 
-def _update_status_file(status_file, status, progress, results=None, logs_dir=None, error=None, start_time=None, end_time=None, eval_id=None, eval_name=None, output_dir=None, evaluation_config=None):
+def _update_status_file(status_file, status, progress, results=None, logs_dir=None, error=None, start_time=None, end_time=None, eval_id=None, eval_name=None, output_dir=None, evaluation_config=None, unprocessed_files=None):
     """
     Update the status file with the current status.
-    
+
     Args:
         status_file: Path to the status file
         status: Current status (in-progress, failed, completed)
@@ -745,6 +778,7 @@ def _update_status_file(status_file, status, progress, results=None, logs_dir=No
         eval_name: Evaluation name (for storing model/judge data)
         output_dir: Output directory (for storing model/judge data)
         evaluation_config: Full evaluation configuration (for storing settings)
+        unprocessed_files: List of unprocessed record file paths
     """
     # Read existing data to preserve created_at and other fields
     existing_data = {}
@@ -778,30 +812,32 @@ def _update_status_file(status_file, status, progress, results=None, logs_dir=No
     if end_time:
         status_data["end_time"] = end_time
         status_data["duration"] = end_time - status_data.get("start_time", start_time or end_time)
+    if unprocessed_files:
+        status_data["unprocessed_files"] = unprocessed_files
     
     # If evaluation is completed, store model and judge data and clean up files
     if status == "completed" and eval_id and eval_name and output_dir:
         model_judge_data = _store_model_judge_data_and_cleanup(eval_id, eval_name, output_dir)
         status_data["models_data"] = model_judge_data["models_data"]
         status_data["judges_data"] = model_judge_data["judges_data"]
-        
-        # Store evaluation configuration parameters
-        if evaluation_config:
-            status_data["evaluation_config"] = {
-                "parallel_calls": evaluation_config.get("parallel_calls"),
-                "invocations_per_scenario": evaluation_config.get("invocations_per_scenario"),
-                "experiment_counts": evaluation_config.get("experiment_counts"),
-                "temperature_variations": evaluation_config.get("temperature_variations"),
-                "failure_threshold": evaluation_config.get("failure_threshold"),
-                "user_defined_metrics": evaluation_config.get("user_defined_metrics"),
-                "sleep_between_invocations": evaluation_config.get("sleep_between_invocations"),
-                "experiment_wait_time": evaluation_config.get("experiment_wait_time", 0),
-                "task_type": evaluation_config.get("task_type"),
-                "task_criteria": evaluation_config.get("task_criteria"),
-                "temperature": evaluation_config.get("temperature"),
-                "csv_file_name": evaluation_config.get("csv_file_name")
-            }
-    
+
+    # Store evaluation configuration parameters for ALL statuses (not just completed)
+    if evaluation_config:
+        status_data["evaluation_config"] = {
+            "parallel_calls": evaluation_config.get("parallel_calls"),
+            "invocations_per_scenario": evaluation_config.get("invocations_per_scenario"),
+            "experiment_counts": evaluation_config.get("experiment_counts"),
+            "temperature_variations": evaluation_config.get("temperature_variations"),
+            "failure_threshold": evaluation_config.get("failure_threshold"),
+            "user_defined_metrics": evaluation_config.get("user_defined_metrics"),
+            "sleep_between_invocations": evaluation_config.get("sleep_between_invocations"),
+            "experiment_wait_time": evaluation_config.get("experiment_wait_time", 0),
+            "task_type": evaluation_config.get("task_type"),
+            "task_criteria": evaluation_config.get("task_criteria"),
+            "temperature": evaluation_config.get("temperature"),
+            "csv_file_name": evaluation_config.get("csv_file_name")
+        }
+
     with open(status_file, 'w') as f:
         json.dump(status_data, f)
 
@@ -877,7 +913,26 @@ def sync_evaluations_from_files():
                     for i, e in enumerate(st.session_state.evaluations):
                         if e["id"] == eval_id:
                             st.session_state.evaluations[i][key] = status_data[key]
-            
+
+            # Load models and judges from status file
+            for i, e in enumerate(st.session_state.evaluations):
+                if e["id"] == eval_id:
+                    if "models_data" in status_data and status_data["models_data"]:
+                        st.session_state.evaluations[i]["selected_models"] = status_data["models_data"]
+                        dashboard_logger.debug(f"Loaded {len(status_data['models_data'])} models from status file for evaluation {eval_id}")
+
+                    if "judges_data" in status_data and status_data["judges_data"]:
+                        st.session_state.evaluations[i]["judge_models"] = status_data["judges_data"]
+                        dashboard_logger.debug(f"Loaded {len(status_data['judges_data'])} judges from status file for evaluation {eval_id}")
+
+                    # Also load evaluation config parameters if they exist
+                    if "evaluation_config" in status_data:
+                        config = status_data["evaluation_config"]
+                        for config_key in config:
+                            if config[config_key] is not None:
+                                st.session_state.evaluations[i][config_key] = config[config_key]
+                    break
+
             # Update results if available
             if "results" in status_data and status_data["results"]:
                 dashboard_logger.info(f"Results found for evaluation {eval_id}: {status_data['results']}")

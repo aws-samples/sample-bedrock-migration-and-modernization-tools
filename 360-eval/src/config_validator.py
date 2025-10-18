@@ -47,7 +47,18 @@ def validate_model_profile(profile: Dict, line_num: int) -> List[str]:
                 errors.append(f"Line {line_num}: {cost_field} must be a non-negative number")
             elif cost > 1.0:
                 errors.append(f"Line {line_num}: Warning: {cost_field} ({cost}) seems unusually high (>$1 per 1K tokens)")
-    
+
+    # Validate target_rpm (optional field)
+    if "target_rpm" in profile:
+        target_rpm = profile["target_rpm"]
+        if target_rpm is not None:  # Allow None/null value
+            if not isinstance(target_rpm, (int, float)) or target_rpm <= 0:
+                errors.append(f"Line {line_num}: target_rpm must be a positive number")
+            elif target_rpm > 600:
+                errors.append(f"Line {line_num}: Warning: target_rpm ({target_rpm}) is very high (>600 RPM). Consider lower values for reliability testing.")
+            elif not isinstance(target_rpm, int):
+                errors.append(f"Line {line_num}: Warning: target_rpm ({target_rpm}) should be an integer")
+
     return errors
 
 

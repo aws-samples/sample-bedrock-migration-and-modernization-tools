@@ -91,8 +91,12 @@ class ModelConfigurationComponent:
                 "id": "Model ID",
                 "region": "AWS Region",
                 "input_cost": "Input Cost (per token)",
-                "output_cost": "Output Cost (per token)"
+                "output_cost": "Output Cost (per token)",
+                "target_rpm": "Target RPM"
             })
+            # Replace None/NaN in Target RPM with "No Limit"
+            if "Target RPM" in selected_models_df.columns:
+                selected_models_df["Target RPM"] = selected_models_df["Target RPM"].fillna("No Limit")
             st.dataframe(selected_models_df, hide_index=True)
             
             # Button to remove all selected models
@@ -152,8 +156,8 @@ class ModelConfigurationComponent:
     
     def _render_model_dropdown(self, model_list, prefix, region):
         """Render the model selection UI with dropdown."""
-        col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
-        
+        col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
+
         with col1:
             if prefix == "bedrock":
                 # For Bedrock models, add on_change callback
@@ -171,11 +175,11 @@ class ModelConfigurationComponent:
                     options=model_list,
                     key=f"{prefix}_model_select"
                 )
-        
+
         # Get default costs
         default_input_cost = DEFAULT_COST_MAP.get(selected_model, {"input": 0.001, "output": 0.002})["input"]
         default_output_cost = DEFAULT_COST_MAP.get(selected_model, {"input": 0.001, "output": 0.002})["output"]
-        
+
         with col2:
             input_cost = st.number_input(
                 "Input Cost",
@@ -186,7 +190,7 @@ class ModelConfigurationComponent:
                 format="%.6f",
                 key=f"{prefix}_input_cost"
             )
-        
+
         with col3:
             output_cost = st.number_input(
                 "Output Cost",
@@ -197,13 +201,26 @@ class ModelConfigurationComponent:
                 format="%.6f",
                 key=f"{prefix}_output_cost"
             )
-        
+
         with col4:
+            target_rpm = st.number_input(
+                "Target RPM",
+                min_value=0,
+                max_value=600,
+                value=0,
+                step=10,
+                key=f"{prefix}_target_rpm",
+                help="Requests per minute (0 = no rate limiting). Use to test model reliability at specific load levels."
+            )
+            # Convert 0 to None for storage (0 means no rate limiting)
+            target_rpm = target_rpm if target_rpm > 0 else None
+
+        with col5:
             st.button(
                 "Add Model",
                 key=f"{prefix}_add_model",
                 on_click=self._add_model,
-                args=(selected_model, region, input_cost, output_cost)
+                args=(selected_model, region, input_cost, output_cost, target_rpm)
             )
     
     def _render_judge_selection(self, region):
@@ -259,24 +276,26 @@ class ModelConfigurationComponent:
                 args=(selected_judge, judge_region, judge_input_cost, judge_output_cost)
             )
     
-    def _add_model(self, model_id, region, input_cost, output_cost):
+    def _add_model(self, model_id, region, input_cost, output_cost, target_rpm=None):
         """Add a model to the selected models list."""
         # Check if model is already selected with same region
         for model in st.session_state.current_evaluation_config["selected_models"]:
             # Check if the model ID matches and either region matches or isn't present
             if model["id"] == model_id and model.get("region", "") == region:
-                # Update costs and region if model already exists
+                # Update costs, region, and RPM if model already exists
                 model["input_cost"] = input_cost
                 model["output_cost"] = output_cost
                 model["region"] = region
+                model["target_rpm"] = target_rpm
                 return
-        
+
         # Add new model
         st.session_state.current_evaluation_config["selected_models"].append({
             "id": model_id,
             "region": region,
             "input_cost": input_cost,
-            "output_cost": output_cost
+            "output_cost": output_cost,
+            "target_rpm": target_rpm
         })
     
     def _add_judge_model(self, model_id, region, input_cost, output_cost):

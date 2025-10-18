@@ -80,14 +80,21 @@ except FileNotFoundError:
 
 def extract_model_name(model_id):
     """Extract clean model name from ID."""
+    # Check if this is an optimized prompt variant
+    optimization_suffix = ""
+    if "_Prompt_Optimized" in model_id:
+        optimization_suffix = "_Prompt_Optimized"
+        # Remove suffix temporarily for processing
+        model_id = model_id.replace("_Prompt_Optimized", "")
+
     if '.' in model_id:
         parts = model_id.split('.')
         if len(parts) == 3:
             model_name = parts[-1].split(':')[0].split('-v')[0]
         else:
             model_name = parts[-2] + '.' + parts[-1]
-        return model_name
-    return model_id.split(':')[0]
+        return model_name + optimization_suffix
+    return model_id.split(':')[0] + optimization_suffix
 
 def parse_json_string(json_str):
     try:
@@ -102,60 +109,146 @@ def parse_json_string(json_str):
         return {"error": str(e)}
 
 
+def get_evaluation_config_signature(df):
+    """
+    Create a unique signature for evaluation configuration.
+    Evaluations with matching signatures can be safely merged.
+
+    Returns:
+        tuple: Configuration components that define a unique evaluation
+    """
+    try:
+        # Extract unique values for each config component
+        models = tuple(sorted(df['model_id'].unique()))
+        task_criteria = tuple(sorted(df['task_criteria'].unique()))
+        task_types = tuple(sorted(df['task_types'].unique()))
+
+        # Extract judge models from performance_metrics column
+        judge_models = set()
+        for perf_metrics in df['performance_metrics'].dropna():
+            try:
+                parsed = parse_json_string(perf_metrics)
+                if isinstance(parsed, dict) and 'judge_details' in parsed:
+                    for judge in parsed['judge_details']:
+                        if 'model' in judge:
+                            judge_models.add(judge['model'])
+            except:
+                pass
+        judges = tuple(sorted(judge_models))
+
+        # User-defined metrics (if exists in data)
+        user_metrics = tuple(sorted(df['user_defined_metrics'].unique())) if 'user_defined_metrics' in df.columns else tuple()
+
+        # Temperature values
+        temperatures = tuple(sorted(df['TEMPERATURE'].unique())) if 'TEMPERATURE' in df.columns else tuple()
+
+        # Create signature tuple
+        config_sig = (models, task_criteria, task_types, judges, user_metrics, temperatures)
+
+        return config_sig
+    except Exception as e:
+        logger.warning(f"Error creating config signature: {e}")
+        # Return a random signature to keep this group separate
+        import uuid
+        return (str(uuid.uuid4()),)
+
+
 def load_data(directory, evaluation_names=None):
-    """Load and prepare benchmark data.
-    
+    """Load and prepare benchmark data with proper configuration-based grouping.
+
+    Only merges evaluations with identical configurations (models, judges, criteria, etc.)
+
     Args:
         directory: Directory containing CSV files
         evaluation_names: Optional list of evaluation names to filter by
     """
-    # Ensure directory is a Path object
     directory = Path(directory)
     logger.info(f"Looking for CSV files in: {directory}")
-    
+
     # Load CSV files
     all_files = glob.glob(str(directory / "invocations_*.csv"))
     if not all_files:
         logger.error(f"No invocation CSVs found in {directory}")
         raise FileNotFoundError(f"No invocation CSVs found in {directory}")
-    
+
     # Filter files by evaluation names if specified
     if evaluation_names:
         files = []
         for file_path in all_files:
             file_name = Path(file_path).name
-            # Check if any evaluation name is in the filename
             if any(eval_name in file_name for eval_name in evaluation_names):
                 files.append(file_path)
-        
+
         if not files:
             logger.warning(f"No CSV files found matching evaluations: {evaluation_names}")
             logger.info(f"Available files: {[Path(f).name for f in all_files]}")
             raise FileNotFoundError(f"No CSV files found for evaluations: {evaluation_names}")
-        
-        logger.info(f"Filtered to {len(files)} CSV files matching evaluations {evaluation_names}: {[Path(f).name for f in files]}")
+
+        logger.info(f"Filtered to {len(files)} CSV files matching evaluations {evaluation_names}")
     else:
         files = all_files
-        logger.info(f"Found {len(files)} CSV files (no filter applied): {[Path(f).name for f in files]}")
-    
-    dataframes = []
-    
+        logger.info(f"Found {len(files)} CSV files (no filter applied)")
+
+    # Step 1: Load all files and group by configuration signature
+    config_groups = {}
+    file_metadata = {}
+
     for f in files:
         try:
             logger.info(f"Reading file: {f}")
             df_file = pd.read_csv(f)
             logger.info(f"Read {len(df_file)} rows from {f}")
-            dataframes.append(df_file)
+
+            # Add source file tracking
+            df_file['source_file'] = Path(f).name
+
+            # Get configuration signature for this file
+            config_sig = get_evaluation_config_signature(df_file)
+
+            # Group files by config signature
+            if config_sig not in config_groups:
+                config_groups[config_sig] = []
+                file_metadata[config_sig] = {
+                    'files': [],
+                    'task_type': df_file['task_types'].iloc[0] if not df_file.empty else 'Unknown',
+                    'total_records': 0
+                }
+
+            config_groups[config_sig].append(df_file)
+            file_metadata[config_sig]['files'].append(Path(f).name)
+            file_metadata[config_sig]['total_records'] += len(df_file)
+
         except Exception as e:
             logger.error(f"Error reading {f}: {str(e)}")
             continue
-    
-    if not dataframes:
+
+    if not config_groups:
         logger.error("No valid data found in any CSV files")
         raise ValueError("No valid data found in any CSV files")
-    
-    df = pd.concat(dataframes, ignore_index=True)
-    logger.info(f"Combined data has {len(df)} rows")
+
+    # Step 2: Log configuration grouping information
+    logger.info(f"Found {len(config_groups)} unique evaluation configurations")
+    for i, (config_sig, metadata) in enumerate(file_metadata.items(), 1):
+        logger.info(f"  Config {i}: task_type='{metadata['task_type']}', "
+                   f"files={len(metadata['files'])}, records={metadata['total_records']}")
+        for fname in metadata['files']:
+            logger.info(f"    - {fname}")
+
+    # Step 3: Merge ONLY within same configuration groups
+    merged_dfs = []
+    for config_sig, dfs_in_group in config_groups.items():
+        # These all have matching configs, safe to merge
+        merged_df = pd.concat(dfs_in_group, ignore_index=True)
+
+        # Add config signature as a column for later grouping
+        merged_df['config_signature'] = str(hash(config_sig))
+
+        merged_dfs.append(merged_df)
+        logger.info(f"Merged {len(dfs_in_group)} files with matching config into {len(merged_df)} records")
+
+    # Step 4: Combine all config groups
+    df = pd.concat(merged_dfs, ignore_index=True)
+    logger.info(f"Combined data has {len(df)} total rows across {len(config_groups)} unique configurations")
 
     # Clean and prepare data (optimized with method chaining)
     df = (df[df['api_call_status'] == 'Success']
@@ -207,9 +300,12 @@ def load_data(directory, evaluation_names=None):
 
 
 def calculate_metrics_by_model_task(df):
-    """Calculate detailed metrics for each model-task combination."""
-    # Group by model and task
-    metrics = df.groupby(['model_name', 'task_types']).agg({
+    """Calculate detailed metrics for each model-task-config combination.
+
+    Properly handles cases where same task name has different configurations.
+    """
+    # Group by model, task, AND config signature
+    metrics = df.groupby(['model_name', 'task_types', 'config_signature']).agg({
         'task_success': ['mean', 'count'],
         'time_to_first_byte': ['mean', 'min', 'max'],
         'time_to_last_byte': ['mean', 'min', 'max'],
@@ -234,10 +330,106 @@ def calculate_metrics_by_model_task(df):
         'input_tokens_mean': 'avg_input_tokens'
     })
 
+    metrics = metrics.reset_index()
+
+    # Add task_display_name column with disambiguation
+    # Count how many unique config_signatures exist for each task_type
+    task_config_counts = metrics.groupby('task_types')['config_signature'].nunique()
+
+    def generate_task_display_name(row):
+        """Generate display name with numeric suffix if multiple configs exist."""
+        task = row['task_types']
+        if task_config_counts.get(task, 1) > 1:
+            # Multiple configurations exist - need disambiguation
+            # Get all configs for this task, sort them, and find index
+            configs_for_task = sorted(metrics[metrics['task_types'] == task]['config_signature'].unique())
+            config_index = configs_for_task.index(row['config_signature']) + 1
+            return f"{task} ({config_index})"
+        else:
+            # Single configuration - use original name
+            return task
+
+    metrics['task_display_name'] = metrics.apply(generate_task_display_name, axis=1)
+    logger.info(f"Generated task display names with disambiguation for {len(metrics)} metric rows")
+
     max_raw_ratio = metrics['success_rate'].max() / (metrics['avg_cost'].min() + EPSILON_DIVISION)
     metrics['value_ratio'] = VALUE_RATIO_MULTIPLIER * (metrics['success_rate'] / (metrics['avg_cost'] + EPSILON_DIVISION)) / max_raw_ratio
 
-    return metrics.reset_index()
+    return metrics
+
+
+def calculate_metrics_by_model_task_temperature(df):
+    """Calculate detailed metrics for each model-task-temperature-config combination.
+
+    This function groups data by model, task, temperature, and config signature to enable
+    temperature-based performance analysis while respecting configuration boundaries.
+
+    Args:
+        df: DataFrame with model evaluation data including TEMPERATURE column
+
+    Returns:
+        DataFrame with metrics grouped by model_name, task_types, TEMPERATURE, and config_signature
+    """
+    # Check if TEMPERATURE column exists
+    if 'TEMPERATURE' not in df.columns:
+        return None
+
+    # Check if config_signature exists (should be added by load_data)
+    if 'config_signature' not in df.columns:
+        logger.warning("config_signature column not found in dataframe, temperature metrics may be incorrectly aggregated")
+        # Fall back to grouping without config_signature
+        groupby_cols = ['model_name', 'task_types', 'TEMPERATURE']
+    else:
+        groupby_cols = ['model_name', 'task_types', 'config_signature', 'TEMPERATURE']
+
+    # Group by model, task, config, and temperature
+    metrics = df.groupby(groupby_cols).agg({
+        'task_success': ['mean', 'count'],
+        'time_to_first_byte': ['mean', 'min', 'max'],
+        'time_to_last_byte': ['mean', 'min', 'max'],
+        'OTPS': ['mean', 'min', 'max'],
+        'response_cost': ['mean', 'sum'],
+        'output_tokens': ['mean', 'sum'],
+        'input_tokens': ['mean', 'sum']
+    })
+
+    # Flatten multi-level column index
+    metrics.columns = ['_'.join(col).strip() for col in metrics.columns.values]
+
+    # Rename columns for clarity
+    metrics = metrics.rename(columns={
+        'task_success_mean': 'success_rate',
+        'task_success_count': 'sample_count',
+        'time_to_first_byte_mean': 'avg_ttft',
+        'time_to_last_byte_mean': 'avg_latency',
+        'OTPS_mean': 'avg_otps',
+        'response_cost_mean': 'avg_cost',
+        'output_tokens_mean': 'avg_output_tokens',
+        'input_tokens_mean': 'avg_input_tokens'
+    })
+
+    metrics = metrics.reset_index()
+
+    # Add task_display_name if config_signature exists
+    if 'config_signature' in metrics.columns:
+        task_config_counts = metrics.groupby('task_types')['config_signature'].nunique()
+
+        def generate_task_display_name(row):
+            """Generate display name with numeric suffix if multiple configs exist."""
+            task = row['task_types']
+            if task_config_counts.get(task, 1) > 1:
+                # Multiple configurations exist - need disambiguation
+                configs_for_task = sorted(metrics[metrics['task_types'] == task]['config_signature'].unique())
+                config_index = configs_for_task.index(row['config_signature']) + 1
+                return f"{task} ({config_index})"
+            else:
+                # Single configuration - use original name
+                return task
+
+        metrics['task_display_name'] = metrics.apply(generate_task_display_name, axis=1)
+        logger.info(f"Generated task display names for temperature metrics: {len(metrics)} rows")
+
+    return metrics
 
 
 def calculate_latency_metrics(df):
@@ -289,7 +481,7 @@ def create_normal_distribution_histogram(df,
     """
     Creates overlapping histogram plots with normal distribution curves for time_to_first_byte by model.
     Only creates the plot if there are more than 2000 records available.
-    
+
     Args:
         df: DataFrame containing the benchmark data
         label: label for the histogram plot
@@ -315,27 +507,27 @@ def create_normal_distribution_histogram(df,
 
     if df_clean.empty:
         return ["No valid time_to_first_byte data found"]
-    
+
     logger.info(f"Creating {label} Distribution by Model histogram with {len(df)} records")
 
     # Create figure
     fig = go.Figure()
-    
+
     # Get unique models and assign colors
     unique_models = df_clean['model_name'].unique()
     colors = px.colors.qualitative.Set1[:len(unique_models)]
-    
+
     # Create histogram and normal distribution for each model
     for i, model in enumerate(unique_models):
         model_data = df_clean[df_clean['model_name'] == model][key]
-        
+
         if len(model_data) < 10:  # Skip models with too few data points
             continue
-            
+
         # Calculate statistics for normal distribution
         mean = model_data.mean()
         std = model_data.std()
-        
+
         # Add histogram
         fig.add_trace(go.Histogram(
             x=model_data,
@@ -346,7 +538,7 @@ def create_normal_distribution_histogram(df,
             nbinsx=50,
             showlegend=True
         ))
-        
+
         # Generate points for normal distribution curve
         x_range = np.linspace(
             model_data.min() - NORMAL_DISTRIBUTION_RANGE_MULTIPLIER * std,
@@ -354,7 +546,7 @@ def create_normal_distribution_histogram(df,
             NORMAL_DISTRIBUTION_POINTS
         )
         normal_curve = stats.norm.pdf(x_range, mean, std)
-        
+
         # Add normal distribution curve
         fig.add_trace(go.Scatter(
             x=x_range,
@@ -369,7 +561,7 @@ def create_normal_distribution_histogram(df,
             opacity=0.8,
             showlegend=True
         ))
-    
+
     # Update layout
     fig.update_layout(
         template="plotly_dark",
@@ -397,8 +589,67 @@ def create_normal_distribution_histogram(df,
     # Update x and y axes
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor=f'rgba(128,128,128,{GRID_OPACITY})')
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=f'rgba(128,128,128,{GRID_OPACITY})')
-    
+
     return fig
+
+
+def identify_unique_task_configs(df):
+    """
+    Identify unique task configurations based on metric sets.
+    If same task name has different metric configurations (different judges, criteria),
+    assign numbered suffixes.
+
+    Args:
+        df: DataFrame with 'task_types' and 'judge_scores' columns
+
+    Returns:
+        dict: {unique_task_name: (original_task_name, metric_signature, indices)}
+    """
+    from collections import defaultdict
+
+    # Extract metric signatures for each task evaluation
+    df['parsed_scores'] = df['judge_scores'].apply(extract_judge_scores)
+
+    # Group by task and collect metric signatures
+    task_metrics = defaultdict(list)
+
+    for idx, row in df.iterrows():
+        task = row['task_types']
+        if pd.isna(task):
+            continue
+
+        scores = row.get('parsed_scores', {})
+        if not isinstance(scores, dict):
+            continue
+
+        # Get metric names (AVG_ prefixed keys)
+        metrics = sorted([k.replace('AVG_', '') for k in scores.keys() if k.startswith('AVG_')])
+        metric_sig = tuple(metrics) if metrics else tuple()
+
+        task_metrics[task].append((idx, metric_sig))
+
+    # Identify unique configurations per task
+    unique_configs = {}
+
+    for task, evaluations in task_metrics.items():
+        # Get unique metric signatures for this task
+        unique_sigs = {}
+        for idx, sig in evaluations:
+            if sig not in unique_sigs:
+                unique_sigs[sig] = []
+            unique_sigs[sig].append(idx)
+
+        # If multiple configurations exist, add numeric suffixes
+        if len(unique_sigs) > 1:
+            for config_num, (sig, indices) in enumerate(sorted(unique_sigs.items()), start=1):
+                unique_task_name = f"{task}({config_num})"
+                unique_configs[unique_task_name] = (task, sig, indices)
+        else:
+            # Single configuration, use original name
+            sig, indices = list(unique_sigs.items())[0]
+            unique_configs[task] = (task, sig, indices)
+
+    return unique_configs
 
 
 def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics):
@@ -474,12 +725,12 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
     visualizations['cost_comparison'] = cost_fig
 
     # 5. Task-Model Success Rate Heatmap
-    # Pivot to create model vs task matrix
+    # Pivot to create model vs task matrix (use task_display_name for proper disambiguation)
     pivot_success = pd.pivot_table(
         model_task_metrics,
         values='success_rate',
         index='model_name',
-        columns='task_types',
+        columns='task_display_name',  # Use task_display_name instead of task_types
         aggfunc='mean'
     ).infer_objects(copy=False).fillna(0)
 
@@ -510,14 +761,15 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
         y='success_rate',
         size='avg_otps',
         color='avg_cost',
-        facet_col='task_types',
+        facet_col='task_display_name',  # Use task_display_name instead of task_types
         facet_col_wrap=3,
         hover_data=['model_name', 'value_ratio'],
         labels={
             'avg_latency': 'Latency (Secs)',
             'success_rate': 'Success Rate',
             'avg_cost': 'Cost (USD)',
-            'avg_otps': 'Tokens/sec'
+            'avg_otps': 'Tokens/sec',
+            'task_display_name': 'Task Type'  # Add label for task_display_name
         },
         title='Model Performance by Task Type',
         color_continuous_scale='Earth',  # Use a brighter color scale
@@ -558,7 +810,7 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
             fails['error'] = fails['judge_explanation'].fillna("Unknown").replace("", "Unknown")
             # Extract error categories using regex
             fails['error_category'] = fails['error'].apply(
-                lambda x: '<br>'.join(list(set(re.findall(r'[A-Za-z-]+', str(x))))) if pd.notnull(x) else "Unknown"
+                lambda x: '<br>'.join(list(set(re.findall(r'[A-Za-z-]+', str(x.replace(" ", "-").replace("&", "and")))))) if pd.notnull(x) else "Unknown"
             )
 
             counts = fails.groupby(['model_name', 'task_types', 'error_category']).size().reset_index(name='count')
@@ -589,158 +841,308 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
         visualizations['error_analysis'] = '<div id="not-found">No Jury Evaluation Found</div>'
 
     # Add this inside create_visualizations() function
-    # Extract judge scores from the DataFrame
+    # Create one radar chart per task with all models overlaid
 
-    df['parsed_scores'] = df['judge_scores'].apply(extract_judge_scores)
-    # Create one radar chart per model (combining all tasks)
+    # Identify unique task configurations (handles edge case of same task with different metrics)
+    unique_task_configs = identify_unique_task_configs(df)
+
     radar_charts = {}
 
-    # Get all unique models and categories
-    unique_models = df['model_name'].dropna().unique()
-    all_categories = set()
+    # Define color palette for models
+    color_palette = px.colors.qualitative.Plotly + px.colors.qualitative.Set2
 
-    # First, collect all categories across all data
-    for _, row in df.iterrows():
-        if pd.notnull(row.get('parsed_scores')):
-            score_dict = row['parsed_scores']
-            for key in score_dict:
-                if key.startswith('AVG_'):
-                    category = key.replace('AVG_', '')
-                    all_categories.add(category)
+    # Create one chart per unique task configuration
+    for unique_task_name, (original_task, metric_sig, indices) in unique_task_configs.items():
+        # Filter data for this task configuration
+        task_data = df.loc[indices].copy()
 
-    all_categories = sorted(list(all_categories))
-
-    # Create one chart per model with all tasks
-    for model in unique_models:
-        # Filter data for this model
-        model_data = df[df['model_name'] == model]
-
-        if model_data.empty:
+        if task_data.empty:
             continue
 
-        # Get all tasks for this model
-        tasks = model_data['task_types'].unique()
+        # Get all unique models for this task
+        models_in_task = task_data['model_name'].dropna().unique()
 
-        # Create figure for this model
+        if len(models_in_task) == 0:
+            continue
+
+        # Determine the metric categories for this task (from metric signature)
+        task_categories = sorted(list(metric_sig)) if metric_sig else []
+
+        if not task_categories:
+            continue
+
+        # Create figure for this task
         fig = go.Figure()
 
-        # Add one trace per task
-        for task in tasks:
-            task_data = model_data[model_data['task_types'] == task]
+        # Add one trace per model
+        for model_idx, model in enumerate(models_in_task):
+            # Filter data for this model
+            model_data = task_data[task_data['model_name'] == model]
 
-            # Extract scores for this task
-            scores_dicts = task_data['parsed_scores'].dropna().tolist()
+            # Extract scores for this model
+            scores_dicts = model_data['parsed_scores'].dropna().tolist()
 
             if not scores_dicts:
                 continue
 
             # Calculate average scores for each category
             avg_scores = {}
-
             for score_dict in scores_dicts:
                 for key, value in score_dict.items():
                     if key.startswith('AVG_'):
                         category = key.replace('AVG_', '')
-                        if category not in avg_scores:
-                            avg_scores[category] = []
-                        avg_scores[category].append(value)
+                        if category in task_categories:
+                            if category not in avg_scores:
+                                avg_scores[category] = []
+                            avg_scores[category].append(value)
 
             # Fill in values for each category
             values = []
-            for category in all_categories:
+            for category in task_categories:
                 scores = avg_scores.get(category, [])
                 if scores:
                     values.append(sum(scores) / len(scores))
                 else:
                     values.append(0)
 
-            # Add trace for this task
+            # Get color for this model
+            color = color_palette[model_idx % len(color_palette)]
+
+            # Convert hex color to rgb for fill
+            if color.startswith('#'):
+                r = int(color[1:3], 16)
+                g = int(color[3:5], 16)
+                b = int(color[5:7], 16)
+                fill_color = f'rgba({r}, {g}, {b}, 0.2)'
+            else:
+                fill_color = f'rgba(100, 100, 100, 0.2)'
+
+            # Add trace for this model
             fig.add_trace(go.Scatterpolar(
                 r=values + [values[0]],  # Close the polygon
-                theta=all_categories + [all_categories[0]],  # Close the polygon
+                theta=task_categories + [task_categories[0]],  # Close the polygon
                 fill='toself',
-                name=task,
-                opacity=0.7
+                name=model,
+                opacity=0.7,
+                line=dict(color=color, width=2),
+                fillcolor=fill_color
             ))
 
         # Update layout
         fig.update_layout(
-            template="plotly_dark",  # Use the built-in dark template as a base
+            template="plotly_dark",
             paper_bgcolor="#1e1e1e",
-            plot_bgcolor="#2d2d2d",  # Slightly lighter than paper for contrast
+            plot_bgcolor="#2d2d2d",
             polar=dict(
                 radialaxis=dict(
                     visible=True,
-                    range=[0, 5]  # Assuming scores are on a 0-5 scale
+                    range=[0, 5],  # Assuming scores are on a 0-5 scale
+                    gridcolor='rgba(128,128,128,0.3)'
+                ),
+                angularaxis=dict(
+                    gridcolor='rgba(128,128,128,0.3)'
                 )
             ),
-            title=f"Eval Scores Across All Tasks",
+            title=f"{unique_task_name} - Model Comparison",
             showlegend=True,
             legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=-0.2,
-                xanchor="center",
-                x=0.5
+                orientation="v",
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=1.05
             ),
-            height=500,
-            width=850,
-            margin=dict(l=20, r=20, b=80, t=50)  # Added bottom margin for legend
+            height=600,
+            width=1000,
+            margin=dict(l=100, r=200, b=100, t=120)
         )
 
-        # Store the chart
-        radar_charts[model] = fig
+        # Store the chart with unique task name
+        radar_charts[unique_task_name] = fig
+
     visualizations['judge_score_radars'] = radar_charts
 
-    # 8. Task-specific charts
+    # 8. Task-specific charts with temperature breakdown
     task_charts = {}
-    for task in df['task_types'].unique():
-        task_data = model_task_metrics[model_task_metrics['task_types'] == task]
 
-        if not task_data.empty:
-            # Create subplot with 2x2 grid
-            fig = make_subplots(
-                rows=2, cols=2,
-                subplot_titles=("Success Rate", "Latency (Secs)", 'Cost per Response (USD)<br><span style="font-size: 12px;">Using μ (Micro) Symbol for Small Numbers</span>', "Tokens per Second")
-            )
+    # Try to calculate temperature-based metrics if TEMPERATURE column exists
+    temp_metrics = calculate_metrics_by_model_task_temperature(df)
+    has_temperature_data = temp_metrics is not None and not temp_metrics.empty
 
-            # Sort data for each subplot (using method chaining for efficiency)
-            by_success = task_data.sort_values('success_rate', ascending=False)
-            by_latency = task_data.sort_values('avg_latency')
-            by_cost = task_data.sort_values('avg_cost')
-            by_otps = task_data.sort_values('avg_otps', ascending=False)
+    # Loop through unique task_display_name to handle multiple configs per task type
+    for task_display in model_task_metrics['task_display_name'].unique():
+        if has_temperature_data:
+            # Use temperature-based grouped bar charts
+            task_temp_data = temp_metrics[temp_metrics['task_display_name'] == task_display]
 
-            # Add traces for each subplot
-            fig.add_trace(
-                go.Bar(x=by_success['model_name'], y=by_success['success_rate'], marker_color='green'),
-                row=1, col=1
-            )
+            if not task_temp_data.empty:
+                # Create subplot with 2x2 grid
+                fig = make_subplots(
+                    rows=2, cols=2,
+                    subplot_titles=(
+                        "Success Rate by Temperature",
+                        "Latency (Secs) by Temperature",
+                        'Cost per Response (USD) by Temperature<br><span style="font-size: 12px;">Using μ (Micro) Symbol for Small Numbers</span>',
+                        "Tokens per Second by Temperature"
+                    )
+                )
 
-            fig.add_trace(
-                go.Bar(x=by_latency['model_name'], y=by_latency['avg_latency'], marker_color='orange'),
-                row=1, col=2
-            )
+                # Get unique temperatures and assign colors
+                unique_temps = sorted(task_temp_data['TEMPERATURE'].unique())
 
-            fig.add_trace(
-                go.Bar(x=by_cost['model_name'], y=by_cost['avg_cost'], marker_color='red'),
-                row=2, col=1
-            )
+                # Use solid color when only one temperature, otherwise use Viridis scale
+                if len(unique_temps) == 1:
+                    temp_color_map = {unique_temps[0]: '#66b2b2'}
+                else:
+                    viridis_colors = px.colors.sequential.Viridis
+                    temp_color_map = {temp: viridis_colors[int((i / max(len(unique_temps) - 1, 1)) * (len(viridis_colors) - 1))]
+                                      for i, temp in enumerate(unique_temps)}
 
-            fig.add_trace(
-                go.Bar(x=by_otps['model_name'], y=by_otps['avg_otps'], marker_color='blue'),
-                row=2, col=2
-            )
+                # Get unique models for consistent x-axis ordering
+                unique_models = sorted(task_temp_data['model_name'].unique())
 
-            fig.update_layout(
-                height=725,
-                title_text=f"Performance Metrics for {task}",
-                showlegend=False,
-                template="plotly_dark",
-                paper_bgcolor="#1e1e1e",
-                plot_bgcolor="#2d2d2d",  # Slightly lighter than paper for contrast
-                              )
+                # Success Rate subplot (row=1, col=1)
+                for temp in unique_temps:
+                    temp_data = task_temp_data[task_temp_data['TEMPERATURE'] == temp].set_index('model_name')
+                    y_values = [temp_data.loc[model, 'success_rate'] if model in temp_data.index else None
+                                for model in unique_models]
 
-            task_charts[task] = fig
+                    fig.add_trace(
+                        go.Bar(
+                            x=unique_models,
+                            y=y_values,
+                            name=f'T={temp}',
+                            marker_color=temp_color_map[temp],
+                            hovertemplate='<b>%{x}</b><br>Success Rate: %{y:.1%}<br>Temperature: ' + str(temp) + '<extra></extra>',
+                            showlegend=True,
+                            legendgroup=f'temp_{temp}'
+                        ),
+                        row=1, col=1
+                    )
+
+                # Latency subplot (row=1, col=2)
+                for temp in unique_temps:
+                    temp_data = task_temp_data[task_temp_data['TEMPERATURE'] == temp].set_index('model_name')
+                    y_values = [temp_data.loc[model, 'avg_latency'] if model in temp_data.index else None
+                                for model in unique_models]
+
+                    fig.add_trace(
+                        go.Bar(
+                            x=unique_models,
+                            y=y_values,
+                            name=f'T={temp}',
+                            marker_color=temp_color_map[temp],
+                            hovertemplate='<b>%{x}</b><br>Latency: %{y:.2f}s<br>Temperature: ' + str(temp) + '<extra></extra>',
+                            showlegend=False,
+                            legendgroup=f'temp_{temp}'
+                        ),
+                        row=1, col=2
+                    )
+
+                # Cost subplot (row=2, col=1)
+                for temp in unique_temps:
+                    temp_data = task_temp_data[task_temp_data['TEMPERATURE'] == temp].set_index('model_name')
+                    y_values = [temp_data.loc[model, 'avg_cost'] if model in temp_data.index else None
+                                for model in unique_models]
+
+                    fig.add_trace(
+                        go.Bar(
+                            x=unique_models,
+                            y=y_values,
+                            name=f'T={temp}',
+                            marker_color=temp_color_map[temp],
+                            hovertemplate='<b>%{x}</b><br>Cost: $%{y:.4f}<br>Temperature: ' + str(temp) + '<extra></extra>',
+                            showlegend=False,
+                            legendgroup=f'temp_{temp}'
+                        ),
+                        row=2, col=1
+                    )
+
+                # Tokens per Second subplot (row=2, col=2)
+                for temp in unique_temps:
+                    temp_data = task_temp_data[task_temp_data['TEMPERATURE'] == temp].set_index('model_name')
+                    y_values = [temp_data.loc[model, 'avg_otps'] if model in temp_data.index else None
+                                for model in unique_models]
+
+                    fig.add_trace(
+                        go.Bar(
+                            x=unique_models,
+                            y=y_values,
+                            name=f'T={temp}',
+                            marker_color=temp_color_map[temp],
+                            hovertemplate='<b>%{x}</b><br>Tokens/sec: %{y:.1f}<br>Temperature: ' + str(temp) + '<extra></extra>',
+                            showlegend=False,
+                            legendgroup=f'temp_{temp}'
+                        ),
+                        row=2, col=2
+                    )
+
+                fig.update_layout(
+                    height=800,
+                    title_text=f"Performance Metrics for {task_display} (Grouped by Temperature)",
+                    barmode='group',
+                    template="plotly_dark",
+                    paper_bgcolor="#1e1e1e",
+                    plot_bgcolor="#2d2d2d",
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1,
+                        title="Temperature"
+                    )
+                )
+
+                task_charts[task_display] = fig
+        else:
+            # Fallback to simple bar charts if no temperature data
+            task_data = model_task_metrics[model_task_metrics['task_display_name'] == task_display]
+
+            if not task_data.empty:
+                # Create subplot with 2x2 grid
+                fig = make_subplots(
+                    rows=2, cols=2,
+                    subplot_titles=("Success Rate", "Latency (Secs)", 'Cost per Response (USD)<br><span style="font-size: 12px;">Using μ (Micro) Symbol for Small Numbers</span>', "Tokens per Second")
+                )
+
+                # Sort data for each subplot (using method chaining for efficiency)
+                by_success = task_data.sort_values('success_rate', ascending=False)
+                by_latency = task_data.sort_values('avg_latency')
+                by_cost = task_data.sort_values('avg_cost')
+                by_otps = task_data.sort_values('avg_otps', ascending=False)
+
+                # Add traces for each subplot
+                fig.add_trace(
+                    go.Bar(x=by_success['model_name'], y=by_success['success_rate'], marker_color='green'),
+                    row=1, col=1
+                )
+
+                fig.add_trace(
+                    go.Bar(x=by_latency['model_name'], y=by_latency['avg_latency'], marker_color='orange'),
+                    row=1, col=2
+                )
+
+                fig.add_trace(
+                    go.Bar(x=by_cost['model_name'], y=by_cost['avg_cost'], marker_color='red'),
+                    row=2, col=1
+                )
+
+                fig.add_trace(
+                    go.Bar(x=by_otps['model_name'], y=by_otps['avg_otps'], marker_color='blue'),
+                    row=2, col=2
+                )
+
+                fig.update_layout(
+                    height=725,
+                    title_text=f"Performance Metrics for {task_display}",
+                    showlegend=False,
+                    template="plotly_dark",
+                    paper_bgcolor="#1e1e1e",
+                    plot_bgcolor="#2d2d2d",
+                )
+
+                task_charts[task_display] = fig
 
     visualizations['task_charts'] = task_charts
     visualizations['integrated_analysis_tables'], analysis_df = create_integrated_analysis_table(model_task_metrics)
@@ -748,7 +1150,7 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
 
 
     visualizations['regional_performance'] = create_regional_performance_analysis(df)
-    
+
     # Add TTFB histogram with normal distribution (only if sufficient data)
     ttfb_histogram = create_normal_distribution_histogram(df)
     if ttfb_histogram is not None:
@@ -762,11 +1164,12 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
 
 
 def generate_task_findings(df, model_task_metrics):
-    """Generate key findings for each task type."""
+    """Generate key findings for each task configuration (using task_display_name)."""
     task_findings = {}
 
-    for task in df['task_types'].unique():
-        task_data = model_task_metrics[model_task_metrics['task_types'] == task]
+    # Loop through unique task_display_name to handle multiple configs
+    for task_display in model_task_metrics['task_display_name'].unique():
+        task_data = model_task_metrics[model_task_metrics['task_display_name'] == task_display]
         findings = []
 
         if not task_data.empty:
@@ -797,8 +1200,15 @@ def generate_task_findings(df, model_task_metrics):
             avg_success = task_data['success_rate'].mean()
             findings.append(f"Average success rate for this task was {avg_success:.1%}")
 
-            # Error analysis
-            fails = df[(df['task_types'] == task) & (df['task_success'] == False)]
+            # Error analysis - filter by both task_types and config_signature
+            task_types = task_data['task_types'].iloc[0]
+            config_sig = task_data['config_signature'].iloc[0] if 'config_signature' in task_data.columns else None
+
+            if config_sig:
+                fails = df[(df['task_types'] == task_types) & (df['config_signature'] == config_sig) & (df['task_success'] == False)]
+            else:
+                fails = df[(df['task_types'] == task_types) & (df['task_success'] == False)]
+
             if not fails.empty and 'judge_explanation' in fails.columns:
                 # Extract common error patterns
                 error_patterns = []
@@ -810,17 +1220,18 @@ def generate_task_findings(df, model_task_metrics):
                     errors_text = ", ".join([f"{err[0]} ({err[1]} occurrences)" for err in common_errors])
                     findings.append(f"Most common errors: {errors_text}")
 
-        task_findings[task] = findings
+        task_findings[task_display] = findings
 
     return task_findings
 
 
 def generate_task_recommendations(model_task_metrics):
-    """Generate task-specific model recommendations."""
+    """Generate task-specific model recommendations (using task_display_name)."""
     recommendations = []
 
-    for task in model_task_metrics['task_types'].unique():
-        task_data = model_task_metrics[model_task_metrics['task_types'] == task]
+    # Loop through unique task_display_name to handle multiple configs
+    for task_display in model_task_metrics['task_display_name'].unique():
+        task_data = model_task_metrics[model_task_metrics['task_display_name'] == task_display]
 
         if not task_data.empty:
             # Find best models by different metrics
@@ -833,9 +1244,9 @@ def generate_task_recommendations(model_task_metrics):
             best_value = task_data['value_ratio'].max()
             best_value_model = '<br>'.join(task_data[task_data['value_ratio'] == best_value]['model_name'].tolist())
 
-            # Create recommendation entry
+            # Create recommendation entry (use task_display for display)
             recommendations.append({
-                'task': task,
+                'task': task_display,
                 'best_accuracy_model': best_acc_model,
                 'accuracy': f"{best_suc:.1%}",
                 'best_speed_model': best_speed_model,
@@ -935,7 +1346,7 @@ def generate_histogram_findings(df, key='time_to_first_byte', label='Time to Fir
 
 def create_html_report(output_dir, timestamp, evaluation_names=None):
     """Generate HTML benchmark report with task-specific analysis.
-    
+
     Args:
         output_dir: Directory containing CSV files and where report will be saved
         timestamp: Timestamp for report filename
@@ -946,7 +1357,7 @@ def create_html_report(output_dir, timestamp, evaluation_names=None):
         if not os.path.isabs(output_dir):
             output_dir = PROJECT_ROOT / output_dir
         output_dir = Path(output_dir)
-    
+
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"Using output directory: {output_dir}")
@@ -1030,7 +1441,8 @@ def create_html_report(output_dir, timestamp, evaluation_names=None):
     recommendations = '# Recommendations:\n* ' + '\n* '.join([str(i) for i in task_recommendations])
 
     prompt_template = report_summary_template(models=unique_models, evaluations=f'{acc_analysis}\n\n{cost_analysis}\n\n{perf_analysis}\n\n{task_level_analysis}\n\n{recommendations}')  ## Append AND Format all evals ++ rename the columns to help the model
-    inference = run_inference(model_name='bedrock/converse/us.amazon.nova-premier-v1:0',
+    # Model ID preparation for litellm (/converse addition) is now handled centrally in run_inference()
+    inference = run_inference(model_name='bedrock/us.amazon.nova-premier-v1:0',
                               prompt_text=prompt_template,
                               stream=False,
                               provider_params={"maxTokens": INFERENCE_MAX_TOKENS,
@@ -1055,15 +1467,16 @@ def create_html_report(output_dir, timestamp, evaluation_names=None):
         model_task_bubble_div=visualizations['model_task_bubble'].to_html(full_html=False),
 
         unique_models = unique_models,
-        judge_score_radars = {key: chart.to_html(full_html=False) for key, chart in
-                              visualizations.get('judge_score_radars', {}).items()},
+        # Radar charts are now keyed by task name (not model-task tuples)
+        judge_score_radars = {task: chart.to_html(full_html=False)
+                              for task, chart in visualizations.get('judge_score_radars', {}).items()},
 
         # Error and regional Analysis
         error_analysis_div=visualizations['error_analysis'],
         integrated_analysis_tables={task: table.to_html(full_html=False) for task, table in visualizations['integrated_analysis_tables'].items()},
         unique_tasks=list(visualizations['integrated_analysis_tables'].keys()),
         regional_performance_div=visualizations['regional_performance'].to_html(full_html=False),
-        
+
         # TTFB histogram (only if sufficient data)
         ttfb_histogram_div=visualizations['ttfb_histogram'].to_html(full_html=False) if 'ttfb_histogram' in visualizations else '',
         ttfb_findings=time_to_first_token_findings,
@@ -1084,7 +1497,7 @@ def create_html_report(output_dir, timestamp, evaluation_names=None):
         out_file = output_dir / f"llm_benchmark_report_{timestamp}{eval_suffix}.html"
     else:
         out_file = output_dir / f"llm_benchmark_report_{timestamp}.html"
-    
+
     logger.info(f"Writing HTML report to: {out_file}")
     out_file.write_text(html, encoding="utf-8")
     evaluation_scope = f"for {len(evaluation_names)} specific evaluations" if evaluation_names else "for all evaluations"
@@ -1157,11 +1570,15 @@ def create_integrated_analysis_table(model_task_metrics):
         'poor': '#ffcccc'       # Light red - more than 30% behind
     }
 
+    # Initialize task_tables dictionary and thresholds
+    task_tables = {}
+    thresholds = PERFORMANCE_THRESHOLDS.copy()
+
     # Prepare the data for the table
     table_data = model_task_metrics.copy()
 
     thresholds['avg_latency'] = build_task_latency_thresholds(table_data[['model_name', 'task_types', 'avg_latency']].to_dict(orient='records'))
-    # ['avg_output_tokens'].median()
+
     # Format Model Name
     table_data['model_name'] = table_data['model_name'].apply(lambda x: x.split('/')[-1])
 
@@ -1181,9 +1598,6 @@ def create_integrated_analysis_table(model_task_metrics):
             (1 - (table_data['avg_latency'] / max_latency)) * COMPOSITE_SCORE_WEIGHTS['latency'] +
             (1 - (table_data['avg_cost'] / max_cost)) * COMPOSITE_SCORE_WEIGHTS['cost']
     )
-
-    # Create figure
-    fig = go.Figure()
 
     # Helper function to determine color based on value and thresholds
     def get_color(value, metric):
@@ -1207,49 +1621,81 @@ def create_integrated_analysis_table(model_task_metrics):
             else:
                 return colors['poor']
 
-    # Create table cells with conditional formatting
-    fig.add_trace(go.Table(
-        header=dict(
-            values=['Model', 'Task Type', 'Success Rate', 'Latency', 'Cost', 'Tokens/sec', 'Score'],
-            font=dict(size=12, color='white'),
-            fill_color='#2E5A88',
-            align='left'
-        ),
-        cells=dict(
-            values=[
-                table_data['model_name'],
-                table_data['task_types'],
-                table_data['success_rate_fmt'],
-                table_data['avg_latency_fmt'],
-                table_data['avg_cost_fmt'],
-                table_data['avg_otps_fmt'],
-                table_data['composite_score'].apply(lambda x: f"{x:.2f}")
-            ],
-            align='left',
-            font=dict(size=11),
-            # Conditional formatting based on thresholds
-            fill_color=[
-                ['white'] * len(table_data),  # Model column (no coloring)
-                ['white'] * len(table_data),  # Task column (no coloring)
-                # Success rate coloring (three-color)
-                [get_color(sr, 'success_rate') for sr in table_data['success_rate']],
-                # Latency coloring (three-color)
-                [get_color(lt, 'avg_latency') for lt in table_data[['avg_latency','task_types']].to_dict(orient='records')],
-                # Cost coloring (three-color)
-                [get_color(cost, 'avg_cost') for cost in table_data['avg_cost']],
-                # OTPS coloring (just use white)
-                # ['white'] * len(table_data),
-                [get_color(tps, 'avg_otps') for tps in table_data['avg_otps']],
-                # Composite score coloring based on quantiles
-                [colors['good'] if score >= table_data['composite_score'].quantile(0.67) else
-                 colors['medium'] if score >= table_data['composite_score'].quantile(0.33) else
-                 colors['poor'] for score in table_data['composite_score']]
-            ]
+    # Loop through each unique task_display_name and create a table for each
+    for task_display in table_data['task_display_name'].unique():
+        # Filter data for this task
+        task_data = table_data[table_data['task_display_name'] == task_display].copy()
+
+        # Create figure
+        fig = go.Figure()
+
+        # Create table cells with conditional formatting
+        fig.add_trace(go.Table(
+            header=dict(
+                values=['Model', 'Task Type', 'Success Rate', 'Latency', 'Cost', 'Tokens/sec', 'Score'],
+                font=dict(size=12, color='white'),
+                fill_color='#2E5A88',
+                align='left'
+            ),
+            cells=dict(
+                values=[
+                    task_data['model_name'],
+                    task_data['task_display_name'],  # Use task_display_name for display
+                    task_data['success_rate_fmt'],
+                    task_data['avg_latency_fmt'],
+                    task_data['avg_cost_fmt'],
+                    task_data['avg_otps_fmt'],
+                    task_data['composite_score'].apply(lambda x: f"{x:.2f}")
+                ],
+                align='left',
+                font=dict(size=11),
+                # Conditional formatting based on thresholds
+                fill_color=[
+                    ['#3a3a3a'] * len(task_data),  # Model column (dark gray)
+                    ['#3a3a3a'] * len(task_data),  # Task column (dark gray)
+                    # Success rate coloring (three-color)
+                    [get_color(sr, 'success_rate') for sr in task_data['success_rate']],
+                    # Latency coloring (three-color)
+                    [get_color(lt, 'avg_latency') for lt in task_data[['avg_latency','task_types']].to_dict(orient='records')],
+                    # Cost coloring (three-color)
+                    [get_color(cost, 'avg_cost') for cost in task_data['avg_cost']],
+                    # OTPS coloring
+                    [get_color(tps, 'avg_otps') for tps in task_data['avg_otps']],
+                    # Composite score coloring based on quantiles
+                    [colors['good'] if score >= task_data['composite_score'].quantile(0.67) else
+                     colors['medium'] if score >= task_data['composite_score'].quantile(0.33) else
+                     colors['poor'] for score in task_data['composite_score']]
+                ],
+                # Text color: white for dark columns, black for colored columns
+                font_color=[
+                    ['white'] * len(task_data),  # Model column (white text on dark background)
+                    ['white'] * len(task_data),  # Task column (white text on dark background)
+                    ['black'] * len(task_data),  # Success rate (black text on colored background)
+                    ['black'] * len(task_data),  # Latency (black text on colored background)
+                    ['black'] * len(task_data),  # Cost (black text on colored background)
+                    ['black'] * len(task_data),  # Tokens/sec (black text on colored background)
+                    ['black'] * len(task_data),  # Score (black text on colored background)
+                ]
+            )
+        ))
+
+        # Update layout with dark theme and dynamic height
+        # Calculate height based on number of rows (header + rows)
+        row_height = 35  # pixels per row
+        header_height = 40  # header row height
+        total_height = header_height + (len(task_data) * row_height)
+
+        fig.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="#1e1e1e",
+            plot_bgcolor="#2d2d2d",
+            margin=dict(l=0, r=0, t=0, b=0),
+            height=total_height
         )
-        
-        # Store the table for this task
-        task_tables[task] = fig
-    
+
+        # Store the table for this task (using task_display_name as key)
+        task_tables[task_display] = fig
+
     # Return dictionary of tables for dropdown display
     return task_tables, model_task_metrics.to_dict(orient='records')
 

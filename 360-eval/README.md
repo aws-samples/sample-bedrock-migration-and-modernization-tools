@@ -28,21 +28,48 @@ The system is designed for scalability, automatically aggregating results from m
 This project provides tools for:
 
 - Running performance benchmarks across multiple LLM models (Amazon Bedrock and third-party models)
-- Using LLM-as-judge methodology where models evaluate other models' responses
+- Using LLM-as-jury methodology where multiple judge models evaluate other models' responses
+- Optimizing prompts for target models using Amazon Bedrock's prompt optimization API
+- Managing evaluations through an interactive Streamlit web dashboard
 - Measuring key performance metrics (latency, throughput, cost, response quality)
-- Visualizing results and generating interactive reports
+- Visualizing results and generating interactive HTML reports with regional performance analysis
 
 ## Features
 
-- **Multi-model benchmarking**: Compare different models side-by-side, including third-party models
-- **LLM-as-judge evaluation**: Leverage LLMs to evaluate other models' responses
-- **Comprehensive metrics**: Track latency, throughput, cost, and quality of responses
-- **Interactive visualizations**: Generate holistic HTML reports
+### Core Capabilities
+- **Multi-model benchmarking**: Compare different models side-by-side, including Amazon Bedrock and third-party models (OpenAI, Google Gemini, Azure)
+- **LLM-as-jury evaluation**: Leverage multiple LLM judges to evaluate model responses with aggregated scoring
+- **Comprehensive metrics**: Track latency (TTFT, TTLB), throughput (tokens/sec), cost, and quality of responses
+- **Interactive visualizations**: Generate holistic HTML reports with performance comparisons, heatmaps, radar charts, and error analysis
+
+### Prompt Optimization
+- **Automatic prompt optimization**: Use Amazon Bedrock's prompt optimization API to improve prompts for specific target models
+- **Compare original vs optimized**: Evaluate both original and optimized prompts side-by-side to measure improvement
+- **Optimization tracking**: Detailed logs of optimization attempts with success/failure tracking
+
+### Streamlit Dashboard
+- **Interactive web interface**: Launch a full-featured Streamlit dashboard for managing evaluations
+- **Real-time monitoring**: Track running evaluations with live progress updates
+- **Results visualization**: View and compare evaluation results directly in the browser
+- **Model configuration**: Easily configure models, judges, and evaluation parameters
+- **Report viewer**: Browse and view generated HTML reports
+
+### Advanced Features
+- **Vision model support**: Evaluate vision-capable models with image inputs (JPG, PNG, GIF, WebP, BMP)
+- **Temperature variations**: Automatically test models across multiple temperature settings
+- **User-defined metrics**: Add custom evaluation criteria beyond the six core dimensions
+- **Configuration validation**: Pre-validate configuration files to catch errors before running evaluations
+- **Parallel execution**: Run multiple model evaluations concurrently with configurable parallelism
+- **Automatic retry logic**: Built-in retry mechanism with tracking for failed API calls
+- **Regional performance analysis**: Analyze performance by AWS region with timezone-aware reporting
+- **Unprocessed record tracking**: Automatically log failed evaluations for debugging
+- **Composite scoring**: Multi-dimensional performance scoring combining accuracy, latency, and cost
+- **Rate limiting & reliability testing**: Configure target requests-per-minute (RPM) for models to test reliability at specific load levels
 
 ## Installation
 
 ```bash
-git clone https://github.com/aws-samples/amazon-bedrock-samples/poc-to-prod/360-eval.git
+git clone <your-repository-url>
 cd 360-eval
 ```
 ```bash
@@ -54,11 +81,12 @@ pip install -r requirements.txt
 To use third-party models in the benchmarking process:
 
 1. Create a `.env` file in the project root directory
-2. Add your 3P API key in the following format:
+2. Add your 3P API keys in the following format:
 
 ```
 OPENAI_API='your_openai_api_key_here'
-GCP_KEY='your_gpc_api_key_here'
+GOOGLE_API='your_google_api_key_here'
+AZURE_API_KEY='your_azure_api_key_here'
 ```
 
 
@@ -79,7 +107,7 @@ The benchmarking tool requires input data in JSONL format, with each line contai
   - `task_type`: Category of the task (example: "Summarization")
     - Common types include: Summarization, Question-Answering, Translation, Creative Writing, Code Generation, etc.
     - This categorization helps organize results by task type in the final report
-  
+
   - `task_criteria`: Specific evaluation criteria for this task (example: "Summarize the text provided ensuring that the main message is not diluted nor changed")
     - Provides detailed instructions on how the response should be evaluated
     - Used by judge models to assess quality along specified dimensions
@@ -96,13 +124,17 @@ The benchmarking tool requires input data in JSONL format, with each line contai
   - Can be a web URL or local file path
   - Supports JPG, PNG, GIF, WebP, and BMP formats
 
+- `user_defined_metrics` (optional): Per-scenario custom metrics (example: "brand voice, technical accuracy")
+  - Comma-separated list of evaluation criteria specific to this scenario
+  - Overrides global `--user_defined_metrics` if specified
+
 Example:
 ```json
 {
   "text_prompt": "Summarize the principles of edge computing in one sentence.",
   "expected_output_tokens": 250,
   "task": {
-    "task_type": "Summarization", 
+    "task_type": "Summarization",
     "task_criteria": "Summarize the text provided ensuring that the main message is not diluted nor changed"
   },
   "golden_answer": "Edge computing is a distributed computing paradigm that brings computation and data storage closer to the location where it is needed, improving response times and saving bandwidth by processing data near the source rather than relying on a central data center."
@@ -115,7 +147,7 @@ Example with vision:
   "text_prompt": "Describe what you see in this image.",
   "expected_output_tokens": 250,
   "task": {
-    "task_type": "Image Description", 
+    "task_type": "Image Description",
     "task_criteria": "Provide a detailed description of the image content"
   },
   "golden_answer": "A detailed description of the expected image content.",
@@ -125,47 +157,63 @@ Example with vision:
 
 ## Model Profiles Data Format
 
-The benchmarking tool requires to input the model profiles in JSONL format, with each line containing a Model name, region, inference profile and cost data. Each evaluation profile must follow this schema:
+The benchmarking tool requires model profiles in JSONL format, with each line containing a model identifier, region (for Bedrock models), and cost data.
 
 ### Field Descriptions
 
+- `model_id`: Target model identifier
+  - For Bedrock models: `"bedrock/us.amazon.nova-pro-v1:0"`
+  - For OpenAI models: `"openai/gpt-4o"`
+  - For Google models: `"gemini/gemini-2.0-flash"`
 
-- `model_id`: Target model identifier (example: "amazon.nova-pro-v1:0")
-  - Specifies which model will process the prompt
-  - For Bedrock models, use the full model ID and provider (e.g., "bedrock/us.amazon.nova-pro-v1:0")
-  - For third-party models, use identifiers like "openai/gpt-4" or "openai/gpt-3.5-turbo"
-
-- `region`: AWS region for Bedrock models (example: "us-east-1")
+- `region`: AWS region for Bedrock models (example: "us-west-2")
+  - **Required for Bedrock models only**
   - Region where the Bedrock model is available
-  - Not required for third-party models
+  - Not required for third-party models (OpenAI, Google, Azure)
 
-- `input_token_cost` or `input_cost_per_1k`: Cost per 1,000 input tokens (example: 0.0008)
+- `input_token_cost`: Cost per 1,000 input tokens (example: 0.0008)
   - Used for cost calculation and reporting
-  - Both field names are supported
 
-- `output_token_cost` or `output_cost_per_1k`: Cost per 1,000 output tokens (example: 0.0032)
+- `output_token_cost`: Cost per 1,000 output tokens (example: 0.0032)
   - Used for cost calculation and reporting
-  - Both field names are supported
 
-Example:
+- `target_rpm` (optional): Target requests per minute for rate limiting (example: 60)
+  - Used for reliability testing at specific load levels
+  - When set, the framework will throttle requests to maintain this rate
+  - Useful for identifying error rates and throttling thresholds
+  - Set to `null` or omit the field for no rate limiting
+
+Examples:
+
+**Bedrock Model with Rate Limiting:**
 ```json
-{
-  "model_id": "bedrock/us.amazon.nova-pro-v1:0",
-  "region": "us-east-1",
-  "input_token_cost": 0.0008,
-  "output_token_cost": 0.0032
-}
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "target_rpm": 60}
 ```
 
-Sample evaluation files are provided in the `prompt-evaluations/` directory.
+**Bedrock Model without Rate Limiting:**
+```json
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032}
+```
+
+**Third-Party Model (OpenAI):**
+```json
+{"model_id": "openai/gpt-4o", "input_token_cost": 0.00125, "output_token_cost": 0.01}
+```
+
+**Third-Party Model (Google):**
+```json
+{"model_id": "gemini/gemini-2.0-flash", "input_token_cost": 0.00015, "output_token_cost": 0.0006}
+```
+
+Sample model profiles are provided in `default-config/models_profiles.jsonl`.
 
 ## Judge Configuration
 
-Judges are a required input data in JSONL format, with each line containing a judge used to evaluate the models' response. Each judge configuration must follow this schema:
+Judges are required input data in JSONL format, with each line containing a judge model used to evaluate the models' responses. Currently, only Bedrock models are supported as judges.
 
 ### Field Descriptions
 
-- `model_id`: Judge model identifier (example: "amazon.nova-pro-v1:0")
+- `model_id`: Judge model identifier (example: "bedrock/us.amazon.nova-premier-v1:0")
   - Currently only supporting Bedrock Model Judges
 
 - `region`: AWS region for Bedrock models (example: "us-east-1")
@@ -173,24 +221,20 @@ Judges are a required input data in JSONL format, with each line containing a ju
 
 - `input_cost_per_1k`: Input cost per one thousand tokens
   - Used for input pricing calculations
-  
+
 - `output_cost_per_1k`: Output cost per one thousand tokens
   - Used for output pricing calculations
 
 Example:
 ```json
-{
-  "model_id": "us.amazon.nova-premier-v1:0", 
-  "region": "us-east-2", 
-  "input_cost_per_1k": 0.0025, 
-  "output_cost_per_1k": 0.0125  
-}
+{"model_id": "bedrock/us.amazon.nova-premier-v1:0", "region": "us-east-2", "input_cost_per_1k": 0.0025, "output_cost_per_1k": 0.0125}
 ```
+
+Sample judge profiles are provided in `default-config/judge_profiles.jsonl`.
 
 ### 📝 Vision Model Compatibility Important Notes
 
-When using the vision functionality (`--vision_enabled true` flag or enabling "Vision Model" in the dashboard), ensure you're using a model that supports image inputs. Vision mode allows models to process both text prompts and images together. 
-
+When using the vision functionality (`--vision_enabled true` flag or enabling "Vision Model" in the dashboard), ensure you're using a model that supports image inputs. Vision mode allows models to process both text prompts and images together.
 
 1. **Error Handling**: If you send image content to a non-vision model, the evaluation will continue but the incorrectly configured evaluations will be stored in the logs as: "Model 'model_name' does not support vision capabilities"
 
@@ -205,20 +249,51 @@ When using the vision functionality (`--vision_enabled true` flag or enabling "V
 
 ## Usage
 
+### Configuration Validation
+
+Before running evaluations, validate your configuration files to catch errors early:
+
+```bash
+python src/config_validator.py default-config/
+```
+
+This will check:
+- Model profiles for correct format and required fields
+- Judge profiles for valid configuration
+- Duplicate model IDs
+- Cost values within reasonable ranges
+- Region format for AWS models
+
+### Streamlit Dashboard
+
+Launch the interactive web dashboard for a user-friendly evaluation experience:
+
+```bash
+streamlit run src/streamlit_dashboard.py
+```
+
+The dashboard provides:
+- **Setup Tab**: Configure evaluations, models, and advanced settings
+- **Monitor Tab**: Track running evaluations in real-time
+- **Evaluations Tab**: View and analyze evaluation results
+- **Reports Tab**: Browse and view generated HTML reports
+
 ### File Path Resolution
 
 - **Input evaluation files**: Should be placed in the `prompt-evaluations/` directory. The tool will automatically look for input files in this directory.
 - **Model profiles**: If not specified, defaults to `default-config/models_profiles.jsonl`
 - **Judge profiles**: If not specified, defaults to `default-config/judge_profiles.jsonl`
 - **Output files**: Saved to the directory specified by `--output_dir` (default: `benchmark-results/`)
+- **Unprocessed records**: Failed evaluations are logged in `benchmark-results/unprocessed/`
 
-### Running Benchmarks
+### Running Benchmarks (CLI)
 
 ```bash
 # Basic usage
 # Note: Input files should be placed in the prompt-evaluations/ directory
 python src/benchmarks_run.py input_file.jsonl
 ```
+
 ```bash
 # Advanced usage with all options
 python src/benchmarks_run.py input_file.jsonl \
@@ -231,12 +306,46 @@ python src/benchmarks_run.py input_file.jsonl \
     --experiment_wait_time 0 \
     --temperature_variations 2 \
     --user_defined_metrics "business writing style, brand adherence" \
-    --model_file_name "name of the jsonl file containing the models to evaluate" \
-    --judge_file_name "name of the jsonl file containing the judges used to evaluate" \
+    --model_file_name "models_profiles.jsonl" \
+    --judge_file_name "judge_profiles.jsonl" \
     --evaluation_pass_threshold 3 \
     --report true \
-    --vision_enabled false
+    --vision_enabled false \
+    --prompt_optimization_mode none
 ```
+
+### Prompt Optimization Feature
+
+Amazon Bedrock supports automatic prompt optimization for specific target models. This feature can improve prompt effectiveness by adapting them to each model's strengths.
+
+**Available Modes:**
+
+1. **`none`** (default): No prompt optimization, use original prompts
+2. **`optimize_only`**: Replace all prompts with optimized versions
+3. **`evaluate_both`**: Run evaluations with both original and optimized prompts for comparison
+
+**Usage:**
+
+```bash
+# Optimize prompts for all Bedrock models
+python src/benchmarks_run.py input_file.jsonl \
+    --prompt_optimization_mode optimize_only
+
+# Compare original vs optimized prompts
+python src/benchmarks_run.py input_file.jsonl \
+    --prompt_optimization_mode evaluate_both \
+    --experiment_name "optimization-comparison"
+```
+
+**Output:**
+- Optimization logs are saved to `benchmark-results/prompt_optimization_log_<experiment_name>_<timestamp>.json`
+- Shows which prompts were successfully optimized, skipped, or failed
+- In `evaluate_both` mode, optimized variants are labeled with `_Prompt_Optimized` suffix in reports
+
+**Notes:**
+- Only works with Bedrock models (non-Bedrock models will use original prompts)
+- Requires access to Amazon Bedrock's prompt optimization API
+- Failed optimizations automatically fall back to original prompts
 
 #### Command Line Arguments
 
@@ -248,35 +357,52 @@ python src/benchmarks_run.py input_file.jsonl \
 - `--experiment_counts`: Number of experiment repetitions (default: 2)
 - `--experiment_name`: Name for this benchmark run (default: "Benchmark-YYYYMMDD")
 - `--experiment_wait_time`: Wait time in seconds between experiments (default: 0, no wait)
-- `--temperature_variations`: Number of pct variations in the evaluation dataset default temperature ( + - 25th percentile)
-- `--user_defined_metrics`:  Comma delimited user-defined evaluation metrics tailored to specific use cases 
-- `--model_file_name`: Name of the jsonl file containing the models to evaluate (defaults to `default-config/models_profiles.jsonl`)
-- `--judge_file_name`: Name of the jsonl file containing the judges used to evaluate (defaults to `default-config/judge_profiles.jsonl`)
-- `--evaluation_pass_threshold`: Number used by in the evaluation to determine Pass|Fails (default: 3)
+- `--temperature_variations`: Number of temperature variations (±25% percentile increments, default: 0)
+- `--user_defined_metrics`: Comma-delimited user-defined evaluation metrics tailored to specific use cases
+- `--model_file_name`: Name of the JSONL file containing the models to evaluate (defaults to `default-config/models_profiles.jsonl`)
+- `--judge_file_name`: Name of the JSONL file containing the judges used to evaluate (defaults to `default-config/judge_profiles.jsonl`)
+- `--evaluation_pass_threshold`: Threshold score used to determine Pass|Fail (default: 3 out of 5)
 - `--report`: Generate HTML report after benchmarking (default: true)
 - `--vision_enabled`: Enable vision model capabilities for image inputs (default: false)
+- `--prompt_optimization_mode`: Prompt optimization mode - `none`, `optimize_only`, or `evaluate_both` (default: none)
 
 ### Visualizing Results
 
-The benchmarking tool automatically generates interactive HTML reports when it completes. These reports can be found in the output directory specified (default: `benchmark_results/`).
+The benchmarking tool automatically generates interactive HTML reports when it completes. These reports can be found in the output directory specified (default: `benchmark-results/`).
 
 **⚠️ Report Generation Requirement:**
 HTML report generation requires access to the `us.amazon.nova-premier-v1:0` model in your AWS account. This model is used to analyze evaluation results and create the report content. If this model is not accessible, evaluations will complete successfully but HTML reports will not be generated.
 
 The reports include:
-- Performance comparisons across models
-- Latency and throughput metrics
-- Success rates and error analysis
-- Quality assessments when using LLM judge
+- **Performance comparisons**: Time to first token, tokens per second, cost per response
+- **Latency and throughput metrics**: Aggregated statistics with percentile distributions
+- **Success rate heatmaps**: Model performance across different task types
+- **Bubble charts**: Multi-dimensional performance visualization
+- **Radar charts**: Judge score breakdowns by evaluation dimension
+- **Error analysis**: Treemap visualization of failure patterns
+- **Regional performance**: Latency and cost analysis by AWS region with timezone awareness
+- **Temperature analysis**: Performance metrics grouped by temperature settings (if enabled)
+- **Statistical distributions**: Histogram overlays with normal distribution curves
+- **Composite scoring**: Integrated performance tables with color-coded rankings
 
 
 ## Project Structure
 - `assets/html_template.txt`: Web report template
-- `logs`: Logs of the evaluation session are stored here
-- `benchmark_results/unprocessed`: Records that failed to be evaluated are stored here
-- `src/benchmarks_run.py`: Main benchmarking engine
-- `src/utils.py`: Utility functions for API interactions and data processing
-- `src/visualize_results.py`: Data visualization and reporting tools
+- `assets/scale_icon.png`: Dashboard icon
+- `default-config/`: Default configuration files
+  - `models_profiles.jsonl`: Model configuration examples
+  - `judge_profiles.jsonl`: Judge configuration examples
+- `logs/`: Logs of evaluation sessions are stored here
+- `benchmark-results/`: Output directory for results and reports
+  - `unprocessed/`: Records that failed to be evaluated
+- `prompt-evaluations/`: Input directory for evaluation scenarios
+- `src/`: Source code
+  - `benchmarks_run.py`: Main benchmarking engine
+  - `config_validator.py`: Configuration validation tool
+  - `utils.py`: Utility functions for API interactions and data processing
+  - `visualize_results.py`: Data visualization and reporting tools
+  - `streamlit_dashboard.py`: Streamlit web dashboard
+  - `dashboard/`: Dashboard components and utilities
 
 ## Requirements
 
@@ -289,8 +415,64 @@ The reports include:
 - Dotenv
 - Streamlit
 - Scipy
-- AWS account, Amazon Bedrock access & credentials stored
+- Pytz
+- AWS account with Amazon Bedrock access and credentials configured
 - Access to `us.amazon.nova-premier-v1:0` model (required for HTML report generation)
+
+## Advanced Features
+
+### Automatic Model Access Verification
+Before running evaluations, the tool automatically verifies access to all configured models in parallel, providing immediate feedback on any permission issues.
+
+### Retry Logic with Tracking
+Failed API calls are automatically retried with exponential backoff. The `inference_request_count` metric tracks the number of retries per evaluation.
+
+### Per-Scenario Metrics
+You can override global user-defined metrics on a per-scenario basis by adding `"user_defined_metrics": "metric1, metric2"` to individual evaluation entries.
+
+### Composite Scoring
+The integrated analysis tables use composite scoring that combines:
+- Success rate (quality)
+- Latency (speed)
+- Cost (efficiency)
+- Throughput (tokens per second)
+
+### Regional Performance Analysis
+Reports include timezone-aware regional analysis showing:
+- Performance by AWS region
+- Time-of-day correlation with performance
+- Average retry counts by region
+- Composite scores for optimal region selection
+
+### Rate Limiting & Reliability Testing
+The framework supports configurable rate limiting (target RPM) for testing model reliability at specific load levels. This helps identify optimal production settings and throttling thresholds.
+
+**How it works:**
+- Configure `target_rpm` in model profiles to set requests per minute limit
+- The framework uses a token bucket algorithm to throttle requests
+- Rate limiting is applied per model-region combination
+- Metrics are tracked for each throttled request
+
+**Metrics tracked:**
+- **Target RPM**: Configured requests per minute limit
+- **Actual RPM**: Actual average rate achieved during evaluation
+- **Throttle Events**: Number of times requests were delayed
+- **Wait Time**: Total and average time spent waiting due to rate limiting
+- **Success/Error Rates**: Model reliability at the configured RPM
+
+**Use cases:**
+- Test model reliability at expected production load
+- Identify throttling thresholds before deployment
+- Compare error rates across different RPM settings
+- Optimize request rate for cost vs. throughput
+
+**Example configuration:**
+```json
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "target_rpm": 60}
+```
+
+**Viewing results:**
+In the Streamlit dashboard, completed evaluations will display RPM metrics including target vs actual RPM, throttle events, and success/error rates for models configured with rate limiting.
 
 ## License
 

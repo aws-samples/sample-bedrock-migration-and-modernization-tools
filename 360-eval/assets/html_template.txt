@@ -162,7 +162,7 @@
       display: flex;
       justify-content: center;
       margin: 2rem auto;
-      max-width: 550px;
+      max-width: 1100px;
       background: #2d2d2d;
       padding: 1rem;
       border-radius: 8px;
@@ -408,26 +408,25 @@
     <div class="card">
       <h3>Judge Scores Analysis</h3>
       <div class="highlight">
-        <p>The radar charts below show how each model performs across different quality dimensions for all tasks.</p>
+        <p>The radar charts below show all models compared for each task. Each chart overlays all models evaluated for that specific task, making it easy to compare performance across different quality dimensions.</p>
         <div class="model-selector">
-          <label for="modelSelect">Select Model: </label>
-          <select id="modelSelect" onchange="showModelChart(this.value)">
-            {% for model in unique_models %}
-            <option value="{{ model }}" {% if loop.first %}selected{% endif %}>{{ model }}</option>
+          <label for="taskRadarSelect">Select Task: </label>
+          <select id="taskRadarSelect" onchange="showTaskRadarChart(this.value)">
+            {% for task_name in judge_score_radars.keys() %}
+            <option value="{{ task_name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') }}"
+                    {% if loop.first %}selected{% endif %}>{{ task_name }}</option>
             {% endfor %}
           </select>
         </div>
       </div>
+
       <div class="radar-charts-container">
-        {% for model in unique_models %}
-        <div id="chart-{{ model|replace('.', '-')|replace(':', '-') }}" class="model-chart"
-          style="{% if not loop.first %}display: none;{% endif %}">
+        {% for task_name, chart_html in judge_score_radars.items() %}
+        <div id="radar-{{ task_name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') }}"
+             class="task-radar-chart"
+             style="{% if not loop.first %}display: none;{% endif %}">
           <div class="radar-chart-single">
-            {% if model in judge_score_radars %}
-            {{ judge_score_radars[model] | safe }}
-            {% else %}
-            <p>No data available for this model</p>
-            {% endif %}
+            {{ chart_html | safe }}
           </div>
         </div>
         {% endfor %}
@@ -458,20 +457,21 @@
 
 
   <script>
-    function showModelChart(modelName) {
-      // Hide all model charts
-      document.querySelectorAll('.model-chart').forEach(function (el) {
+    function showTaskRadarChart(taskName) {
+      // Hide all task radar charts
+      document.querySelectorAll('.task-radar-chart').forEach(function(el) {
         el.style.display = 'none';
       });
-      // Show selected model's chart
-      const selectedChart = document.getElementById('chart-' + modelName.replace(/\./g, '-').replace(/:/g, '-'));
+
+      // Show the selected task's chart
+      const selectedChart = document.getElementById('radar-' + taskName);
       if (selectedChart) {
         selectedChart.style.display = 'block';
         // Force Plotly to resize
         window.dispatchEvent(new Event('resize'));
       }
     }
-    
+
     function showTaskTable(taskName) {
       console.log('Switching to table:', taskName); // Debug logging
       
