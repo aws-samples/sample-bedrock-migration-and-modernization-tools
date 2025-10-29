@@ -181,45 +181,52 @@ def run_evaluations_linearly(evaluation_configs):
 def _process_evaluation_queue():
     """Process evaluations from the queue one by one."""
     global _evaluation_queue, _current_evaluation
-    
+
     dashboard_logger.info("Evaluation queue processor started")
-    
+
     while True:
         with _execution_lock:
             if not _evaluation_queue:
                 break
-            
+
             _current_evaluation = _evaluation_queue.pop(0)
             eval_id = _current_evaluation["id"]
             eval_name = _current_evaluation["name"]
-        
+
         dashboard_logger.info(f"Starting evaluation: '{eval_name}' (ID: {eval_id})")
-        
+
         try:
             # Update status to running
             update_evaluation_status(eval_id, "running", 5)
-            
+
             # Store evaluation config
             _thread_local_evaluations[eval_id] = _current_evaluation.copy()
-            
-            # Run the benchmark process synchronously
-            success = run_benchmark_process(eval_id)
-            
+
+            # Route to appropriate benchmark process based on evaluation type
+            eval_type = _current_evaluation.get("evaluation_type", "llm")
+
+            if eval_type == "rag":
+                dashboard_logger.info(f"Running RAG evaluation for {eval_id}")
+                success = run_rag_benchmark_process(eval_id)
+            else:
+                dashboard_logger.info(f"Running LLM evaluation for {eval_id}")
+                success = run_benchmark_process(eval_id)
+
             if success:
                 dashboard_logger.info(f"Completed evaluation: '{eval_name}' (ID: {eval_id})")
             else:
                 dashboard_logger.error(f"Failed evaluation: '{eval_name}' (ID: {eval_id})")
-                
+
         except Exception as e:
             dashboard_logger.error(f"Error executing evaluation '{eval_name}' (ID: {eval_id}): {str(e)}")
             update_evaluation_status(eval_id, "failed", 0, error=str(e))
-        
+
         # Small delay between evaluations
         time.sleep(2)
-    
+
     with _execution_lock:
         _current_evaluation = None
-    
+
     dashboard_logger.info("Evaluation queue processor finished")
 
 def get_queue_status():
@@ -291,30 +298,40 @@ def run_benchmark_process(eval_id):
                 dashboard_logger.info(f"JSONL file already exists for {eval_name}, using existing file")
             else:
                 # Convert CSV data to JSONL only if csv_data exists
-                if "csv_data" not in evaluation_config:
-                    error_msg = "Cannot create new evaluation without CSV data. This evaluation may have been created in a previous session."
+                if "csv_data" not in evaluation_config or evaluation_config["csv_data"] is None:
+                    error_msg = "Cannot retry evaluation: CSV data not available and JSONL file not found. Please create a new evaluation."
+                    dashboard_logger.error(f"File setup failed for {eval_id}: {error_msg}")
+                    dashboard_logger.error(f"Expected JSONL path: {jsonl_path}")
+                    _update_status_file(status_file, "failed", 0, error=error_msg)
+                    update_evaluation_status(eval_id, "failed", 0, error=error_msg)
+                    _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+                    return False
+
+                dashboard_logger.info(f"Converting CSV data to JSONL for {eval_name}")
+                try:
+                    jsonl_path = convert_to_jsonl(
+                        evaluation_config["csv_data"],
+                        evaluation_config["prompt_column"],
+                        evaluation_config["golden_answer_column"],
+                        evaluation_config["task_type"],
+                        evaluation_config["task_criteria"],
+                        "",
+                        evaluation_config["name"],
+                        evaluation_config.get("temperature", 0.7),
+                        evaluation_config.get("user_defined_metrics", ""),
+                        vision_enabled=evaluation_config.get("vision_enabled", False),
+                        image_column=evaluation_config.get("image_column")
+                    )
+                except Exception as e:
+                    error_msg = f"Error converting CSV to JSONL: {str(e)}"
                     dashboard_logger.error(f"File setup failed for {eval_id}: {error_msg}")
                     _update_status_file(status_file, "failed", 0, error=error_msg)
                     update_evaluation_status(eval_id, "failed", 0, error=error_msg)
                     _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
                     return False
-                    
-                jsonl_path = convert_to_jsonl(
-                    evaluation_config["csv_data"],
-                    evaluation_config["prompt_column"],
-                    evaluation_config["golden_answer_column"],
-                    evaluation_config["task_type"],
-                    evaluation_config["task_criteria"],
-                    "",
-                    evaluation_config["name"],
-                    evaluation_config.get("temperature", 0.7),
-                    evaluation_config.get("user_defined_metrics", ""),
-                    vision_enabled=evaluation_config.get("vision_enabled", False),
-                    image_column=evaluation_config.get("image_column")
-                )
-            
-            if not jsonl_path:
-                error_msg = "Failed to convert CSV data to JSONL format"
+
+            if not jsonl_path or not Path(jsonl_path).exists():
+                error_msg = f"JSONL file creation failed. Expected path: {jsonl_path}"
                 dashboard_logger.error(f"File setup failed for {eval_id}: {error_msg}")
                 _update_status_file(status_file, "failed", 0, error=error_msg)
                 update_evaluation_status(eval_id, "failed", 0, error=error_msg)
@@ -690,6 +707,359 @@ def run_benchmark_process(eval_id):
         if 'stderr_capture' in locals():
             stderr_capture.close()
         
+        # Clean up thread-local storage
+        if eval_id in _thread_local_evaluations:
+            del _thread_local_evaluations[eval_id]
+
+
+def run_rag_benchmark_process(eval_id):
+    """
+    Run RAG benchmark evaluation in a subprocess.
+
+    Args:
+        eval_id: ID of the evaluation to run
+
+    Returns:
+        bool: True if successful, False if failed
+    """
+    # Get the evaluation config from thread-local storage
+    if eval_id not in _thread_local_evaluations:
+        dashboard_logger.error(f"RAG evaluation {eval_id} not found in thread-local storage")
+        return False
+
+    evaluation_config = _thread_local_evaluations[eval_id]
+    eval_name = evaluation_config["name"]
+    rag_config = evaluation_config.get("rag_config", {})
+
+    # Create composite identifier for consistent file naming
+    composite_id = f"{eval_id}_{eval_name}"
+
+    # Create evaluation-specific log handler for this evaluation
+    _create_evaluation_log_handler(eval_id)
+    dashboard_logger.info(f"Started logging for RAG evaluation {eval_id} ({eval_name})")
+
+    try:
+        # Get project root
+        from .constants import PROJECT_ROOT, DEFAULT_OUTPUT_DIR
+
+        # Create output directory if it doesn't exist
+        output_dir = Path(DEFAULT_OUTPUT_DIR)
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Create logs directory
+        logs_dir = Path(PROJECT_ROOT) / "logs"
+        os.makedirs(logs_dir, exist_ok=True)
+
+        # Create a status file to track progress
+        status_file = Path(STATUS_FILES_DIR) / f"eval_{composite_id}_status.json"
+        _update_status_file(status_file, "in-progress", 0, logs_dir=str(logs_dir))
+
+        # Start time to track session evaluations
+        eval_start_time = time.time()
+        _update_status_file(status_file, "in-progress", 0, logs_dir=str(logs_dir), start_time=eval_start_time)
+
+        # Save RAG input files to temporary location
+        dashboard_logger.info(f"Setting up RAG evaluation files for {eval_id}")
+        try:
+            prompt_eval_dir = Path(PROJECT_ROOT) / "prompt-evaluations"
+            os.makedirs(prompt_eval_dir, exist_ok=True)
+
+            # Save queries CSV file
+            queries_csv_path = prompt_eval_dir / f"rag_queries_{composite_id}.csv"
+
+            # Check if queries CSV already exists (from previous failed attempt or retry)
+            if queries_csv_path.exists():
+                dashboard_logger.info(f"Queries CSV already exists for {eval_name}, using existing file: {queries_csv_path}")
+            elif rag_config.get("queries_csv_data") is not None:
+                # Create new queries CSV from data
+                import pandas as pd
+                queries_df = pd.DataFrame(rag_config["queries_csv_data"])
+                queries_df.to_csv(queries_csv_path, index=False)
+                dashboard_logger.info(f"Saved queries CSV to {queries_csv_path}")
+            else:
+                # No file exists and no data available - cannot proceed
+                error_msg = "No queries CSV data found in RAG config and no existing file found. Cannot retry without data."
+                dashboard_logger.error(error_msg)
+                _update_status_file(status_file, "failed", 0, error=error_msg)
+                update_evaluation_status(eval_id, "failed", 0, error=error_msg)
+                _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+                return False
+
+            # Save data source file
+            # Determine file extension and whether it's binary
+            file_ext = rag_config.get("data_source_file_ext", "txt")
+            is_binary = rag_config.get("data_source_is_binary", False)
+            data_source_path = prompt_eval_dir / f"rag_datasource_{composite_id}.{file_ext}"
+
+            # Check if data source already exists (from previous failed attempt or retry)
+            if data_source_path.exists():
+                dashboard_logger.info(f"Data source already exists for {eval_name}, using existing file: {data_source_path}")
+            elif rag_config.get("data_source_file") is not None:
+                # Create new data source from data
+                if is_binary:
+                    # Decode base64 and write as binary
+                    import base64
+                    binary_content = base64.b64decode(rag_config["data_source_file"])
+                    with open(data_source_path, 'wb') as f:
+                        f.write(binary_content)
+                else:
+                    # Write as text
+                    with open(data_source_path, 'w', encoding='utf-8') as f:
+                        f.write(rag_config["data_source_file"])
+                dashboard_logger.info(f"Saved data source to {data_source_path}")
+            else:
+                # No file exists and no data available - cannot proceed
+                error_msg = "No data source file found in RAG config and no existing file found. Cannot retry without data."
+                dashboard_logger.error(error_msg)
+                _update_status_file(status_file, "failed", 0, error=error_msg)
+                update_evaluation_status(eval_id, "failed", 0, error=error_msg)
+                _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+                return False
+
+            dashboard_logger.info(f"RAG file setup completed for {eval_id}")
+
+        except Exception as e:
+            error_msg = f"RAG file setup error: {str(e)}"
+            dashboard_logger.exception(error_msg)
+            _update_status_file(status_file, "failed", 0, error=error_msg)
+            update_evaluation_status(eval_id, "failed", 0, error=error_msg)
+            _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+            return False
+
+        # Get current script directory for reliable relative paths
+        script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+        # Build command for rag_benchmarks_run.py
+        cmd = [
+            "python",
+            os.path.join(script_dir, "rag_benchmarks_run.py"),
+            str(queries_csv_path),
+            str(data_source_path),
+            "--output_dir", str(output_dir),
+            "--query_column", rag_config.get("query_column", "query"),
+            "--ground_truth_column", rag_config.get("ground_truth_column", "ground_truth_chunks"),
+            "--data_format", rag_config.get("data_format", "auto"),
+            "--chunking_strategy", rag_config.get("chunking_strategy", "recursive"),
+            "--chunk_size", str(rag_config.get("chunk_size", 512)),
+            "--chunk_overlap", str(rag_config.get("chunk_overlap", 50)),
+            "--similarity_threshold", str(rag_config.get("similarity_threshold", 0.5)),
+            "--top_k", str(rag_config.get("top_k", 5)),
+            "--invocations_per_query", str(rag_config.get("invocations_per_query", 1)),
+            "--experiment_name", composite_id,
+            "--parallel_calls", str(evaluation_config.get("parallel_calls", 1)),
+            # Rate limiting parameters
+            "--sleep_between_calls", str(rag_config.get("sleep_between_calls", 2.0)),
+            "--sleep_between_batches", str(rag_config.get("sleep_between_batches", 2.0)),
+            "--batch_size", str(rag_config.get("batch_size", 50)),
+            "--max_retries", str(rag_config.get("max_retries", 5))
+        ]
+
+        # Add embedding models (comma-separated model IDs)
+        if rag_config.get("embedding_models"):
+            embedding_model_ids = [m["model_id"] for m in rag_config["embedding_models"]]
+            cmd.extend(["--embedding_models", ",".join(embedding_model_ids)])
+
+        # Add semantic chunking model (if specified)
+        if rag_config.get("semantic_chunking_model_id"):
+            cmd.extend(["--semantic_chunking_model_id", rag_config["semantic_chunking_model_id"]])
+
+        # Add reranker configuration
+        if rag_config.get("reranker_config"):
+            reranker_config = rag_config["reranker_config"]
+            cmd.extend(["--reranker_type", reranker_config.get("type", "none")])
+            if reranker_config.get("reranker_id") != "none":
+                cmd.extend(["--reranker_id", reranker_config["reranker_id"]])
+
+        # Add optional parameters
+        if rag_config.get("data_source_text_field"):
+            cmd.extend(["--text_field", rag_config["data_source_text_field"]])
+
+        if rag_config.get("custom_chunking_script"):
+            custom_script_path = prompt_eval_dir / f"custom_chunking_{composite_id}.py"
+            with open(custom_script_path, 'w', encoding='utf-8') as f:
+                f.write(rag_config["custom_chunking_script"])
+            cmd.extend(["--custom_chunking_script", str(custom_script_path)])
+
+        # Start RAG benchmark execution
+        working_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        dashboard_logger.info(f"Starting RAG benchmark execution for {eval_id}")
+        dashboard_logger.debug(f"Full command: {' '.join(cmd)}")
+
+        # Create stdout/stderr capture variables
+        stdout_capture = StringIO()
+        stderr_capture = StringIO()
+
+        # Run the benchmark command with output capture
+        try:
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                cwd=working_dir
+            )
+
+            dashboard_logger.info(f"RAG benchmark process started for {eval_id} with PID {process.pid}")
+
+            # Set up threads to read process output
+            stdout_line_count = 0
+            stderr_line_count = 0
+
+            def read_stdout():
+                nonlocal stdout_line_count
+                for line in iter(process.stdout.readline, ''):
+                    stdout_capture.write(line)
+                    stdout_line_count += 1
+                    if stdout_line_count % 50 == 0 or any(keyword in line.lower() for keyword in ['error', 'warning', 'completed', 'failed']):
+                        dashboard_logger.debug(f"STDOUT ({stdout_line_count} lines): {line.strip()}")
+
+            def read_stderr():
+                nonlocal stderr_line_count
+                for line in iter(process.stderr.readline, ''):
+                    stderr_capture.write(line)
+                    stderr_line_count += 1
+                    if any(keyword in line.lower() for keyword in ['error', 'exception', 'failed', 'traceback']) or stderr_line_count % 50 == 0:
+                        dashboard_logger.debug(f"STDERR ({stderr_line_count} lines): {line.strip()}")
+
+            stdout_thread = threading.Thread(target=read_stdout)
+            stderr_thread = threading.Thread(target=read_stderr)
+            stdout_thread.daemon = True
+            stderr_thread.daemon = True
+            stdout_thread.start()
+            stderr_thread.start()
+
+            # Monitor evaluation state
+            poll_count = 0
+            while True:
+                if process.poll() is not None:
+                    dashboard_logger.info(f"RAG benchmark process completed for {eval_id} with return code {process.returncode}")
+                    break
+
+                # Update progress periodically
+                if poll_count % 6 == 0:
+                    _update_status_file(status_file, "running", min(poll_count * 2, 90), logs_dir=str(logs_dir))
+                    update_evaluation_status(eval_id, "running", min(poll_count * 2, 90))
+
+                time.sleep(10)
+                poll_count += 1
+
+            # Make sure we've read all output
+            stdout_thread.join(timeout=5)
+            stderr_thread.join(timeout=5)
+
+            # Process completed - check final status
+            return_code = process.wait()
+
+            # Get final output content
+            stdout_content = stdout_capture.getvalue()
+            stderr_content = stderr_capture.getvalue()
+
+            if stdout_content:
+                dashboard_logger.debug(f"Final STDOUT: {stdout_content[-500:]}")
+            if stderr_content:
+                dashboard_logger.debug(f"Final STDERR: {stderr_content[-500:]}")
+
+            # Check for errors
+            if return_code != 0:
+                error_msg = f"RAG benchmark failed with return code {return_code}"
+                if stderr_content and any(critical in stderr_content.lower() for critical in ['fatal', 'critical error', 'traceback', 'exception']):
+                    error_msg += f". Error details: {stderr_content[:300]}"
+                dashboard_logger.error(error_msg)
+                _update_status_file(status_file, "failed", 0, logs_dir=str(logs_dir), error=error_msg)
+                update_evaluation_status(eval_id, "failed", 0, error=error_msg)
+                _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+                return False
+
+            dashboard_logger.info(f"RAG benchmark execution completed successfully for {eval_id}")
+
+        except Exception as e:
+            dashboard_logger.exception(f"Exception during RAG subprocess execution: {str(e)}")
+            error_msg = f"Subprocess error: {str(e)}"
+            _update_status_file(status_file, "failed", 0, logs_dir=str(logs_dir), error=error_msg)
+            update_evaluation_status(eval_id, "failed", 0, error=error_msg)
+            _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+            return False
+
+        # Look for generated results (RAG uses rag_invocations_ prefix)
+        dashboard_logger.info(f"Looking for RAG results in {output_dir}")
+
+        # Check for RAG CSV results
+        rag_csv_files = list(output_dir.glob(f"rag_invocations_*{composite_id}*.csv"))
+
+        dashboard_logger.info(f"Found {len(rag_csv_files)} RAG CSV files")
+
+        if rag_csv_files:
+            latest_csv = max(rag_csv_files, key=os.path.getmtime)
+            results_path = str(latest_csv)
+
+            # Verify CSV has valid data
+            try:
+                import pandas as pd
+                csv_df = pd.read_csv(latest_csv)
+                if len(csv_df) > 0:
+                    dashboard_logger.info(f"RAG CSV contains {len(csv_df)} retrieval results")
+                    csv_has_valid_data = True
+                else:
+                    dashboard_logger.warning("RAG CSV file exists but is empty")
+                    csv_has_valid_data = False
+            except Exception as e:
+                dashboard_logger.warning(f"Could not analyze RAG CSV file: {str(e)}")
+                csv_has_valid_data = True  # Assume valid if we can't parse
+
+            if csv_has_valid_data:
+                _update_status_file(status_file, "completed", 100,
+                                   logs_dir=str(logs_dir),
+                                   results=results_path,
+                                   end_time=time.time(),
+                                   eval_id=eval_id,
+                                   eval_name=eval_name,
+                                   output_dir=str(output_dir),
+                                   evaluation_config=evaluation_config)
+                update_evaluation_status(eval_id, "completed", 100, results=results_path)
+                dashboard_logger.info(f"RAG evaluation completed successfully. Results: {results_path}")
+
+                # Clean up temporary files
+                try:
+                    if queries_csv_path.exists():
+                        queries_csv_path.unlink()
+                    if data_source_path.exists():
+                        data_source_path.unlink()
+                    dashboard_logger.info(f"Cleaned up temporary RAG input files")
+                except Exception as e:
+                    dashboard_logger.warning(f"Could not clean up RAG files: {str(e)}")
+            else:
+                error_msg = "RAG evaluation failed: CSV file generated but contains no results"
+                dashboard_logger.error(error_msg)
+                _update_status_file(status_file, "failed", 0, logs_dir=str(logs_dir), error=error_msg)
+                update_evaluation_status(eval_id, "failed", 0, error=error_msg)
+                _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+                return False
+        else:
+            error_msg = f"RAG evaluation failed: No results CSV generated. Expected pattern: rag_invocations_*{composite_id}*.csv"
+            dashboard_logger.error(error_msg)
+            _update_status_file(status_file, "failed", 0, logs_dir=str(logs_dir), error=error_msg)
+            update_evaluation_status(eval_id, "failed", 0, error=error_msg)
+            _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+            return False
+
+        # Clean up logs for successful evaluation
+        _cleanup_evaluation_logs(eval_id, preserve_on_failure=False, eval_name=eval_name)
+        return True
+
+    except Exception as e:
+        dashboard_logger.exception(f"Unexpected error in run_rag_benchmark_process: {str(e)}")
+        error_msg = str(e)
+        _update_status_file(status_file, "failed", 0, logs_dir=str(logs_dir) if 'logs_dir' in locals() else None, error=error_msg)
+        update_evaluation_status(eval_id, "failed", 0, error=error_msg)
+        _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+        return False
+    finally:
+        # Clean up StringIO objects
+        if 'stdout_capture' in locals():
+            stdout_capture.close()
+        if 'stderr_capture' in locals():
+            stderr_capture.close()
+
         # Clean up thread-local storage
         if eval_id in _thread_local_evaluations:
             del _thread_local_evaluations[eval_id]

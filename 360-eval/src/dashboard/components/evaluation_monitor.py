@@ -143,8 +143,8 @@ class EvaluationMonitorComponent:
                     
                 eval_data.append({
                     "Name": name_field,
-                    "Task Type": eval_config["task_type"],
-                    "Models": len(eval_config["selected_models"]),
+                    "Task Type": self._get_task_type_display(eval_config),
+                    "Models": self._get_models_count(eval_config),
                     "Status": eval_config["status"].capitalize(),
                     "Created": pd.to_datetime(eval_config["created_at"]).strftime("%Y-%m-%d %H:%M") if eval_config.get("created_at") else "N/A",
                 })
@@ -235,6 +235,45 @@ class EvaluationMonitorComponent:
         
 
     
+    def _get_task_type_display(self, eval_config):
+        """Get the display string for task type based on evaluation type.
+
+        Args:
+            eval_config: Evaluation configuration dictionary
+
+        Returns:
+            str: Task type display string
+        """
+        eval_type = eval_config.get("evaluation_type", "llm")
+
+        if eval_type == "rag":
+            # For RAG evaluations, show a descriptive label
+            timestamp = pd.to_datetime(eval_config["created_at"]).strftime("%Y%m%d_%H%M%S") if eval_config.get("created_at") else "unknown"
+            return f"RAG_Retrieval_{timestamp}"
+        else:
+            # For LLM evaluations, show the task type
+            return eval_config.get("task_type", "N/A")
+
+    def _get_models_count(self, eval_config):
+        """Get the count of models for the evaluation based on type.
+
+        Args:
+            eval_config: Evaluation configuration dictionary
+
+        Returns:
+            int: Number of models/embedding models
+        """
+        eval_type = eval_config.get("evaluation_type", "llm")
+
+        if eval_type == "rag":
+            # For RAG, count embedding models
+            rag_config = eval_config.get("rag_config", {})
+            embedding_models = rag_config.get("embedding_models", [])
+            return len(embedding_models)
+        else:
+            # For LLM, count selected models
+            return len(eval_config.get("selected_models", []))
+
     def _format_time(self, seconds):
         """Format seconds into a readable time string."""
         if seconds < 60:
@@ -305,10 +344,24 @@ class EvaluationMonitorComponent:
         for eval_id in eval_ids:
             for eval_config in st.session_state.evaluations:
                 if eval_config["id"] == eval_id:
-                    # Validate the configuration
-                    if not eval_config.get("selected_models") or not eval_config.get("judge_models"):
-                        st.error(f"Evaluation '{eval_config['name']}' is missing required configuration: models or judge models")
-                        continue
+                    # Validate the configuration based on evaluation type
+                    eval_type = eval_config.get("evaluation_type", "llm")
+
+                    if eval_type == "rag":
+                        # RAG evaluations need embedding models in rag_config
+                        rag_config = eval_config.get("rag_config", {})
+                        if not rag_config.get("embedding_models"):
+                            st.error(f"RAG Evaluation '{eval_config['name']}' is missing required configuration: embedding models")
+                            continue
+                        if rag_config.get("queries_csv_data") is None or rag_config.get("data_source_file") is None:
+                            st.error(f"RAG Evaluation '{eval_config['name']}' is missing required files: queries CSV or data source")
+                            continue
+                    else:
+                        # LLM evaluations need selected_models and judge_models
+                        if not eval_config.get("selected_models") or not eval_config.get("judge_models"):
+                            st.error(f"LLM Evaluation '{eval_config['name']}' is missing required configuration: models or judge models")
+                            continue
+
                     evals_to_run.append(eval_config)
                     break
         

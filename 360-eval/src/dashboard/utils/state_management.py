@@ -45,10 +45,14 @@ def initialize_session_state():
     
     if "adv_experiment_wait_time" not in st.session_state:
         st.session_state.adv_experiment_wait_time = 0
-    
+
+    # Initialize evaluation mode
+    if "evaluation_mode" not in st.session_state:
+        st.session_state.evaluation_mode = "LLM Evaluation"
+
     # Load evaluations from status files for persistence
     load_evaluations_from_files()
-    
+
     if "current_evaluation_config" not in st.session_state:
         st.session_state.current_evaluation_config = {
             "id": None,
@@ -76,7 +80,29 @@ def initialize_session_state():
             "progress": 0,
             "created_at": None,
             "updated_at": None,
-            "results": None
+            "results": None,
+            # Evaluation type
+            "evaluation_type": "llm",  # "llm" or "rag"
+            # RAG-specific configuration
+            "rag_config": {
+                "queries_csv_data": None,
+                "queries_file_name": None,
+                "query_column": "query",
+                "ground_truth_column": "ground_truth_chunks",
+                "data_source_file": None,
+                "data_source_file_name": None,
+                "data_source_file_ext": "txt",
+                "data_source_is_binary": False,
+                "data_format": "auto",
+                "data_source_text_field": None,
+                "chunking_strategy": "recursive",
+                "chunk_size": 512,
+                "chunk_overlap": 50,
+                "custom_chunking_script": None,
+                "embedding_models": [],
+                "reranker_config": {"type": "none", "reranker_id": "none"},
+                "top_k": 5
+            }
         }
     
     # Ensure output directory exists
@@ -111,7 +137,29 @@ def create_new_evaluation():
         "progress": 0,
         "created_at": datetime.now().isoformat(),
         "updated_at": datetime.now().isoformat(),
-        "results": None
+        "results": None,
+        # Evaluation type
+        "evaluation_type": "llm",  # "llm" or "rag"
+        # RAG-specific configuration
+        "rag_config": {
+            "queries_csv_data": None,
+            "queries_file_name": None,
+            "query_column": "query",
+            "ground_truth_column": "ground_truth_chunks",
+            "data_source_file": None,
+            "data_source_file_name": None,
+            "data_source_file_ext": "txt",
+            "data_source_is_binary": False,
+            "data_format": "auto",
+            "data_source_text_field": None,
+            "chunking_strategy": "recursive",
+            "chunk_size": 512,
+            "chunk_overlap": 50,
+            "custom_chunking_script": None,
+            "embedding_models": [],
+            "reranker_config": {"type": "none", "reranker_id": "none"},
+            "top_k": 5
+        }
     }
 
 
@@ -121,28 +169,53 @@ def save_current_evaluation():
     # Debug current state
     print(f"Current session state before saving: {len(st.session_state.evaluations)} evaluations")
     
-    # Get task evaluations, defaulting to single task if not present
-    task_evaluations = st.session_state.current_evaluation_config.get("task_evaluations", 
-        [{"task_type": st.session_state.current_evaluation_config.get("task_type", ""), 
-          "task_criteria": st.session_state.current_evaluation_config.get("task_criteria", "")}])
-    
+    # Check if this is a RAG evaluation
+    is_rag = st.session_state.current_evaluation_config.get("evaluation_type") == "rag"
+
+    # Get task evaluations, defaulting to single task if not present (only for LLM evaluations)
+    if not is_rag:
+        task_evaluations = st.session_state.current_evaluation_config.get("task_evaluations",
+            [{"task_type": st.session_state.current_evaluation_config.get("task_type", ""),
+              "task_criteria": st.session_state.current_evaluation_config.get("task_criteria", "")}])
+    else:
+        # For RAG evaluations, create a single dummy task evaluation
+        task_evaluations = [{"task_type": "RAG_Retrieval", "task_criteria": "Retrieval Quality"}]
+
     base_name = st.session_state.current_evaluation_config["name"]
-    
+
     # Create separate evaluations for each task evaluation
     for i, task_eval in enumerate(task_evaluations):
         if st.session_state.current_evaluation_config["id"] is None:
             # This is a new evaluation
             new_eval = copy.deepcopy(st.session_state.current_evaluation_config)
-            new_eval["id"] = str(uuid.uuid4())
+
+            # Use custom ID if provided, otherwise generate UUID
+            custom_id = new_eval.get("custom_id")
+            if custom_id and custom_id.strip():
+                # Use custom ID (with suffix if multiple tasks)
+                if len(task_evaluations) > 1:
+                    new_eval["id"] = f"{custom_id}_task{i+1}"
+                else:
+                    new_eval["id"] = custom_id
+                print(f"Using custom evaluation ID: {new_eval['id']}")
+            else:
+                # Generate UUID as fallback
+                new_eval["id"] = str(uuid.uuid4())
+                print(f"Generated UUID evaluation ID: {new_eval['id']}")
+
             new_eval["created_at"] = datetime.now().isoformat()
             new_eval["updated_at"] = datetime.now().isoformat()
             new_eval["status"] = "configuring"  # Ensure status is set
-            
+
             # Set individual task type, criteria, temperature, and user metrics for this evaluation
             new_eval["task_type"] = task_eval["task_type"]
             new_eval["task_criteria"] = task_eval["task_criteria"]
             new_eval["temperature"] = task_eval.get("temperature", 0.7)
             new_eval["user_defined_metrics"] = task_eval.get("user_defined_metrics", "")
+
+            # Ensure evaluation_type is explicitly set
+            if "evaluation_type" not in new_eval or new_eval["evaluation_type"] is None:
+                new_eval["evaluation_type"] = "llm"
             
             # Update evaluation name with index if multiple tasks
             if len(task_evaluations) > 1:
@@ -176,7 +249,11 @@ def save_current_evaluation():
                         updated_eval["task_criteria"] = task_eval["task_criteria"]
                         updated_eval["temperature"] = task_eval.get("temperature", 0.7)
                         updated_eval["user_defined_metrics"] = task_eval.get("user_defined_metrics", "")
-                        
+
+                        # Ensure evaluation_type is explicitly set
+                        if "evaluation_type" not in updated_eval or updated_eval["evaluation_type"] is None:
+                            updated_eval["evaluation_type"] = "llm"
+
                         # Remove task_evaluations array from individual evaluation
                         if "task_evaluations" in updated_eval:
                             del updated_eval["task_evaluations"]

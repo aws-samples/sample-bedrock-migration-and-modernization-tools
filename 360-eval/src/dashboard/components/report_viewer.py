@@ -274,8 +274,8 @@ class ReportViewerComponent:
             selected_evaluations: Optional list of evaluation names to filter by
         """
         try:
-            # Import the visualize_results module
-            from ...visualize_results import create_html_report
+            # Import the unified visualize_results module (supports LLM and RAG)
+            from ...visualize_results import create_unified_html_report
             from ..utils.constants import PROJECT_ROOT, DEFAULT_OUTPUT_DIR
             
             # Use the default output directory to look for all results
@@ -304,13 +304,18 @@ class ReportViewerComponent:
                 spinner_msg = f"Generating report from {len(csv_files)} result files... This may take a moment."
                 
             with st.spinner(spinner_msg):
-                # Call the report generator with the output directory and optional evaluation filter
-                report_path = create_html_report(output_dir, timestamp, selected_evaluations)
-                
+                # Call the unified report generator (supports both LLM and RAG)
+                report_path = create_unified_html_report(output_dir, timestamp, selected_evaluations)
+
                 # Find which CSV files were used to generate this comprehensive report
                 import glob
-                all_csv_files = glob.glob(str(Path(output_dir) / "invocations_*.csv"))
-                
+                # Include both LLM (invocations_*.csv) and RAG (rag_invocations_*.csv) files
+                llm_csv_files = glob.glob(str(Path(output_dir) / "invocations_*.csv"))
+                # Filter out RAG files from LLM list (they start with "rag_invocations_")
+                llm_csv_files = [f for f in llm_csv_files if not os.path.basename(f).startswith("rag_invocations_")]
+                rag_csv_files = glob.glob(str(Path(output_dir) / "rag_invocations_*.csv"))
+                all_csv_files = llm_csv_files + rag_csv_files
+
                 # Filter CSV files if specific evaluations were selected
                 if selected_evaluations:
                     csv_files_used = []

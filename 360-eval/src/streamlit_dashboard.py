@@ -89,7 +89,33 @@ def main():
         with st.sidebar:
             st.markdown(SIDEBAR_INFO)
             st.divider()
-            
+
+            # Evaluation Mode Selector
+            st.markdown("### 🎯 Evaluation Mode")
+
+            # Get current evaluation type from config to preserve selection
+            current_eval_type = st.session_state.current_evaluation_config.get("evaluation_type", "llm")
+            default_index = 1 if current_eval_type == "rag" else 0
+
+            eval_mode = st.radio(
+                "Select Evaluation Type",
+                ["LLM Evaluation", "RAG Evaluation"],
+                index=default_index,
+                key="evaluation_mode_selector",
+                help="Choose between LLM response evaluation or RAG retrieval evaluation"
+            )
+
+            # Update session state
+            st.session_state.evaluation_mode = eval_mode
+
+            # Set evaluation type in config
+            if eval_mode == "RAG Evaluation":
+                st.session_state.current_evaluation_config["evaluation_type"] = "rag"
+            else:
+                st.session_state.current_evaluation_config["evaluation_type"] = "llm"
+
+            st.divider()
+
             # Navigation tabs in sidebar - include Unprocessed tab
             tab_names = ["Setup", "Monitor", "Evaluations", "Reports", "Unprocessed"]
 
@@ -103,20 +129,43 @@ def main():
         
         # Main area - show different components based on active tab
         if active_tab == "Setup":
-            # Use tabs for the three setup sections
-            setup_tab1, setup_tab2, setup_tab3 = st.tabs(["Evaluation Setup", "Model Configuration", "Advanced Configuration"])
-            
-            with setup_tab1:
-                logger.info("Rendering Evaluation Setup component")
-                EvaluationSetupComponent().render()
-            
-            with setup_tab2:
-                logger.info("Rendering Model Configuration component")
-                ModelConfigurationComponent().render()
-            
-            with setup_tab3:
-                logger.info("Rendering Advanced Configuration component")
-                EvaluationSetupComponent().render_advanced_config()
+            # Conditional rendering based on evaluation mode
+            if st.session_state.evaluation_mode == "RAG Evaluation":
+                # RAG Evaluation Setup
+                st.info("🚀 RAG Evaluation Mode - Configure your retrieval evaluation settings")
+
+                try:
+                    from src.dashboard.components.rag_evaluation_setup import RAGEvaluationSetupComponent
+                    RAGEvaluationSetupComponent().render()
+                except ImportError as e:
+                    st.error(f"RAG Evaluation component not found: {str(e)}")
+                    st.info("RAG evaluation UI is under development. Use CLI for now.")
+                    st.code("""
+# Example CLI usage for RAG evaluation:
+python src/rag_benchmarks_run.py \\
+    sample_rag_queries.csv \\
+    sample_rag_datasource.txt \\
+    --data_format txt \\
+    --chunking_strategy recursive \\
+    --chunk_size 512 \\
+    --top_k 5
+                    """, language="bash")
+
+            else:
+                # LLM Evaluation Setup (existing functionality)
+                setup_tab1, setup_tab2, setup_tab3 = st.tabs(["Evaluation Setup", "Model Configuration", "Advanced Configuration"])
+
+                with setup_tab1:
+                    logger.info("Rendering Evaluation Setup component")
+                    EvaluationSetupComponent().render()
+
+                with setup_tab2:
+                    logger.info("Rendering Model Configuration component")
+                    ModelConfigurationComponent().render()
+
+                with setup_tab3:
+                    logger.info("Rendering Advanced Configuration component")
+                    EvaluationSetupComponent().render_advanced_config()
                 
         elif active_tab == "Monitor":
             logger.info("Rendering Evaluation Monitor component")

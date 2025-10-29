@@ -1968,12 +1968,405 @@ def create_regional_performance_analysis(df):
 
 
 
+# ==========================================
+# UNIFIED LLM/RAG VISUALIZATION SUPPORT
+# ==========================================
+
+def detect_evaluation_types(directory, evaluation_names=None):
+    """Detect what types of evaluations are present in the directory.
+
+    Args:
+        directory: Directory containing CSV files
+        evaluation_names: Optional list of evaluation names to filter by
+
+    Returns:
+        dict: Dictionary with keys 'llm_files', 'rag_files', 'types' (['llm'], ['rag'], or ['llm', 'rag'])
+    """
+    directory = Path(directory)
+
+    # Find LLM files (invocations_*.csv but NOT rag_invocations_*.csv)
+    all_llm_files = glob.glob(str(directory / "invocations_*.csv"))
+    # Filter out RAG files
+    llm_files = [f for f in all_llm_files if not Path(f).name.startswith("rag_invocations_")]
+
+    # Find RAG files (rag_invocations_*.csv)
+    rag_files = glob.glob(str(directory / "rag_invocations_*.csv"))
+
+    # Filter by evaluation names if specified
+    if evaluation_names:
+        filtered_llm = []
+        filtered_rag = []
+
+        for file_path in llm_files:
+            if any(eval_name in Path(file_path).name for eval_name in evaluation_names):
+                filtered_llm.append(file_path)
+
+        for file_path in rag_files:
+            if any(eval_name in Path(file_path).name for eval_name in evaluation_names):
+                filtered_rag.append(file_path)
+
+        llm_files = filtered_llm
+        rag_files = filtered_rag
+
+    # Determine types present
+    types = []
+    if llm_files:
+        types.append('llm')
+    if rag_files:
+        types.append('rag')
+
+    logger.info(f"Detected evaluation types: {types}")
+    logger.info(f"LLM files: {len(llm_files)}, RAG files: {len(rag_files)}")
+
+    return {
+        'llm_files': llm_files,
+        'rag_files': rag_files,
+        'types': types
+    }
+
+
+def load_rag_data(files):
+    """Load RAG evaluation data from CSV files.
+
+    Args:
+        files: List of RAG CSV file paths
+
+    Returns:
+        pd.DataFrame: Combined RAG data
+    """
+    if not files:
+        return pd.DataFrame()
+
+    dfs = []
+    for f in files:
+        try:
+            logger.info(f"Reading RAG file: {f}")
+            df = pd.read_csv(f)
+            logger.info(f"Read {len(df)} RAG records from {f}")
+            dfs.append(df)
+        except Exception as e:
+            logger.error(f"Error reading RAG file {f}: {e}")
+
+    if not dfs:
+        return pd.DataFrame()
+
+    combined = pd.concat(dfs, ignore_index=True)
+    logger.info(f"Combined RAG data: {len(combined)} total records")
+    return combined
+
+
+def create_rag_visualizations(df_rag):
+    """Create RAG-specific visualizations.
+
+    Args:
+        df_rag: DataFrame with RAG evaluation data
+
+    Returns:
+        dict: Dictionary of RAG visualization figures
+    """
+    viz = {}
+
+    if df_rag.empty:
+        return viz
+
+    try:
+        # 1. Embedding Model Comparison (Precision, Recall, Relevancy)
+        if 'embedding_model' in df_rag.columns and 'context_precision' in df_rag.columns:
+            # Build aggregation dict dynamically based on available columns
+            agg_dict = {
+                'context_precision': 'mean',
+                'context_recall': 'mean'
+            }
+            if 'context_relevancy' in df_rag.columns:
+                agg_dict['context_relevancy'] = 'mean'
+
+            metrics_by_model = df_rag.groupby('embedding_model').agg(agg_dict).reset_index()
+
+            fig = go.Figure()
+            fig.add_trace(go.Bar(name='Precision', x=metrics_by_model['embedding_model'], y=metrics_by_model['context_precision']))
+            fig.add_trace(go.Bar(name='Recall', x=metrics_by_model['embedding_model'], y=metrics_by_model['context_recall']))
+            if 'context_relevancy' in metrics_by_model.columns:
+                fig.add_trace(go.Bar(name='Relevancy', x=metrics_by_model['embedding_model'], y=metrics_by_model['context_relevancy']))
+
+            fig.update_layout(
+                title='Embedding Model Performance Comparison',
+                xaxis_title='Embedding Model',
+                yaxis_title='Score',
+                barmode='group',
+                template='plotly_dark'
+            )
+            viz['embedding_comparison'] = fig
+
+        # 2. Retrieval Latency Analysis - Stacked Bar Breakdown
+        if 'embedding_model' in df_rag.columns:
+            # Calculate average latencies per embedding model
+            latency_cols = ['query_embedding_latency', 'retrieval_latency', 'reranking_latency']
+            available_cols = [col for col in latency_cols if col in df_rag.columns]
+
+            if available_cols:
+                # Group by embedding model and calculate mean latencies
+                latency_data = df_rag.groupby('embedding_model')[available_cols].mean()
+
+                # Convert to milliseconds (assume input is in seconds)
+                latency_data_ms = latency_data * 1000
+
+                # Sort by total latency (ascending - fastest first)
+                latency_data_ms['total'] = latency_data_ms.sum(axis=1)
+                latency_data_ms = latency_data_ms.sort_values('total')
+
+                # Create stacked horizontal bar chart
+                fig = go.Figure()
+
+                # Add bars for each latency component
+                colors = {'query_embedding_latency': '#3498db', 'retrieval_latency': '#2ecc71', 'reranking_latency': '#f39c12'}
+                labels = {'query_embedding_latency': 'Query Embedding', 'retrieval_latency': 'Retrieval', 'reranking_latency': 'Reranking'}
+
+                for col in available_cols:
+                    fig.add_trace(go.Bar(
+                        name=labels.get(col, col),
+                        y=latency_data_ms.index,
+                        x=latency_data_ms[col],
+                        orientation='h',
+                        marker_color=colors.get(col, '#95a5a6'),
+                        text=[f"{val:.1f}ms" for val in latency_data_ms[col]],
+                        textposition='inside',
+                        hovertemplate='%{y}<br>' + labels.get(col, col) + ': %{x:.2f}ms<extra></extra>'
+                    ))
+
+                # Update layout
+                fig.update_layout(
+                    title='Latency Breakdown by Embedding Model',
+                    xaxis_title='Latency (ms)',
+                    yaxis_title='Embedding Model',
+                    barmode='stack',
+                    template='plotly_dark',
+                    showlegend=True,
+                    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+                    height=max(400, len(latency_data_ms) * 60)  # Dynamic height based on number of models
+                )
+
+                viz['retrieval_latency'] = fig
+
+        # 3. Cost Analysis by Embedding Model
+        if 'total_cost' in df_rag.columns and 'embedding_model' in df_rag.columns:
+            cost_by_model = df_rag.groupby('embedding_model')['total_cost'].sum().reset_index()
+            fig = px.bar(cost_by_model, x='embedding_model', y='total_cost',
+                        title='Total Cost by Embedding Model',
+                        labels={'total_cost': 'Total Cost ($)', 'embedding_model': 'Embedding Model'},
+                        template='plotly_dark')
+            viz['cost_analysis'] = fig
+
+        # 4. Precision@K and Recall@K Analysis
+        try:
+            precision_cols = [col for col in df_rag.columns if col.startswith('precision@')]
+            recall_cols = [col for col in df_rag.columns if col.startswith('recall@')]
+
+            if precision_cols and recall_cols and 'embedding_model' in df_rag.columns:
+                fig = make_subplots(rows=1, cols=2, subplot_titles=('Precision@K', 'Recall@K'))
+
+                for model in df_rag['embedding_model'].unique():
+                    model_data = df_rag[df_rag['embedding_model'] == model]
+                    k_values = [int(col.split('@')[1]) for col in precision_cols]
+                    precision_vals = [model_data[col].mean() for col in precision_cols]
+                    recall_vals = [model_data[col].mean() for col in recall_cols]
+
+                    fig.add_trace(go.Scatter(x=k_values, y=precision_vals, mode='lines+markers', name=f'{model} (P)', showlegend=True), row=1, col=1)
+                    fig.add_trace(go.Scatter(x=k_values, y=recall_vals, mode='lines+markers', name=f'{model} (R)', showlegend=True), row=1, col=2)
+
+                fig.update_layout(title='Precision@K and Recall@K by Embedding Model', template='plotly_dark')
+                fig.update_xaxes(title_text='K', row=1, col=1)
+                fig.update_xaxes(title_text='K', row=1, col=2)
+                fig.update_yaxes(title_text='Precision', row=1, col=1)
+                fig.update_yaxes(title_text='Recall', row=1, col=2)
+                viz['precision_recall_at_k'] = fig
+                logger.info("Created Precision@K and Recall@K visualization")
+        except Exception as e:
+            logger.error(f"Error creating Precision@K and Recall@K visualization: {e}", exc_info=True)
+
+        # 5. Re-ranker Impact Analysis (if re-ranking was used)
+        if 'reranker_type' in df_rag.columns:
+            reranker_metrics = df_rag.groupby('reranker_type').agg({
+                'context_precision': 'mean',
+                'context_recall': 'mean',
+                'retrieval_latency_ms': 'mean'
+            }).reset_index()
+
+            fig = go.Figure()
+            fig.add_trace(go.Bar(name='Precision', x=reranker_metrics['reranker_type'], y=reranker_metrics['context_precision']))
+            fig.add_trace(go.Bar(name='Recall', x=reranker_metrics['reranker_type'], y=reranker_metrics['context_recall']))
+
+            fig.update_layout(
+                title='Re-ranker Impact on Retrieval Quality',
+                xaxis_title='Re-ranker Type',
+                yaxis_title='Score',
+                barmode='group',
+                template='plotly_dark'
+            )
+            viz['reranker_impact'] = fig
+
+    except Exception as e:
+        logger.error(f"Error creating RAG visualizations: {e}", exc_info=True)
+
+    return viz
+
+
+def create_unified_html_report(output_dir, timestamp, evaluation_names=None):
+    """Generate unified HTML report supporting LLM, RAG, or Combined evaluations.
+
+    Args:
+        output_dir: Directory containing CSV files
+        timestamp: Timestamp for report filename
+        evaluation_names: Optional list of evaluation names to filter by
+
+    Returns:
+        str: Path to generated HTML report
+    """
+    output_dir = Path(output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Detect what types of evaluations are present
+    detection = detect_evaluation_types(output_dir, evaluation_names)
+    eval_types = detection['types']
+
+    if not eval_types:
+        raise FileNotFoundError(f"No evaluation files found in {output_dir}")
+
+    logger.info(f"Creating unified report for evaluation types: {eval_types}")
+
+    # Load data based on detected types
+    df_llm = pd.DataFrame()
+    df_rag = pd.DataFrame()
+
+    if 'llm' in eval_types:
+        logger.info("Loading LLM evaluation data...")
+        try:
+            df_llm = load_data(output_dir, evaluation_names)
+            logger.info(f"Loaded {len(df_llm)} LLM records")
+        except Exception as e:
+            logger.error(f"Error loading LLM data: {e}")
+
+    if 'rag' in eval_types:
+        logger.info("Loading RAG evaluation data...")
+        try:
+            df_rag = load_rag_data(detection['rag_files'])
+            logger.info(f"Loaded {len(df_rag)} RAG records")
+        except Exception as e:
+            logger.error(f"Error loading RAG data: {e}")
+
+    # Determine report type for naming
+    if len(eval_types) == 2:
+        report_type = 'unified'
+        logger.info("Creating combined LLM+RAG report")
+    elif 'rag' in eval_types:
+        report_type = 'rag'
+        logger.info("Creating RAG-only report")
+    else:
+        report_type = 'llm'
+        logger.info("Creating LLM-only report")
+        # For LLM-only, use existing function
+        return create_html_report(output_dir, timestamp, evaluation_names)
+
+    # Create visualizations for each type
+    llm_viz = {}
+    rag_viz = {}
+
+    if not df_llm.empty:
+        logger.info("Creating LLM visualizations...")
+        try:
+            model_task_metrics = calculate_metrics_by_model_task(df_llm)
+            latency_metrics = calculate_latency_metrics(df_llm)
+            cost_metrics = calculate_cost_metrics(df_llm)
+            llm_viz = create_visualizations(df_llm, model_task_metrics, latency_metrics, cost_metrics)
+        except Exception as e:
+            logger.error(f"Error creating LLM visualizations: {e}", exc_info=True)
+
+    if not df_rag.empty:
+        logger.info("Creating RAG visualizations...")
+        rag_viz = create_rag_visualizations(df_rag)
+
+    # Generate report filename
+    if evaluation_names:
+        eval_suffix = "_" + "_".join(evaluation_names[:3])
+        if len(evaluation_names) > 3:
+            eval_suffix += f"_and_{len(evaluation_names)-3}_more"
+    else:
+        eval_suffix = ""
+
+    report_filename = f"llm_benchmark_report_{timestamp}_{report_type}{eval_suffix}.html"
+    report_path = output_dir / report_filename
+
+    # For now, create a simple HTML report
+    # TODO: This will be enhanced when html_template.txt is updated
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>{report_type.upper()} Benchmark Report</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; background-color: #1e1e1e; color: #e0e0e0; }}
+        h1 {{ color: #4CAF50; }}
+        h2 {{ color: #2196F3; border-bottom: 2px solid #2196F3; padding-bottom: 5px; }}
+        .section {{ margin: 30px 0; }}
+        .info {{ background-color: #2d2d2d; padding: 15px; border-left: 4px solid #2196F3; }}
+    </style>
+</head>
+<body>
+    <h1>{report_type.upper()} Benchmark Report</h1>
+    <div class="info">
+        <p>Generated: {datetime.now().strftime("%B %d, %Y at %I:%M %p")}</p>
+        <p>Report Type: {', '.join([t.upper() for t in eval_types])}</p>
+        <p>Evaluations: {', '.join(evaluation_names) if evaluation_names else 'All'}</p>
+    </div>
+"""
+
+    # Add LLM section if present
+    if llm_viz:
+        html_content += """
+    <div class="section">
+        <h2>LLM Evaluation Results</h2>
+"""
+        if 'ttft_comparison' in llm_viz:
+            html_content += f"<div>{llm_viz['ttft_comparison'].to_html(full_html=False)}</div>"
+        if 'cost_comparison' in llm_viz:
+            html_content += f"<div>{llm_viz['cost_comparison'].to_html(full_html=False)}</div>"
+        html_content += "</div>"
+
+    # Add RAG section if present
+    if rag_viz:
+        html_content += """
+    <div class="section">
+        <h2>RAG Evaluation Results</h2>
+"""
+        if 'embedding_comparison' in rag_viz:
+            html_content += f"<div>{rag_viz['embedding_comparison'].to_html(full_html=False)}</div>"
+        if 'retrieval_latency' in rag_viz:
+            html_content += f"<div>{rag_viz['retrieval_latency'].to_html(full_html=False)}</div>"
+        if 'cost_analysis' in rag_viz:
+            html_content += f"<div>{rag_viz['cost_analysis'].to_html(full_html=False)}</div>"
+        if 'precision_recall_at_k' in rag_viz:
+            html_content += f"<div>{rag_viz['precision_recall_at_k'].to_html(full_html=False)}</div>"
+        if 'reranker_impact' in rag_viz:
+            html_content += f"<div>{rag_viz['reranker_impact'].to_html(full_html=False)}</div>"
+        html_content += "</div>"
+
+    html_content += """
+</body>
+</html>"""
+
+    # Write report
+    with open(report_path, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+
+    logger.info(f"Unified report saved to: {report_path}")
+    return str(report_path)
+
+
 if __name__ == "__main__":
     # Use absolute path relative to project root
     OUTPUT_DIR = PROJECT_ROOT / "benchmark-results"
     logger.info(f"Starting LLM benchmark report generation with timestamp: {TIMESTAMP}")
     try:
-        report_file = create_html_report(OUTPUT_DIR, TIMESTAMP)
+        # Use unified report generation (auto-detects LLM/RAG/Combined)
+        report_file = create_unified_html_report(OUTPUT_DIR, TIMESTAMP)
         logger.info(f"Report generation complete: {report_file}")
         print(f"Report generated successfully: {report_file}")
     except Exception as e:
