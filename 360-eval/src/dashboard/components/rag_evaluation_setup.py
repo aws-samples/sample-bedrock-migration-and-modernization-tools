@@ -13,6 +13,9 @@ import sys
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(project_root)
 
+# Import vectorstore validation and metadata functions
+from vectorstore_manager import validate_tool_created_vectorstore, load_vectorstore_metadata
+
 
 class RAGEvaluationSetupComponent:
     """Component for configuring RAG evaluations."""
@@ -36,11 +39,12 @@ class RAGEvaluationSetupComponent:
         rag_config = st.session_state.current_evaluation_config["rag_config"]
 
         # Create tabs for different configuration sections
-        tab1, tab2, tab3, tab4 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
             "📄 Query & Data Files",
             "✂️ Chunking Strategy",
             "🧮 Embedding Models",
-            "🎯 Retrieval & Re-ranking"
+            "🎯 Retrieval & Re-ranking",
+            "📊 Similarity Methods"
         ])
 
         with tab1:
@@ -54,6 +58,9 @@ class RAGEvaluationSetupComponent:
 
         with tab4:
             self._render_retrieval_config(rag_config)
+
+        with tab5:
+            self._render_similarity_methods_config(rag_config)
 
         # Save configuration button
         st.divider()
@@ -149,49 +156,74 @@ class RAGEvaluationSetupComponent:
         st.divider()
 
         # Data source file uploader
-        st.markdown("### 📚 Data Source File")
-        st.info("Upload the document(s) that will be chunked and used for retrieval")
+        st.markdown("### 📚 Data Source Files")
+        st.info("Upload one or more documents that will be chunked and used for retrieval")
 
-        data_source_file = st.file_uploader(
-            "Upload Data Source",
+        data_source_files = st.file_uploader(
+            "Upload Data Source(s)",
             type=["csv", "json", "jsonl", "txt", "md", "docx", "pdf"],
+            accept_multiple_files=True,
             key="rag_data_source_uploader",
-            help="Document to be chunked and embedded"
+            help="Upload one or more documents. All files will be combined and chunked together."
         )
 
-        if data_source_file is not None:
-            # Read the file content as text/bytes depending on type
+        if data_source_files:
+            # Process multiple files
             try:
-                # Read file content - use text mode for text files, binary for others
-                file_ext = data_source_file.name.split(".")[-1].lower()
+                import base64
 
-                # Store file extension for later reconstruction
-                rag_config["data_source_file_ext"] = file_ext
+                # Initialize list to store file data
+                files_data = []
+                file_names = []
 
-                if file_ext in ["csv", "json", "jsonl", "txt", "md"]:
-                    # Text files - read as string
-                    content = data_source_file.getvalue().decode("utf-8")
-                    rag_config["data_source_is_binary"] = False
-                else:
-                    # Binary files (docx, pdf) - store as base64
-                    import base64
-                    content = base64.b64encode(data_source_file.getvalue()).decode("utf-8")
-                    rag_config["data_source_is_binary"] = True
+                for uploaded_file in data_source_files:
+                    file_ext = uploaded_file.name.split(".")[-1].lower()
 
-                rag_config["data_source_file"] = content
-                rag_config["data_source_file_name"] = data_source_file.name
+                    # Read file content
+                    if file_ext in ["csv", "json", "jsonl", "txt", "md"]:
+                        # Text files - read as string
+                        content = uploaded_file.getvalue().decode("utf-8")
+                        is_binary = False
+                    else:
+                        # Binary files (docx, pdf) - store as base64
+                        content = base64.b64encode(uploaded_file.getvalue()).decode("utf-8")
+                        is_binary = True
 
-                # Auto-detect format
+                    # Store file metadata
+                    files_data.append({
+                        "content": content,
+                        "name": uploaded_file.name,
+                        "ext": file_ext,
+                        "is_binary": is_binary
+                    })
+                    file_names.append(uploaded_file.name)
+
+                # Store all files in rag_config
+                rag_config["data_source_files"] = files_data
+                rag_config["data_source_file_names"] = file_names
+
+                # Keep single file fields for backward compatibility (use first file)
+                rag_config["data_source_file"] = files_data[0]["content"]
+                rag_config["data_source_file_name"] = files_data[0]["name"]
+                rag_config["data_source_file_ext"] = files_data[0]["ext"]
+                rag_config["data_source_is_binary"] = files_data[0]["is_binary"]
+
+                # Auto-detect format from first file
                 format_map = {
                     "csv": "csv", "json": "json", "jsonl": "jsonl",
                     "txt": "txt", "md": "markdown", "docx": "word", "pdf": "pdf"
                 }
-                detected_format = format_map.get(file_ext, "txt")
+                detected_format = format_map.get(files_data[0]["ext"], "txt")
                 rag_config["data_format"] = detected_format
 
-                st.success(f"✓ Loaded {data_source_file.name}")
+                # Show success message
+                if len(files_data) == 1:
+                    st.success(f"✓ Loaded {files_data[0]['name']}")
+                else:
+                    st.success(f"✓ Loaded {len(files_data)} files: {', '.join(file_names)}")
+
             except Exception as e:
-                st.error(f"Error reading data source file: {str(e)}")
+                st.error(f"Error reading data source files: {str(e)}")
 
     def _render_chunking_config(self, rag_config):
         """Render chunking strategy configuration."""
@@ -383,6 +415,17 @@ def chunk_text(text: str, **kwargs) -> List[str]:
         """Render embedding model selection."""
         st.markdown("### 🧮 Embedding Models")
 
+        # Region selector for Bedrock embedding models
+        aws_regions = ["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1", "eu-central-1"]
+        selected_region = st.selectbox(
+            "AWS Region (for Bedrock embeddings)",
+            options=aws_regions,
+            index=0,
+            key="rag_embedding_aws_region",
+            help="Select the AWS region for Bedrock embedding models. Only models available in this region will be shown."
+        )
+        rag_config["aws_embedding_region"] = selected_region
+
         # Load embedding model profiles
         embedding_profiles_path = os.path.join(self.config_dir, "embedding_models_profiles.jsonl")
 
@@ -394,26 +437,70 @@ def chunk_text(text: str, **kwargs) -> List[str]:
             with open(embedding_profiles_path, 'r') as f:
                 all_embedding_models = [json.loads(line) for line in f if line.strip()]
 
-            # Get already selected model IDs
-            selected_model_ids = [m["model_id"] for m in rag_config.get("embedding_models", [])]
+            # Filter models by selected region for Bedrock models
+            region_filtered_models = []
+            bedrock_models_count = 0
+            non_bedrock_count = 0
+
+            for model in all_embedding_models:
+                model_id = model.get("model_id", "")
+                # If it's a Bedrock model, check region compatibility
+                if model_id.startswith("bedrock/"):
+                    model_region = model.get("region")
+                    if model_region == selected_region:
+                        region_filtered_models.append(model)
+                        bedrock_models_count += 1
+                else:
+                    # Non-Bedrock models (OpenAI, etc.) - always available
+                    region_filtered_models.append(model)
+                    non_bedrock_count += 1
+
+            # Display region filtering info
+            total_available = bedrock_models_count + non_bedrock_count
+            if bedrock_models_count > 0:
+                st.info(f"📍 **{selected_region}**: {bedrock_models_count} Bedrock model(s) available" +
+                       (f" + {non_bedrock_count} non-Bedrock model(s)" if non_bedrock_count > 0 else ""))
+            elif non_bedrock_count > 0:
+                st.warning(f"⚠️ No Bedrock models available in **{selected_region}**. Showing {non_bedrock_count} non-Bedrock model(s) only.")
+            else:
+                st.error(f"❌ No embedding models available in **{selected_region}**")
+
+            st.markdown("---")
+
+            # Get already selected model keys (model_id + dimensions for uniqueness)
+            selected_keys = [
+                f"{m['model_id']}|{m.get('dimensions', 'default')}"
+                for m in rag_config.get("embedding_models", [])
+            ]
 
             # Filter to show only unselected models in dropdown
-            available_models = [m for m in all_embedding_models if m["model_id"] not in selected_model_ids]
-            model_options = [m["model_id"] for m in available_models]
+            available_models = [
+                m for m in region_filtered_models
+                if f"{m['model_id']}|{m.get('dimensions', 'default')}" not in selected_keys
+            ]
+
+            # Create display options with dimensions for clarity
+            model_options = [
+                f"{m['model_id']} ({m.get('dimensions', 'N/A')}D)"
+                for m in available_models
+            ]
+            # Map display back to model index
+            model_index_map = {opt: idx for idx, opt in enumerate(model_options)}
 
             if model_options:
                 # Render dropdown + Add button
                 col1, col2, col3 = st.columns([4, 1.2, 1.2])
 
                 with col1:
-                    selected_model_id = st.selectbox(
+                    selected_display = st.selectbox(
                         "Select Embedding Model",
                         options=model_options,
                         key="embedding_model_select"
                     )
 
                 # Find selected model details
-                selected_model = next((m for m in available_models if m["model_id"] == selected_model_id), None)
+                selected_idx = model_index_map.get(selected_display, 0)
+                selected_model = available_models[selected_idx] if available_models else None
 
                 with col2:
                     if selected_model:
@@ -440,11 +527,15 @@ def chunk_text(text: str, **kwargs) -> List[str]:
                 # Create dataframe for display
                 display_data = []
                 for model in rag_config["embedding_models"]:
-                    display_data.append({
+                    row = {
                         "Model ID": model["model_id"],
                         "Dimensions": model.get("dimensions", "N/A"),
                         "Cost (per 1K)": f"${model.get('input_token_cost', 0)}"
-                    })
+                    }
+                    # Add region for Bedrock models
+                    if model["model_id"].startswith("bedrock/"):
+                        row["Region"] = model.get("region", "N/A")
+                    display_data.append(row)
 
                 df = pd.DataFrame(display_data)
                 st.dataframe(df, hide_index=True)
@@ -458,6 +549,65 @@ def chunk_text(text: str, **kwargs) -> List[str]:
 
         except Exception as e:
             st.error(f"Error loading embedding models: {str(e)}")
+
+    def _get_available_vectorstores(self) -> List[Dict[str, str]]:
+        """
+        Get list of available vectorstores from benchmark-results/vectorstores/.
+
+        Returns:
+            List of dicts with 'path' and 'display_name' keys, sorted by creation time (newest first)
+        """
+        vectorstores = []
+        vectorstores_dir = os.path.join(self.project_root, "benchmark-results", "vectorstores")
+
+        if not os.path.exists(vectorstores_dir):
+            return vectorstores
+
+        try:
+            # List all directories in vectorstores/
+            for entry in os.listdir(vectorstores_dir):
+                entry_path = os.path.join(vectorstores_dir, entry)
+
+                # Check if it's a directory
+                if not os.path.isdir(entry_path):
+                    continue
+
+                # Check if it has metadata.json (tool-created vectorstore)
+                metadata_path = os.path.join(entry_path, "metadata.json")
+                if not os.path.exists(metadata_path):
+                    continue
+
+                # Load metadata to get creation time and experiment name
+                try:
+                    metadata = load_vectorstore_metadata(entry_path)
+                    if metadata:
+                        created_at = metadata.get("created_at", "Unknown")
+                        experiment_name = metadata.get("experiment_name", entry)
+                        num_chunks = metadata.get("num_chunks", "?")
+                        num_models = len(metadata.get("embedding_models", []))
+
+                        # Create display name with useful info
+                        display_name = f"{experiment_name} ({num_chunks} chunks, {num_models} models) - {created_at[:10]}"
+
+                        vectorstores.append({
+                            "path": entry_path,
+                            "relative_path": os.path.relpath(entry_path, self.project_root),
+                            "display_name": display_name,
+                            "created_at": created_at,
+                            "experiment_name": experiment_name
+                        })
+                except Exception as e:
+                    # Skip this vectorstore if metadata is invalid
+                    continue
+
+            # Sort by creation time (newest first)
+            vectorstores.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+
+        except Exception as e:
+            # Return empty list on error
+            pass
+
+        return vectorstores
 
     def _render_retrieval_config(self, rag_config):
         """Render retrieval and re-ranking configuration."""
@@ -603,6 +753,324 @@ def chunk_text(text: str, **kwargs) -> List[str]:
             )
             rag_config["max_retries"] = max_retries
 
+        st.divider()
+
+        # Vectorstore Management
+        st.markdown("### 🗄️ Vectorstore Management")
+        st.markdown("Configure vectorstore lifecycle and reuse options.")
+
+        # Keep Vectorstore checkbox
+        keep_vectorstore = st.checkbox(
+            "Keep Vectorstore After Completion",
+            value=rag_config.get("keep_vectorstore", False),
+            key="rag_keep_vectorstore",
+            help="If checked, the vectorstore will be preserved after evaluation completes. Otherwise, it will be automatically deleted to save disk space. Vectorstores are always kept if the evaluation fails (for debugging)."
+        )
+        rag_config["keep_vectorstore"] = keep_vectorstore
+
+        st.markdown("#### 📂 Use Existing Vectorstore")
+        st.markdown("Load a previously created vectorstore instead of generating new embeddings.")
+
+        # Use existing vectorstore checkbox
+        use_existing = st.checkbox(
+            "Use Existing Vectorstore",
+            value=rag_config.get("use_existing_vectorstore", False),
+            key="rag_use_existing_vectorstore",
+            help="Load a tool-created vectorstore to skip embedding generation. The tool validates chunking compatibility and can add new models incrementally."
+        )
+        rag_config["use_existing_vectorstore"] = use_existing
+
+        if use_existing:
+            # Get available vectorstores
+            available_vectorstores = self._get_available_vectorstores()
+
+            if not available_vectorstores:
+                st.warning("⚠️ No existing vectorstores found in benchmark-results/vectorstores/")
+                st.info("💡 Create a new evaluation first with 'Keep Vectorstore After Completion' enabled, then you can reuse it here.")
+                rag_config["existing_vectorstore_path"] = ""
+            else:
+                # Dropdown to select vectorstore
+                st.markdown("**Select Vectorstore**")
+
+                # Create display options
+                display_options = [vs["display_name"] for vs in available_vectorstores]
+
+                # Get current selection index
+                current_path = rag_config.get("existing_vectorstore_path", "")
+                default_index = 0
+
+                # Try to find current selection in available vectorstores
+                if current_path:
+                    for i, vs in enumerate(available_vectorstores):
+                        if vs["path"] == current_path or vs["relative_path"] == current_path:
+                            default_index = i
+                            break
+
+                selected_display_name = st.selectbox(
+                    "Available Vectorstores",
+                    options=display_options,
+                    index=default_index,
+                    key="rag_vectorstore_dropdown",
+                    help="Select a previously created vectorstore. Sorted by creation time (newest first)."
+                )
+
+                # Get the selected vectorstore details
+                selected_vs = available_vectorstores[display_options.index(selected_display_name)]
+
+                # Check if vectorstore changed (to auto-populate on change)
+                previous_vectorstore = rag_config.get("_previous_vectorstore_path", "")
+                current_vectorstore = selected_vs["relative_path"]
+
+                rag_config["existing_vectorstore_path"] = current_vectorstore
+
+                # Show selected path
+                st.caption(f"📁 Path: `{selected_vs['relative_path']}`")
+
+                # Auto-populate settings from vectorstore metadata (on selection change or button click)
+                st.divider()
+
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.info("💡 Click below to load settings from this vectorstore")
+                with col2:
+                    if st.button("⚡ Load", key="rag_autopop_settings", use_container_width=True):
+                        self._autopop_from_vectorstore(rag_config, selected_vs)
+                        rag_config["_previous_vectorstore_path"] = current_vectorstore
+
+            # Validation button
+            st.divider()
+            if st.button("🔍 Validate Vectorstore", key="rag_validate_vectorstore", use_container_width=True):
+                existing_path = rag_config.get("existing_vectorstore_path", "")
+                if not existing_path:
+                    st.error("⚠️ Please select a vectorstore first.")
+                else:
+                    # Get embedding models and chunking params for validation
+                    embedding_models = rag_config.get("embedding_models", [])
+                    chunking_params = {
+                        "chunk_size": rag_config.get("chunk_size", 1000),
+                        "chunk_overlap": rag_config.get("chunk_overlap", 200),
+                        "chunking_strategy": rag_config.get("chunking_strategy", "recursive")
+                    }
+
+                    if not embedding_models:
+                        st.warning("⚠️ Please select embedding models first to validate vectorstore compatibility.")
+                    else:
+                        # Validate tool-created vectorstore
+                        with st.spinner("Validating tool-created vectorstore..."):
+                            is_valid, found_models, missing_models, metadata = validate_tool_created_vectorstore(
+                                existing_path,
+                                embedding_models,
+                                chunking_params
+                            )
+
+                            if is_valid:
+                                # Valid tool-created vectorstore
+                                if missing_models:
+                                    # Partial match - incremental addition
+                                    st.warning(f"⚠️ Partial match: {len(found_models)} collection(s) exist, {len(missing_models)} will be added")
+                                    st.info("**Incremental Addition:** Missing collections will be created directly in the existing vectorstore.")
+                                else:
+                                    # All collections found
+                                    st.success(f"✅ All {len(found_models)} collection(s) found! Existing vectorstore will be used.")
+
+                                # Display metadata info
+                                if metadata:
+                                    st.markdown("**Vectorstore Metadata:**")
+                                    col1, col2 = st.columns(2)
+                                    with col1:
+                                        st.info(f"**Created:** {metadata.get('created_at', 'Unknown')[:10]}")
+                                        st.info(f"**Experiment:** {metadata.get('experiment_name', 'Unknown')}")
+                                    with col2:
+                                        st.info(f"**Chunks:** {metadata.get('num_chunks', 'Unknown')}")
+                                        st.info(f"**Tool Version:** {metadata.get('tool_version', 'Unknown')}")
+
+                                    # Display chunking params
+                                    stored_chunking = metadata.get('chunking_params', {})
+                                    st.markdown("**Chunking Parameters:**")
+                                    st.text(f"• Size: {stored_chunking.get('chunk_size', 'Unknown')}")
+                                    st.text(f"• Overlap: {stored_chunking.get('chunk_overlap', 'Unknown')}")
+                                    st.text(f"• Strategy: {stored_chunking.get('chunking_strategy', 'Unknown')}")
+
+                                # Display found models
+                                if found_models:
+                                    st.markdown("**Found Models:**")
+                                    for model in found_models:
+                                        st.text(f"✓ {model.get('model_id', 'Unknown')}")
+
+                                # List missing models if any
+                                if missing_models:
+                                    st.markdown("**Will Add Collections For:**")
+                                    for model in missing_models:
+                                        st.text(f"+ {model.get('model_id', 'Unknown')}")
+
+                            else:
+                                # Invalid or incompatible vectorstore
+                                if not metadata:
+                                    st.error("❌ This vectorstore was not created by this tool (missing metadata.json). Only tool-created vectorstores can be reused.")
+                                else:
+                                    st.error("❌ Vectorstore is incompatible:")
+                                    st.text("• Chunking parameters don't match current configuration")
+                                    st.text("• Please create a new vectorstore or adjust your chunking settings")
+
+            # Show info about tool-created vectorstores
+            st.info("ℹ️ **Tool-Created Only:** Only vectorstores created by this tool can be reused. The tool validates chunking compatibility and supports incremental model addition.")
+
+    def _render_similarity_methods_config(self, rag_config):
+        """Render similarity methods configuration."""
+        st.markdown("### 📊 Similarity Calculation Methods")
+        st.info("Select one or more methods to calculate similarity between retrieved and ground truth chunks. Each method will generate separate metrics in the report.")
+
+        # Load similarity profiles
+        similarity_profiles_path = os.path.join(self.config_dir, "similarity_profiles.jsonl")
+
+        if not os.path.exists(similarity_profiles_path):
+            st.error(f"Similarity profiles file not found: {similarity_profiles_path}")
+            return
+
+        try:
+            with open(similarity_profiles_path, 'r') as f:
+                similarity_methods = [json.loads(line) for line in f if line.strip()]
+
+            # Initialize similarity_methods in config if not present
+            if "similarity_methods" not in rag_config:
+                rag_config["similarity_methods"] = []
+
+            # Get currently selected methods
+            selected_methods = {m["method"]: m for m in rag_config["similarity_methods"]}
+
+            st.markdown("#### Select Similarity Methods")
+
+            # Render checkboxes for each method
+            for method_profile in similarity_methods:
+                method_name = method_profile["method"]
+                display_name = method_profile["display_name"]
+                description = method_profile["description"]
+
+                # Checkbox for method selection
+                is_selected = st.checkbox(
+                    f"**{display_name}**",
+                    value=method_name in selected_methods,
+                    key=f"similarity_method_{method_name}",
+                    help=description
+                )
+
+                if is_selected:
+                    # Method is selected - show configuration
+                    with st.expander(f"⚙️ Configure {display_name}", expanded=False):
+                        # Threshold configuration
+                        col1, col2 = st.columns([2, 1])
+
+                        with col1:
+                            threshold = st.slider(
+                                "Similarity Threshold",
+                                min_value=0.0,
+                                max_value=1.0,
+                                value=selected_methods.get(method_name, {}).get("threshold", method_profile["default_threshold"]),
+                                step=0.05,
+                                key=f"similarity_threshold_{method_name}",
+                                help="Minimum similarity score to consider chunks as matching"
+                            )
+
+                        with col2:
+                            st.metric("Default", f"{method_profile['default_threshold']:.2f}")
+
+                        # Method-specific configuration
+                        method_config = {
+                            "method": method_name,
+                            "threshold": threshold,
+                            "display_name": display_name
+                        }
+
+                        # Sentence Transformer: model selection
+                        if method_name == "sentence_transformer":
+                            st.markdown("**Model Selection**")
+                            model_options = method_profile["model_options"]
+                            current_model = selected_methods.get(method_name, {}).get("model_id", method_profile["default_model"])
+
+                            selected_model = st.selectbox(
+                                "Sentence Transformer Model",
+                                options=model_options,
+                                index=model_options.index(current_model) if current_model in model_options else 0,
+                                key=f"similarity_st_model_{method_name}",
+                                help="HuggingFace Sentence Transformer model for semantic similarity"
+                            )
+                            method_config["model_id"] = selected_model
+
+                        # LLM Judge: model selection from models_profiles.jsonl
+                        elif method_name == "llm_judge":
+                            st.markdown("**LLM Model Selection**")
+
+                            # Load LLM models from models_profiles.jsonl
+                            models_profiles_path = os.path.join(self.config_dir, "models_profiles.jsonl")
+                            if os.path.exists(models_profiles_path):
+                                with open(models_profiles_path, 'r') as f:
+                                    llm_models = [json.loads(line) for line in f if line.strip()]
+
+                                llm_model_ids = [m["model_id"] for m in llm_models]
+                                current_llm = selected_methods.get(method_name, {}).get("model_id", llm_model_ids[0] if llm_model_ids else None)
+
+                                if llm_model_ids:
+                                    selected_llm = st.selectbox(
+                                        "LLM Model for Judging",
+                                        options=llm_model_ids,
+                                        index=llm_model_ids.index(current_llm) if current_llm in llm_model_ids else 0,
+                                        key=f"similarity_llm_model_{method_name}",
+                                        help="LLM model to use for evaluating semantic similarity"
+                                    )
+                                    method_config["model_id"] = selected_llm
+
+                                    # Show cost warning
+                                    st.warning("⚠️ LLM-as-Judge incurs API costs for each chunk comparison. Use for final evaluation only.")
+                                else:
+                                    st.error("No LLM models found in models_profiles.jsonl")
+                            else:
+                                st.error(f"Models profiles file not found: {models_profiles_path}")
+
+                        # Cosine: note that it uses embedding model
+                        elif method_name == "cosine":
+                            st.info("ℹ️ Cosine similarity will use embeddings from your selected embedding model(s)")
+
+                        # Add or update method in config
+                        if method_name in selected_methods:
+                            # Update existing
+                            for i, m in enumerate(rag_config["similarity_methods"]):
+                                if m["method"] == method_name:
+                                    rag_config["similarity_methods"][i] = method_config
+                                    break
+                        else:
+                            # Add new
+                            rag_config["similarity_methods"].append(method_config)
+
+                else:
+                    # Method is not selected - remove from config
+                    if method_name in selected_methods:
+                        rag_config["similarity_methods"] = [
+                            m for m in rag_config["similarity_methods"] if m["method"] != method_name
+                        ]
+
+            # Show summary
+            st.divider()
+            st.markdown("#### Selected Methods Summary")
+
+            if not rag_config["similarity_methods"]:
+                st.warning("⚠️ No similarity methods selected. Default to Jaccard similarity.")
+            else:
+                summary_data = []
+                for method in rag_config["similarity_methods"]:
+                    summary_data.append({
+                        "Method": method["display_name"],
+                        "Threshold": f"{method['threshold']:.2f}",
+                        "Model": method.get("model_id", "N/A")
+                    })
+
+                df = pd.DataFrame(summary_data)
+                st.dataframe(df, hide_index=True, use_container_width=True)
+
+        except Exception as e:
+            st.error(f"Error loading similarity methods: {str(e)}")
+            import traceback
+            st.error(traceback.format_exc())
+
     def _save_configuration(self, rag_config):
         """Save RAG configuration."""
         # Validate
@@ -693,7 +1161,9 @@ def chunk_text(text: str, **kwargs) -> List[str]:
             "sleep_between_batches": 2.0,
             "batch_size": 50,
             "invocations_per_query": 1,
-            "max_retries": 5
+            "max_retries": 5,
+            # Similarity methods (defaults to Jaccard if empty)
+            "similarity_methods": []
         }
 
     def _get_column_index(self, columns, target_column):
@@ -726,10 +1196,97 @@ def chunk_text(text: str, **kwargs) -> List[str]:
         if "embedding_models" not in rag_config:
             rag_config["embedding_models"] = []
 
-        # Check if already exists (shouldn't happen due to filtering, but safeguard)
-        if not any(m["model_id"] == model_dict["model_id"] for m in rag_config["embedding_models"]):
+        # Check if already exists by model_id + dimensions (for uniqueness)
+        model_key = f"{model_dict['model_id']}|{model_dict.get('dimensions', 'default')}"
+        existing_keys = [
+            f"{m['model_id']}|{m.get('dimensions', 'default')}"
+            for m in rag_config["embedding_models"]
+        ]
+
+        if model_key not in existing_keys:
             rag_config["embedding_models"].append(model_dict)
 
     def _clear_embedding_models(self, rag_config):
         """Clear all selected embedding models."""
         rag_config["embedding_models"] = []
+
+    def _autopop_from_vectorstore(self, rag_config, vectorstore_info):
+        """
+        Auto-populate configuration from vectorstore metadata.
+
+        Args:
+            rag_config: The RAG configuration dictionary to update
+            vectorstore_info: Dictionary with vectorstore path information
+        """
+        try:
+            # Load metadata from vectorstore
+            from vectorstore_manager import load_vectorstore_metadata
+
+            vectorstore_path = os.path.join(self.project_root, vectorstore_info["relative_path"])
+            metadata = load_vectorstore_metadata(vectorstore_path)
+
+            if not metadata:
+                st.error("❌ Failed to load vectorstore metadata")
+                return
+
+            # Extract chunking parameters
+            chunking_params = metadata.get("chunking_params", {})
+            if chunking_params:
+                rag_config["chunk_size"] = chunking_params.get("chunk_size", 512)
+                rag_config["chunk_overlap"] = chunking_params.get("chunk_overlap", 50)
+                rag_config["chunking_strategy"] = chunking_params.get("chunking_strategy", "recursive")
+
+                # For semantic chunking
+                if chunking_params.get("chunking_strategy") == "semantic":
+                    if "similarity_threshold" in chunking_params:
+                        rag_config["similarity_threshold"] = chunking_params["similarity_threshold"]
+                    if "semantic_chunking_model" in chunking_params:
+                        rag_config["semantic_chunking_model"] = chunking_params["semantic_chunking_model"]
+
+            # Extract embedding models
+            embedding_models_metadata = metadata.get("embedding_models", [])
+            if embedding_models_metadata:
+                # Clear existing selection
+                rag_config["embedding_models"] = []
+
+                # Add each model from metadata
+                for model_meta in embedding_models_metadata:
+                    # The metadata stores model info, we need to add it to the config
+                    rag_config["embedding_models"].append(model_meta)
+
+                # Extract AWS region from first Bedrock model if available
+                for model in embedding_models_metadata:
+                    if model.get("model_id", "").startswith("bedrock/"):
+                        region = model.get("region")
+                        if region:
+                            rag_config["aws_embedding_region"] = region
+                            break
+
+            # Show success message with summary
+            st.success("✅ Settings auto-populated from vectorstore!")
+
+            with st.expander("📋 Loaded Configuration", expanded=True):
+                st.markdown("**Chunking Parameters:**")
+                st.write(f"- Strategy: `{rag_config.get('chunking_strategy', 'N/A')}`")
+                st.write(f"- Chunk Size: `{rag_config.get('chunk_size', 'N/A')}`")
+                st.write(f"- Chunk Overlap: `{rag_config.get('chunk_overlap', 'N/A')}`")
+
+                if rag_config.get("chunking_strategy") == "semantic":
+                    st.write(f"- Similarity Threshold: `{rag_config.get('similarity_threshold', 'N/A')}`")
+                    st.write(f"- Semantic Model: `{rag_config.get('semantic_chunking_model', 'N/A')}`")
+
+                st.markdown("**Embedding Models:**")
+                if rag_config.get("embedding_models"):
+                    for model in rag_config["embedding_models"]:
+                        region_info = f" ({model.get('region')})" if model.get("region") else ""
+                        st.write(f"- {model['model_id']}{region_info} - {model.get('dimensions', 'N/A')}D")
+                else:
+                    st.write("- None")
+
+                if rag_config.get("aws_embedding_region"):
+                    st.markdown(f"**AWS Region:** `{rag_config['aws_embedding_region']}`")
+
+        except Exception as e:
+            st.error(f"❌ Error auto-populating settings: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())

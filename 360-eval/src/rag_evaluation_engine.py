@@ -183,21 +183,21 @@ def evaluate_retrieval_manual(
     return scores
 
 
-def calculate_precision_manual(retrieved_chunks: List[str], ground_truth_chunks: List[str]) -> float:
+def calculate_precision_manual(retrieved_chunks: List[str], ground_truth_chunks: List[str], similarity_calculator=None) -> float:
     """Calculate precision manually."""
     if not retrieved_chunks or not ground_truth_chunks:
         return 0.0
 
-    relevant_count = sum(1 for chunk in retrieved_chunks if is_chunk_relevant(chunk, ground_truth_chunks))
+    relevant_count = sum(1 for chunk in retrieved_chunks if is_chunk_relevant(chunk, ground_truth_chunks, similarity_calculator=similarity_calculator))
     return relevant_count / len(retrieved_chunks)
 
 
-def calculate_recall_manual(retrieved_chunks: List[str], ground_truth_chunks: List[str]) -> float:
+def calculate_recall_manual(retrieved_chunks: List[str], ground_truth_chunks: List[str], similarity_calculator=None) -> float:
     """Calculate recall manually."""
     if not ground_truth_chunks:
         return 0.0
 
-    retrieved_count = sum(1 for gt_chunk in ground_truth_chunks if is_chunk_retrieved(gt_chunk, retrieved_chunks))
+    retrieved_count = sum(1 for gt_chunk in ground_truth_chunks if is_chunk_retrieved(gt_chunk, retrieved_chunks, similarity_calculator=similarity_calculator))
     return retrieved_count / len(ground_truth_chunks)
 
 
@@ -210,7 +210,7 @@ def calculate_relevancy_manual(retrieved_chunks: List[str], query: str) -> float
     return sum(relevancy_scores) / len(relevancy_scores) if relevancy_scores else 0.0
 
 
-def is_chunk_relevant(chunk: str, ground_truth_chunks: List[str], threshold: float = 0.7) -> bool:
+def is_chunk_relevant(chunk: str, ground_truth_chunks: List[str], threshold: float = 0.7, similarity_calculator=None) -> bool:
     """
     Check if a retrieved chunk is relevant based on ground truth.
 
@@ -218,6 +218,7 @@ def is_chunk_relevant(chunk: str, ground_truth_chunks: List[str], threshold: flo
         chunk: Retrieved chunk text
         ground_truth_chunks: List of ground truth chunks
         threshold: Similarity threshold for relevance
+        similarity_calculator: Optional SimilarityCalculator instance (defaults to Jaccard)
 
     Returns:
         True if chunk is relevant, False otherwise
@@ -228,14 +229,34 @@ def is_chunk_relevant(chunk: str, ground_truth_chunks: List[str], threshold: flo
 
     # Check for high overlap with any ground truth chunk
     for gt_chunk in ground_truth_chunks:
-        overlap = calculate_text_overlap(chunk, gt_chunk)
-        if overlap >= threshold:
-            return True
+        try:
+            if similarity_calculator is not None:
+                # Use provided similarity calculator
+                similarity = similarity_calculator.calculate(chunk, gt_chunk)
+                # Use calculator's threshold if no explicit threshold provided
+                threshold_to_use = threshold if threshold != 0.7 else similarity_calculator.default_threshold
+            else:
+                # Fall back to Jaccard (backward compatibility)
+                similarity = calculate_text_overlap(chunk, gt_chunk)
+                threshold_to_use = threshold
+
+            if similarity >= threshold_to_use:
+                return True
+        except Exception as e:
+            logger.error(f"Error calculating similarity in is_chunk_relevant: {str(e)}", exc_info=True)
+            # Fall back to Jaccard on error
+            try:
+                similarity = calculate_text_overlap(chunk, gt_chunk)
+                if similarity >= 0.7:  # Use default threshold
+                    return True
+            except Exception as fallback_error:
+                logger.error(f"Fallback similarity calculation also failed: {str(fallback_error)}")
+                # Continue to next chunk
 
     return False
 
 
-def is_chunk_retrieved(ground_truth_chunk: str, retrieved_chunks: List[str], threshold: float = 0.7) -> bool:
+def is_chunk_retrieved(ground_truth_chunk: str, retrieved_chunks: List[str], threshold: float = 0.7, similarity_calculator=None) -> bool:
     """
     Check if a ground truth chunk was retrieved.
 
@@ -243,6 +264,7 @@ def is_chunk_retrieved(ground_truth_chunk: str, retrieved_chunks: List[str], thr
         ground_truth_chunk: Ground truth chunk text
         retrieved_chunks: List of retrieved chunks
         threshold: Similarity threshold
+        similarity_calculator: Optional SimilarityCalculator instance (defaults to Jaccard)
 
     Returns:
         True if ground truth chunk was retrieved, False otherwise
@@ -253,9 +275,29 @@ def is_chunk_retrieved(ground_truth_chunk: str, retrieved_chunks: List[str], thr
 
     # Check for high overlap with any retrieved chunk
     for chunk in retrieved_chunks:
-        overlap = calculate_text_overlap(ground_truth_chunk, chunk)
-        if overlap >= threshold:
-            return True
+        try:
+            if similarity_calculator is not None:
+                # Use provided similarity calculator
+                similarity = similarity_calculator.calculate(ground_truth_chunk, chunk)
+                # Use calculator's threshold if no explicit threshold provided
+                threshold_to_use = threshold if threshold != 0.7 else similarity_calculator.default_threshold
+            else:
+                # Fall back to Jaccard (backward compatibility)
+                similarity = calculate_text_overlap(ground_truth_chunk, chunk)
+                threshold_to_use = threshold
+
+            if similarity >= threshold_to_use:
+                return True
+        except Exception as e:
+            logger.error(f"Error calculating similarity in is_chunk_retrieved: {str(e)}", exc_info=True)
+            # Fall back to Jaccard on error
+            try:
+                similarity = calculate_text_overlap(ground_truth_chunk, chunk)
+                if similarity >= 0.7:  # Use default threshold
+                    return True
+            except Exception as fallback_error:
+                logger.error(f"Fallback similarity calculation also failed: {str(fallback_error)}")
+                # Continue to next chunk
 
     return False
 
@@ -365,7 +407,8 @@ def calculate_retrieval_metrics(
 def calculate_precision_at_k(
     retrieved_chunks: List[str],
     ground_truth_chunks: List[str],
-    k: int
+    k: int,
+    similarity_calculator=None
 ) -> float:
     """
     Calculate Precision@K.
@@ -374,6 +417,7 @@ def calculate_precision_at_k(
         retrieved_chunks: List of retrieved chunks
         ground_truth_chunks: List of ground truth chunks
         k: Number of top chunks to consider
+        similarity_calculator: Optional SimilarityCalculator instance
 
     Returns:
         Precision@K score (0-1)
@@ -382,7 +426,7 @@ def calculate_precision_at_k(
         return 0.0
 
     top_k = retrieved_chunks[:k]
-    relevant_count = sum(1 for chunk in top_k if is_chunk_relevant(chunk, ground_truth_chunks))
+    relevant_count = sum(1 for chunk in top_k if is_chunk_relevant(chunk, ground_truth_chunks, similarity_calculator=similarity_calculator))
 
     return relevant_count / k
 
@@ -390,7 +434,8 @@ def calculate_precision_at_k(
 def calculate_recall_at_k(
     retrieved_chunks: List[str],
     ground_truth_chunks: List[str],
-    k: int
+    k: int,
+    similarity_calculator=None
 ) -> float:
     """
     Calculate Recall@K.
@@ -399,6 +444,7 @@ def calculate_recall_at_k(
         retrieved_chunks: List of retrieved chunks
         ground_truth_chunks: List of ground truth chunks
         k: Number of top chunks to consider
+        similarity_calculator: Optional SimilarityCalculator instance
 
     Returns:
         Recall@K score (0-1)
@@ -407,7 +453,7 @@ def calculate_recall_at_k(
         return 0.0
 
     top_k = retrieved_chunks[:k]
-    retrieved_count = sum(1 for gt_chunk in ground_truth_chunks if is_chunk_retrieved(gt_chunk, top_k))
+    retrieved_count = sum(1 for gt_chunk in ground_truth_chunks if is_chunk_retrieved(gt_chunk, top_k, similarity_calculator=similarity_calculator))
 
     return retrieved_count / len(ground_truth_chunks)
 
@@ -415,7 +461,8 @@ def calculate_recall_at_k(
 def calculate_map_at_k(
     retrieved_chunks: List[str],
     ground_truth_chunks: List[str],
-    k: int
+    k: int,
+    similarity_calculator=None
 ) -> float:
     """
     Calculate Mean Average Precision at K (MAP@K).
@@ -424,6 +471,7 @@ def calculate_map_at_k(
         retrieved_chunks: List of retrieved chunks
         ground_truth_chunks: List of ground truth chunks
         k: Number of top chunks to consider
+        similarity_calculator: Optional SimilarityCalculator instance
 
     Returns:
         MAP@K score (0-1)
@@ -438,7 +486,7 @@ def calculate_map_at_k(
     relevant_count = 0
 
     for i, chunk in enumerate(top_k, 1):
-        if is_chunk_relevant(chunk, ground_truth_chunks):
+        if is_chunk_relevant(chunk, ground_truth_chunks, similarity_calculator=similarity_calculator):
             relevant_count += 1
             precision_at_i = relevant_count / i
             precisions.append(precision_at_i)
@@ -455,7 +503,8 @@ def calculate_map_at_k(
 
 def calculate_mrr(
     retrieved_chunks: List[str],
-    ground_truth_chunks: List[str]
+    ground_truth_chunks: List[str],
+    similarity_calculator=None
 ) -> float:
     """
     Calculate Mean Reciprocal Rank (MRR).
@@ -463,6 +512,7 @@ def calculate_mrr(
     Args:
         retrieved_chunks: List of retrieved chunks
         ground_truth_chunks: List of ground truth chunks
+        similarity_calculator: Optional SimilarityCalculator instance
 
     Returns:
         MRR score (0-1)
@@ -472,7 +522,7 @@ def calculate_mrr(
 
     # Find the rank of the first relevant chunk
     for i, chunk in enumerate(retrieved_chunks, 1):
-        if is_chunk_relevant(chunk, ground_truth_chunks):
+        if is_chunk_relevant(chunk, ground_truth_chunks, similarity_calculator=similarity_calculator):
             return 1.0 / i
 
     return 0.0
@@ -483,62 +533,87 @@ def calculate_mrr(
 # ----------------------------------------
 
 def calculate_rank_stability(
-    retrieved_chunks_list: List[List[str]],
+    retrieved_chunks_list: List[str],
     k_values: List[int] = [1, 3, 5, 10]
 ) -> Dict[str, float]:
     """
-    Calculate rank stability across different K values using Kendall's tau.
-    Measures how consistent the ranking is across different cutoff points.
+    FIXED: Calculate meaningful Top-K metrics instead of broken Kendall's tau.
+
+    The old implementation always returned 100% because it compared the same
+    retrieval at different K values, where ranks are mathematically guaranteed
+    to be identical for common items.
+
+    New metrics:
+    - Rank Concentration: Is quality concentrated at the top?
+    - Rank Diversity: Are results unique (no duplicates)?
+    - Quality Drop-off: How fast does quality decay?
 
     Args:
         retrieved_chunks_list: List of retrieved chunks (ordered by rank)
         k_values: List of K values to analyze
 
     Returns:
-        Dictionary with stability scores
+        Dictionary with meaningful stability metrics
     """
-    from scipy.stats import kendalltau
+    import numpy as np
 
-    stability_scores = {}
+    metrics = {}
 
     if not retrieved_chunks_list or len(retrieved_chunks_list) < 2:
-        return stability_scores
+        return metrics
 
-    # Create rank mappings for each K
-    rank_maps = {}
-    for k in k_values:
-        if k <= len(retrieved_chunks_list):
-            # Assign ranks (1-indexed) to each chunk in top-K
-            rank_maps[k] = {chunk: idx + 1 for idx, chunk in enumerate(retrieved_chunks_list[:k])}
+    # 1. Rank Concentration - Is quality concentrated at top?
+    # Uses inverse rank weighting: 1/rank
+    try:
+        total_weight = sum(1 / (i + 1) for i in range(len(retrieved_chunks_list)))
 
-    # Calculate pairwise correlations
-    k_pairs = [(k_values[i], k_values[j]) for i in range(len(k_values)) for j in range(i + 1, len(k_values))]
+        for k in k_values:
+            if k > len(retrieved_chunks_list):
+                continue
 
-    for k1, k2 in k_pairs:
-        if k1 not in rank_maps or k2 not in rank_maps:
-            continue
+            top_k_weight = sum(1 / (i + 1) for i in range(k))
+            concentration = top_k_weight / total_weight if total_weight > 0 else 0.0
+            metrics[f'concentration@{k}'] = float(concentration)
+    except Exception as e:
+        logger.error(f"Error calculating concentration: {e}")
 
-        # Find common chunks between top-K1 and top-K2
-        common_chunks = set(rank_maps[k1].keys()).intersection(set(rank_maps[k2].keys()))
+    # 2. Rank Diversity - Are all results unique?
+    try:
+        for k in k_values:
+            if k > len(retrieved_chunks_list):
+                continue
 
-        if len(common_chunks) < 2:
-            # Not enough data for correlation
-            stability_scores[f'stability_k{k1}_vs_k{k2}'] = 1.0 if len(common_chunks) == 1 else 0.0
-            continue
+            unique_items = len(set(retrieved_chunks_list[:k]))
+            diversity = unique_items / k if k > 0 else 0.0
+            metrics[f'diversity@{k}'] = float(diversity)
+    except Exception as e:
+        logger.error(f"Error calculating diversity: {e}")
 
-        # Get ranks for common chunks
-        ranks1 = [rank_maps[k1][chunk] for chunk in common_chunks]
-        ranks2 = [rank_maps[k2][chunk] for chunk in common_chunks]
+    # 3. Quality Drop-off - How much does quality decrease at higher K?
+    try:
+        # Use 1/rank as relevance proxy
+        relevance_scores = [1.0 / (i + 1) for i in range(len(retrieved_chunks_list))]
 
-        # Calculate Kendall's tau
-        tau, _ = kendalltau(ranks1, ranks2)
-        stability_scores[f'stability_k{k1}_vs_k{k2}'] = float(tau) if not pd.isna(tau) else 0.0
+        for i, k in enumerate(k_values[1:], 1):
+            prev_k = k_values[i - 1]
 
-    # Calculate average stability
-    if stability_scores:
-        stability_scores['avg_rank_stability'] = sum(stability_scores.values()) / len(stability_scores)
+            if k > len(retrieved_chunks_list):
+                continue
 
-    return stability_scores
+            avg_k = np.mean(relevance_scores[:k])
+            avg_prev = np.mean(relevance_scores[:prev_k])
+
+            drop_off = (avg_prev - avg_k) / avg_prev if avg_prev > 0 else 0.0
+            metrics[f'dropoff_k{prev_k}_to_k{k}'] = float(drop_off)
+    except Exception as e:
+        logger.error(f"Error calculating drop-off: {e}")
+
+    # 4. Average concentration across all K (summary metric)
+    concentration_vals = [v for k, v in metrics.items() if 'concentration@' in k]
+    if concentration_vals:
+        metrics['avg_rank_concentration'] = float(np.mean(concentration_vals))
+
+    return metrics
 
 
 def calculate_result_churn(
@@ -585,45 +660,10 @@ def calculate_result_churn(
     return churn_scores
 
 
-def calculate_top_k_overlap(
-    retrieved_chunks_list: List[str],
-    k_values: List[int] = [1, 3, 5, 10]
-) -> Dict[str, float]:
-    """
-    Calculate overlap between different K values.
-    Measures what percentage of top-K1 results appear in top-K2.
-
-    Args:
-        retrieved_chunks_list: List of retrieved chunks (ordered by rank)
-        k_values: List of K values to analyze
-
-    Returns:
-        Dictionary with overlap scores
-    """
-    overlap_scores = {}
-
-    if not retrieved_chunks_list:
-        return overlap_scores
-
-    # Calculate pairwise overlaps
-    k_pairs = [(k_values[i], k_values[j]) for i in range(len(k_values)) for j in range(i + 1, len(k_values))]
-
-    for k1, k2 in k_pairs:
-        if k1 > len(retrieved_chunks_list) or k2 > len(retrieved_chunks_list):
-            continue
-
-        set1 = set(retrieved_chunks_list[:k1])
-        set2 = set(retrieved_chunks_list[:k2])
-
-        # Calculate what % of smaller set appears in larger set
-        smaller_k = min(k1, k2)
-        smaller_set = set(retrieved_chunks_list[:smaller_k])
-        larger_set = set(retrieved_chunks_list[:max(k1, k2)])
-
-        overlap = len(smaller_set.intersection(larger_set)) / len(smaller_set) if smaller_set else 0.0
-        overlap_scores[f'overlap_k{k1}_k{k2}'] = overlap
-
-    return overlap_scores
+# REMOVED: calculate_top_k_overlap()
+# This function always returned 100% because the first K items in a list
+# are mathematically guaranteed to appear in any larger K subset.
+# The metric provided no useful information for decision-making.
 
 
 # ----------------------------------------
@@ -634,48 +674,113 @@ def comprehensive_retrieval_evaluation(
     query: str,
     retrieved_chunks: List[str],
     ground_truth_chunks: List[str],
-    k_values: List[int] = [1, 3, 5, 10]
+    k_values: List[int] = [1, 3, 5, 10],
+    similarity_calculators: List = None
 ) -> Dict[str, float]:
     """
     Perform comprehensive retrieval evaluation with multiple metrics.
+    Supports multiple similarity calculation methods.
 
     Args:
         query: Query text
         retrieved_chunks: List of retrieved chunks
         ground_truth_chunks: List of ground truth chunks
         k_values: List of K values for precision/recall@K
+        similarity_calculators: Optional list of SimilarityCalculator instances.
+                               If None, defaults to Jaccard only.
+                               If provided, calculates metrics for each method.
 
     Returns:
-        Dictionary with all metrics
+        Dictionary with all metrics (method-suffixed if multiple calculators)
     """
-    metrics = {}
+    # Default to Jaccard if no calculators provided (backward compatibility)
+    if similarity_calculators is None:
+        from similarity_calculators import JaccardSimilarity
+        similarity_calculators = [JaccardSimilarity()]
 
-    # RAGAs metrics
-    ragas_scores = evaluate_retrieval_with_ragas(query, retrieved_chunks, ground_truth_chunks)
-    metrics.update(ragas_scores)
+    all_metrics = {}
 
-    # Precision/Recall/MAP at K
-    for k in k_values:
-        if k <= len(retrieved_chunks):
-            metrics[f'precision@{k}'] = calculate_precision_at_k(retrieved_chunks, ground_truth_chunks, k)
-            metrics[f'recall@{k}'] = calculate_recall_at_k(retrieved_chunks, ground_truth_chunks, k)
-            metrics[f'map@{k}'] = calculate_map_at_k(retrieved_chunks, ground_truth_chunks, k)
+    # Calculate metrics for each similarity method
+    for calculator in similarity_calculators:
+        method_name = calculator.name
+        logger.info(f"Calculating metrics using {method_name} similarity")
 
-    # MRR
-    metrics['mrr'] = calculate_mrr(retrieved_chunks, ground_truth_chunks)
+        try:
+            metrics = {}
 
-    # Top-K Stability Analysis
+            # RAGAs metrics (only for first method to avoid redundancy)
+            # RAGAs doesn't use our similarity calculator
+            if calculator == similarity_calculators[0]:
+                try:
+                    ragas_scores = evaluate_retrieval_with_ragas(query, retrieved_chunks, ground_truth_chunks)
+                    # Add RAGAs scores without suffix (they're method-independent)
+                    all_metrics.update(ragas_scores)
+                except Exception as e:
+                    logger.error(f"Error calculating RAGAs metrics: {str(e)}", exc_info=True)
+                    # Continue with other metrics
+
+            # Manual metrics using the similarity calculator
+            try:
+                metrics['context_precision'] = calculate_precision_manual(retrieved_chunks, ground_truth_chunks, calculator)
+                metrics['context_recall'] = calculate_recall_manual(retrieved_chunks, ground_truth_chunks, calculator)
+            except Exception as e:
+                logger.error(f"Error calculating precision/recall for {method_name}: {str(e)}", exc_info=True)
+                metrics['context_precision'] = 0.0
+                metrics['context_recall'] = 0.0
+
+            # Precision/Recall/MAP at K
+            for k in k_values:
+                if k <= len(retrieved_chunks):
+                    try:
+                        metrics[f'precision@{k}'] = calculate_precision_at_k(retrieved_chunks, ground_truth_chunks, k, calculator)
+                        metrics[f'recall@{k}'] = calculate_recall_at_k(retrieved_chunks, ground_truth_chunks, k, calculator)
+                        metrics[f'map@{k}'] = calculate_map_at_k(retrieved_chunks, ground_truth_chunks, k, calculator)
+                    except Exception as e:
+                        logger.error(f"Error calculating metrics@{k} for {method_name}: {str(e)}", exc_info=True)
+                        metrics[f'precision@{k}'] = 0.0
+                        metrics[f'recall@{k}'] = 0.0
+                        metrics[f'map@{k}'] = 0.0
+
+            # MRR
+            try:
+                metrics['mrr'] = calculate_mrr(retrieved_chunks, ground_truth_chunks, calculator)
+            except Exception as e:
+                logger.error(f"Error calculating MRR for {method_name}: {str(e)}", exc_info=True)
+                metrics['mrr'] = 0.0
+
+            # Suffix metrics with method name
+            if len(similarity_calculators) > 1:
+                # Multiple methods: add suffix
+                for metric_name, metric_value in metrics.items():
+                    all_metrics[f'{metric_name}_{method_name}'] = metric_value
+            else:
+                # Single method: no suffix (backward compatibility)
+                all_metrics.update(metrics)
+
+        except Exception as e:
+            logger.error(f"Fatal error processing similarity calculator {method_name}: {str(e)}", exc_info=True)
+            # Add placeholder metrics to indicate failure
+            if len(similarity_calculators) > 1:
+                all_metrics[f'error_{method_name}'] = str(e)
+            # Continue with next calculator
+
+    # Top-K Analysis (method-independent, only calculate once)
+    # Includes: concentration, diversity, drop-off metrics
     stability_scores = calculate_rank_stability(retrieved_chunks, k_values)
-    metrics.update(stability_scores)
+    all_metrics.update(stability_scores)
 
+    # Churn rate (how many new results as K increases)
     churn_scores = calculate_result_churn(retrieved_chunks, k_values)
-    metrics.update(churn_scores)
+    all_metrics.update(churn_scores)
 
-    overlap_scores = calculate_top_k_overlap(retrieved_chunks, k_values)
-    metrics.update(overlap_scores)
+    # Removed: calculate_top_k_overlap() - always returned 100%
 
-    # Basic stats
-    metrics['num_retrieved'] = len(retrieved_chunks)
-    metrics['num_ground_truth'] = len(ground_truth_chunks)
+    # Basic stats (method-independent)
+    all_metrics['num_retrieved'] = len(retrieved_chunks)
+    all_metrics['num_ground_truth'] = len(ground_truth_chunks)
 
-    return metrics
+    # Add metadata about which methods were used
+    if len(similarity_calculators) > 1:
+        all_metrics['similarity_methods_used'] = ','.join([calc.name for calc in similarity_calculators])
+
+    return all_metrics

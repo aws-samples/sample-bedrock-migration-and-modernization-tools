@@ -169,95 +169,132 @@ class ResultsViewerComponent:
         """Render the results viewer component."""
         # Sync evaluation statuses from files
         sync_evaluations_from_files()
-        
+
         st.subheader("Completed Evaluations")
-        
+
         # Check if there are any completed evaluations
         completed_evals = [
-            e for e in st.session_state.evaluations 
+            e for e in st.session_state.evaluations
             if e["status"] == "completed"
         ]
-        
+
         if not completed_evals:
             st.info("No completed evaluations yet. Run evaluations to see results here.")
         else:
-            # Create a table of completed evaluations
+            # Determine evaluation type from selected evaluation or show all
+            eval_types = set(e.get("evaluation_type", "llm") for e in completed_evals)
+
+            # Create a table of completed evaluations based on evaluation type
             eval_data = []
             for eval_config in completed_evals:
-                # Get model and judge details for display
-                models_info = eval_config.get("selected_models", [])
-                judges_info = eval_config.get("judge_models", [])
-                
-                # Create model summary
-                if isinstance(models_info, list) and len(models_info) > 0:
-                    if isinstance(models_info[0], dict):
-                        models_summary = f"{len(models_info)} models"
-                        models_details = ", ".join([m.get("model_id", "Unknown") for m in models_info])
-                    else:
-                        models_summary = f"{len(models_info)} models"
-                        models_details = ", ".join(models_info)
-                else:
-                    models_summary = "0 models"
-                    models_details = "None"
-                
-                # Create judge summary
-                if isinstance(judges_info, list) and len(judges_info) > 0:
-                    if isinstance(judges_info[0], dict):
-                        judges_summary = f"{len(judges_info)} judges"
-                        judges_details = ", ".join([j.get("model_id", "Unknown") for j in judges_info])
-                    else:
-                        judges_summary = f"{len(judges_info)} judges"
-                        judges_details = ", ".join(judges_info)
-                else:
-                    judges_summary = "0 judges"
-                    judges_details = "None"
-                
+                # Get evaluation type and normalize it
+                # "prompt" is the old LLM evaluation type, treat as "llm"
+                eval_type = eval_config.get("evaluation_type", "llm")
+                if eval_type == "prompt":
+                    eval_type = "llm"
+
                 # Extract file name from persistent storage or CSV data
                 csv_file_name = "Unknown"
-                
-                # First check if we have the persisted file name (from status files)
-                if eval_config.get("csv_file_name"):
-                    csv_file_name = eval_config.get("csv_file_name")
-                # Fallback to CSV data if available (for active session)
-                elif eval_config.get("csv_data") is not None:
-                    csv_file_name = eval_config.get("csv_file_name", "Uploaded CSV")
-                elif hasattr(eval_config.get("csv_data"), "name"):
-                    csv_file_name = eval_config["csv_data"].name
-                
-                # Get temperature used
-                temperature = eval_config.get("temperature", "Not specified")
-                
-                # Check if custom metrics were used
-                user_metrics = eval_config.get("user_defined_metrics", "")
-                has_custom_metrics = "Yes" if user_metrics and user_metrics.strip() else "No"
-                
-                eval_data.append({
-                    "Name": eval_config["name"],
-                    "Task Type": eval_config["task_type"],
-                    "Data File": csv_file_name,
-                    "Temperature": temperature,
-                    "Custom Metrics": has_custom_metrics,
-                    "Models": models_summary,
-                    "Judges": judges_summary,
-                    "Completed": pd.to_datetime(eval_config["updated_at"]).strftime("%Y-%m-%d %H:%M")
-                })
-            
+
+                if eval_type == "rag":
+                    # RAG Evaluation - get file names from RAG config
+                    rag_config = eval_config.get("rag_config", {})
+                    # For RAG, show data source file names
+                    file_names = rag_config.get("data_source_file_names")
+                    if file_names:
+                        if isinstance(file_names, list):
+                            csv_file_name = ", ".join(file_names) if len(file_names) <= 3 else f"{len(file_names)} files"
+                        else:
+                            csv_file_name = file_names
+                    elif rag_config.get("data_source_file_name"):
+                        csv_file_name = rag_config.get("data_source_file_name")
+                    else:
+                        csv_file_name = "Data Source"
+                else:
+                    # LLM Evaluation - get CSV file name
+                    if eval_config.get("csv_file_name"):
+                        csv_file_name = eval_config.get("csv_file_name")
+                    elif eval_config.get("csv_data") is not None:
+                        csv_file_name = eval_config.get("csv_file_name", "Uploaded CSV")
+                    elif hasattr(eval_config.get("csv_data"), "name"):
+                        csv_file_name = eval_config["csv_data"].name
+
+                if eval_type == "rag":
+                    rag_config = eval_config.get("rag_config", {})
+                    embedding_models = rag_config.get("embedding_models", [])
+
+                    # Create embedding models summary
+                    if embedding_models:
+                        embedding_summary = f"{len(embedding_models)} model(s)"
+                    else:
+                        embedding_summary = "0 models"
+
+                    # Get similarity methods
+                    similarity_methods = rag_config.get("similarity_methods", [])
+                    methods_summary = ", ".join([m.get("method", "Unknown") for m in similarity_methods]) if similarity_methods else "None"
+
+                    eval_data.append({
+                        "Name": eval_config["name"],
+                        "Type": "RAG",
+                        "Data File": csv_file_name,
+                        "Embedding Models": embedding_summary,
+                        "Similarity Methods": methods_summary,
+                        "Chunking": rag_config.get("chunking_strategy", "N/A"),
+                        "Top-K": rag_config.get("top_k", "N/A"),
+                        "Completed": pd.to_datetime(eval_config["updated_at"]).strftime("%Y-%m-%d %H:%M")
+                    })
+                else:
+                    # LLM Evaluation - show LLM-specific info
+                    models_info = eval_config.get("selected_models", [])
+                    judges_info = eval_config.get("judge_models", [])
+
+                    # Create model summary
+                    if isinstance(models_info, list) and len(models_info) > 0:
+                        models_summary = f"{len(models_info)} model(s)"
+                    else:
+                        models_summary = "0 models"
+
+                    # Create judge summary
+                    if isinstance(judges_info, list) and len(judges_info) > 0:
+                        judges_summary = f"{len(judges_info)} judge(s)"
+                    else:
+                        judges_summary = "0 judges"
+
+                    # Get temperature used
+                    temperature = eval_config.get("temperature", "Not specified")
+
+                    # Check if custom metrics were used
+                    user_metrics = eval_config.get("user_defined_metrics", "")
+                    has_custom_metrics = "Yes" if user_metrics and user_metrics.strip() else "No"
+
+                    eval_data.append({
+                        "Name": eval_config["name"],
+                        "Type": "LLM",
+                        "Data File": csv_file_name,
+                        "Task Type": eval_config.get("task_type", "Unknown"),
+                        "Temperature": temperature,
+                        "Custom Metrics": has_custom_metrics,
+                        "Models": models_summary,
+                        "Judges": judges_summary,
+                        "Completed": pd.to_datetime(eval_config["updated_at"]).strftime("%Y-%m-%d %H:%M")
+                    })
+
             eval_df = pd.DataFrame(eval_data)
             st.dataframe(eval_df, hide_index=True)
-            
+
             # Add refresh button
             st.button(
                 "Refresh Results",
                 on_click=sync_evaluations_from_files
             )
-            
+
             # Select an evaluation to view results
             selected_eval_id = st.selectbox(
                 "Select evaluation to view results",
                 options=[e["id"] for e in completed_evals],
                 format_func=lambda x: next((e["name"] for e in completed_evals if e["id"] == x), x)
             )
-            
+
             if selected_eval_id:
                 self._show_evaluation_results(selected_eval_id)
     
@@ -266,7 +303,7 @@ class ResultsViewerComponent:
         # First try to find status file for the most up-to-date information (now in logs directory)
         from ..utils.constants import STATUS_FILES_DIR
         status_dir = Path(STATUS_FILES_DIR)
-        
+
         # Try both composite and legacy formats for status file
         status_file = None
         # First try to find composite format by looking at evaluation name
@@ -278,27 +315,35 @@ class ResultsViewerComponent:
                 if composite_status_file.exists():
                     status_file = composite_status_file
                     break
-        
+
         # Fallback to legacy format
         if not status_file:
             legacy_status_file = status_dir / f"eval_{eval_id}_status.json"
             if legacy_status_file.exists():
                 status_file = legacy_status_file
-        
-        
+
+
         # Find the evaluation configuration
         eval_config = None
         for e in st.session_state.evaluations:
             if e["id"] == eval_id:
                 eval_config = e
                 break
-        
+
         if not eval_config:
             st.error("Evaluation not found")
             return
-        
-        # Display evaluation details
-        st.subheader(f"📊 {eval_config['name']}")
+
+        # Get evaluation type and normalize it
+        # "prompt" is the old LLM evaluation type, treat as "llm"
+        eval_type = eval_config.get("evaluation_type", "llm")
+        if eval_type == "prompt":
+            eval_type = "llm"
+
+        # Display evaluation details with type-specific icon
+        type_icon = "🔍" if eval_type == "rag" else "📊"
+        type_label = "RAG Evaluation" if eval_type == "rag" else "LLM Evaluation"
+        st.subheader(f"{type_icon} {eval_config['name']} ({type_label})")
 
         # Check for unprocessed records and show warning if any exist
         unprocessed_count = self._count_unprocessed_records(eval_config['name'])
@@ -315,34 +360,66 @@ class ResultsViewerComponent:
         # Display basic info in columns for better layout
         col1, col2 = st.columns(2)
         with col1:
-            st.write(f"**Task Type:** {eval_config.get('task_type', 'Unknown')}")
-            st.write(f"**Task Criteria:** {eval_config.get('task_criteria', 'Unknown')}")
+            # Common fields
             st.write(f"**Status:** {eval_config.get('status', 'Unknown')}")
-            
-            # Display data file name
             data_file = eval_config.get('csv_file_name', 'Unknown')
             st.write(f"**Data File:** {data_file}")
-            
+
+            if eval_type == "rag":
+                # RAG-specific fields
+                rag_config = eval_config.get("rag_config", {})
+                st.write(f"**Chunking Strategy:** {rag_config.get('chunking_strategy', 'N/A')}")
+                st.write(f"**Chunk Size:** {rag_config.get('chunk_size', 'N/A')}")
+                st.write(f"**Chunk Overlap:** {rag_config.get('chunk_overlap', 'N/A')}")
+            else:
+                # LLM-specific fields
+                st.write(f"**Task Type:** {eval_config.get('task_type', 'Unknown')}")
+                st.write(f"**Task Criteria:** {eval_config.get('task_criteria', 'Unknown')}")
+
         with col2:
             st.write(f"**Created:** {pd.to_datetime(eval_config.get('created_at', '')).strftime('%Y-%m-%d %H:%M') if eval_config.get('created_at') else 'Unknown'}")
             st.write(f"**Completed:** {pd.to_datetime(eval_config.get('updated_at', '')).strftime('%Y-%m-%d %H:%M') if eval_config.get('updated_at') else 'Unknown'}")
             if eval_config.get('duration'):
                 st.write(f"**Duration:** {eval_config['duration']:.1f} seconds")
-            
-            # Display temperature and custom metrics
-            temperature = eval_config.get('temperature', 'Not specified')
-            st.write(f"**Temperature:** {temperature}")
-            
-            user_metrics = eval_config.get('user_defined_metrics', '')
-            if user_metrics and user_metrics.strip():
-                st.write(f"**Custom Metrics:** {user_metrics}")
+
+            if eval_type == "rag":
+                # RAG-specific fields
+                rag_config = eval_config.get("rag_config", {})
+                st.write(f"**Top-K:** {rag_config.get('top_k', 'N/A')}")
+                st.write(f"**Data Format:** {rag_config.get('data_format', 'N/A')}")
             else:
-                st.write(f"**Custom Metrics:** None")
-        
+                # LLM-specific fields
+                temperature = eval_config.get('temperature', 'Not specified')
+                st.write(f"**Temperature:** {temperature}")
+
+                user_metrics = eval_config.get('user_defined_metrics', '')
+                if user_metrics and user_metrics.strip():
+                    st.write(f"**Custom Metrics:** {user_metrics}")
+                else:
+                    st.write(f"**Custom Metrics:** None")
+
         # Show error if present
         if eval_config.get('error'):
             st.error(f"**Error:** {eval_config['error']}")
-        
+
+        # Type-specific sections
+        if eval_type == "rag":
+            self._show_rag_evaluation_details(eval_config, eval_id)
+        else:
+            self._show_llm_evaluation_details(eval_config, eval_id)
+
+        # Add Load Config button
+        st.divider()
+        col1, col2, col3 = st.columns([1, 1, 2])
+        with col1:
+            if st.button("📋 Load Config", key=f"load_config_{eval_id}",
+                        help="Load this evaluation's configuration to create a new evaluation"):
+                st.session_state.load_from_eval_config = eval_config.copy()
+                st.session_state.navigate_to_setup = True
+                st.rerun()
+
+    def _show_llm_evaluation_details(self, eval_config, eval_id):
+        """Show LLM-specific evaluation details."""
         # Display models used
         st.write("#### Models Evaluated")
         models_info = eval_config.get("selected_models", [])
@@ -358,7 +435,7 @@ class ResultsViewerComponent:
                     st.write(f"- {model}")
         else:
             st.write("No model information available")
-        
+
         # Display judges used
         st.write("#### Judge Models")
         judges_info = eval_config.get("judge_models", [])
@@ -374,7 +451,7 @@ class ResultsViewerComponent:
                     st.write(f"- {judge}")
         else:
             st.write("No judge information available")
-        
+
         # Display additional evaluation metadata
         st.write("#### Evaluation Configuration")
         config_col1, config_col2 = st.columns(2)
@@ -386,21 +463,73 @@ class ResultsViewerComponent:
             st.write(f"**Temperature Variations:** {eval_config.get('temperature_variations', 'Unknown')}")
             st.write(f"**Failure Threshold:** {eval_config.get('failure_threshold', 'Unknown')}")
             st.write(f"**Sleep Between Invocations:** {eval_config.get('sleep_between_invocations', 'Unknown')}s")
-        
+
         if eval_config.get('user_defined_metrics'):
             st.write(f"**User-Defined Metrics:** {eval_config['user_defined_metrics']}")
 
         # Display RPM Metrics if available
         self._display_rpm_metrics(eval_config, eval_id)
 
-        # Add Load Config button
-        st.divider()
-        col1, col2, col3 = st.columns([1, 1, 2])
-        with col1:
-            if st.button("📋 Load Config", key=f"load_config_{eval_id}",
-                        help="Load this evaluation's configuration to create a new evaluation"):
-                st.session_state.load_from_eval_config = eval_config.copy()
-                st.session_state.navigate_to_setup = True
-                st.rerun()
+    def _show_rag_evaluation_details(self, eval_config, eval_id):
+        """Show RAG-specific evaluation details."""
+        rag_config = eval_config.get("rag_config", {})
+
+        # Display embedding models used
+        st.write("#### Embedding Models")
+        embedding_models = rag_config.get("embedding_models", [])
+        if embedding_models:
+            embedding_df = pd.DataFrame(embedding_models)
+            # Remove multimodal and supports columns if they exist
+            columns_to_drop = ['multimodal', 'supports']
+            embedding_df = embedding_df.drop(columns=[col for col in columns_to_drop if col in embedding_df.columns])
+            st.dataframe(embedding_df, width='stretch', hide_index=True)
+        else:
+            st.write("No embedding model information available")
+
+        # Display similarity methods
+        st.write("#### Similarity Methods")
+        similarity_methods = rag_config.get("similarity_methods", [])
+        if similarity_methods:
+            # Create a dataframe for similarity methods
+            methods_data = []
+            for method in similarity_methods:
+                method_info = {
+                    "Method": method.get("method", "Unknown"),
+                    "Threshold": method.get("threshold", "N/A")
+                }
+                # Add model info for specific methods
+                if method.get("method") == "sentence_transformer":
+                    method_info["Model"] = method.get("model_id", "N/A")
+                elif method.get("method") == "llm_judge":
+                    method_info["Model"] = method.get("model_id", "N/A")
+                methods_data.append(method_info)
+
+            methods_df = pd.DataFrame(methods_data)
+            st.dataframe(methods_df, width='stretch', hide_index=True)
+        else:
+            st.write("No similarity method information available")
+
+        # Display reranking configuration
+        if rag_config.get("enable_reranking"):
+            st.write("#### Reranking Configuration")
+            config_col1, config_col2 = st.columns(2)
+            with config_col1:
+                st.write(f"**Reranker Model:** {rag_config.get('reranker_model_id', 'N/A')}")
+                st.write(f"**Reranker Top-N:** {rag_config.get('reranker_top_n', 'N/A')}")
+            with config_col2:
+                st.write(f"**Reranker Region:** {rag_config.get('reranker_region', 'N/A')}")
+
+        # Display chunking configuration
+        st.write("#### Chunking & Retrieval Configuration")
+        config_col1, config_col2 = st.columns(2)
+        with config_col1:
+            st.write(f"**Chunking Strategy:** {rag_config.get('chunking_strategy', 'N/A')}")
+            st.write(f"**Chunk Size:** {rag_config.get('chunk_size', 'N/A')}")
+            st.write(f"**Chunk Overlap:** {rag_config.get('chunk_overlap', 'N/A')}")
+        with config_col2:
+            st.write(f"**Top-K Retrieval:** {rag_config.get('top_k', 'N/A')}")
+            st.write(f"**Data Format:** {rag_config.get('data_format', 'N/A')}")
+            st.write(f"**Query Column:** {rag_config.get('query_column', 'N/A')}")
+            st.write(f"**Context Column:** {rag_config.get('ground_truth_column', 'N/A')}")
 
     

@@ -187,3 +187,36 @@ DEFAULT_JUDGES = judges['DEFAULT_BEDROCK_MODELS']
 DEFAULT_JUDGES_COST = judges['DEFAULT_COST_MAP']
 JUDGE_MODEL_TO_REGIONS = judges['MODEL_TO_REGIONS']
 JUDGE_REGION_TO_MODELS = judges['REGION_TO_MODELS']
+
+# Load embedding model profiles
+def load_embedding_profiles(filename='embedding_models_profiles.jsonl'):
+    """
+    Load embedding model profiles from config file.
+    Returns list of dicts with embedding model information.
+    """
+    file_path = get_config_path(filename)
+    profiles = []
+
+    try:
+        with open(file_path, 'r') as f:
+            for line in f:
+                if line.strip():
+                    profile_data = json.loads(line)
+                    # Transform to standard format
+                    profiles.append({
+                        'model_id': profile_data['model_id'],
+                        'name': profile_data.get('name', profile_data['model_id'].split('/')[-1]),
+                        'provider': 'Bedrock' if 'bedrock/' in profile_data['model_id'] else 'OpenAI',
+                        'dimensions': profile_data.get('dimensions', 'Unknown'),
+                        'region': profile_data.get('region', 'us-east-1'),
+                        'cost': profile_data.get('input_token_cost', 0)
+                    })
+    except FileNotFoundError:
+        print(f"Warning: Embedding profiles file not found: {file_path}")
+    except Exception as e:
+        print(f"Error loading embedding profiles: {e}")
+
+    return profiles
+
+# Cache embedding profiles at module level
+EMBEDDING_PROFILES = load_embedding_profiles()

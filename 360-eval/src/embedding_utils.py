@@ -328,3 +328,170 @@ def calculate_embedding_cost(
     input_cost_per_1k = model_profile.get('input_token_cost', 0)
     cost = (total_tokens / 1000) * input_cost_per_1k
     return cost
+
+
+# ----------------------------------------
+# Multimodal Embedding Generation
+# ----------------------------------------
+
+def generate_multimodal_embedding_bedrock(
+    text: str,
+    image: Optional[any] = None,
+    model_id: str = "amazon.nova-2-multimodal-embeddings-v1:0",
+    dimensions: int = 1024,
+    region: str = "us-east-1"
+) -> Tuple[List[float], Dict]:
+    """
+    Generate multimodal embedding using Amazon Bedrock (Nova or Titan).
+
+    Args:
+        text: Text string to embed
+        image: PIL Image object (optional)
+        model_id: Bedrock model ID
+        dimensions: Embedding dimension size (256, 384, 1024, or 3072 for Nova)
+        region: AWS region
+
+    Returns:
+        Tuple of (embedding_vector, metadata_dict)
+    """
+    import boto3
+    import json
+    import base64
+    from io import BytesIO
+
+    start_time = time.time()
+
+    try:
+        bedrock = boto3.client('bedrock-runtime', region_name=region)
+
+        # Prepare request body
+        request_body = {
+            "inputText": text,
+            "embeddingConfig": {
+                "outputEmbeddingLength": dimensions
+            }
+        }
+
+        # Add image if provided
+        if image:
+            # Convert PIL Image to base64
+            buffered = BytesIO()
+            image.save(buffered, format="PNG")
+            img_base64 = base64.b64encode(buffered.getvalue()).decode()
+            request_body["inputImage"] = img_base64
+
+        logger.debug(f"Generating multimodal embedding with {model_id} (dim={dimensions}, has_image={image is not None})")
+
+        # Call Bedrock API
+        response = bedrock.invoke_model(
+            modelId=model_id,
+            body=json.dumps(request_body)
+        )
+
+        # Parse response
+        result = json.loads(response['body'].read())
+        embedding = result['embedding']
+
+        latency = time.time() - start_time
+
+        metadata = {
+            'model_id': model_id,
+            'dimensions': len(embedding),
+            'has_image': image is not None,
+            'latency_seconds': latency,
+            'multimodal': True
+        }
+
+        logger.debug(f"Successfully generated multimodal embedding in {latency:.2f}s")
+
+        return embedding, metadata
+
+    except Exception as e:
+        logger.error(f"Error generating multimodal embedding: {type(e).__name__} - {str(e)}", exc_info=True)
+        raise
+
+
+def generate_multimodal_embeddings_batch(
+    data_items: List[Dict],
+    model_id: str = "amazon.nova-2-multimodal-embeddings-v1:0",
+    dimensions: int = 1024,
+    region: str = "us-east-1",
+    sleep_between_calls: float = 0.1
+) -> Tuple[List[List[float]], Dict]:
+    """
+    Generate multimodal embeddings for multiple text/image pairs.
+
+    Args:
+        data_items: List of dicts with 'text' and optional 'image' keys
+        model_id: Bedrock model ID
+        dimensions: Embedding dimension size
+        region: AWS region
+        sleep_between_calls: Delay between API calls (seconds)
+
+    Returns:
+        Tuple of (embeddings_list, metadata_dict)
+    """
+    all_embeddings = []
+    total_latency = 0
+    num_with_images = 0
+
+    start_time = time.time()
+
+    for i, item in enumerate(data_items):
+        try:
+            text = item.get('text', '')
+            image = item.get('image')
+
+            if not text:
+                logger.warning(f"Skipping item {i}: no text provided")
+                continue
+
+            embedding, metadata = generate_multimodal_embedding_bedrock(
+                text=text,
+                image=image,
+                model_id=model_id,
+                dimensions=dimensions,
+                region=region
+            )
+
+            all_embeddings.append(embedding)
+            total_latency += metadata.get('latency_seconds', 0)
+
+            if image is not None:
+                num_with_images += 1
+
+            # Sleep to avoid rate limits
+            if i < len(data_items) - 1 and sleep_between_calls > 0:
+                time.sleep(sleep_between_calls)
+
+        except Exception as e:
+            logger.error(f"Failed to process item {i}: {str(e)}")
+            raise
+
+    aggregate_metadata = {
+        'model_id': model_id,
+        'num_items': len(data_items),
+        'num_embeddings': len(all_embeddings),
+        'num_with_images': num_with_images,
+        'dimensions': dimensions,
+        'latency_seconds': total_latency,
+        'total_elapsed': time.time() - start_time,
+        'multimodal': True
+    }
+
+    logger.info(f"Generated {len(all_embeddings)} multimodal embeddings ({num_with_images} with images) in {aggregate_metadata['total_elapsed']:.2f}s")
+
+    return all_embeddings, aggregate_metadata
+
+
+def is_multimodal_model(model_profile: Dict) -> bool:
+    """
+    Check if an embedding model supports multimodal input.
+
+    Args:
+        model_profile: Embedding model profile dict
+
+    Returns:
+        True if model supports multimodal (images + text), False otherwise
+    """
+    return model_profile.get('multimodal', False)

@@ -23,8 +23,12 @@ from document_processors import parse_document
 from chunking_strategies import chunk_text, analyze_chunks
 from vectorstore_manager import (
     create_chroma_vectorstore,
+    load_chroma_vectorstore,
     retrieve_from_vectorstore,
     get_vectorstore_stats,
+    validate_tool_created_vectorstore,
+    save_vectorstore_metadata,
+    update_vectorstore_metadata,
     cleanup_vectorstore
 )
 from reranking import rerank_chunks
@@ -32,6 +36,7 @@ from rag_evaluation_engine import (
     parse_ground_truth_chunks,
     comprehensive_retrieval_evaluation
 )
+from similarity_calculators import create_similarity_calculator
 
 env = load_dotenv()
 
@@ -46,7 +51,8 @@ def rag_benchmark(
     collection,
     embedding_model_config: Dict,
     reranker_config: Dict,
-    top_k: int = 5
+    top_k: int = 5,
+    similarity_methods_config: Optional[List[Dict]] = None
 ) -> Dict:
     """
     Single RAG benchmark iteration.
@@ -58,6 +64,7 @@ def rag_benchmark(
         embedding_model_config: Embedding model configuration
         reranker_config: Reranker configuration
         top_k: Number of chunks to retrieve
+        similarity_methods_config: List of similarity method configurations
 
     Returns:
         Dictionary with benchmark results
@@ -74,6 +81,7 @@ def rag_benchmark(
     embedding_cost = 0
     reranking_cost = 0
     total_cost = 0
+    reranker_type = 'unknown'
 
     retrieved_chunks = []
     reranked_chunks = []
@@ -135,12 +143,60 @@ def rag_benchmark(
 
         reranking_latency = time.time() - reranking_start
         reranking_cost = reranking_metadata.get('cost', 0)
+        reranker_type = reranking_metadata.get('reranker_type', 'unknown')
 
-        # 4. Evaluate with RAGAs
+        # 4. Instantiate similarity calculators
+        similarity_calculators = None
+        if similarity_methods_config:
+            similarity_calculators = []
+
+            for method_config in similarity_methods_config:
+                method_name = method_config["method"]
+                threshold = method_config.get("threshold")
+
+                try:
+                    if method_name == "cosine":
+                        # For cosine similarity, we need to build embedding cache
+                        # Embed all unique chunks (retrieved + ground truth)
+                        all_chunks = list(set(reranked_chunks + ground_truth_chunks))
+
+                        # Generate embeddings for all chunks
+                        from embedding_utils import generate_embeddings_batch
+                        chunk_embeddings, embed_metadata = generate_embeddings_batch(
+                            all_chunks,
+                            model_id,
+                            params
+                        )
+
+                        # Build embedding cache
+                        embedding_cache = {chunk: emb for chunk, emb in zip(all_chunks, chunk_embeddings)}
+
+                        config = {"embedding_cache": embedding_cache, "threshold": threshold}
+                        calculator = create_similarity_calculator("cosine", config)
+                        similarity_calculators.append(calculator)
+
+                    else:
+                        # Other methods
+                        config = {"threshold": threshold}
+                        if "model_id" in method_config:
+                            config["model_id"] = method_config["model_id"]
+                        if method_name == "llm_judge":
+                            # Add provider params for LLM judge
+                            config["provider_params"] = params
+
+                        calculator = create_similarity_calculator(method_name, config)
+                        similarity_calculators.append(calculator)
+
+                except Exception as e:
+                    logging.error(f"Error creating similarity calculator for {method_name}: {str(e)}")
+                    # Continue with other methods
+
+        # 5. Evaluate with RAGAs
         evaluation_metrics = comprehensive_retrieval_evaluation(
             query=query,
             retrieved_chunks=reranked_chunks,
-            ground_truth_chunks=ground_truth_chunks
+            ground_truth_chunks=ground_truth_chunks,
+            similarity_calculators=similarity_calculators
         )
 
         total_latency = time.time() - start_time
@@ -170,6 +226,9 @@ def rag_benchmark(
         "embedding_cost": embedding_cost,
         "reranking_cost": reranking_cost,
         "total_cost": total_cost,
+
+        # Reranker info
+        "reranker_type": reranker_type,
 
         # Retrieval results
         "retrieved_chunks": json.dumps(reranked_chunks),
@@ -229,7 +288,8 @@ def execute_rag_benchmark(scenarios, cfg, unprocessed_dir):
                     collection=scn["collection"],
                     embedding_model_config=scn["embedding_model_config"],
                     reranker_config=scn["reranker_config"],
-                    top_k=scn["top_k"]
+                    top_k=scn["top_k"],
+                    similarity_methods_config=scn.get("similarity_methods_config")
                 )
 
                 # Check for errors
@@ -363,7 +423,12 @@ def main(
     sleep_between_calls=2.0,
     sleep_between_batches=2.0,
     batch_size=50,
-    max_retries=5
+    max_retries=5,
+    # Similarity methods
+    similarity_methods_config=None,
+    # Vectorstore management
+    auto_cleanup_vectorstore=True,
+    existing_vectorstore_path=None
 ):
     """
     Main RAG evaluation orchestrator.
@@ -389,14 +454,35 @@ def main(
 
     # Create directories
     unprocessed_dir = os.path.join(output_dir, "unprocessed")
-    vectorstore_dir = os.path.join(output_dir, "vectorstores", f"{experiment_name}_{ts}")
     os.makedirs(unprocessed_dir, exist_ok=True)
-    os.makedirs(vectorstore_dir, exist_ok=True)
 
-    # Paths
+    # Handle vectorstore directory
+    if existing_vectorstore_path:
+        # Use existing vectorstore
+        vectorstore_dir = existing_vectorstore_path if os.path.isabs(existing_vectorstore_path) else os.path.join(project_root, existing_vectorstore_path)
+        if not os.path.exists(vectorstore_dir):
+            raise FileNotFoundError(f"Existing vectorstore path not found: {vectorstore_dir}")
+        logging.info(f"Using existing vectorstore: {vectorstore_dir}")
+    else:
+        # Create new vectorstore
+        vectorstore_dir = os.path.join(output_dir, "vectorstores", f"{experiment_name}_{ts}")
+        os.makedirs(vectorstore_dir, exist_ok=True)
+        logging.info(f"Creating new vectorstore: {vectorstore_dir}")
+
+    # Paths - handle both absolute and relative paths
     eval_dir = os.path.join(project_root, "prompt-evaluations")
-    queries_path = os.path.join(eval_dir, queries_file)
-    data_source_path = os.path.join(eval_dir, data_source_file)
+
+    # If paths are absolute or relative to project root, use them directly
+    if os.path.isabs(queries_file) or os.path.exists(os.path.join(project_root, queries_file)):
+        queries_path = queries_file if os.path.isabs(queries_file) else os.path.join(project_root, queries_file)
+    else:
+        # Otherwise, assume they're in prompt-evaluations
+        queries_path = os.path.join(eval_dir, queries_file)
+
+    if os.path.isabs(data_source_file) or os.path.exists(os.path.join(project_root, data_source_file)):
+        data_source_path = data_source_file if os.path.isabs(data_source_file) else os.path.join(project_root, data_source_file)
+    else:
+        data_source_path = os.path.join(eval_dir, data_source_file)
 
     # Load queries CSV
     logging.info(f"Loading queries from: {queries_path}")
@@ -407,11 +493,32 @@ def main(
     if ground_truth_column not in queries_df.columns:
         raise ValueError(f"Ground truth column '{ground_truth_column}' not found in CSV. Available: {list(queries_df.columns)}")
 
+    # Add visual metadata fields with defaults if missing (backward compatibility)
+    if 'requires_visual' not in queries_df.columns:
+        queries_df['requires_visual'] = False
+        logging.info("Added 'requires_visual' column with default value False")
+
+    if 'visual_element_type' not in queries_df.columns:
+        queries_df['visual_element_type'] = 'N/A'
+        logging.info("Added 'visual_element_type' column with default value 'N/A'")
+
+    if 'visual_location' not in queries_df.columns:
+        queries_df['visual_location'] = 'N/A'
+        logging.info("Added 'visual_location' column with default value 'N/A'")
+
+    if 'visual_description' not in queries_df.columns:
+        queries_df['visual_description'] = 'N/A'
+        logging.info("Added 'visual_description' column with default value 'N/A'")
+
     logging.info(f"Loaded {len(queries_df)} queries")
 
     # Parse data source file
     logging.info(f"Parsing data source file: {data_source_path}")
-    texts = parse_document(data_source_path, data_format, data_source_text_field)
+    texts = parse_document(
+        data_source_path,
+        data_format,
+        data_source_text_field
+    )
     logging.info(f"Parsed {len(texts)} text entries from data source")
 
     # Concatenate all texts for chunking
@@ -538,50 +645,162 @@ def main(
 
     logging.info(f"Using reranker: {reranker_config.get('type', 'none')}")
 
-    # Create vector stores for each embedding model
+    # Create or load vector stores for each embedding model
     vectorstores = {}
+    using_existing_vectorstore = False  # Track if we're using existing tool-created vectorstore
+    existing_metadata = None  # Store metadata from existing vectorstore
 
-    for embedding_model in accessible_models:
-        model_id = embedding_model['model_id']
-        logging.info(f"Creating vector store for embedding model: {model_id}")
+    # Prepare chunking parameters for compatibility check
+    chunking_params = {
+        "chunk_size": chunk_size,
+        "chunk_overlap": chunk_overlap,
+        "chunking_strategy": chunking_strategy
+    }
 
-        # Generate embeddings for all chunks
-        params = {}
-        if "openai/" in model_id:
-            params['api_key'] = os.getenv('OPENAI_API')
-        elif 'cohere/' in model_id:
-            # Cohere via API (not Bedrock)
-            params['api_key'] = os.getenv('COHERE_API')
-        elif 'bedrock/' in model_id:
-            # Bedrock models (bedrock/*)
-            params['aws_region_name'] = embedding_model.get('region', 'us-east-1')
-
-        embeddings, embed_metadata = generate_embeddings_batch(
-            texts=chunks,
-            model_id=model_id,
-            provider_params=params,
-            batch_size=batch_size,
-            sleep_between_batches=sleep_between_batches
+    if existing_vectorstore_path:
+        # Validate existing tool-created vectorstore
+        logging.info("Validating existing tool-created vectorstore...")
+        is_valid, found_models, missing_models, metadata = validate_tool_created_vectorstore(
+            vectorstore_dir,
+            accessible_models,
+            chunking_params
         )
 
-        logging.info(f"Generated {len(embeddings)} embeddings in {embed_metadata['latency_seconds']:.2f}s")
+        if not is_valid:
+            raise ValueError(
+                f"Vectorstore at {vectorstore_dir} is not valid:\n"
+                f"- Ensure it was created by this tool (has metadata.json)\n"
+                f"- Check chunking parameters match (chunk_size={chunk_size}, "
+                f"chunk_overlap={chunk_overlap}, strategy={chunking_strategy})"
+            )
 
-        # Create ChromaDB collection
-        collection_name = f"rag_eval_{model_id.replace('/', '_').replace('.', '_').replace(':', '_')}"
-        collection = create_chroma_vectorstore(
-            chunks=chunks,
-            embeddings=embeddings,
-            collection_name=collection_name,
-            persist_dir=vectorstore_dir
-        )
+        using_existing_vectorstore = True
+        existing_metadata = metadata
+        logging.info(f"Vectorstore validation: {len(found_models)} found, {len(missing_models)} missing")
 
-        vectorstores[model_id] = {
-            "collection": collection,
-            "embedding_model": embedding_model
-        }
+        # Load existing collections
+        for model in found_models:
+            model_id = model['model_id']
+            collection_name = f"rag_eval_{model_id.replace('/', '_').replace('.', '_').replace(':', '_')}"
 
-        stats = get_vectorstore_stats(collection)
-        logging.info(f"Vector store stats: {stats}")
+            try:
+                logging.info(f"Loading existing collection: {collection_name}")
+                collection = load_chroma_vectorstore(vectorstore_dir, collection_name)
+
+                vectorstores[model_id] = {
+                    "collection": collection,
+                    "embedding_model": model,
+                    "reused": True  # Mark as reused for reporting
+                }
+
+                stats = get_vectorstore_stats(collection)
+                logging.info(f"Loaded: {stats.get('num_chunks', 0)} chunks, {stats.get('embedding_dimensions', 0)} dimensions")
+
+            except Exception as e:
+                raise RuntimeError(f"Failed to load collection {collection_name}: {str(e)}")
+
+        # Add missing collections incrementally
+        if missing_models:
+            logging.info(f"Adding {len(missing_models)} missing collections to existing vectorstore...")
+
+    # Create new collections (either for new vectorstore or missing ones in existing)
+    if not existing_vectorstore_path or (existing_vectorstore_path and missing_models):
+        # Determine which models need collections created
+        models_to_create = missing_models if using_existing_vectorstore else accessible_models
+
+        # Track embedding costs for metadata
+        embedding_costs_for_metadata = []
+
+        if using_existing_vectorstore:
+            logging.info(f"Creating {len(models_to_create)} missing collections...")
+        else:
+            logging.info(f"Creating {len(models_to_create)} new collections...")
+
+        for embedding_model in models_to_create:
+            model_id = embedding_model['model_id']
+            logging.info(f"Creating vector store for embedding model: {model_id}")
+
+            # Generate embeddings for all chunks
+            params = {}
+            if "openai/" in model_id:
+                params['api_key'] = os.getenv('OPENAI_API')
+            elif 'cohere/' in model_id:
+                # Cohere via API (not Bedrock)
+                params['api_key'] = os.getenv('COHERE_API')
+            elif 'bedrock/' in model_id:
+                # Bedrock models (bedrock/*)
+                params['aws_region_name'] = embedding_model.get('region', 'us-east-1')
+
+            embeddings, embed_metadata = generate_embeddings_batch(
+                texts=chunks,
+                model_id=model_id,
+                provider_params=params,
+                batch_size=batch_size,
+                sleep_between_batches=sleep_between_batches
+            )
+
+            logging.info(f"Generated {len(embeddings)} embeddings in {embed_metadata['latency_seconds']:.2f}s")
+
+            # Calculate embedding cost
+            embedding_cost = calculate_embedding_cost(
+                embed_metadata.get('total_tokens', 0),
+                embedding_model
+            )
+
+            # Create ChromaDB collection
+            collection_name = f"rag_eval_{model_id.replace('/', '_').replace('.', '_').replace(':', '_')}"
+            collection = create_chroma_vectorstore(
+                chunks=chunks,
+                embeddings=embeddings,
+                collection_name=collection_name,
+                persist_dir=vectorstore_dir
+            )
+
+            vectorstores[model_id] = {
+                "collection": collection,
+                "embedding_model": embedding_model,
+                "reused": False  # Mark as newly created
+            }
+
+            stats = get_vectorstore_stats(collection)
+            logging.info(f"Vector store stats: {stats}")
+
+            # Track model info for metadata
+            model_metadata = {
+                "model_id": model_id,
+                "embedding_dimensions": stats.get('embedding_dimensions', 0),
+                "num_chunks": stats.get('num_chunks', 0),
+                "embedding_cost_usd": embedding_cost,
+                "embedding_latency_seconds": embed_metadata['latency_seconds'],
+                "total_tokens": embed_metadata.get('total_tokens', 0),
+                "created_at": datetime.now().isoformat()
+            }
+            embedding_costs_for_metadata.append(model_metadata)
+
+            # Update metadata file (either create new or update existing)
+            if using_existing_vectorstore:
+                # Incrementally add model to existing metadata
+                logging.info(f"Updating metadata for newly added model: {model_id}")
+                update_vectorstore_metadata(vectorstore_dir, model_metadata)
+            # If creating new vectorstore, we'll save all metadata at once after loop
+
+        # Save metadata for new vectorstore (not incremental update)
+        if not using_existing_vectorstore and embedding_costs_for_metadata:
+            logging.info("Saving vectorstore metadata...")
+            metadata_dict = {
+                "tool_version": "1.0.0",
+                "created_at": datetime.now().isoformat(),
+                "experiment_name": experiment_name,
+                "chunking_params": chunking_params,
+                "document_source": data_source_path,
+                "num_chunks": len(chunks),
+                "embedding_models": embedding_costs_for_metadata
+            }
+
+            if save_vectorstore_metadata(vectorstore_dir, metadata_dict):
+                logging.info(f"Metadata saved to {vectorstore_dir}/metadata.json")
+            else:
+                logging.warning("Failed to save metadata - vectorstore will not be reusable")
 
     # Create scenarios
     scenarios = []
@@ -601,7 +820,8 @@ def main(
                 "reranker_id": reranker_config.get("reranker_id", "none"),
                 "chunking_strategy": chunking_strategy,
                 "chunk_size": chunk_size,
-                "top_k": top_k
+                "top_k": top_k,
+                "similarity_methods_config": similarity_methods_config
             })
 
     logging.info(f"Created {len(scenarios)} scenarios ({len(queries_df)} queries × {len(vectorstores)} models)")
@@ -615,6 +835,9 @@ def main(
     }
 
     # Run experiments
+    # Track if at least one run completed successfully (for conditional vectorstore cleanup)
+    evaluation_success = False
+
     for run in range(1, experiment_counts + 1):
         run_start_time = time.time()
         run_timestamp = datetime.now().isoformat()
@@ -645,6 +868,9 @@ def main(
                 run_duration = time.time() - run_start_time
                 logging.info(f"Run {run} completed in {run_duration:.1f} seconds, results saved to {out_csv}")
 
+                # Mark evaluation as successful
+                evaluation_success = True
+
             except Exception as e:
                 logging.error(f"Error saving results for run {run}: {str(e)}", exc_info=True)
 
@@ -652,9 +878,20 @@ def main(
             logging.error(f"Critical error in run {run}: {str(e)}", exc_info=True)
             print(f"\nRun {run} failed with error: {str(e)}. Continuing with next run...")
 
-    # Cleanup vector stores
-    logging.info("Cleaning up vector stores...")
-    cleanup_vectorstore(vectorstore_dir)
+    # Cleanup vector stores (conditional based on success and user preference)
+    if using_existing_vectorstore:
+        # Using existing tool-created vectorstore - never delete
+        logging.info(f"Using existing vectorstore at {vectorstore_dir} - not cleaning up")
+    elif evaluation_success and auto_cleanup_vectorstore:
+        # Created new vectorstore, evaluation succeeded, auto-cleanup enabled
+        logging.info("Cleaning up vectorstore (evaluation succeeded, auto-cleanup enabled)...")
+        cleanup_vectorstore(vectorstore_dir)
+    elif not evaluation_success:
+        # Evaluation failed, keep for debugging
+        logging.info(f"Keeping vectorstore at {vectorstore_dir} (evaluation had errors, keeping for debugging)")
+    else:
+        # Auto-cleanup disabled by user
+        logging.info(f"Keeping vectorstore at {vectorstore_dir} (auto-cleanup disabled by user)")
 
     # Generate report
     if report:
@@ -706,6 +943,14 @@ if __name__ == "__main__":
     p.add_argument("--embedding_models", default=None, help="Comma-separated list of embedding model IDs")
     p.add_argument("--semantic_chunking_model_id", default=None, help="Specific embedding model ID to use for semantic chunking")
     p.add_argument("--report", type=lambda x: x.lower() == 'true', default=True)
+    # Similarity methods
+    p.add_argument("--similarity_methods", default=None, help="Comma-separated list of similarity methods (jaccard,cosine,sentence_transformer,llm_judge)")
+    p.add_argument("--similarity_thresholds", default=None, help="Comma-separated list of thresholds for each method (e.g., '0.7,0.85,0.8,0.7')")
+    p.add_argument("--sentence_transformer_model", default="all-MiniLM-L6-v2", help="Model for sentence_transformer similarity")
+    p.add_argument("--llm_judge_model", default=None, help="LLM model ID for llm_judge similarity")
+    # Vectorstore management
+    p.add_argument("--auto_cleanup_vectorstore", type=lambda x: x.lower() == 'true', default=True, help="Automatically delete vectorstore after successful completion")
+    p.add_argument("--existing_vectorstore_path", default=None, help="Path to existing vectorstore directory to reuse instead of creating new one")
 
     args = p.parse_args()
 
@@ -714,6 +959,39 @@ if __name__ == "__main__":
 
     # Handle embedding models - can be passed as comma-separated string or file
     embedding_models_arg = args.embedding_models if args.embedding_models else args.embedding_models_file
+
+    # Parse similarity methods configuration
+    similarity_methods_config = None
+    if args.similarity_methods:
+        methods = [m.strip() for m in args.similarity_methods.split(',')]
+        thresholds = None
+        if args.similarity_thresholds:
+            thresholds = [float(t.strip()) for t in args.similarity_thresholds.split(',')]
+            if len(thresholds) != len(methods):
+                print(f"Warning: Number of thresholds ({len(thresholds)}) does not match number of methods ({len(methods)}). Using defaults.")
+                thresholds = None
+
+        # Build config list
+        similarity_methods_config = []
+        default_thresholds = {"jaccard": 0.7, "cosine": 0.85, "sentence_transformer": 0.80, "llm_judge": 0.7}
+
+        for i, method in enumerate(methods):
+            method_config = {
+                "method": method,
+                "threshold": thresholds[i] if thresholds else default_thresholds.get(method, 0.7),
+                "display_name": method.replace('_', ' ').title()
+            }
+
+            # Add model-specific config
+            if method == "sentence_transformer":
+                method_config["model_id"] = args.sentence_transformer_model
+            elif method == "llm_judge":
+                if not args.llm_judge_model:
+                    print(f"Warning: llm_judge method requires --llm_judge_model. Skipping.")
+                    continue
+                method_config["model_id"] = args.llm_judge_model
+
+            similarity_methods_config.append(method_config)
 
     main(
         args.queries_file,
@@ -744,5 +1022,10 @@ if __name__ == "__main__":
         args.sleep_between_calls,
         args.sleep_between_batches,
         args.batch_size,
-        args.max_retries
+        args.max_retries,
+        # Similarity methods
+        similarity_methods_config,
+        # Vectorstore management
+        args.auto_cleanup_vectorstore,
+        args.existing_vectorstore_path
     )

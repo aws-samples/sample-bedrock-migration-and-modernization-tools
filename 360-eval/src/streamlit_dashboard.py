@@ -15,6 +15,23 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[logging.StreamHandler()]
 )
+
+# Suppress annoying Streamlit thread warnings
+class StreamlitThreadWarningFilter(logging.Filter):
+    """Filter to suppress 'missing ScriptRunContext' warnings from background threads."""
+    def filter(self, record):
+        msg = record.getMessage()
+        # Filter out the specific warning about missing ScriptRunContext
+        if "missing ScriptRunContext" in msg:
+            return False
+        return True
+
+# Apply filter to all streamlit-related loggers
+warning_filter = StreamlitThreadWarningFilter()
+for logger_name in ['streamlit', 'streamlit.runtime', 'streamlit.runtime.scriptrunner']:
+    logger_obj = logging.getLogger(logger_name)
+    logger_obj.addFilter(warning_filter)
+
 logger = logging.getLogger('streamlit_dashboard')
 logger.info("Starting Streamlit dashboard")
 

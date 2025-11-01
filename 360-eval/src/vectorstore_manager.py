@@ -1,7 +1,9 @@
 import os
 import logging
 import shutil
+import json
 from typing import List, Dict, Tuple, Optional
+from datetime import datetime
 import chromadb
 from chromadb.config import Settings
 
@@ -219,6 +221,225 @@ def retrieve_multiple_queries(
             })
 
     return results
+
+
+# ----------------------------------------
+# Metadata Management
+# ----------------------------------------
+
+def save_vectorstore_metadata(
+    persist_dir: str,
+    metadata_dict: Dict
+) -> bool:
+    """
+    Save metadata.json file with vectorstore information.
+
+    Args:
+        persist_dir: Directory where vectorstore is persisted
+        metadata_dict: Dictionary containing metadata to save
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        metadata_path = os.path.join(persist_dir, "metadata.json")
+
+        # Add timestamp if not present
+        if "created_at" not in metadata_dict:
+            metadata_dict["created_at"] = datetime.now().isoformat()
+
+        # Add tool version
+        if "tool_version" not in metadata_dict:
+            metadata_dict["tool_version"] = "1.0.0"
+
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata_dict, f, indent=2)
+
+        logger.info(f"Saved vectorstore metadata to {metadata_path}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error saving vectorstore metadata: {str(e)}", exc_info=True)
+        return False
+
+
+def load_vectorstore_metadata(persist_dir: str) -> Optional[Dict]:
+    """
+    Load metadata.json file from vectorstore directory.
+
+    Args:
+        persist_dir: Directory where vectorstore is persisted
+
+    Returns:
+        Metadata dictionary if successful, None otherwise
+    """
+    try:
+        metadata_path = os.path.join(persist_dir, "metadata.json")
+
+        if not os.path.exists(metadata_path):
+            logger.warning(f"Metadata file not found: {metadata_path}")
+            return None
+
+        with open(metadata_path, 'r') as f:
+            metadata = json.load(f)
+
+        logger.debug(f"Loaded vectorstore metadata from {metadata_path}")
+        return metadata
+
+    except Exception as e:
+        logger.error(f"Error loading vectorstore metadata: {str(e)}", exc_info=True)
+        return None
+
+
+def update_vectorstore_metadata(
+    persist_dir: str,
+    new_model_info: Dict
+) -> bool:
+    """
+    Update metadata.json by adding a new embedding model.
+
+    Args:
+        persist_dir: Directory where vectorstore is persisted
+        new_model_info: Dictionary with new model information
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # Load existing metadata
+        metadata = load_vectorstore_metadata(persist_dir)
+        if metadata is None:
+            logger.error("Cannot update metadata - file not found or invalid")
+            return False
+
+        # Add new model to embedding_models list
+        if "embedding_models" not in metadata:
+            metadata["embedding_models"] = []
+
+        # Check if model already exists
+        model_id = new_model_info.get("model_id")
+        existing_ids = [m.get("model_id") for m in metadata["embedding_models"]]
+
+        if model_id in existing_ids:
+            logger.warning(f"Model {model_id} already exists in metadata, skipping")
+            return True
+
+        # Add new model
+        metadata["embedding_models"].append(new_model_info)
+
+        # Update last_modified timestamp
+        metadata["last_modified"] = datetime.now().isoformat()
+
+        # Save updated metadata
+        return save_vectorstore_metadata(persist_dir, metadata)
+
+    except Exception as e:
+        logger.error(f"Error updating vectorstore metadata: {str(e)}", exc_info=True)
+        return False
+
+
+def validate_tool_created_vectorstore(
+    persist_dir: str,
+    expected_models: List[Dict[str, str]],
+    chunking_params: Dict
+) -> Tuple[bool, List[Dict[str, str]], List[Dict[str, str]], Dict[str, any]]:
+    """
+    Validate that vectorstore was created by this tool and check compatibility.
+    Returns info about which models exist vs need to be added.
+
+    Args:
+        persist_dir: Directory where vectorstore is persisted
+        expected_models: List of dicts with 'model_id' keys
+        chunking_params: Chunking parameters for compatibility check
+
+    Returns:
+        Tuple of (is_valid, found_models, missing_models, metadata)
+        - is_valid: True if vectorstore is tool-created and compatible
+        - found_models: List of model dicts that already exist
+        - missing_models: List of model dicts that need to be added
+        - metadata: Full metadata dict from metadata.json
+    """
+    try:
+        # Check if directory exists
+        if not os.path.exists(persist_dir):
+            logger.error(f"Vectorstore directory not found: {persist_dir}")
+            return False, [], expected_models, {}
+
+        # Load metadata
+        metadata = load_vectorstore_metadata(persist_dir)
+        if metadata is None:
+            logger.error(f"Vectorstore at {persist_dir} is not tool-created (no metadata.json)")
+            return False, [], expected_models, {}
+
+        # Validate chunking compatibility
+        stored_chunking = metadata.get("chunking_params", {})
+
+        # Check critical chunking parameters
+        critical_params = ["chunk_size", "chunk_overlap", "chunking_strategy"]
+        for param in critical_params:
+            if param in chunking_params:
+                stored_value = stored_chunking.get(param)
+                expected_value = chunking_params.get(param)
+
+                if stored_value != expected_value:
+                    logger.error(
+                        f"Chunking parameter mismatch: {param} "
+                        f"(stored: {stored_value}, expected: {expected_value})"
+                    )
+                    return False, [], expected_models, metadata
+
+        # Check which models exist vs missing
+        existing_model_ids = [m.get("model_id") for m in metadata.get("embedding_models", [])]
+        expected_model_ids = [m.get("model_id") for m in expected_models]
+
+        found_models = []
+        missing_models = []
+
+        for model in expected_models:
+            if model.get("model_id") in existing_model_ids:
+                found_models.append(model)
+            else:
+                missing_models.append(model)
+
+        # Connect to ChromaDB to verify collections exist
+        try:
+            client = chromadb.PersistentClient(
+                path=persist_dir,
+                settings=Settings(anonymized_telemetry=False)
+            )
+            collections = client.list_collections()
+            collection_names = [c.name for c in collections]
+
+            # Verify that found models actually have collections
+            verified_found = []
+            for model in found_models:
+                model_id = model.get("model_id", "")
+                sanitized = model_id.replace("/", "_").replace(".", "_").replace(":", "_")
+                collection_name = f"rag_eval_{sanitized}"
+
+                if collection_name not in collection_names:
+                    logger.warning(f"Model {model_id} in metadata but collection missing, will recreate")
+                    missing_models.append(model)
+                else:
+                    verified_found.append(model)
+
+            found_models = verified_found
+
+        except Exception as e:
+            logger.error(f"Failed to verify collections: {str(e)}")
+            return False, [], expected_models, metadata
+
+        is_valid = True
+        logger.info(
+            f"Vectorstore validation: tool-created, compatible chunking, "
+            f"{len(found_models)} found, {len(missing_models)} missing"
+        )
+
+        return is_valid, found_models, missing_models, metadata
+
+    except Exception as e:
+        logger.error(f"Error validating tool-created vectorstore: {str(e)}", exc_info=True)
+        return False, [], expected_models, {}
 
 
 # ----------------------------------------

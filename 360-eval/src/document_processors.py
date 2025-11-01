@@ -47,28 +47,77 @@ def detect_format(file_path: str) -> str:
 
 def parse_csv(file_path: str, text_column: str = None) -> List[str]:
     """
-    Parse CSV file and extract text content.
+    Parse CSV file and extract text content with structure preservation.
 
     Args:
         file_path: Path to CSV file
-        text_column: Name of column containing text (if None, concatenates all columns)
+        text_column: Name of column containing text (if specified, only extracts this column)
 
     Returns:
-        List of text strings
+        List of text strings in key-value format
+
+    Examples:
+        >>> # Key-value format (preserves column context)
+        >>> parse_csv("regions.csv")
+        ['Region Code: us-east-1\\nRegion Name: US East\\nLocation: United States',
+         'Region Code: us-west-2\\nRegion Name: US West\\nLocation: United States']
     """
     try:
         logger.info(f"Parsing CSV file: {file_path}")
-        df = pd.read_csv(file_path)
 
+        # Try standard CSV parsing first
+        try:
+            df = pd.read_csv(file_path)
+        except pd.errors.ParserError as e:
+            # Retry with error-tolerant settings
+            logger.warning(f"CSV parsing failed with error: {str(e)}")
+            logger.warning("Retrying with error-tolerant settings (skipping bad lines)")
+            df = pd.read_csv(
+                file_path,
+                on_bad_lines='skip',  # Skip malformed rows
+                encoding_errors='ignore',  # Ignore encoding errors
+                dtype=str  # Read everything as string to avoid type issues
+            )
+        except UnicodeDecodeError:
+            # Try different encoding
+            logger.warning("UTF-8 decoding failed, trying latin-1 encoding")
+            df = pd.read_csv(
+                file_path,
+                encoding='latin-1',
+                on_bad_lines='skip',
+                dtype=str
+            )
+
+        if df.empty:
+            logger.warning(f"CSV file is empty or all rows were skipped: {file_path}")
+            return []
+
+        # Handle single column extraction
         if text_column:
             if text_column not in df.columns:
                 raise ValueError(f"Column '{text_column}' not found in CSV. Available: {list(df.columns)}")
             texts = df[text_column].dropna().astype(str).tolist()
-        else:
-            # Concatenate all columns for each row
-            texts = df.apply(lambda row: ' '.join(row.dropna().astype(str)), axis=1).tolist()
+            logger.info(f"Extracted {len(texts)} text entries from column '{text_column}'")
+            return texts
 
-        logger.info(f"Extracted {len(texts)} text entries from CSV")
+        # Handle multi-column formatting (key-value format)
+        texts = []
+
+        # Key-value format: preserves column context
+        for idx, row in df.iterrows():
+            row_lines = []
+            for col_name, value in row.items():
+                if pd.notna(value):  # Skip NaN values
+                    # Clean up value
+                    value_str = str(value).strip()
+                    if value_str:  # Skip empty strings
+                        row_lines.append(f"{col_name}: {value_str}")
+
+            if row_lines:  # Only add non-empty rows
+                row_text = "\n".join(row_lines)
+                texts.append(row_text)
+
+        logger.info(f"Extracted {len(texts)} text entries from CSV using key-value format")
         return texts
 
     except Exception as e:
@@ -224,11 +273,13 @@ def parse_word(file_path: str) -> List[str]:
                 texts.append(text)
 
         # Also extract text from tables
+        table_texts = []
         for table in doc.tables:
             for row in table.rows:
                 row_text = ' '.join(cell.text.strip() for cell in row.cells)
                 if row_text:
                     texts.append(row_text)
+                    table_texts.append(row_text)
 
         logger.info(f"Extracted {len(texts)} text entries from Word document")
         return texts
@@ -342,7 +393,9 @@ def parse_markdown(file_path: str) -> List[str]:
 # PDF Parsing
 # ----------------------------------------
 
-def parse_pdf(file_path: str) -> List[str]:
+def parse_pdf(
+    file_path: str
+) -> List[str]:
     """
     Parse PDF file and extract text.
 
@@ -350,7 +403,10 @@ def parse_pdf(file_path: str) -> List[str]:
         file_path: Path to PDF file
 
     Returns:
-        List of text strings (one per page or paragraph)
+        List of text strings (one per page)
+
+    Example:
+        texts = parse_pdf('doc.pdf')
     """
     try:
         from PyPDF2 import PdfReader
@@ -359,14 +415,14 @@ def parse_pdf(file_path: str) -> List[str]:
         reader = PdfReader(file_path)
 
         texts = []
+
         for page_num, page in enumerate(reader.pages, 1):
             text = page.extract_text().strip()
-            if text:
-                # Split by paragraphs (double newlines)
-                paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
-                texts.extend(paragraphs)
 
-        logger.info(f"Extracted {len(texts)} text entries from PDF ({len(reader.pages)} pages)")
+            if text:
+                texts.append(text)
+
+        logger.info(f"Extracted {len(texts)} text pages from PDF ({len(reader.pages)} pages)")
         return texts
 
     except ImportError:
@@ -387,7 +443,7 @@ def parse_document(
     text_field: str = None
 ) -> List[str]:
     """
-    Parse document of any supported format.
+    Parse document of any supported format, optionally with image descriptions.
 
     Args:
         file_path: Path to document
@@ -395,13 +451,13 @@ def parse_document(
         text_field: Field/column name for structured formats
 
     Returns:
-        List of text strings extracted from document
+        List of text strings
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
-    # Auto-detect format if not specified
-    if not file_format:
+    # Auto-detect format if not specified or set to 'auto'
+    if not file_format or file_format == 'auto':
         file_format = detect_format(file_path)
 
     logger.info(f"Parsing document as {file_format}: {file_path}")

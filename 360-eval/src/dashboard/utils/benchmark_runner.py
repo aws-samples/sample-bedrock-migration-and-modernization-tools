@@ -785,36 +785,108 @@ def run_rag_benchmark_process(eval_id):
                 _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
                 return False
 
-            # Save data source file
-            # Determine file extension and whether it's binary
-            file_ext = rag_config.get("data_source_file_ext", "txt")
-            is_binary = rag_config.get("data_source_is_binary", False)
-            data_source_path = prompt_eval_dir / f"rag_datasource_{composite_id}.{file_ext}"
+            # Save data source file(s)
+            # Check if multiple files exist
+            data_source_files = rag_config.get("data_source_files")
 
-            # Check if data source already exists (from previous failed attempt or retry)
-            if data_source_path.exists():
-                dashboard_logger.info(f"Data source already exists for {eval_name}, using existing file: {data_source_path}")
-            elif rag_config.get("data_source_file") is not None:
-                # Create new data source from data
-                if is_binary:
-                    # Decode base64 and write as binary
-                    import base64
-                    binary_content = base64.b64decode(rag_config["data_source_file"])
-                    with open(data_source_path, 'wb') as f:
-                        f.write(binary_content)
+            if data_source_files and len(data_source_files) > 0:
+                # Multiple files mode - combine them into one file
+                dashboard_logger.info(f"Processing {len(data_source_files)} data source files")
+
+                # Determine output format - use txt for combined files
+                file_ext = "txt"
+                data_source_path = prompt_eval_dir / f"rag_datasource_{composite_id}.{file_ext}"
+
+                # Check if combined file already exists
+                if data_source_path.exists():
+                    dashboard_logger.info(f"Combined data source already exists for {eval_name}, using existing file: {data_source_path}")
                 else:
-                    # Write as text
+                    # Combine all files into one text file
+                    import base64
+                    import tempfile
+                    combined_content = []
+
+                    for idx, file_data in enumerate(data_source_files):
+                        file_name = file_data.get("name", f"file_{idx}")
+                        content = file_data.get("content")
+                        is_binary = file_data.get("is_binary", False)
+                        file_ext = file_data.get("ext", "")
+
+                        # Add separator with filename
+                        combined_content.append(f"\n\n{'='*80}\n")
+                        combined_content.append(f"Source: {file_name}\n")
+                        combined_content.append(f"{'='*80}\n\n")
+
+                        # Handle binary files (PDFs, Word docs, etc.)
+                        if is_binary:
+                            # For PDFs and Word docs, we need to extract text first
+                            if file_ext.lower() in ["pdf", "docx", "doc"]:
+                                try:
+                                    # Write binary content to temp file
+                                    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}") as tmp_file:
+                                        binary_content = base64.b64decode(content)
+                                        tmp_file.write(binary_content)
+                                        tmp_path = tmp_file.name
+
+                                    # Parse the document to extract text
+                                    from document_processors import parse_document
+                                    texts = parse_document(tmp_path, file_format=file_ext.lower())
+
+                                    # Combine extracted text
+                                    extracted_text = "\n\n".join(texts)
+                                    combined_content.append(extracted_text)
+                                    combined_content.append("\n")
+
+                                    # Clean up temp file
+                                    Path(tmp_path).unlink()
+
+                                    dashboard_logger.info(f"Extracted text from {file_name} ({len(texts)} chunks)")
+
+                                except Exception as e:
+                                    dashboard_logger.error(f"Failed to extract text from {file_name}: {str(e)}")
+                                    combined_content.append(f"[Error extracting text from {file_name}: {str(e)}]\n")
+                            else:
+                                dashboard_logger.warning(f"Binary file {file_name} cannot be combined as text. Skipping.")
+                                combined_content.append(f"[Binary file content not included: {file_name}]\n")
+                        else:
+                            combined_content.append(content)
+
+                    # Write combined file
                     with open(data_source_path, 'w', encoding='utf-8') as f:
-                        f.write(rag_config["data_source_file"])
-                dashboard_logger.info(f"Saved data source to {data_source_path}")
+                        f.write(''.join(combined_content))
+
+                    dashboard_logger.info(f"Combined {len(data_source_files)} files into {data_source_path}")
+
             else:
-                # No file exists and no data available - cannot proceed
-                error_msg = "No data source file found in RAG config and no existing file found. Cannot retry without data."
-                dashboard_logger.error(error_msg)
-                _update_status_file(status_file, "failed", 0, error=error_msg)
-                update_evaluation_status(eval_id, "failed", 0, error=error_msg)
-                _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
-                return False
+                # Single file mode (backward compatibility)
+                file_ext = rag_config.get("data_source_file_ext", "txt")
+                is_binary = rag_config.get("data_source_is_binary", False)
+                data_source_path = prompt_eval_dir / f"rag_datasource_{composite_id}.{file_ext}"
+
+                # Check if data source already exists (from previous failed attempt or retry)
+                if data_source_path.exists():
+                    dashboard_logger.info(f"Data source already exists for {eval_name}, using existing file: {data_source_path}")
+                elif rag_config.get("data_source_file") is not None:
+                    # Create new data source from data
+                    if is_binary:
+                        # Decode base64 and write as binary
+                        import base64
+                        binary_content = base64.b64decode(rag_config["data_source_file"])
+                        with open(data_source_path, 'wb') as f:
+                            f.write(binary_content)
+                    else:
+                        # Write as text
+                        with open(data_source_path, 'w', encoding='utf-8') as f:
+                            f.write(rag_config["data_source_file"])
+                    dashboard_logger.info(f"Saved data source to {data_source_path}")
+                else:
+                    # No file exists and no data available - cannot proceed
+                    error_msg = "No data source file found in RAG config and no existing file found. Cannot retry without data."
+                    dashboard_logger.error(error_msg)
+                    _update_status_file(status_file, "failed", 0, error=error_msg)
+                    update_evaluation_status(eval_id, "failed", 0, error=error_msg)
+                    _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+                    return False
 
             dashboard_logger.info(f"RAG file setup completed for {eval_id}")
 
@@ -830,6 +902,15 @@ def run_rag_benchmark_process(eval_id):
         script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
         # Build command for rag_benchmarks_run.py
+        # Note: If multiple files were combined into a .txt file, we need to detect format from the actual file
+        # rather than using the stored data_format which might be from the original uploaded file type
+        if data_source_files and len(data_source_files) > 0:
+            # Multiple files were combined into a .txt file, use auto-detection
+            actual_data_format = "auto"
+        else:
+            # Single file - use the stored format or auto
+            actual_data_format = rag_config.get("data_format", "auto")
+
         cmd = [
             "python",
             os.path.join(script_dir, "rag_benchmarks_run.py"),
@@ -838,7 +919,7 @@ def run_rag_benchmark_process(eval_id):
             "--output_dir", str(output_dir),
             "--query_column", rag_config.get("query_column", "query"),
             "--ground_truth_column", rag_config.get("ground_truth_column", "ground_truth_chunks"),
-            "--data_format", rag_config.get("data_format", "auto"),
+            "--data_format", actual_data_format,
             "--chunking_strategy", rag_config.get("chunking_strategy", "recursive"),
             "--chunk_size", str(rag_config.get("chunk_size", 512)),
             "--chunk_overlap", str(rag_config.get("chunk_overlap", 50)),
@@ -869,6 +950,39 @@ def run_rag_benchmark_process(eval_id):
             cmd.extend(["--reranker_type", reranker_config.get("type", "none")])
             if reranker_config.get("reranker_id") != "none":
                 cmd.extend(["--reranker_id", reranker_config["reranker_id"]])
+
+        # Add similarity methods configuration
+        if rag_config.get("similarity_methods"):
+            similarity_methods = rag_config["similarity_methods"]
+
+            # Extract method names
+            methods_list = [m["method"] for m in similarity_methods]
+            cmd.extend(["--similarity_methods", ",".join(methods_list)])
+
+            # Extract thresholds
+            thresholds_list = [str(m.get("threshold", 0.7)) for m in similarity_methods]
+            cmd.extend(["--similarity_thresholds", ",".join(thresholds_list)])
+
+            # Add sentence transformer model if used
+            st_methods = [m for m in similarity_methods if m["method"] == "sentence_transformer"]
+            if st_methods:
+                cmd.extend(["--sentence_transformer_model", st_methods[0].get("model_id", "all-MiniLM-L6-v2")])
+
+            # Add LLM judge model if used
+            llm_methods = [m for m in similarity_methods if m["method"] == "llm_judge"]
+            if llm_methods:
+                cmd.extend(["--llm_judge_model", llm_methods[0].get("model_id")])
+
+        # Vectorstore management configuration
+        # Keep vectorstore option (default is to auto-cleanup)
+        if not rag_config.get("keep_vectorstore", False):
+            cmd.extend(["--auto_cleanup_vectorstore", "true"])
+        else:
+            cmd.extend(["--auto_cleanup_vectorstore", "false"])
+
+        # Existing vectorstore path
+        if rag_config.get("use_existing_vectorstore", False) and rag_config.get("existing_vectorstore_path"):
+            cmd.extend(["--existing_vectorstore_path", rag_config["existing_vectorstore_path"]])
 
         # Add optional parameters
         if rag_config.get("data_source_text_field"):
@@ -1205,8 +1319,20 @@ def _update_status_file(status_file, status, progress, results=None, logs_dir=No
             "task_type": evaluation_config.get("task_type"),
             "task_criteria": evaluation_config.get("task_criteria"),
             "temperature": evaluation_config.get("temperature"),
-            "csv_file_name": evaluation_config.get("csv_file_name")
+            "csv_file_name": evaluation_config.get("csv_file_name"),
+            # RAG and evaluation type fields (FIX: preserve evaluation type on refresh)
+            "evaluation_type": evaluation_config.get("evaluation_type", "llm"),
+            "rag_config": evaluation_config.get("rag_config", {}),
+            "vision_enabled": evaluation_config.get("vision_enabled", False),
+            "image_column": evaluation_config.get("image_column"),
+            "prompt_column": evaluation_config.get("prompt_column"),
+            "golden_answer_column": evaluation_config.get("golden_answer_column")
         }
+
+        # Store embedding models data for RAG evaluations (FIX: preserve embedding models on refresh)
+        if evaluation_config.get("evaluation_type") == "rag":
+            rag_config = evaluation_config.get("rag_config", {})
+            status_data["embedding_models_data"] = rag_config.get("embedding_models", [])
 
     with open(status_file, 'w') as f:
         json.dump(status_data, f)

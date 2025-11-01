@@ -93,6 +93,8 @@ def initialize_session_state():
                 "data_source_file_name": None,
                 "data_source_file_ext": "txt",
                 "data_source_is_binary": False,
+                "data_source_files": None,
+                "data_source_file_names": None,
                 "data_format": "auto",
                 "data_source_text_field": None,
                 "chunking_strategy": "recursive",
@@ -150,6 +152,8 @@ def create_new_evaluation():
             "data_source_file_name": None,
             "data_source_file_ext": "txt",
             "data_source_is_binary": False,
+            "data_source_files": None,
+            "data_source_file_names": None,
             "data_format": "auto",
             "data_source_text_field": None,
             "chunking_strategy": "recursive",
@@ -346,11 +350,16 @@ def save_configuring_evaluation_to_disk(eval_config):
                 "golden_answer_column": eval_config.get("golden_answer_column"),
                 "vision_enabled": eval_config.get("vision_enabled", False),
                 "image_column": eval_config.get("image_column"),
-                "csv_path": csv_path  # Store the path to the saved CSV file
+                "csv_path": csv_path,  # Store the path to the saved CSV file
+                # RAG-specific configuration
+                "evaluation_type": eval_config.get("evaluation_type", "llm"),
+                "rag_config": eval_config.get("rag_config", {})
             },
             # Store models and judges data for configuring evaluations
             "models_data": eval_config.get("selected_models", []),
-            "judges_data": eval_config.get("judge_models", [])
+            "judges_data": eval_config.get("judge_models", []),
+            # Store RAG embedding models data for RAG evaluations
+            "embedding_models_data": eval_config.get("rag_config", {}).get("embedding_models", []) if eval_config.get("evaluation_type") == "rag" else []
         }
         
         with open(status_file, 'w') as f:
@@ -634,7 +643,11 @@ def load_evaluations_from_files():
                         "golden_answer_column": stored_config.get("golden_answer_column"),
                         "vision_enabled": stored_config.get("vision_enabled", False),
                         "image_column": stored_config.get("image_column"),
-                        "csv_path": csv_path  # Keep the path for reference
+                        "csv_path": csv_path,  # Keep the path for reference
+                        # Evaluation type
+                        "evaluation_type": stored_config.get("evaluation_type", "llm"),
+                        # RAG configuration (restored from saved data)
+                        "rag_config": restore_rag_config(stored_config.get("rag_config", {}), status_data.get("embedding_models_data", []))
                     }
                     
                     st.session_state.evaluations.append(eval_config)
@@ -652,17 +665,58 @@ def load_evaluations_from_files():
         logging.warning(f"Error loading evaluations from files: {str(e)}")
 
 
+def restore_rag_config(saved_rag_config, embedding_models_data):
+    """
+    Restore RAG configuration with embedding models from saved data.
+
+    Args:
+        saved_rag_config: The rag_config dict from saved evaluation_config
+        embedding_models_data: The embedding_models list from saved status file
+
+    Returns:
+        Complete RAG config dict with restored embedding models
+    """
+    # Start with saved config or defaults
+    rag_config = saved_rag_config if saved_rag_config else {
+        "queries_csv_data": None,
+        "queries_file_name": None,
+        "query_column": "query",
+        "ground_truth_column": "ground_truth_chunks",
+        "data_source_file": None,
+        "data_source_file_name": None,
+        "data_source_file_ext": "txt",
+        "data_source_is_binary": False,
+        "data_source_files": None,
+        "data_source_file_names": None,
+        "data_format": "auto",
+        "data_source_text_field": None,
+        "chunking_strategy": "recursive",
+        "chunk_size": 512,
+        "chunk_overlap": 50,
+        "custom_chunking_script": None,
+        "embedding_models": [],
+        "reranker_config": {"type": "none", "reranker_id": "none"},
+        "top_k": 5
+    }
+
+    # Restore embedding models from saved data
+    if embedding_models_data:
+        rag_config["embedding_models"] = embedding_models_data
+
+    return rag_config
+
+
 def extract_task_info_from_jsonl_simple(eval_name):
     """Extract task info from JSONL files using the evaluation name."""
     try:
         import json
         from pathlib import Path
-        
+
         # Look in prompt-evaluations directory
         prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "prompt-evaluations"
         if not prompt_eval_dir.exists():
             return {"task_type": "Unknown", "task_criteria": "Unknown"}
-        
+
         # Try to find matching JSONL file
         jsonl_file = prompt_eval_dir / f"{eval_name}.jsonl"
         if jsonl_file.exists():
@@ -675,11 +729,11 @@ def extract_task_info_from_jsonl_simple(eval_name):
                         "task_type": task_info.get("task_type", "Unknown"),
                         "task_criteria": task_info.get("task_criteria", "Unknown")
                     }
-        
+
     except Exception as e:
         import logging
         logging.warning(f"Could not extract task info for {eval_name}: {str(e)}")
-    
+
     return {"task_type": "Unknown", "task_criteria": "Unknown"}
 
 

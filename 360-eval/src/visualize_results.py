@@ -2055,11 +2055,75 @@ def load_rag_data(files):
     return combined
 
 
-def create_rag_visualizations(df_rag):
+def detect_similarity_methods(df_rag):
+    """
+    Detect similarity methods used in the RAG evaluation from column names.
+
+    Args:
+        df_rag: DataFrame with RAG evaluation data
+
+    Returns:
+        list: List of detected similarity method names (e.g., ['jaccard', 'cosine'])
+    """
+    if df_rag.empty:
+        return []
+
+    detected_methods = set()
+
+    # Look for suffixed metric columns
+    # Pattern 1: context_precision_<method>, context_recall_<method>
+    for col in df_rag.columns:
+        if col.startswith('context_precision_') and col != 'context_precision':
+            method = col.replace('context_precision_', '')
+            detected_methods.add(method)
+        elif col.startswith('context_recall_') and col != 'context_recall':
+            method = col.replace('context_recall_', '')
+            detected_methods.add(method)
+        # Pattern 2: precision@K_<method>, recall@K_<method>
+        elif 'precision@' in col and '_' in col:
+            parts = col.split('_')
+            if len(parts) == 2 and parts[0].startswith('precision@'):
+                detected_methods.add(parts[1])
+        elif 'recall@' in col and '_' in col:
+            parts = col.split('_')
+            if len(parts) == 2 and parts[0].startswith('recall@'):
+                detected_methods.add(parts[1])
+
+    # If no methods detected, check if base metrics exist (single method or no suffix)
+    if not detected_methods:
+        has_base_metrics = ('context_precision' in df_rag.columns or
+                           'context_recall' in df_rag.columns or
+                           any('precision@' in col and '_' not in col for col in df_rag.columns))
+        if has_base_metrics:
+            # Single method with no suffix
+            return ['default']
+
+    logger.info(f"Detected similarity methods from columns: {sorted(list(detected_methods))}")
+    return sorted(list(detected_methods))
+
+
+def get_metric_column_name(metric_base, similarity_method=None):
+    """
+    Get the actual column name for a metric, considering similarity method suffix.
+
+    Args:
+        metric_base: Base metric name (e.g., 'context_precision')
+        similarity_method: Similarity method name (e.g., 'jaccard', 'cosine', or None/'default')
+
+    Returns:
+        str: Actual column name (e.g., 'context_precision' or 'context_precision_jaccard')
+    """
+    if similarity_method is None or similarity_method == 'default':
+        return metric_base
+    return f"{metric_base}_{similarity_method}"
+
+
+def create_rag_visualizations(df_rag, similarity_method=None):
     """Create RAG-specific visualizations.
 
     Args:
         df_rag: DataFrame with RAG evaluation data
+        similarity_method: Specific similarity method to visualize (None for default/single method)
 
     Returns:
         dict: Dictionary of RAG visualization figures
@@ -2070,26 +2134,36 @@ def create_rag_visualizations(df_rag):
         return viz
 
     try:
+        # Get metric column names with method suffix
+        precision_col = get_metric_column_name('context_precision', similarity_method)
+        recall_col = get_metric_column_name('context_recall', similarity_method)
+        relevancy_col = get_metric_column_name('context_relevancy', similarity_method)
+
         # 1. Embedding Model Comparison (Precision, Recall, Relevancy)
-        if 'embedding_model' in df_rag.columns and 'context_precision' in df_rag.columns:
+        if 'embedding_model' in df_rag.columns and precision_col in df_rag.columns:
             # Build aggregation dict dynamically based on available columns
             agg_dict = {
-                'context_precision': 'mean',
-                'context_recall': 'mean'
+                precision_col: 'mean',
+                recall_col: 'mean'
             }
-            if 'context_relevancy' in df_rag.columns:
-                agg_dict['context_relevancy'] = 'mean'
+            if relevancy_col in df_rag.columns:
+                agg_dict[relevancy_col] = 'mean'
 
             metrics_by_model = df_rag.groupby('embedding_model').agg(agg_dict).reset_index()
 
             fig = go.Figure()
-            fig.add_trace(go.Bar(name='Precision', x=metrics_by_model['embedding_model'], y=metrics_by_model['context_precision']))
-            fig.add_trace(go.Bar(name='Recall', x=metrics_by_model['embedding_model'], y=metrics_by_model['context_recall']))
-            if 'context_relevancy' in metrics_by_model.columns:
-                fig.add_trace(go.Bar(name='Relevancy', x=metrics_by_model['embedding_model'], y=metrics_by_model['context_relevancy']))
+            fig.add_trace(go.Bar(name='Precision', x=metrics_by_model['embedding_model'], y=metrics_by_model[precision_col]))
+            fig.add_trace(go.Bar(name='Recall', x=metrics_by_model['embedding_model'], y=metrics_by_model[recall_col]))
+            if relevancy_col in metrics_by_model.columns:
+                fig.add_trace(go.Bar(name='Relevancy', x=metrics_by_model['embedding_model'], y=metrics_by_model[relevancy_col]))
+
+            # Add similarity method to title if specified
+            title = 'Embedding Model Performance Comparison'
+            if similarity_method and similarity_method != 'default':
+                title += f' ({similarity_method.replace("_", " ").title()})'
 
             fig.update_layout(
-                title='Embedding Model Performance Comparison',
+                title=title,
                 xaxis_title='Embedding Model',
                 yaxis_title='Score',
                 barmode='group',
@@ -2158,22 +2232,40 @@ def create_rag_visualizations(df_rag):
 
         # 4. Precision@K and Recall@K Analysis
         try:
-            precision_cols = [col for col in df_rag.columns if col.startswith('precision@')]
-            recall_cols = [col for col in df_rag.columns if col.startswith('recall@')]
+            # Find precision and recall columns with method suffix
+            if similarity_method and similarity_method != 'default':
+                method_suffix = f'_{similarity_method}'
+                precision_cols = [col for col in df_rag.columns if col.startswith('precision@') and col.endswith(method_suffix)]
+                recall_cols = [col for col in df_rag.columns if col.startswith('recall@') and col.endswith(method_suffix)]
+            else:
+                # For default, look for columns without method suffix
+                precision_cols = [col for col in df_rag.columns if col.startswith('precision@') and '_' not in col.split('@')[1]]
+                recall_cols = [col for col in df_rag.columns if col.startswith('recall@') and '_' not in col.split('@')[1]]
 
             if precision_cols and recall_cols and 'embedding_model' in df_rag.columns:
                 fig = make_subplots(rows=1, cols=2, subplot_titles=('Precision@K', 'Recall@K'))
 
                 for model in df_rag['embedding_model'].unique():
                     model_data = df_rag[df_rag['embedding_model'] == model]
-                    k_values = [int(col.split('@')[1]) for col in precision_cols]
+
+                    # Extract K values from column names
+                    k_values = []
+                    for col in precision_cols:
+                        # Handle both 'precision@5' and 'precision@5_jaccard' formats
+                        k_part = col.split('@')[1].split('_')[0]
+                        k_values.append(int(k_part))
+
                     precision_vals = [model_data[col].mean() for col in precision_cols]
                     recall_vals = [model_data[col].mean() for col in recall_cols]
 
                     fig.add_trace(go.Scatter(x=k_values, y=precision_vals, mode='lines+markers', name=f'{model} (P)', showlegend=True), row=1, col=1)
                     fig.add_trace(go.Scatter(x=k_values, y=recall_vals, mode='lines+markers', name=f'{model} (R)', showlegend=True), row=1, col=2)
 
-                fig.update_layout(title='Precision@K and Recall@K by Embedding Model', template='plotly_dark')
+                title = 'Precision@K and Recall@K by Embedding Model'
+                if similarity_method and similarity_method != 'default':
+                    title += f' ({similarity_method.replace("_", " ").title()})'
+
+                fig.update_layout(title=title, template='plotly_dark')
                 fig.update_xaxes(title_text='K', row=1, col=1)
                 fig.update_xaxes(title_text='K', row=1, col=2)
                 fig.update_yaxes(title_text='Precision', row=1, col=1)
@@ -2184,19 +2276,26 @@ def create_rag_visualizations(df_rag):
             logger.error(f"Error creating Precision@K and Recall@K visualization: {e}", exc_info=True)
 
         # 5. Re-ranker Impact Analysis (if re-ranking was used)
-        if 'reranker_type' in df_rag.columns:
-            reranker_metrics = df_rag.groupby('reranker_type').agg({
-                'context_precision': 'mean',
-                'context_recall': 'mean',
-                'retrieval_latency_ms': 'mean'
-            }).reset_index()
+        if 'reranker_type' in df_rag.columns and precision_col in df_rag.columns:
+            agg_dict = {
+                precision_col: 'mean',
+                recall_col: 'mean'
+            }
+            if 'retrieval_latency_ms' in df_rag.columns:
+                agg_dict['retrieval_latency_ms'] = 'mean'
+
+            reranker_metrics = df_rag.groupby('reranker_type').agg(agg_dict).reset_index()
 
             fig = go.Figure()
-            fig.add_trace(go.Bar(name='Precision', x=reranker_metrics['reranker_type'], y=reranker_metrics['context_precision']))
-            fig.add_trace(go.Bar(name='Recall', x=reranker_metrics['reranker_type'], y=reranker_metrics['context_recall']))
+            fig.add_trace(go.Bar(name='Precision', x=reranker_metrics['reranker_type'], y=reranker_metrics[precision_col]))
+            fig.add_trace(go.Bar(name='Recall', x=reranker_metrics['reranker_type'], y=reranker_metrics[recall_col]))
+
+            title = 'Re-ranker Impact on Retrieval Quality'
+            if similarity_method and similarity_method != 'default':
+                title += f' ({similarity_method.replace("_", " ").title()})'
 
             fig.update_layout(
-                title='Re-ranker Impact on Retrieval Quality',
+                title=title,
                 xaxis_title='Re-ranker Type',
                 yaxis_title='Score',
                 barmode='group',
@@ -2204,10 +2303,511 @@ def create_rag_visualizations(df_rag):
             )
             viz['reranker_impact'] = fig
 
+        # 6. Top-K Analysis (Fixed Metrics)
+        try:
+            # Get new metric columns
+            concentration_cols = [col for col in df_rag.columns if 'concentration@' in col]
+            diversity_cols = [col for col in df_rag.columns if 'diversity@' in col]
+            dropoff_cols = [col for col in df_rag.columns if 'dropoff_k' in col]
+            churn_cols = [col for col in df_rag.columns if 'churn_k' in col]
+
+            # A. Rank Concentration Chart (Higher = quality at top)
+            if concentration_cols and 'embedding_model' in df_rag.columns:
+                concentration_data = df_rag.groupby('embedding_model')[concentration_cols].mean()
+
+                if not concentration_data.empty:
+                    fig = go.Figure()
+
+                    for model in concentration_data.index:
+                        x_labels = [col.replace('concentration@', 'K=') for col in concentration_cols]
+                        y_values = concentration_data.loc[model].values
+
+                        fig.add_trace(go.Scatter(
+                            x=x_labels,
+                            y=y_values,
+                            mode='lines+markers',
+                            name=model,
+                            line=dict(width=2),
+                            marker=dict(size=8)
+                        ))
+
+                    fig.update_layout(
+                        title='Rank Concentration by Embedding Model (Higher = Better)',
+                        xaxis_title='Top-K Value',
+                        yaxis_title='Concentration Score',
+                        template='plotly_dark',
+                        hovermode='x unified',
+                        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
+                    )
+                    viz['rank_concentration'] = fig
+                    logger.info("Created Rank Concentration visualization")
+
+            # B. Quality Drop-off Chart (Lower = better)
+            if dropoff_cols and 'embedding_model' in df_rag.columns:
+                dropoff_data = df_rag.groupby('embedding_model')[dropoff_cols].mean()
+
+                if not dropoff_data.empty:
+                    fig = go.Figure()
+
+                    for model in dropoff_data.index:
+                        x_labels = [col.replace('dropoff_', '').replace('_to_', ' → ') for col in dropoff_cols]
+                        y_values = dropoff_data.loc[model].values
+
+                        fig.add_trace(go.Scatter(
+                            x=x_labels,
+                            y=y_values,
+                            mode='lines+markers',
+                            name=model,
+                            line=dict(width=2),
+                            marker=dict(size=8)
+                        ))
+
+                    fig.update_layout(
+                        title='Quality Drop-off as K Increases (Lower = Better)',
+                        xaxis_title='K Transition',
+                        yaxis_title='Drop-off Rate',
+                        template='plotly_dark',
+                        hovermode='x unified',
+                        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
+                    )
+                    viz['quality_dropoff'] = fig
+                    logger.info("Created Quality Drop-off visualization")
+
+            # 7. Result Churn Rate Analysis
+            if churn_cols and 'embedding_model' in df_rag.columns:
+                churn_data = df_rag.groupby('embedding_model')[churn_cols].mean()
+
+                if not churn_data.empty:
+                    fig = go.Figure()
+
+                    for model in churn_data.index:
+                        x_labels = [col.replace('churn_', '').replace('_to_', ' → ') for col in churn_cols]
+                        y_values = churn_data.loc[model].values
+
+                        fig.add_trace(go.Scatter(
+                            x=x_labels,
+                            y=y_values,
+                            mode='lines+markers',
+                            name=model,
+                            line=dict(width=2),
+                            marker=dict(size=8)
+                        ))
+
+                    fig.update_layout(
+                        title='Result Churn Rate as K Increases',
+                        xaxis_title='K Transition',
+                        yaxis_title='Churn Rate (New Results / K)',
+                        template='plotly_dark',
+                        hovermode='x unified',
+                        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
+                    )
+                    viz['result_churn'] = fig
+                    logger.info("Created Result Churn visualization")
+
+            # 8. Average Rank Concentration by Model
+            if 'avg_rank_concentration' in df_rag.columns and 'embedding_model' in df_rag.columns:
+                concentration_by_model = df_rag.groupby('embedding_model')['avg_rank_concentration'].mean().sort_values(ascending=False).reset_index()
+
+                fig = go.Figure(go.Bar(
+                    y=concentration_by_model['embedding_model'],
+                    x=concentration_by_model['avg_rank_concentration'],
+                    orientation='h',
+                    marker=dict(
+                        color=concentration_by_model['avg_rank_concentration'],
+                        colorscale='RdYlGn',
+                        cmin=0,
+                        cmax=1,
+                        colorbar=dict(title='Concentration Score')
+                    ),
+                    text=[f'{val:.3f}' for val in concentration_by_model['avg_rank_concentration']],
+                    textposition='inside',
+                    hovertemplate='%{y}<br>Avg Concentration: %{x:.3f}<extra></extra>'
+                ))
+
+                fig.update_layout(
+                    title='Average Rank Concentration by Embedding Model (Higher = Better)',
+                    xaxis_title='Average Concentration Score',
+                    yaxis_title='Embedding Model',
+                    template='plotly_dark',
+                    height=max(400, len(concentration_by_model) * 50)
+                )
+                viz['avg_concentration'] = fig
+                logger.info("Created Average Concentration visualization")
+
+        except Exception as e:
+            logger.error(f"Error creating Top-K Stability visualizations: {e}", exc_info=True)
+
+        # 9. Cost Efficiency Frontier
+        try:
+            if 'context_precision' in df_rag.columns and 'total_cost' in df_rag.columns and 'embedding_model' in df_rag.columns:
+                # Calculate average metrics per model
+                efficiency_data = df_rag.groupby('embedding_model').agg({
+                    'context_precision': 'mean',
+                    'context_recall': 'mean',
+                    'total_cost': 'mean',
+                    'total_latency': 'mean'
+                }).reset_index()
+
+                # Calculate F1 score (harmonic mean of precision and recall)
+                efficiency_data['f1_score'] = 2 * (efficiency_data['context_precision'] * efficiency_data['context_recall']) / \
+                                              (efficiency_data['context_precision'] + efficiency_data['context_recall'])
+                efficiency_data['f1_score'] = efficiency_data['f1_score'].fillna(0)
+
+                # Cost Efficiency: Calculate raw efficiency first
+                cost_per_1k_queries = efficiency_data['total_cost'] * 1000
+                raw_efficiency = efficiency_data['f1_score'] / (cost_per_1k_queries + 0.00001)
+
+                # Normalize to 0-100 scale for intuitive interpretation
+                min_eff = raw_efficiency.min()
+                max_eff = raw_efficiency.max()
+                if max_eff > min_eff:
+                    efficiency_data['cost_efficiency'] = ((raw_efficiency - min_eff) / (max_eff - min_eff)) * 100
+                else:
+                    efficiency_data['cost_efficiency'] = 50.0  # Default if all same
+
+                # Latency Efficiency: F1 Score per Second (multiply by 10 for readability)
+                efficiency_data['latency_efficiency'] = (efficiency_data['f1_score'] / (efficiency_data['total_latency'] + 0.00001)) * 10
+
+                # Create scatter plot
+                fig = go.Figure()
+
+                # Add scatter points
+                fig.add_trace(go.Scatter(
+                    x=efficiency_data['total_cost'],
+                    y=efficiency_data['f1_score'],
+                    mode='markers+text',
+                    marker=dict(
+                        size=15,
+                        color=efficiency_data['cost_efficiency'],
+                        colorscale='Viridis',
+                        showscale=True,
+                        colorbar=dict(
+                            title='Cost<br>Efficiency<br>(0-100)',
+                            x=1.15,  # Move colorbar further right
+                            thickness=15,
+                            len=0.7
+                        )
+                    ),
+                    text=efficiency_data['embedding_model'].apply(lambda x: x.split('/')[-1][:15]),
+                    textposition='top center',
+                    textfont=dict(size=9),
+                    hovertemplate='<b>%{text}</b><br>' +
+                                  'F1 Score: %{y:.3f}<br>' +
+                                  'Avg Cost per Query: $%{x:.6f}<br>' +
+                                  'Cost Efficiency: %{marker.color:.0f}/100<extra></extra>',
+                    name=''
+                ))
+
+                # Find Pareto frontier (models that are not dominated by any other)
+                pareto_models = []
+                for i, row in efficiency_data.iterrows():
+                    is_pareto = True
+                    for j, other_row in efficiency_data.iterrows():
+                        if i != j:
+                            # If another model has better F1 AND lower cost, current model is dominated
+                            if other_row['f1_score'] >= row['f1_score'] and other_row['total_cost'] <= row['total_cost']:
+                                if other_row['f1_score'] > row['f1_score'] or other_row['total_cost'] < row['total_cost']:
+                                    is_pareto = False
+                                    break
+                    if is_pareto:
+                        pareto_models.append(i)
+
+                # Draw Pareto frontier line
+                if len(pareto_models) > 1:
+                    pareto_data = efficiency_data.loc[pareto_models].sort_values('total_cost')
+                    fig.add_trace(go.Scatter(
+                        x=pareto_data['total_cost'],
+                        y=pareto_data['f1_score'],
+                        mode='lines',
+                        line=dict(color='red', width=2, dash='dash'),
+                        name='Pareto Frontier',
+                        hoverinfo='skip'
+                    ))
+
+                fig.update_layout(
+                    title='Cost Efficiency Frontier (F1 Score vs Cost)',
+                    xaxis_title='Average Total Cost ($)',
+                    yaxis_title='F1 Score (Precision + Recall)',
+                    template='plotly_dark',
+                    hovermode='closest',
+                    height=600,
+                    showlegend=True,
+                    margin=dict(r=150)  # Add right margin for colorbar
+                )
+                viz['cost_efficiency_frontier'] = fig
+                logger.info("Created Cost Efficiency Frontier visualization")
+
+        except Exception as e:
+            logger.error(f"Error creating Cost Efficiency Frontier: {e}", exc_info=True)
+
+        # 10. Latency-Accuracy Tradeoff
+        try:
+            if 'context_precision' in df_rag.columns and 'total_latency' in df_rag.columns and 'embedding_model' in df_rag.columns:
+                latency_acc_data = df_rag.groupby('embedding_model').agg({
+                    'context_precision': 'mean',
+                    'context_recall': 'mean',
+                    'total_latency': 'mean'
+                }).reset_index()
+
+                # Calculate F1 score
+                latency_acc_data['f1_score'] = 2 * (latency_acc_data['context_precision'] * latency_acc_data['context_recall']) / \
+                                               (latency_acc_data['context_precision'] + latency_acc_data['context_recall'])
+                latency_acc_data['f1_score'] = latency_acc_data['f1_score'].fillna(0)
+
+                # Convert latency to milliseconds
+                latency_acc_data['latency_ms'] = latency_acc_data['total_latency'] * 1000
+
+                # Create scatter plot
+                fig = go.Figure()
+
+                fig.add_trace(go.Scatter(
+                    x=latency_acc_data['latency_ms'],
+                    y=latency_acc_data['f1_score'],
+                    mode='markers+text',
+                    marker=dict(
+                        size=15,
+                        color=latency_acc_data['f1_score'],
+                        colorscale='Plasma',
+                        showscale=True,
+                        colorbar=dict(title='F1<br>Score')
+                    ),
+                    text=latency_acc_data['embedding_model'].apply(lambda x: x.split('/')[-1][:15]),
+                    textposition='top center',
+                    textfont=dict(size=9),
+                    hovertemplate='<b>%{text}</b><br>' +
+                                  'F1 Score: %{y:.3f}<br>' +
+                                  'Latency: %{x:.1f}ms<extra></extra>',
+                    name=''
+                ))
+
+                fig.update_layout(
+                    title='Latency-Accuracy Tradeoff',
+                    xaxis_title='Average Total Latency (ms)',
+                    yaxis_title='F1 Score (Precision + Recall)',
+                    template='plotly_dark',
+                    hovermode='closest',
+                    height=600
+                )
+                viz['latency_accuracy_tradeoff'] = fig
+                logger.info("Created Latency-Accuracy Tradeoff visualization")
+
+        except Exception as e:
+            logger.error(f"Error creating Latency-Accuracy Tradeoff: {e}", exc_info=True)
+
     except Exception as e:
         logger.error(f"Error creating RAG visualizations: {e}", exc_info=True)
 
     return viz
+
+
+def generate_rag_llm_summary(df_rag, similarity_method='default'):
+    """
+    Generate an LLM-powered executive summary of RAG evaluation results.
+
+    Args:
+        df_rag: DataFrame with RAG evaluation data
+        similarity_method: The similarity calculation method used
+
+    Returns:
+        str: HTML-formatted executive summary, or empty string if generation fails
+    """
+    try:
+        import litellm
+
+        if df_rag.empty:
+            return ""
+
+        # Filter by similarity method if specified
+        if similarity_method and similarity_method != 'default':
+            df_filtered = df_rag[df_rag['similarity_method'] == similarity_method].copy()
+            if df_filtered.empty:
+                df_filtered = df_rag.copy()  # Fallback to all data
+        else:
+            df_filtered = df_rag.copy()
+
+        # Calculate key metrics for the summary
+        metrics_summary = {}
+
+        # Overall metrics
+        metrics_summary['total_queries'] = len(df_filtered)
+        metrics_summary['total_scenarios'] = df_filtered['scenario_id'].nunique() if 'scenario_id' in df_filtered.columns else len(df_filtered)
+
+        # Embedding model performance
+        if 'embedding_model' in df_filtered.columns:
+            # Determine which k value to use (prefer @5, fallback to @3, then @1)
+            k_value = None
+            for k in [5, 3, 1]:
+                if f'precision@{k}' in df_filtered.columns and f'recall@{k}' in df_filtered.columns:
+                    k_value = k
+                    break
+
+            if k_value is None:
+                logger.warning("No precision@k/recall@k columns found")
+                return ""
+
+            # Calculate F1 from precision and recall
+            precision_col = f'precision@{k_value}'
+            recall_col = f'recall@{k_value}'
+
+            # Add F1 calculation
+            df_filtered['f1_score'] = df_filtered.apply(
+                lambda row: 2 * (row[precision_col] * row[recall_col]) / (row[precision_col] + row[recall_col])
+                if (row[precision_col] + row[recall_col]) > 0 else 0,
+                axis=1
+            )
+
+            # Aggregate metrics
+            agg_dict = {
+                precision_col: ['mean', 'std'],
+                recall_col: ['mean', 'std'],
+                'f1_score': ['mean', 'std'],
+                'retrieval_latency': ['mean', 'median'],
+                'total_cost': 'sum'
+            }
+
+            embedding_stats = df_filtered.groupby('embedding_model').agg(agg_dict).round(4)
+
+            # Find best performing model
+            best_f1_model = embedding_stats[('f1_score', 'mean')].idxmax()
+            best_f1_score = embedding_stats.loc[best_f1_model, ('f1_score', 'mean')]
+
+            fastest_model = embedding_stats[('retrieval_latency', 'median')].idxmin()
+            fastest_latency = embedding_stats.loc[fastest_model, ('retrieval_latency', 'median')]
+
+            cheapest_model = embedding_stats[('total_cost', 'sum')].idxmin()
+            cheapest_cost = embedding_stats.loc[cheapest_model, ('total_cost', 'sum')]
+
+            metrics_summary['k_value'] = k_value
+            metrics_summary['precision_col'] = precision_col
+            metrics_summary['recall_col'] = recall_col
+            metrics_summary['best_f1_model'] = best_f1_model
+            metrics_summary['best_f1_score'] = best_f1_score
+            metrics_summary['fastest_model'] = fastest_model
+            metrics_summary['fastest_latency'] = fastest_latency
+            metrics_summary['cheapest_model'] = cheapest_model
+            metrics_summary['cheapest_cost'] = cheapest_cost
+            metrics_summary['num_models'] = len(embedding_stats)
+
+        # Re-ranker analysis
+        if 'reranker_id' in df_filtered.columns and k_value:
+            # Calculate F1 for reranker analysis
+            df_filtered['f1_rerank'] = df_filtered.apply(
+                lambda row: 2 * (row[precision_col] * row[recall_col]) / (row[precision_col] + row[recall_col])
+                if (row[precision_col] + row[recall_col]) > 0 else 0,
+                axis=1
+            )
+
+            reranker_stats = df_filtered.groupby('reranker_id').agg({
+                precision_col: 'mean',
+                recall_col: 'mean',
+                'f1_rerank': 'mean'
+            }).round(4)
+
+            if len(reranker_stats) > 1:
+                # Calculate improvement from re-ranking
+                no_rerank = reranker_stats.loc[reranker_stats.index == 'none'] if 'none' in reranker_stats.index else None
+                with_rerank = reranker_stats.loc[reranker_stats.index != 'none']
+
+                if no_rerank is not None and not with_rerank.empty:
+                    best_reranker = with_rerank['f1_rerank'].idxmax()
+                    improvement = (with_rerank.loc[best_reranker, 'f1_rerank'] - no_rerank['f1_rerank'].iloc[0]) * 100
+                    metrics_summary['best_reranker'] = best_reranker
+                    metrics_summary['reranker_improvement'] = improvement
+
+        # Create summary text for LLM
+        k_val = metrics_summary.get('k_value', 5)
+        summary_data = f"""
+RAG Evaluation Results Summary:
+- Total Queries Evaluated: {metrics_summary.get('total_queries', 0)}
+- Total Scenarios: {metrics_summary.get('total_scenarios', 0)}
+- Similarity Method: {similarity_method}
+- Evaluation Metric: Top-{k_val} retrieval (Precision@{k_val}, Recall@{k_val}, F1@{k_val})
+- Number of Embedding Models Tested: {metrics_summary.get('num_models', 0)}
+
+Top Performers:
+- Best F1@{k_val} Score: {metrics_summary.get('best_f1_model', 'N/A')} with F1={metrics_summary.get('best_f1_score', 0):.4f}
+- Fastest Retrieval: {metrics_summary.get('fastest_model', 'N/A')} with {metrics_summary.get('fastest_latency', 0):.4f}s median latency
+- Most Cost-Effective: {metrics_summary.get('cheapest_model', 'N/A')} with ${metrics_summary.get('cheapest_cost', 0):.6f} total cost
+"""
+
+        if 'best_reranker' in metrics_summary:
+            summary_data += f"\nRe-ranking Impact:\n- Best Re-ranker: {metrics_summary['best_reranker']}\n- F1 Improvement: +{metrics_summary['reranker_improvement']:.2f}%\n"
+
+        # Add detailed stats table
+        if 'embedding_model' in df_filtered.columns and 'embedding_stats' in locals():
+            summary_data += f"\nDetailed Model Performance (at K={k_val}):\n"
+            for model in embedding_stats.index:
+                p = embedding_stats.loc[model, (precision_col, 'mean')]
+                r = embedding_stats.loc[model, (recall_col, 'mean')]
+                f1 = embedding_stats.loc[model, ('f1_score', 'mean')]
+                lat = embedding_stats.loc[model, ('retrieval_latency', 'median')]
+                cost = embedding_stats.loc[model, ('total_cost', 'sum')]
+                summary_data += f"- {model}: P@{k_val}={p:.4f}, R@{k_val}={r:.4f}, F1@{k_val}={f1:.4f}, Latency={lat:.4f}s, Cost=${cost:.6f}\n"
+
+        # Generate LLM summary
+        prompt = f"""Based on the data below, write a clear summary (2-3 paragraphs) using simple, non-technical language that explains:
+
+1. What was tested - How many queries were run and how many embedding models were compared
+2. Key results - Which models performed best for accuracy, speed, and cost (state the actual numbers)
+3. Performance patterns - How the models compare to each other across different metrics
+
+Important formatting rules:
+- Use **bold** (markdown format) for all embedding model names
+- Focus only on factual results - do NOT give recommendations or suggestions
+- Use simple language - avoid technical jargon where possible
+- Include specific numbers from the data (F1 scores, latency, costs)
+- Explain what the metrics mean in plain terms (e.g., "F1 score measures how well the model finds relevant information")
+- Do NOT include a title or heading in your response - start directly with the content
+
+Data:
+{summary_data}
+
+Write in a clear, factual tone that presents the test results objectively."""
+
+        # Call LLM API (using Haiku 4.5 for cost-effectiveness)
+        logger.info("Generating LLM summary for RAG evaluation...")
+        response = litellm.completion(
+            model="bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=1000
+        )
+
+        summary_text = response.choices[0].message.content
+
+        # Convert markdown bold to HTML bold and handle paragraph spacing
+        import re
+        summary_html = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', summary_text)
+
+        # Replace double newlines with paragraph breaks, single newlines with just a break
+        summary_html = summary_html.replace('\n\n', '</p><p>')
+        summary_html = summary_html.replace('\n', '<br>')
+        summary_html = f'<p>{summary_html}</p>'
+
+        # Format as HTML
+        html_summary = f"""
+    <div class="llm-summary" style="background: linear-gradient(135deg, #1e3a5f 0%, #2d4a6f 100%); padding: 25px; border-radius: 10px; margin: 20px 0; border-left: 5px solid #4CAF50;">
+        <h3 style="color: #4CAF50; margin-top: 0; display: flex; align-items: center; gap: 10px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            AI-Generated Summary
+        </h3>
+        <div style="color: #e0e0e0; line-height: 1.8; font-size: 15px;">
+            {summary_html}
+        </div>
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 13px; color: #888;">
+            <em>Generated by Claude 3.5 Haiku • Based on {metrics_summary.get('total_queries', 0)} queries across {metrics_summary.get('num_models', 0)} embedding models</em>
+        </div>
+    </div>
+"""
+
+        logger.info("Successfully generated LLM summary")
+        return html_summary
+
+    except Exception as e:
+        logger.error(f"Error generating LLM summary: {e}", exc_info=True)
+        return ""
 
 
 def create_unified_html_report(output_dir, timestamp, evaluation_names=None):
@@ -2280,9 +2880,27 @@ def create_unified_html_report(output_dir, timestamp, evaluation_names=None):
         except Exception as e:
             logger.error(f"Error creating LLM visualizations: {e}", exc_info=True)
 
+    # Detect similarity methods and create visualizations for each
+    similarity_methods = []
+    rag_viz_by_method = {}
+
     if not df_rag.empty:
-        logger.info("Creating RAG visualizations...")
-        rag_viz = create_rag_visualizations(df_rag)
+        logger.info("Detecting similarity methods...")
+        similarity_methods = detect_similarity_methods(df_rag)
+        logger.info(f"Found similarity methods: {similarity_methods}")
+
+        if not similarity_methods:
+            # No methods detected, use default
+            similarity_methods = ['default']
+
+        logger.info("Creating RAG visualizations for each similarity method...")
+        for method in similarity_methods:
+            logger.info(f"Creating visualizations for method: {method}")
+            viz = create_rag_visualizations(df_rag, similarity_method=method)
+            rag_viz_by_method[method] = viz
+
+        # For backward compatibility, set rag_viz to first method
+        rag_viz = rag_viz_by_method.get(similarity_methods[0], {})
 
     # Generate report filename
     if evaluation_names:
@@ -2331,22 +2949,145 @@ def create_unified_html_report(output_dir, timestamp, evaluation_names=None):
         html_content += "</div>"
 
     # Add RAG section if present
-    if rag_viz:
+    if rag_viz_by_method:
         html_content += """
     <div class="section">
         <h2>RAG Evaluation Results</h2>
 """
-        if 'embedding_comparison' in rag_viz:
-            html_content += f"<div>{rag_viz['embedding_comparison'].to_html(full_html=False)}</div>"
-        if 'retrieval_latency' in rag_viz:
-            html_content += f"<div>{rag_viz['retrieval_latency'].to_html(full_html=False)}</div>"
-        if 'cost_analysis' in rag_viz:
-            html_content += f"<div>{rag_viz['cost_analysis'].to_html(full_html=False)}</div>"
-        if 'precision_recall_at_k' in rag_viz:
-            html_content += f"<div>{rag_viz['precision_recall_at_k'].to_html(full_html=False)}</div>"
-        if 'reranker_impact' in rag_viz:
-            html_content += f"<div>{rag_viz['reranker_impact'].to_html(full_html=False)}</div>"
-        html_content += "</div>"
+
+        # Add similarity method dropdown if multiple methods
+        if len(similarity_methods) > 1:
+            html_content += """
+        <div style="margin: 20px 0; padding: 15px; background-color: #2d2d2d; border-radius: 5px;">
+            <label for="similarityMethodSelect" style="font-weight: bold; margin-right: 10px;">
+                Similarity Method:
+            </label>
+            <select id="similarityMethodSelect" onchange="switchSimilarityMethod()" style="padding: 5px 10px; background-color: #1e1e1e; color: #e0e0e0; border: 1px solid #4CAF50; border-radius: 3px; cursor: pointer;">
+"""
+            for method in similarity_methods:
+                display_name = method.replace('_', ' ').title() if method != 'default' else 'Default (Jaccard)'
+                html_content += f'                <option value="{method}">{display_name}</option>\n'
+
+            html_content += """
+            </select>
+            <p style="margin-top: 10px; font-size: 0.9em; color: #888;">
+                Select a similarity calculation method to view corresponding metrics and visualizations.
+            </p>
+        </div>
+
+        <script>
+        function switchSimilarityMethod() {
+            const selectedMethod = document.getElementById('similarityMethodSelect').value;
+
+            // Hide all method sections
+            const allSections = document.querySelectorAll('.similarity-method-section');
+            allSections.forEach(section => {
+                section.style.display = 'none';
+            });
+
+            // Show selected method section
+            const selectedSection = document.getElementById('similarity-method-' + selectedMethod);
+            if (selectedSection) {
+                selectedSection.style.display = 'block';
+
+                // Force Plotly charts to resize properly
+                setTimeout(function() {
+                    // Find all Plotly charts in the selected section
+                    const plotlyCharts = selectedSection.querySelectorAll('.plotly-graph-div');
+
+                    plotlyCharts.forEach(function(chart) {
+                        // Method 1: Use Plotly's resize function if available
+                        if (window.Plotly && chart._fullLayout) {
+                            try {
+                                window.Plotly.Plots.resize(chart);
+                            } catch (e) {
+                                console.log('Plotly resize failed:', e);
+                            }
+                        }
+
+                        // Method 2: Redraw if resize didn't work
+                        if (window.Plotly && chart._fullData) {
+                            try {
+                                window.Plotly.redraw(chart);
+                            } catch (e) {
+                                console.log('Plotly redraw failed:', e);
+                            }
+                        }
+                    });
+
+                    // Method 3: Dispatch global resize event
+                    window.dispatchEvent(new Event('resize'));
+                }, 50);
+            }
+        }
+        </script>
+"""
+
+        # Create sections for each similarity method
+        for i, method in enumerate(similarity_methods):
+            display_style = 'block' if i == 0 else 'none'  # Show first method by default
+            html_content += f"""
+        <div id="similarity-method-{method}" class="similarity-method-section" style="display: {display_style};">
+"""
+
+            # Add LLM-generated summary for the first visible method (at the top)
+            if i == 0:
+                logger.info(f"Generating LLM summary for similarity method: {method}")
+                llm_summary = generate_rag_llm_summary(df_rag, similarity_method=method)
+                if llm_summary:
+                    html_content += llm_summary
+
+            method_viz = rag_viz_by_method.get(method, {})
+
+            if method_viz:
+                html_content += """
+            <h3>Core Performance Metrics</h3>
+"""
+                if 'embedding_comparison' in method_viz:
+                    html_content += f"<div>{method_viz['embedding_comparison'].to_html(full_html=False)}</div>"
+                if 'precision_recall_at_k' in method_viz:
+                    html_content += f"<div>{method_viz['precision_recall_at_k'].to_html(full_html=False)}</div>"
+
+                html_content += """
+            <h3>Cost & Performance Analysis</h3>
+"""
+                if 'cost_efficiency_frontier' in method_viz:
+                    html_content += f"<div>{method_viz['cost_efficiency_frontier'].to_html(full_html=False)}</div>"
+                if 'latency_accuracy_tradeoff' in method_viz:
+                    html_content += f"<div>{method_viz['latency_accuracy_tradeoff'].to_html(full_html=False)}</div>"
+                if 'cost_analysis' in method_viz:
+                    html_content += f"<div>{method_viz['cost_analysis'].to_html(full_html=False)}</div>"
+
+                html_content += """
+            <h3>Latency Breakdown</h3>
+"""
+                if 'retrieval_latency' in method_viz:
+                    html_content += f"<div>{method_viz['retrieval_latency'].to_html(full_html=False)}</div>"
+
+                html_content += """
+            <h3>Top-K Stability Analysis</h3>
+"""
+                if 'topk_stability' in method_viz:
+                    html_content += f"<div>{method_viz['topk_stability'].to_html(full_html=False)}</div>"
+                if 'avg_stability' in method_viz:
+                    html_content += f"<div>{method_viz['avg_stability'].to_html(full_html=False)}</div>"
+                if 'result_churn' in method_viz:
+                    html_content += f"<div>{method_viz['result_churn'].to_html(full_html=False)}</div>"
+
+                # Re-ranking Analysis (if available)
+                if 'reranker_impact' in method_viz:
+                    html_content += """
+            <h3>Re-ranking Analysis</h3>
+"""
+                    html_content += f"<div>{method_viz['reranker_impact'].to_html(full_html=False)}</div>"
+
+            # Close the similarity method section div
+            html_content += """
+        </div>
+"""
+
+        # Close the main RAG section div (already handled above)
+        pass
 
     html_content += """
 </body>
