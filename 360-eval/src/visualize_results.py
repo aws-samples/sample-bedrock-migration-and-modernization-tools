@@ -2275,35 +2275,7 @@ def create_rag_visualizations(df_rag, similarity_method=None):
         except Exception as e:
             logger.error(f"Error creating Precision@K and Recall@K visualization: {e}", exc_info=True)
 
-        # 5. Re-ranker Impact Analysis (if re-ranking was used)
-        if 'reranker_type' in df_rag.columns and precision_col in df_rag.columns:
-            agg_dict = {
-                precision_col: 'mean',
-                recall_col: 'mean'
-            }
-            if 'retrieval_latency_ms' in df_rag.columns:
-                agg_dict['retrieval_latency_ms'] = 'mean'
-
-            reranker_metrics = df_rag.groupby('reranker_type').agg(agg_dict).reset_index()
-
-            fig = go.Figure()
-            fig.add_trace(go.Bar(name='Precision', x=reranker_metrics['reranker_type'], y=reranker_metrics[precision_col]))
-            fig.add_trace(go.Bar(name='Recall', x=reranker_metrics['reranker_type'], y=reranker_metrics[recall_col]))
-
-            title = 'Re-ranker Impact on Retrieval Quality'
-            if similarity_method and similarity_method != 'default':
-                title += f' ({similarity_method.replace("_", " ").title()})'
-
-            fig.update_layout(
-                title=title,
-                xaxis_title='Re-ranker Type',
-                yaxis_title='Score',
-                barmode='group',
-                template='plotly_dark'
-            )
-            viz['reranker_impact'] = fig
-
-        # 6. Top-K Analysis (Fixed Metrics)
+        # 5. Top-K Analysis (Fixed Metrics)
         try:
             # Get new metric columns
             concentration_cols = [col for col in df_rag.columns if 'concentration@' in col]
@@ -2594,6 +2566,130 @@ def create_rag_visualizations(df_rag, similarity_method=None):
         except Exception as e:
             logger.error(f"Error creating Latency-Accuracy Tradeoff: {e}", exc_info=True)
 
+        # 11. Cost per Query Breakdown
+        try:
+            if 'embedding_cost' in df_rag.columns and 'embedding_model' in df_rag.columns:
+                # Calculate average costs per embedding model
+                cost_cols = []
+                if 'embedding_cost' in df_rag.columns:
+                    cost_cols.append('embedding_cost')
+                if 'reranking_cost' in df_rag.columns:
+                    cost_cols.append('reranking_cost')
+                if 'total_cost' in df_rag.columns:
+                    cost_cols.append('total_cost')
+
+                if cost_cols:
+                    cost_data = df_rag.groupby('embedding_model')[cost_cols].mean().reset_index()
+
+                    # Sort by total cost
+                    if 'total_cost' in cost_data.columns:
+                        cost_data = cost_data.sort_values('total_cost', ascending=False)
+
+                    fig = go.Figure()
+
+                    # Add stacked bars for cost breakdown
+                    if 'embedding_cost' in cost_data.columns:
+                        fig.add_trace(go.Bar(
+                            name='Embedding Cost',
+                            y=cost_data['embedding_model'],
+                            x=cost_data['embedding_cost'],
+                            orientation='h',
+                            marker_color='#3498db',
+                            text=[f'${val:.6f}' for val in cost_data['embedding_cost']],
+                            textposition='inside',
+                            hovertemplate='Embedding: $%{x:.6f}<extra></extra>'
+                        ))
+
+                    if 'reranking_cost' in cost_data.columns:
+                        fig.add_trace(go.Bar(
+                            name='Reranking Cost',
+                            y=cost_data['embedding_model'],
+                            x=cost_data['reranking_cost'],
+                            orientation='h',
+                            marker_color='#f39c12',
+                            text=[f'${val:.6f}' for val in cost_data['reranking_cost']],
+                            textposition='inside',
+                            hovertemplate='Reranking: $%{x:.6f}<extra></extra>'
+                        ))
+
+                    fig.update_layout(
+                        title='Cost per Query Breakdown by Embedding Model',
+                        xaxis_title='Cost per Query ($)',
+                        yaxis_title='Embedding Model',
+                        barmode='stack',
+                        template='plotly_dark',
+                        showlegend=True,
+                        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+                        height=max(400, len(cost_data) * 60)
+                    )
+
+                    viz['cost_per_query'] = fig
+                    logger.info("Created Cost per Query visualization")
+
+        except Exception as e:
+            logger.error(f"Error creating Cost per Query visualization: {e}", exc_info=True)
+
+        # 12. Context Window Fit Analysis
+        try:
+            # Find all token count columns
+            token_cols = [col for col in df_rag.columns if col.startswith('tokens@')]
+
+            if token_cols and 'embedding_model' in df_rag.columns:
+                # Calculate average token counts per model and K value
+                token_data = df_rag.groupby('embedding_model')[token_cols].mean().reset_index()
+
+                # Extract K values
+                k_values = [int(col.split('@')[1]) for col in token_cols]
+
+                # Create line chart showing token counts at different K values
+                fig = go.Figure()
+
+                for _, row in token_data.iterrows():
+                    model_name = row['embedding_model']
+                    token_counts = [row[col] for col in token_cols]
+
+                    fig.add_trace(go.Scatter(
+                        x=k_values,
+                        y=token_counts,
+                        mode='lines+markers',
+                        name=model_name,
+                        hovertemplate=f'<b>{model_name}</b><br>K=%{{x}}<br>Tokens: %{{y:.0f}}<extra></extra>'
+                    ))
+
+                # Add horizontal reference lines for common context windows
+                context_windows = [
+                    (16000, 'GPT-3.5 16K', '#e74c3c'),
+                    (32000, 'GPT-4 32K', '#f39c12'),
+                    (128000, 'GPT-4 128K', '#3498db'),
+                    (200000, 'Claude 200K', '#2ecc71')
+                ]
+
+                for limit, label, color in context_windows:
+                    fig.add_hline(
+                        y=limit,
+                        line_dash='dash',
+                        line_color=color,
+                        annotation_text=label,
+                        annotation_position='right'
+                    )
+
+                fig.update_layout(
+                    title='Context Window Fit: Token Count by K Value',
+                    xaxis_title='K (Number of Retrieved Chunks)',
+                    yaxis_title='Total Tokens',
+                    template='plotly_dark',
+                    hovermode='x unified',
+                    legend=dict(orientation='v', yanchor='top', y=1, xanchor='left', x=1.05),
+                    height=600,
+                    yaxis_type='log'  # Log scale for better visualization
+                )
+
+                viz['context_window_fit'] = fig
+                logger.info("Created Context Window Fit visualization")
+
+        except Exception as e:
+            logger.error(f"Error creating Context Window visualizations: {e}", exc_info=True)
+
     except Exception as e:
         logger.error(f"Error creating RAG visualizations: {e}", exc_info=True)
 
@@ -2606,7 +2702,10 @@ def generate_rag_llm_summary(df_rag, similarity_method='default'):
 
     Args:
         df_rag: DataFrame with RAG evaluation data
-        similarity_method: The similarity calculation method used
+        similarity_method: The similarity calculation method used.
+                          If None, generates comprehensive summary across all methods.
+                          If 'default', uses all data without filtering.
+                          Otherwise filters by specific method.
 
     Returns:
         str: HTML-formatted executive summary, or empty string if generation fails
@@ -2618,7 +2717,11 @@ def generate_rag_llm_summary(df_rag, similarity_method='default'):
             return ""
 
         # Filter by similarity method if specified
-        if similarity_method and similarity_method != 'default':
+        if similarity_method is None:
+            # None = comprehensive summary across ALL methods
+            df_filtered = df_rag.copy()
+            similarity_method = 'all'  # For display purposes
+        elif similarity_method != 'default':
             df_filtered = df_rag[df_rag['similarity_method'] == similarity_method].copy()
             if df_filtered.empty:
                 df_filtered = df_rag.copy()  # Fallback to all data
@@ -2635,9 +2738,14 @@ def generate_rag_llm_summary(df_rag, similarity_method='default'):
         # Embedding model performance
         if 'embedding_model' in df_filtered.columns:
             # Determine which k value to use (prefer @5, fallback to @3, then @1)
+            # Look for columns with OR without similarity method suffix
             k_value = None
             for k in [5, 3, 1]:
-                if f'precision@{k}' in df_filtered.columns and f'recall@{k}' in df_filtered.columns:
+                # Check for base columns (no suffix) OR any columns containing @k
+                precision_cols = [col for col in df_filtered.columns if f'precision@{k}' in col]
+                recall_cols = [col for col in df_filtered.columns if f'recall@{k}' in col]
+
+                if precision_cols and recall_cols:
                     k_value = k
                     break
 
@@ -2646,8 +2754,16 @@ def generate_rag_llm_summary(df_rag, similarity_method='default'):
                 return ""
 
             # Calculate F1 from precision and recall
-            precision_col = f'precision@{k_value}'
-            recall_col = f'recall@{k_value}'
+            # Use the first available column (handles both suffixed and non-suffixed columns)
+            precision_cols = [col for col in df_filtered.columns if f'precision@{k_value}' in col]
+            recall_cols = [col for col in df_filtered.columns if f'recall@{k_value}' in col]
+            ndcg_cols = [col for col in df_filtered.columns if f'ndcg@{k_value}' in col]
+            hit_rate_cols = [col for col in df_filtered.columns if f'hit_rate@{k_value}' in col]
+
+            precision_col = precision_cols[0] if precision_cols else f'precision@{k_value}'
+            recall_col = recall_cols[0] if recall_cols else f'recall@{k_value}'
+            ndcg_col = ndcg_cols[0] if ndcg_cols else f'ndcg@{k_value}'
+            hit_rate_col = hit_rate_cols[0] if hit_rate_cols else f'hit_rate@{k_value}'
 
             # Add F1 calculation
             df_filtered['f1_score'] = df_filtered.apply(
@@ -2656,7 +2772,7 @@ def generate_rag_llm_summary(df_rag, similarity_method='default'):
                 axis=1
             )
 
-            # Aggregate metrics
+            # Aggregate metrics - include NDCG and Hit Rate if available
             agg_dict = {
                 precision_col: ['mean', 'std'],
                 recall_col: ['mean', 'std'],
@@ -2664,6 +2780,14 @@ def generate_rag_llm_summary(df_rag, similarity_method='default'):
                 'retrieval_latency': ['mean', 'median'],
                 'total_cost': 'sum'
             }
+
+            # Add NDCG if available
+            if ndcg_col in df_filtered.columns:
+                agg_dict[ndcg_col] = ['mean', 'std']
+
+            # Add Hit Rate if available
+            if hit_rate_col in df_filtered.columns:
+                agg_dict[hit_rate_col] = ['mean']
 
             embedding_stats = df_filtered.groupby('embedding_model').agg(agg_dict).round(4)
 
@@ -2742,7 +2866,22 @@ Top Performers:
                 f1 = embedding_stats.loc[model, ('f1_score', 'mean')]
                 lat = embedding_stats.loc[model, ('retrieval_latency', 'median')]
                 cost = embedding_stats.loc[model, ('total_cost', 'sum')]
-                summary_data += f"- {model}: P@{k_val}={p:.4f}, R@{k_val}={r:.4f}, F1@{k_val}={f1:.4f}, Latency={lat:.4f}s, Cost=${cost:.6f}\n"
+
+                stats_line = f"- {model}: P@{k_val}={p:.4f}, R@{k_val}={r:.4f}, F1@{k_val}={f1:.4f}"
+
+                # Add NDCG if available
+                if ndcg_col in df_filtered.columns:
+                    ndcg = embedding_stats.loc[model, (ndcg_col, 'mean')]
+                    stats_line += f", NDCG@{k_val}={ndcg:.4f}"
+
+                # Add Hit Rate if available
+                if hit_rate_col in df_filtered.columns:
+                    hit = embedding_stats.loc[model, (hit_rate_col, 'mean')]
+                    hit_pct = hit * 100
+                    stats_line += f", Hit Rate={hit_pct:.1f}%"
+
+                stats_line += f", Latency={lat:.4f}s, Cost=${cost:.6f}\n"
+                summary_data += stats_line
 
         # Generate LLM summary
         prompt = f"""Based on the data below, write a clear summary (2-3 paragraphs) using simple, non-technical language that explains:
@@ -2955,6 +3094,12 @@ def create_unified_html_report(output_dir, timestamp, evaluation_names=None):
         <h2>RAG Evaluation Results</h2>
 """
 
+        # Generate ONE comprehensive AI summary for all data (before the dropdown)
+        logger.info("Generating comprehensive LLM summary for all RAG data...")
+        llm_summary = generate_rag_llm_summary(df_rag, similarity_method=None)  # None = all data
+        if llm_summary:
+            html_content += llm_summary
+
         # Add similarity method dropdown if multiple methods
         if len(similarity_methods) > 1:
             html_content += """
@@ -3030,13 +3175,6 @@ def create_unified_html_report(output_dir, timestamp, evaluation_names=None):
         <div id="similarity-method-{method}" class="similarity-method-section" style="display: {display_style};">
 """
 
-            # Add LLM-generated summary for the first visible method (at the top)
-            if i == 0:
-                logger.info(f"Generating LLM summary for similarity method: {method}")
-                llm_summary = generate_rag_llm_summary(df_rag, similarity_method=method)
-                if llm_summary:
-                    html_content += llm_summary
-
             method_viz = rag_viz_by_method.get(method, {})
 
             if method_viz:
@@ -3045,24 +3183,61 @@ def create_unified_html_report(output_dir, timestamp, evaluation_names=None):
 """
                 if 'embedding_comparison' in method_viz:
                     html_content += f"<div>{method_viz['embedding_comparison'].to_html(full_html=False)}</div>"
+                    html_content += """
+            <div class="info">
+                <p><b>What this shows:</b> Precision = % of retrieved chunks that are relevant | Recall = % of relevant chunks that were retrieved | Higher is better for both</p>
+            </div>
+"""
                 if 'precision_recall_at_k' in method_viz:
                     html_content += f"<div>{method_viz['precision_recall_at_k'].to_html(full_html=False)}</div>"
+                    html_content += """
+            <div class="info">
+                <p><b>What this shows:</b> How precision and recall change as K (number of retrieved chunks) increases | Helps you find the optimal K value for your use case</p>
+            </div>
+"""
 
                 html_content += """
             <h3>Cost & Performance Analysis</h3>
 """
                 if 'cost_efficiency_frontier' in method_viz:
                     html_content += f"<div>{method_viz['cost_efficiency_frontier'].to_html(full_html=False)}</div>"
+                    html_content += """
+            <div class="info">
+                <p><b>What this shows:</b> F1 Score vs Cost trade-off | Models on the Pareto frontier (red dashed line) are optimal choices | Look for high F1 with low cost</p>
+            </div>
+"""
                 if 'latency_accuracy_tradeoff' in method_viz:
                     html_content += f"<div>{method_viz['latency_accuracy_tradeoff'].to_html(full_html=False)}</div>"
+                    html_content += """
+            <div class="info">
+                <p><b>What this shows:</b> F1 Score vs Latency trade-off | Find the sweet spot between accuracy and speed for your application</p>
+            </div>
+"""
                 if 'cost_analysis' in method_viz:
                     html_content += f"<div>{method_viz['cost_analysis'].to_html(full_html=False)}</div>"
+                    html_content += """
+            <div class="info">
+                <p><b>What this shows:</b> Total cost aggregated across all queries | Helps identify the most cost-effective embedding models</p>
+            </div>
+"""
+                if 'cost_per_query' in method_viz:
+                    html_content += f"<div>{method_viz['cost_per_query'].to_html(full_html=False)}</div>"
+                    html_content += """
+            <div class="info">
+                <p><b>What this shows:</b> Average cost breakdown per query | Embedding Cost = cost to generate query/document embeddings | Reranking Cost = cost to reorder results | Lower is cheaper</p>
+            </div>
+"""
 
                 html_content += """
             <h3>Latency Breakdown</h3>
 """
                 if 'retrieval_latency' in method_viz:
                     html_content += f"<div>{method_viz['retrieval_latency'].to_html(full_html=False)}</div>"
+                    html_content += """
+            <div class="info">
+                <p><b>What this shows:</b> Time breakdown for each retrieval step | Query Embedding = convert query to vector | Retrieval = search vector DB | Reranking = reorder results | Lower is faster</p>
+            </div>
+"""
 
                 html_content += """
             <h3>Top-K Stability Analysis</h3>
@@ -3073,13 +3248,23 @@ def create_unified_html_report(output_dir, timestamp, evaluation_names=None):
                     html_content += f"<div>{method_viz['avg_stability'].to_html(full_html=False)}</div>"
                 if 'result_churn' in method_viz:
                     html_content += f"<div>{method_viz['result_churn'].to_html(full_html=False)}</div>"
-
-                # Re-ranking Analysis (if available)
-                if 'reranker_impact' in method_viz:
-                    html_content += """
-            <h3>Re-ranking Analysis</h3>
+                html_content += """
+            <div class="info">
+                <p><b>What this shows:</b> Consistency of retrieval results across different K values | Stability Score = how similar results are when changing K | Result Churn = rate of change in retrieved documents | Higher stability means more consistent results</p>
+            </div>
 """
-                    html_content += f"<div>{method_viz['reranker_impact'].to_html(full_html=False)}</div>"
+
+                # Context Window Analysis (new)
+                if 'context_window_fit' in method_viz:
+                    html_content += """
+            <h3>Context Window Analysis</h3>
+"""
+                    html_content += f"<div>{method_viz['context_window_fit'].to_html(full_html=False)}</div>"
+                    html_content += """
+            <div class="info">
+                <p><b>What this shows:</b> Total tokens needed to fit K retrieved chunks | Dashed lines show LLM context window limits | If your line is below a dashed line, all chunks fit in that LLM's context</p>
+            </div>
+"""
 
             # Close the similarity method section div
             html_content += """

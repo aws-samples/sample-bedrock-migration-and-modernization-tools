@@ -234,7 +234,12 @@ def is_chunk_relevant(chunk: str, ground_truth_chunks: List[str], threshold: flo
                 # Use provided similarity calculator
                 similarity = similarity_calculator.calculate(chunk, gt_chunk)
                 # Use calculator's threshold if no explicit threshold provided
-                threshold_to_use = threshold if threshold != 0.7 else similarity_calculator.default_threshold
+                if threshold != 0.7:
+                    threshold_to_use = threshold
+                elif hasattr(similarity_calculator, 'default_threshold') and isinstance(getattr(similarity_calculator, 'default_threshold'), (int, float)):
+                    threshold_to_use = float(similarity_calculator.default_threshold)
+                else:
+                    threshold_to_use = 0.7  # Fallback default
             else:
                 # Fall back to Jaccard (backward compatibility)
                 similarity = calculate_text_overlap(chunk, gt_chunk)
@@ -280,7 +285,12 @@ def is_chunk_retrieved(ground_truth_chunk: str, retrieved_chunks: List[str], thr
                 # Use provided similarity calculator
                 similarity = similarity_calculator.calculate(ground_truth_chunk, chunk)
                 # Use calculator's threshold if no explicit threshold provided
-                threshold_to_use = threshold if threshold != 0.7 else similarity_calculator.default_threshold
+                if threshold != 0.7:
+                    threshold_to_use = threshold
+                elif hasattr(similarity_calculator, 'default_threshold') and isinstance(getattr(similarity_calculator, 'default_threshold'), (int, float)):
+                    threshold_to_use = float(similarity_calculator.default_threshold)
+                else:
+                    threshold_to_use = 0.7  # Fallback default
             else:
                 # Fall back to Jaccard (backward compatibility)
                 similarity = calculate_text_overlap(ground_truth_chunk, chunk)
@@ -529,6 +539,151 @@ def calculate_mrr(
 
 
 # ----------------------------------------
+# NDCG (Normalized Discounted Cumulative Gain)
+# ----------------------------------------
+
+def calculate_ndcg_at_k(
+    retrieved_chunks: List[str],
+    ground_truth_chunks: List[str],
+    k: int,
+    similarity_calculator=None
+) -> float:
+    """
+    Calculate Normalized Discounted Cumulative Gain at K (NDCG@K).
+
+    NDCG measures ranking quality with position weighting - highly relevant
+    chunks at top positions contribute more than those further down.
+
+    Args:
+        retrieved_chunks: List of retrieved chunks (ordered by relevance)
+        ground_truth_chunks: List of ground truth chunks
+        k: Number of top chunks to consider
+        similarity_calculator: Optional SimilarityCalculator instance
+
+    Returns:
+        NDCG@K score (0-1, where 1 is perfect ranking)
+    """
+    import math
+
+    if k <= 0 or not ground_truth_chunks or not retrieved_chunks:
+        return 0.0
+
+    top_k = retrieved_chunks[:k]
+
+    # Calculate DCG (Discounted Cumulative Gain)
+    dcg = 0.0
+    for i, chunk in enumerate(top_k, 1):
+        # Binary relevance: 1 if relevant, 0 if not
+        relevance = 1.0 if is_chunk_relevant(chunk, ground_truth_chunks, similarity_calculator) else 0.0
+        # DCG formula: relevance / log2(position + 1)
+        dcg += relevance / math.log2(i + 1)
+
+    # Calculate IDCG (Ideal DCG) - best possible ranking
+    # All relevant chunks at the top positions
+    num_relevant = min(k, len(ground_truth_chunks))
+    idcg = sum(1.0 / math.log2(i + 2) for i in range(num_relevant))
+
+    if idcg == 0:
+        return 0.0
+
+    return dcg / idcg
+
+
+# ----------------------------------------
+# Hit Rate (Success Rate)
+# ----------------------------------------
+
+def calculate_hit_rate(
+    retrieved_chunks: List[str],
+    ground_truth_chunks: List[str],
+    k: int = None,
+    similarity_calculator=None
+) -> float:
+    """
+    Calculate Hit Rate - percentage of queries where at least one relevant chunk was retrieved.
+
+    This is a simple, intuitive metric: did we find ANYTHING relevant?
+
+    Args:
+        retrieved_chunks: List of retrieved chunks
+        ground_truth_chunks: List of ground truth chunks
+        k: Optional number of top chunks to consider (if None, considers all)
+        similarity_calculator: Optional SimilarityCalculator instance
+
+    Returns:
+        1.0 if at least one relevant chunk found, 0.0 otherwise
+    """
+    if not ground_truth_chunks or not retrieved_chunks:
+        return 0.0
+
+    chunks_to_check = retrieved_chunks[:k] if k else retrieved_chunks
+
+    for chunk in chunks_to_check:
+        if is_chunk_relevant(chunk, ground_truth_chunks, similarity_calculator):
+            return 1.0
+
+    return 0.0
+
+
+# ----------------------------------------
+# Context Window Analysis
+# ----------------------------------------
+
+def calculate_context_window_metrics(
+    retrieved_chunks: List[str],
+    k_values: List[int] = [1, 3, 5, 10]
+) -> Dict[str, any]:
+    """
+    Calculate token counts and context window compatibility metrics.
+
+    Args:
+        retrieved_chunks: List of retrieved chunks
+        k_values: List of K values to analyze
+
+    Returns:
+        Dictionary with token counts and window fit analysis
+    """
+    try:
+        import tiktoken
+
+        # Use cl100k_base encoding (GPT-4, Claude)
+        encoding = tiktoken.get_encoding("cl100k_base")
+
+        metrics = {}
+
+        # Calculate tokens for each K value
+        for k in k_values:
+            if k > len(retrieved_chunks):
+                continue
+
+            top_k_chunks = retrieved_chunks[:k]
+            combined_text = "\n\n".join(top_k_chunks)
+            token_count = len(encoding.encode(combined_text))
+
+            metrics[f'tokens@{k}'] = token_count
+
+            # Context window compatibility
+            # Common limits: Claude 200K, GPT-4 128K, GPT-3.5 16K
+            metrics[f'fits_claude_200k@{k}'] = token_count <= 200000
+            metrics[f'fits_gpt4_128k@{k}'] = token_count <= 128000
+            metrics[f'fits_gpt4_32k@{k}'] = token_count <= 32000
+            metrics[f'fits_gpt35_16k@{k}'] = token_count <= 16000
+
+        # Total tokens for all retrieved chunks
+        all_text = "\n\n".join(retrieved_chunks)
+        metrics['total_tokens'] = len(encoding.encode(all_text))
+
+        return metrics
+
+    except ImportError:
+        logger.warning("tiktoken not installed - skipping context window analysis")
+        return {}
+    except Exception as e:
+        logger.error(f"Error calculating context window metrics: {e}", exc_info=True)
+        return {}
+
+
+# ----------------------------------------
 # Top-K Stability Analysis
 # ----------------------------------------
 
@@ -728,18 +883,22 @@ def comprehensive_retrieval_evaluation(
                 metrics['context_precision'] = 0.0
                 metrics['context_recall'] = 0.0
 
-            # Precision/Recall/MAP at K
+            # Precision/Recall/MAP/NDCG/Hit Rate at K
             for k in k_values:
                 if k <= len(retrieved_chunks):
                     try:
                         metrics[f'precision@{k}'] = calculate_precision_at_k(retrieved_chunks, ground_truth_chunks, k, calculator)
                         metrics[f'recall@{k}'] = calculate_recall_at_k(retrieved_chunks, ground_truth_chunks, k, calculator)
                         metrics[f'map@{k}'] = calculate_map_at_k(retrieved_chunks, ground_truth_chunks, k, calculator)
+                        metrics[f'ndcg@{k}'] = calculate_ndcg_at_k(retrieved_chunks, ground_truth_chunks, k, calculator)
+                        metrics[f'hit_rate@{k}'] = calculate_hit_rate(retrieved_chunks, ground_truth_chunks, k, calculator)
                     except Exception as e:
                         logger.error(f"Error calculating metrics@{k} for {method_name}: {str(e)}", exc_info=True)
                         metrics[f'precision@{k}'] = 0.0
                         metrics[f'recall@{k}'] = 0.0
                         metrics[f'map@{k}'] = 0.0
+                        metrics[f'ndcg@{k}'] = 0.0
+                        metrics[f'hit_rate@{k}'] = 0.0
 
             # MRR
             try:
@@ -778,6 +937,13 @@ def comprehensive_retrieval_evaluation(
     # Basic stats (method-independent)
     all_metrics['num_retrieved'] = len(retrieved_chunks)
     all_metrics['num_ground_truth'] = len(ground_truth_chunks)
+
+    # Context Window Analysis (method-independent, only calculate once)
+    try:
+        context_window_metrics = calculate_context_window_metrics(retrieved_chunks, k_values)
+        all_metrics.update(context_window_metrics)
+    except Exception as e:
+        logger.error(f"Error calculating context window metrics: {e}", exc_info=True)
 
     # Add metadata about which methods were used
     if len(similarity_calculators) > 1:
