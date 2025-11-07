@@ -1,0 +1,52 @@
+{
+  "_comment": "Minimal corrections for truly problematic cases only",
+  "_last_updated": "2025-11-04",
+  "amazon.titan-text-express-v1": {
+    "context_window": 8000,
+    "max_output_tokens": 8000,
+    "reason": "AWS docs differ from LiteLLM",
+    "source_url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-text.html"
+  },
+  "amazon.titan-text-lite-v1": {
+    "context_window": 4000,
+    "max_output_tokens": 4000,
+    "reason": "AWS docs differ from LiteLLM",
+    "source_url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-text.html"
+  },
+  "amazon.nova-premier-v1": {
+    "context_window": 1000000,
+    "max_output_tokens": 10000,
+    "reason": "Critical model - ensure correct values",
+    "source_url": "https://docs.aws.amazon.com/nova/latest/userguide/what-is-nova.html"
+  },
+  "amazon.titan-tg1-large": {
+    "context_window": 8192,
+    "max_output_tokens": 8192,
+    "reason": "Legacy Titan Large model not in LiteLLM database",
+    "source_url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-text.html"
+  },
+  "writer.palmyra-x4-v1": {
+    "context_window": 122880,
+    "max_output_tokens": 8192,
+    "reason": "Writer models not in LiteLLM database",
+    "source_url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-palmyra-x4.html"
+  },
+  "writer.palmyra-x4-v1:0": {
+    "context_window": 122880,
+    "max_output_tokens": 8192,
+    "reason": "Writer models not in LiteLLM database - versioned ARN",
+    "source_url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-palmyra-x4.html"
+  },
+  "writer.palmyra-x5-v1": {
+    "context_window": 1040000,
+    "max_output_tokens": 8192,
+    "reason": "Writer models not in LiteLLM database",
+    "source_url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-palmyra-x5.html"
+  },
+  "writer.palmyra-x5-v1:0": {
+    "context_window": 1040000,
+    "max_output_tokens": 8192,
+    "reason": "Writer models not in LiteLLM database - versioned ARN",
+    "source_url": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-palmyra-x5.html"
+  }
+}

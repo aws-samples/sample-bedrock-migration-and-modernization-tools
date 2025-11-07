@@ -1,0 +1,243 @@
+/* Custom styles for Amazon Bedrock Expert application */
+
+/* Region Selector Styles */
+.region-selector-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 0.5rem;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.region-selector-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.25rem;
+}
+
+/* Primary GEO and Region selector styling */
+div[data-testid="stSelectbox"] > div > div {
+    background-color: white;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    transition: border-color 0.3s ease;
+}
+
+div[data-testid="stSelectbox"] > div > div:focus-within {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Region selector specific styling */
+.region-selector-geo {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.region-selector-region {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+}
+
+/* Main Header Styles */
+.main-header {
+    background: linear-gradient(90deg, rgb(31, 78, 121) 0%, rgb(45, 90, 160) 100%);
+    padding: 2rem 1rem;
+    border-radius: 15px;
+    color: white;
+    text-align: center;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.title-icon {
+    font-size: 4rem;
+    margin: 0 0.5rem;
+    vertical-align: middle;
+    filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+    position: relative;
+    z-index: 10;
+}
+
+/* Model Card Styles - Clean implementation */
+.model-card-container {
+    background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+    border-radius: 16px;
+    padding: 1.75rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.model-card-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border-color: #adb5bd;
+}
+
+/* Tag Styles */
+.capability-tag {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin: 0.2rem;
+    box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
+}
+
+.region-tag {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    background: #F0F9FF;
+    color: #0369A1;
+    border: 1px solid #BAE6FD;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    margin: 0.2rem;
+}
+
+/* Provider Badge Styles */
+.provider-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-right: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.amazon-badge { 
+    background: linear-gradient(135deg, #FF9900 0%, #FFC400 100%); 
+    color: white; 
+}
+
+.anthropic-badge { 
+    background: linear-gradient(135deg, #D4A574 0%, #E5B584 100%); 
+    color: white; 
+}
+
+.meta-badge { 
+    background: linear-gradient(135deg, #1877F2 0%, #0A85FF 100%); 
+    color: white; 
+}
+
+.cohere-badge { 
+    background: linear-gradient(135deg, #39594C 0%, #4A6A5C 100%); 
+    color: white; 
+}
+
+.mistral-badge { 
+    background: linear-gradient(135deg, #FF6B35 0%, #FF8B55 100%); 
+    color: white; 
+}
+
+.stability-badge { 
+    background: linear-gradient(135deg, #000000 0%, #333333 100%); 
+    color: white; 
+}
+
+.deepseek-badge { 
+    background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%); 
+    color: white; 
+}
+
+.writer-badge { 
+    background: linear-gradient(135deg, #10B981 0%, #34D399 100%); 
+    color: white; 
+}
+
+.luma-badge { 
+    background: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%); 
+    color: white; 
+}
+
+/* Pagination Controls Vertical Alignment */
+.pagination-controls-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    height: 100%;
+    gap: 0.5rem;
+}
+
+.pagination-total-items {
+    margin: 0;
+    padding: 0;
+    line-height: 1.2;
+    text-align: left;
+}
+
+.pagination-nav-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    width: 100%;
+}
+
+/* Primary GEO and Region Selectors Vertical Alignment */
+.primary-selectors-container {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    height: 100%;
+}
+
+.primary-geo-container,
+.primary-region-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    height: 100%;
+}
+
+.primary-geo-container > div,
+.primary-region-container > div {
+    margin-bottom: 0 !important;
+}
+
+/* Ensure consistent height for primary selectors */
+.primary-geo-container .stSelectbox,
+.primary-region-container .stSelectbox {
+    margin-bottom: 0;
+}
+
+.primary-geo-container .stSelectbox > div,
+.primary-region-container .stSelectbox > div {
+    margin-bottom: 0;
+}
+
+/* Align the selectbox inputs at the bottom */
+.primary-geo-container .stSelectbox > div > div,
+.primary-region-container .stSelectbox > div > div {
+    margin-bottom: 0;
+    min-height: 2.5rem;
+    display: flex;
+    align-items: center;
+}
+
+/* Primary Selectors Center Alignment */
+.primary-selectors-center-align {
+    margin-top: -1.5rem;
+}
+
+/* Remove white background from model card columns */
+div[data-testid="column"] {
+    background: transparent !important;
+}
+
+/* Ensure no white background on containers in model cards */
+div[data-testid="stVerticalBlock"] > div[data-testid="element-container"] {
+    background: transparent !important;
+}
