@@ -1,0 +1,386 @@
+﻿prompt,golden_answer
+"In C++\nDo not use the Irvine libraries/procedures for the programs in this assignment. There is a\n\ntemplate for writing programs without using Irvine that you may use if you wish.\n\n(25 Pts) Write a program using 32-bit MASM x 86 Assembly Language that accomplishes the\n\nfollowing:\n\na. Initialize Variables in the data section of your program for varA, varB, varC, varD, and Result.\n\nb. In the code section your program should compute the following:\n\n"" Result ""=(VarA+Var B)-(VarC+VarD)\n\n( 75 Pts) Write a program using 32 -bit MASM x 86 Assembly Language that generates the\n\nfirst 26 values of the Fibonacci Sequence starting from 0, as described by the following\n\nformula:\n\nFib(0)=0,quad Fib(1)=1,quad Fib(n)=Fib(n-1)+Fib(n-2)\n\nSave the sequence sequentially in memory starting at a defined location.\n\nDo not use magic numbers. Name and initialize variables in the data section of your programs.\n\nSubmit your source code (.asm) files to the assignment drop-box by the due date. Submit a\n\nseparate asm file for each program.\n\nBuild and debug your code using Visual Studio 2022.\n\nSubmit your source code (.asm file) to the assignment drop-box by the due date. Do not submit\n\nWord or PDF files containing your code. Do not submit your .sln project file.\n\nComment Requirements:\n\nThere must be a preamble block of comments at the beginning of the program that includes at\n\nleast the following information:\n\nYour name\n\nCourse number, section, and title\n\nProgram title\n\nDate\n\nThere must be a block of comments before the main procedure of your program, as well as\n\nbefore each additional procedure (if applicable) that describes the inputs, outputs, memory usage,\n\nregister usage, and functional description of the procedure.\n\nThe program must also contain non-syntax based individual line comments for each line that\n\nmake the functional goals and processes of the program self-documenting. These comments\n\nshould be placed in line with each instruction.","I'll help you create two MASM x86 assembly programs without using the Irvine libraries. Here are both programs:
+
+## Program 1: Computing Result = (VarA + VarB) - (VarC + VarD)
+
+```asm
+; Program 1: Arithmetic Expression Calculator
+; Name: [Your Name]
+; Course: [Course Number, Section, Title]
+; Program Title: Expression Calculator - Result = (VarA + VarB) - (VarC + VarD)
+; Date: [Current Date]
+
+.386
+.model flat, stdcall
+.stack 4096
+
+ExitProcess PROTO, dwExitCode:DWORD
+
+.data
+    varA    DWORD 10        ; First operand
+    varB    DWORD 20        ; Second operand
+    varC    DWORD 5         ; Third operand
+    varD    DWORD 8         ; Fourth operand
+    Result  DWORD ?         ; Storage for final result
+
+.code
+; Main Procedure
+; Inputs: None (uses global variables)
+; Outputs: Result stored in Result variable
+; Memory Usage: Uses .data section variables
+; Register Usage: EAX for calculations, EBX for intermediate storage
+; Description: Calculates Result = (VarA + VarB) - (VarC + VarD)
+main PROC
+    ; Calculate (VarA + VarB)
+    mov eax, varA           ; Load varA into EAX register
+    add eax, varB           ; Add varB to EAX (EAX now contains varA + varB)
+    mov ebx, eax            ; Store intermediate result in EBX
+    
+    ; Calculate (VarC + VarD)
+    mov eax, varC           ; Load varC into EAX register
+    add eax, varD           ; Add varD to EAX (EAX now contains varC + varD)
+    
+    ; Calculate final result: (VarA + VarB) - (VarC + VarD)
+    sub ebx, eax            ; Subtract (varC + varD) from (varA + varB)
+    mov Result, ebx         ; Store final result in Result variable
+    
+    ; Exit program
+    push 0                  ; Push exit code 0 (success)
+    call ExitProcess        ; Call Windows API to exit
+main ENDP
+
+END main
+```
+
+## Program 2: Fibonacci Sequence Generator
+
+```asm
+; Program 2: Fibonacci Sequence Generator
+; Name: [Your Name]
+; Course: [Course Number, Section, Title]
+; Program Title: First 26 Fibonacci Numbers Generator
+; Date: [Current Date]
+
+.386
+.model flat, stdcall
+.stack 4096
+
+ExitProcess PROTO, dwExitCode:DWORD
+
+.data
+    FIB_COUNT   EQU 26              ; Number of Fibonacci values to generate
+    FibArray    DWORD FIB_COUNT DUP(?)  ; Array to store Fibonacci sequence
+    
+.code
+; Main Procedure
+; Inputs: None
+; Outputs: First 26 Fibonacci numbers stored in FibArray
+; Memory Usage: FibArray in .data section
+; Register Usage: EAX, EBX, ECX for calculations, EDI for array indexing
+; Description: Generates first 26 Fibonacci numbers starting from 0
+main PROC
+    ; Initialize first two Fibonacci numbers
+    mov FibArray[0], 0      ; Fib(0) = 0
+    mov FibArray[4], 1      ; Fib(1) = 1 (offset 4 for DWORD)
+    
+    ; Initialize loop counter and array index
+    mov ecx, 2              ; Start loop from index 2
+    mov edi, 8              ; Array offset for third element (2 * 4 bytes)
+    
+FibLoop:
+    ; Check if we've generated all required numbers
+    cmp ecx, FIB_COUNT      ; Compare counter with total count
+    jge EndLoop             ; Jump to end if we've generated enough
+    
+    ; Calculate Fib(n) = Fib(n-1) + Fib(n-2)
+    mov eax, [FibArray + edi - 4]   ; Load Fib(n-1) into EAX
+    mov ebx, [FibArray + edi - 8]   ; Load Fib(n-2) into EBX
+    add eax, ebx                     ; Calculate Fib(n) = Fib(n-1) + Fib(n-2)
+    
+    ; Store the result in array
+    mov [FibArray + edi], eax        ; Store Fib(n) at current position
+    
+    ; Increment counter and array index
+    inc ecx                          ; Increment loop counter
+    add edi, 4                       ; Move to next DWORD position
+    
+    ; Continue loop
+    jmp FibLoop                      ; Jump back to loop start
+    
+EndLoop:
+    ; Exit program
+    push 0                  ; Push exit code 0 (success)
+    call ExitProcess        ; Call Windows API to exit
+main ENDP
+
+END main
+```
+
+## Key Features of Both Programs:
+
+1. **No Irvine Libraries**: Both programs use only standard x86 assembly with Windows API for exiting.
+
+2. **Named Constants**: The Fibonacci program uses `FIB_COUNT EQU 26` to avoid magic numbers.
+
+3. **Proper Comments**: 
+   - Preamble blocks with required information
+   - Procedure documentation blocks
+   - Line-by-line functional comments
+
+4. **Data Section Variables**: All variables are properly initialized in the `.data` section.
+
+5. **32-bit MASM**: Both programs use `.386` directive and 32-bit registers.
+
+To build these programs in Visual Studio 2022:
+1. Create a new Empty Project
+2. Add a new .asm file for each program
+3. Right-click the project → Build Dependencies → Build Customizations
+4. Check ""masm"" checkbox
+5. Build the project
+"
+"1. Draw the state diagram of a DFA for the following regular languages:
+   L₁(M) → {w ∈ Σ* | w doesn't contain 00}, where Σ = {0, 1}.
+   L₂(M) → {w ∈ Σ* | w doesn't contain 11}, where Σ = {0, 1}.
+
+A. L(M) → {w ∈ Σ* | the length of w is a multiple of 2 or 3}, where Σ = {0, 1}. (use 6 states)
+B. L(M) → {w ∈ Σ* | the sum of the symbols of w is a multiple of 3}, where Σ = {0, 1, 2}.
+C. L(M) → {w ∈ Σ* | the decimal equivalent of w is a multiple of 5}, where Σ = {0, 1}.
+D. L(M) → {w ∈ Σ* | w is any string not in 0*1*}, where Σ = {0, 1}.
+E. L(M) → (L₁ ∩ L₂)","I'll draw the state diagrams for each of these DFAs.
+
+## 1. L₁(M) → {w ∈ Σ* | w doesn't contain 00}, where Σ = {0, 1}
+
+```
+→(q₀)--0-->(q₁)
+  ↑|        |
+  ||        |1
+  |1        ↓
+  |<---0---(q₂)
+  |         |
+  |<---1----+
+```
+- q₀: initial state (accepting)
+- q₁: saw one 0 (accepting)
+- q₂: saw 00 (rejecting, trap state)
+
+## 2. L₂(M) → {w ∈ Σ* | w doesn't contain 11}, where Σ = {0, 1}
+
+```
+→(q₀)--1-->(q₁)
+  ↑|        |
+  ||        |0
+  |0        ↓
+  |<---1---(q₂)
+  |         |
+  |<---0----+
+```
+- q₀: initial state (accepting)
+- q₁: saw one 1 (accepting)
+- q₂: saw 11 (rejecting, trap state)
+
+## A. L(M) → {w ∈ Σ* | the length of w is a multiple of 2 or 3}
+
+```
+→(q₀)--0,1-->(q₁)--0,1-->(q₂)
+   ↑                      |0,1
+   |                      ↓
+  (q₅)<--0,1--(q₄)<--0,1--(q₃)
+   |                      ↑
+   +--------0,1-----------+
+```
+- States represent length mod 6: q₀(0), q₁(1), q₂(2), q₃(3), q₄(4), q₅(5)
+- Accepting states: q₀, q₂, q₃, q₄ (lengths 0,2,3,4 mod 6)
+
+## B. L(M) → {w ∈ Σ* | the sum of the symbols of w is a multiple of 3}
+
+```
+→(q₀)--0-->(q₀)
+  |↑        |
+  ||        |1
+  |2        ↓
+  |       (q₁)--0-->(q₁)
+  |        |↑        |
+  |        ||        |2
+  |        |1        ↓
+  |       (q₂)<--0--(q₂)
+  |        |         |
+  +---2----+    1    |
+           |<--------+
+```
+- States represent sum mod 3: q₀(0), q₁(1), q₂(2)
+- Accepting state: q₀
+
+## C. L(M) → {w ∈ Σ* | the decimal equivalent of w is a multiple of 5}
+
+```
+→(q₀)--0-->(q₀)
+  |↑        |
+  ||        |1
+  |1        ↓
+  |       (q₁)--1-->(q₂)
+  |        |↑        |↓
+  |        ||        ||
+  |        |0        |0
+  |        ↓|        ↓|
+  |       (q₄)      (q₃)
+  |        |         |
+  +---0----+    1    |
+           |<--------+
+```
+- States represent value mod 5: q₀(0), q₁(1), q₂(2), q₃(3), q₄(4)
+- Accepting state: q₀
+- Transitions: from state representing n, on input b, go to state (2n+b) mod 5
+
+## D. L(M) → {w ∈ Σ* | w is any string not in 0*1*}
+
+```
+→(q₀)--0-->(q₁)--1-->(q₂)
+  |         |         |
+  |1        |0        |0,1
+  ↓         ↓         ↓
+ (q₃)      (q₃)      (q₂)
+  |
+  |0,1
+  ↓
+ (q₃)
+```
+- q₀: initial state (rejecting)
+- q₁: in 0* (rejecting)
+- q₂: in 0*1* (rejecting)
+- q₃: not in 0*1* (accepting)
+
+## E. L(M) → (L₁ ∩ L₂) - strings without 00 or 11
+
+```
+→(q₀₀)--0-->(q₁₀)
+   |          |
+   |1         |1
+   ↓          ↓
+ (q₀₁)--0-->(q₁₁)
+   |          |
+   |1         |0
+   ↓          ↓
+ (qᵣ)←-0,1---(qᵣ)
+```
+- q₀₀: initial state (accepting)
+- q₁₀: last symbol was 0 (accepting)
+- q₀₁: last symbol was 1 (accepting)
+- q₁₁: alternating (accepting)
+- qᵣ: saw 00 or 11 (rejecting, trap state)
+"
+"In SQL, which of the following aggregate functions would you use to subtotal the values in a numeric field? Briefly explain your answer:\n. SUBTOTAL\n. TOTAL\n. GROUP\n. SUM\n","The correct answer is **d. SUM**.
+
+The SUM() function is the standard SQL aggregate function used to calculate the total (or subtotal) of values in a numeric field. 
+
+Here's why the other options are incorrect:
+- **SUBTOTAL** - This is not a standard SQL aggregate function
+- **TOTAL** - This is not a standard SQL aggregate function
+- **GROUP** - This is not an aggregate function; GROUP BY is a clause used to group rows, not calculate totals
+
+Example usage:
+```sql
+SELECT SUM(amount) as total_amount
+FROM sales;
+```
+
+Or for subtotals by category:
+```sql
+SELECT category, SUM(amount) as subtotal
+FROM sales
+GROUP BY category;
+```"
+"For unary operations, this operand can be either a register or a memory location. Avaialble answer choices: True or False",FALSE
+The equal sign (=) is the C# assignment operator. True False,FALSE
+"**In x86 assembly, which addressing mode allows you to access memory using a base register, an index register scaled by 1, 2, 4, or 8, and a displacement?**
+   - A) Direct addressing
+   - B) Register indirect addressing
+   - C) Scaled index addressing
+   - D) Base + scaled index + displacement addressing",**Answer: D**
+"**Which of the following instructions can cause a page fault in protected mode?**
+   - A) ADD EAX, EBX
+   - B) MOV ECX, [EBP + 8]
+   - C) XOR EDX, EDX
+   - D) CMP ESI, EDI",**Answer: B**
+**True or False: The x86 LOCK prefix can be used with the MOV instruction to ensure atomic memory access.**,FALSE
+"**In x86-64 architecture, which registers are caller-saved according to the System V AMD64 ABI calling convention?**
+   - A) RBX, RBP, R12-R15
+   - B) RAX, RCX, RDX, RSI, RDI, R8-R11
+   - C) All general-purpose registers
+   - D) Only RAX and RDX",**Answer: B**
+"**True or False: In ARM assembly, the barrel shifter can be applied to the second operand of most data processing instructions without requiring an additional cycle.**",**Answer: True**
+"**Which of the following x86 instructions modifies the stack pointer (ESP/RSP)?**
+   - A) CALL
+   - B) LEA
+   - C) TEST
+   - D) XCHG",**Answer: A**
+"**In modern out-of-order processors, which hazard type is automatically handled by register renaming?**
+   - A) Structural hazards
+   - B) Control hazards
+   - C) Write-after-write (WAW) hazards
+   - D) True data dependencies (RAW)",**Answer: C**
+"**True or False: The x86 instruction ""INC DWORD PTR [EAX]"" requires both read and write access to the memory location pointed to by EAX.**",TRUE
+"**Which of the following best describes the purpose of a TLB (Translation Lookaside Buffer)?**
+   - A) To cache recently decoded instructions
+   - B) To store branch prediction information
+   - C) To cache virtual-to-physical address translations
+   - D) To buffer data between L1 and L2 cache",**Answer: C**
+"**In MIPS assembly, which instruction is typically used to implement a NOP (no operation)?**
+    - A) ADD $0, $0, $0
+    - B) SLL $0, $0, 0
+    - C) OR $0, $0, $0
+    - D) All of the above",**Answer: D**
+"Given the following schema:
+CREATE TABLE employees (employee_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), hire_date DATE, department_id INT, salary DECIMAL(10,2));
+CREATE TABLE departments (department_id INT PRIMARY KEY, department_name VARCHAR(100), location VARCHAR(100));
+CREATE TABLE projects (project_id INT PRIMARY KEY, project_name VARCHAR(100), start_date DATE, end_date DATE, budget DECIMAL(15,2));
+CREATE TABLE employee_projects (employee_id INT, project_id INT, role VARCHAR(50), hours_worked INT, PRIMARY KEY (employee_id, project_id), FOREIGN KEY (employee_id) REFERENCES employees(employee_id), FOREIGN KEY (project_id) REFERENCES projects(project_id));
+
+Write a SQL query to find the departments with their average employee salary, but only include departments where the average salary is above the company-wide average salary.","WITH avg_company_salary AS (
+  SELECT AVG(salary) AS avg_salary
+  FROM employees
+)
+SELECT d.department_name, AVG(e.salary) AS avg_department_salary
+FROM departments d
+JOIN employees e ON d.department_id = e.department_id
+GROUP BY d.department_id, d.department_name
+HAVING AVG(e.salary) > (SELECT avg_salary FROM avg_company_salary)
+ORDER BY avg_department_salary DESC;"
+"Given the following schema:
+CREATE TABLE books (book_id INT PRIMARY KEY, title VARCHAR(200), author_id INT, publisher_id INT, publication_year INT, genre VARCHAR(50), isbn VARCHAR(20), available_copies INT);
+CREATE TABLE authors (author_id INT PRIMARY KEY, name VARCHAR(100), birth_year INT, nationality VARCHAR(50));
+CREATE TABLE publishers (publisher_id INT PRIMARY KEY, name VARCHAR(100), location VARCHAR(100));
+CREATE TABLE members (member_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE, membership_type VARCHAR(20));
+CREATE TABLE loans (loan_id INT PRIMARY KEY, book_id INT, member_id INT, checkout_date DATE, due_date DATE, return_date DATE, FOREIGN KEY (book_id) REFERENCES books(book_id), FOREIGN KEY (member_id) REFERENCES members(member_id));
+
+Write a SQL query to find the top 3 most frequently borrowed genres in the past year, along with the count of loans for each genre.","SELECT b.genre, COUNT(l.loan_id) AS loan_count
+FROM books b
+JOIN loans l ON b.book_id = l.book_id
+WHERE l.checkout_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR)
+GROUP BY b.genre
+ORDER BY loan_count DESC
+LIMIT 3;"
+"Given the following schema:
+CREATE TABLE students (student_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), date_of_birth DATE, enrollment_date DATE, major_id INT);
+CREATE TABLE majors (major_id INT PRIMARY KEY, major_name VARCHAR(100), department VARCHAR(100));
+CREATE TABLE courses (course_id INT PRIMARY KEY, course_code VARCHAR(20), course_name VARCHAR(100), credits INT, department VARCHAR(100));
+CREATE TABLE instructors (instructor_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), department VARCHAR(100), hire_date DATE);
+CREATE TABLE enrollments (enrollment_id INT PRIMARY KEY, student_id INT, course_id INT, instructor_id INT, semester VARCHAR(20), year INT, grade VARCHAR(2), FOREIGN KEY (student_id) REFERENCES students(student_id), FOREIGN KEY (course_id) REFERENCES courses(course_id), FOREIGN KEY (instructor_id) REFERENCES instructors(instructor_id));
+
+Write a SQL query to find students who have taken all courses offered by their major's department.","WITH department_course_counts AS (
+  SELECT m.major_id, m.department, COUNT(DISTINCT c.course_id) AS total_courses
+  FROM majors m
+  JOIN courses c ON m.department = c.department
+  GROUP BY m.major_id, m.department
+),
+student_course_counts AS (
+  SELECT s.student_id, s.first_name, s.last_name, s.major_id, m.department, COUNT(DISTINCT e.course_id) AS courses_taken
+  FROM students s
+  JOIN majors m ON s.major_id = m.major_id
+  JOIN enrollments e ON s.student_id = e.student_id
+  JOIN courses c ON e.course_id = c.course_id AND m.department = c.department
+  GROUP BY s.student_id, s.first_name, s.last_name, s.major_id, m.department
+)
+SELECT scc.student_id, scc.first_name, scc.last_name
+FROM student_course_counts scc
+JOIN department_course_counts dcc ON scc.major_id = dcc.major_id
+WHERE scc.courses_taken = dcc.total_courses;"

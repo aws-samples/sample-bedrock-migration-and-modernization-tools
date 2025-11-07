@@ -1,0 +1,425 @@
+text_prompt,golden_answer
+"Given the following schema:
+CREATE TABLE products (product_id INT PRIMARY KEY, name VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2));
+CREATE TABLE customers (customer_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE);
+CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE, total_amount DECIMAL(10,2), FOREIGN KEY (customer_id) REFERENCES customers(customer_id));
+CREATE TABLE order_items (item_id INT PRIMARY KEY, order_id INT, product_id INT, quantity INT, FOREIGN KEY (order_id) REFERENCES orders(order_id), FOREIGN KEY (product_id) REFERENCES products(product_id));
+
+Write a SQL query to find the top 5 customers who have spent the most money in the past month, showing their name, email, and total amount spent.","SELECT c.name, c.email, SUM(o.total_amount) AS total_spent
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+WHERE o.order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)
+GROUP BY c.customer_id, c.name, c.email
+ORDER BY total_spent DESC
+LIMIT 5;"
+"Given the following schema:
+CREATE TABLE employees (employee_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), hire_date DATE, department_id INT, salary DECIMAL(10,2));
+CREATE TABLE departments (department_id INT PRIMARY KEY, department_name VARCHAR(100), location VARCHAR(100));
+CREATE TABLE projects (project_id INT PRIMARY KEY, project_name VARCHAR(100), start_date DATE, end_date DATE, budget DECIMAL(15,2));
+CREATE TABLE employee_projects (employee_id INT, project_id INT, role VARCHAR(50), hours_worked INT, PRIMARY KEY (employee_id, project_id), FOREIGN KEY (employee_id) REFERENCES employees(employee_id), FOREIGN KEY (project_id) REFERENCES projects(project_id));
+
+Write a SQL query to find the departments with their average employee salary, but only include departments where the average salary is above the company-wide average salary.","WITH avg_company_salary AS (
+  SELECT AVG(salary) AS avg_salary
+  FROM employees
+)
+SELECT d.department_name, AVG(e.salary) AS avg_department_salary
+FROM departments d
+JOIN employees e ON d.department_id = e.department_id
+GROUP BY d.department_id, d.department_name
+HAVING AVG(e.salary) > (SELECT avg_salary FROM avg_company_salary)
+ORDER BY avg_department_salary DESC;"
+"Given the following schema:
+CREATE TABLE books (book_id INT PRIMARY KEY, title VARCHAR(200), author_id INT, publisher_id INT, publication_year INT, genre VARCHAR(50), isbn VARCHAR(20), available_copies INT);
+CREATE TABLE authors (author_id INT PRIMARY KEY, name VARCHAR(100), birth_year INT, nationality VARCHAR(50));
+CREATE TABLE publishers (publisher_id INT PRIMARY KEY, name VARCHAR(100), location VARCHAR(100));
+CREATE TABLE members (member_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE, membership_type VARCHAR(20));
+CREATE TABLE loans (loan_id INT PRIMARY KEY, book_id INT, member_id INT, checkout_date DATE, due_date DATE, return_date DATE, FOREIGN KEY (book_id) REFERENCES books(book_id), FOREIGN KEY (member_id) REFERENCES members(member_id));
+
+Write a SQL query to find the top 3 most frequently borrowed genres in the past year, along with the count of loans for each genre.","SELECT b.genre, COUNT(l.loan_id) AS loan_count
+FROM books b
+JOIN loans l ON b.book_id = l.book_id
+WHERE l.checkout_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR)
+GROUP BY b.genre
+ORDER BY loan_count DESC
+LIMIT 3;"
+"Given the following schema:
+CREATE TABLE students (student_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), date_of_birth DATE, enrollment_date DATE, major_id INT);
+CREATE TABLE majors (major_id INT PRIMARY KEY, major_name VARCHAR(100), department VARCHAR(100));
+CREATE TABLE courses (course_id INT PRIMARY KEY, course_code VARCHAR(20), course_name VARCHAR(100), credits INT, department VARCHAR(100));
+CREATE TABLE instructors (instructor_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), department VARCHAR(100), hire_date DATE);
+CREATE TABLE enrollments (enrollment_id INT PRIMARY KEY, student_id INT, course_id INT, instructor_id INT, semester VARCHAR(20), year INT, grade VARCHAR(2), FOREIGN KEY (student_id) REFERENCES students(student_id), FOREIGN KEY (course_id) REFERENCES courses(course_id), FOREIGN KEY (instructor_id) REFERENCES instructors(instructor_id));
+
+Write a SQL query to find students who have taken all courses offered by their major's department.","WITH department_course_counts AS (
+  SELECT m.major_id, m.department, COUNT(DISTINCT c.course_id) AS total_courses
+  FROM majors m
+  JOIN courses c ON m.department = c.department
+  GROUP BY m.major_id, m.department
+),
+student_course_counts AS (
+  SELECT s.student_id, s.first_name, s.last_name, s.major_id, m.department, COUNT(DISTINCT e.course_id) AS courses_taken
+  FROM students s
+  JOIN majors m ON s.major_id = m.major_id
+  JOIN enrollments e ON s.student_id = e.student_id
+  JOIN courses c ON e.course_id = c.course_id AND m.department = c.department
+  GROUP BY s.student_id, s.first_name, s.last_name, s.major_id, m.department
+)
+SELECT scc.student_id, scc.first_name, scc.last_name
+FROM student_course_counts scc
+JOIN department_course_counts dcc ON scc.major_id = dcc.major_id
+WHERE scc.courses_taken = dcc.total_courses;"
+"Given the following schema:
+CREATE TABLE patients (patient_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), date_of_birth DATE, gender VARCHAR(10), blood_type VARCHAR(5));
+CREATE TABLE doctors (doctor_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), specialty VARCHAR(100));
+CREATE TABLE visits (visit_id INT PRIMARY KEY, patient_id INT, doctor_id INT, visit_date DATE, diagnosis VARCHAR(200), FOREIGN KEY (patient_id) REFERENCES patients(patient_id), FOREIGN KEY (doctor_id) REFERENCES doctors(doctor_id));
+CREATE TABLE medications (medication_id INT PRIMARY KEY, name VARCHAR(100), manufacturer VARCHAR(100), category VARCHAR(50));
+CREATE TABLE prescriptions (prescription_id INT PRIMARY KEY, visit_id INT, medication_id INT, dosage VARCHAR(50), start_date DATE, end_date DATE, FOREIGN KEY (visit_id) REFERENCES visits(visit_id), FOREIGN KEY (medication_id) REFERENCES medications(medication_id));
+
+Write a SQL query to find the top 5 most commonly prescribed medications for patients over 65 years old in the last 6 months.","SELECT m.name AS medication_name, COUNT(p.prescription_id) AS prescription_count
+FROM medications m
+JOIN prescriptions p ON m.medication_id = p.medication_id
+JOIN visits v ON p.visit_id = v.visit_id
+JOIN patients pt ON v.patient_id = pt.patient_id
+WHERE v.visit_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+AND pt.date_of_birth <= DATE_SUB(CURRENT_DATE(), INTERVAL 65 YEAR)
+GROUP BY m.medication_id, m.name
+ORDER BY prescription_count DESC
+LIMIT 5;"
+"Given the following schema:
+CREATE TABLE accounts (account_id INT PRIMARY KEY, customer_id INT, account_type VARCHAR(20), open_date DATE, balance DECIMAL(15,2), status VARCHAR(10));
+CREATE TABLE customers (customer_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), date_of_birth DATE, city VARCHAR(50), state VARCHAR(2), credit_score INT);
+CREATE TABLE transactions (transaction_id INT PRIMARY KEY, account_id INT, transaction_date DATETIME, amount DECIMAL(15,2), transaction_type VARCHAR(20), description VARCHAR(200), FOREIGN KEY (account_id) REFERENCES accounts(account_id));
+CREATE TABLE loans (loan_id INT PRIMARY KEY, customer_id INT, loan_type VARCHAR(30), amount DECIMAL(15,2), interest_rate DECIMAL(5,2), start_date DATE, term_months INT, FOREIGN KEY (customer_id) REFERENCES customers(customer_id));
+
+Write a SQL query to identify customers who might be good candidates for a new credit card offer based on having a high average monthly deposit amount (over $5000) in the last 3 months, good credit scores (above 700), and no existing loans.","SELECT c.customer_id, c.first_name, c.last_name, c.credit_score, AVG(t.amount) AS avg_monthly_deposit
+FROM customers c
+JOIN accounts a ON c.customer_id = a.customer_id
+JOIN transactions t ON a.account_id = t.account_id
+WHERE t.transaction_type = 'deposit'
+AND t.transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 MONTH)
+AND c.credit_score > 700
+AND c.customer_id NOT IN (
+  SELECT DISTINCT customer_id FROM loans
+)
+GROUP BY c.customer_id, c.first_name, c.last_name, c.credit_score
+HAVING AVG(t.amount) > 5000
+ORDER BY avg_monthly_deposit DESC;"
+"Given the following schema:
+CREATE TABLE users (user_id INT PRIMARY KEY, username VARCHAR(50), email VARCHAR(100), join_date DATE, last_login DATETIME, status VARCHAR(20));
+CREATE TABLE posts (post_id INT PRIMARY KEY, user_id INT, content TEXT, post_date DATETIME, likes INT, shares INT, FOREIGN KEY (user_id) REFERENCES users(user_id));
+CREATE TABLE comments (comment_id INT PRIMARY KEY, post_id INT, user_id INT, content TEXT, comment_date DATETIME, likes INT, FOREIGN KEY (post_id) REFERENCES posts(post_id), FOREIGN KEY (user_id) REFERENCES users(user_id));
+CREATE TABLE follows (follower_id INT, followee_id INT, follow_date DATE, PRIMARY KEY (follower_id, followee_id), FOREIGN KEY (follower_id) REFERENCES users(user_id), FOREIGN KEY (followee_id) REFERENCES users(user_id));
+
+Write a SQL query to find the most engaging users who have created posts that received both high comments and likes (in top 10%) in the past month.","WITH engagement_metrics AS (
+  SELECT p.user_id,
+         COUNT(DISTINCT p.post_id) AS post_count,
+         SUM(p.likes) AS total_likes,
+         COUNT(DISTINCT c.comment_id) AS comment_count
+  FROM posts p
+  LEFT JOIN comments c ON p.post_id = c.post_id
+  WHERE p.post_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)
+  GROUP BY p.user_id
+),
+percentiles AS (
+  SELECT
+    PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY total_likes) AS likes_threshold,
+    PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY comment_count) AS comments_threshold
+  FROM engagement_metrics
+)
+SELECT u.user_id, u.username, e.post_count, e.total_likes, e.comment_count
+FROM users u
+JOIN engagement_metrics e ON u.user_id = e.user_id
+CROSS JOIN percentiles p
+WHERE e.total_likes > p.likes_threshold
+AND e.comment_count > p.comments_threshold
+ORDER BY (e.total_likes + e.comment_count) DESC;"
+"Given the following schema:
+CREATE TABLE hotels (hotel_id INT PRIMARY KEY, name VARCHAR(100), city VARCHAR(50), state VARCHAR(2), stars INT, amenities TEXT);
+CREATE TABLE room_types (type_id INT PRIMARY KEY, hotel_id INT, type_name VARCHAR(50), capacity INT, price_per_night DECIMAL(10,2), FOREIGN KEY (hotel_id) REFERENCES hotels(hotel_id));
+CREATE TABLE guests (guest_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), email VARCHAR(100), phone VARCHAR(20), loyalty_level VARCHAR(20));
+CREATE TABLE reservations (reservation_id INT PRIMARY KEY, guest_id INT, hotel_id INT, room_type_id INT, check_in_date DATE, check_out_date DATE, total_price DECIMAL(10,2), status VARCHAR(20), FOREIGN KEY (guest_id) REFERENCES guests(guest_id), FOREIGN KEY (hotel_id) REFERENCES hotels(hotel_id), FOREIGN KEY (room_type_id) REFERENCES room_types(type_id));
+CREATE TABLE reviews (review_id INT PRIMARY KEY, reservation_id INT, rating INT, comment TEXT, review_date DATE, FOREIGN KEY (reservation_id) REFERENCES reservations(reservation_id));
+
+Write a SQL query to find hotels with available rooms of any type during a specific date range (June 15-20, 2023) in 'Miami', ordered by average review rating.","WITH unavailable_rooms AS (
+  SELECT DISTINCT r.hotel_id, r.room_type_id
+  FROM reservations r
+  WHERE (r.check_in_date <= '2023-06-20' AND r.check_out_date >= '2023-06-15')
+  AND r.status != 'cancelled'
+),
+avg_ratings AS (
+  SELECT h.hotel_id, AVG(rv.rating) AS avg_rating
+  FROM hotels h
+  LEFT JOIN reservations r ON h.hotel_id = r.hotel_id
+  LEFT JOIN reviews rv ON r.reservation_id = rv.reservation_id
+  GROUP BY h.hotel_id
+)
+SELECT h.hotel_id, h.name, h.stars, ar.avg_rating,
+       COUNT(DISTINCT rt.type_id) AS available_room_types
+FROM hotels h
+JOIN room_types rt ON h.hotel_id = rt.hotel_id
+LEFT JOIN unavailable_rooms ur ON h.hotel_id = ur.hotel_id AND rt.type_id = ur.room_type_id
+LEFT JOIN avg_ratings ar ON h.hotel_id = ar.hotel_id
+WHERE h.city = 'Miami'
+AND ur.hotel_id IS NULL
+GROUP BY h.hotel_id, h.name, h.stars, ar.avg_rating
+HAVING COUNT(DISTINCT rt.type_id) > 0
+ORDER BY ar.avg_rating DESC NULLS LAST;"
+"Given the following schema:
+CREATE TABLE movies (movie_id INT PRIMARY KEY, title VARCHAR(200), release_year INT, runtime_minutes INT, budget DECIMAL(15,2), box_office DECIMAL(15,2), studio VARCHAR(100));
+CREATE TABLE genres (genre_id INT PRIMARY KEY, genre_name VARCHAR(50));
+CREATE TABLE movie_genres (movie_id INT, genre_id INT, PRIMARY KEY (movie_id, genre_id), FOREIGN KEY (movie_id) REFERENCES movies(movie_id), FOREIGN KEY (genre_id) REFERENCES genres(genre_id));
+CREATE TABLE people (person_id INT PRIMARY KEY, name VARCHAR(100), birthdate DATE, nationality VARCHAR(50));
+CREATE TABLE movie_cast (movie_id INT, person_id INT, character_name VARCHAR(100), role_type VARCHAR(50), PRIMARY KEY (movie_id, person_id, character_name), FOREIGN KEY (movie_id) REFERENCES movies(movie_id), FOREIGN KEY (person_id) REFERENCES people(person_id));
+CREATE TABLE movie_crew (movie_id INT, person_id INT, role VARCHAR(50), PRIMARY KEY (movie_id, person_id, role), FOREIGN KEY (movie_id) REFERENCES movies(movie_id), FOREIGN KEY (person_id) REFERENCES people(person_id));
+
+Write a SQL query to find the most profitable actors who have starred in at least 3 movies in the last decade (since 2013), showing their total box office revenue, average movie rating, and their most common genre.","WITH actor_movies AS (
+  SELECT p.person_id, p.name, m.movie_id, m.title, m.box_office, m.budget
+  FROM people p
+  JOIN movie_cast mc ON p.person_id = mc.person_id
+  JOIN movies m ON mc.movie_id = m.movie_id
+  WHERE mc.role_type = 'lead'
+  AND m.release_year >= 2013
+),
+actor_metrics AS (
+  SELECT 
+    am.person_id, 
+    am.name,
+    COUNT(DISTINCT am.movie_id) AS movie_count,
+    SUM(am.box_office) AS total_box_office,
+    SUM(am.box_office - am.budget) AS total_profit
+  FROM actor_movies am
+  GROUP BY am.person_id, am.name
+  HAVING COUNT(DISTINCT am.movie_id) >= 3
+),
+actor_genres AS (
+  SELECT 
+    am.person_id,
+    g.genre_name,
+    COUNT(*) AS genre_count,
+    ROW_NUMBER() OVER (PARTITION BY am.person_id ORDER BY COUNT(*) DESC) AS genre_rank
+  FROM actor_movies am
+  JOIN movie_genres mg ON am.movie_id = mg.movie_id
+  JOIN genres g ON mg.genre_id = g.genre_id
+  GROUP BY am.person_id, g.genre_name
+)
+SELECT 
+  am.person_id,
+  am.name,
+  am.movie_count,
+  am.total_box_office,
+  am.total_profit,
+  ag.genre_name AS most_common_genre
+FROM actor_metrics am
+LEFT JOIN actor_genres ag ON am.person_id = ag.person_id AND ag.genre_rank = 1
+ORDER BY am.total_profit DESC
+LIMIT 10;"
+"Given the following schema:
+CREATE TABLE teams (team_id INT PRIMARY KEY, team_name VARCHAR(100), city VARCHAR(50), founded_year INT, stadium VARCHAR(100), coach VARCHAR(100));
+CREATE TABLE players (player_id INT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), birth_date DATE, nationality VARCHAR(50), position VARCHAR(30), team_id INT, jersey_number INT, FOREIGN KEY (team_id) REFERENCES teams(team_id));
+CREATE TABLE matches (match_id INT PRIMARY KEY, home_team_id INT, away_team_id INT, match_date DATE, season VARCHAR(20), home_score INT, away_score INT, stadium VARCHAR(100), attendance INT, FOREIGN KEY (home_team_id) REFERENCES teams(team_id), FOREIGN KEY (away_team_id) REFERENCES teams(team_id));
+CREATE TABLE goals (goal_id INT PRIMARY KEY, match_id INT, player_id INT, team_id INT, minute INT, is_penalty BOOLEAN, is_own_goal BOOLEAN, FOREIGN KEY (match_id) REFERENCES matches(match_id), FOREIGN KEY (player_id) REFERENCES players(player_id), FOREIGN KEY (team_id) REFERENCES teams(team_id));
+CREATE TABLE injuries (injury_id INT PRIMARY KEY, player_id INT, start_date DATE, end_date DATE, injury_type VARCHAR(100), FOREIGN KEY (player_id) REFERENCES players(player_id));
+
+Write a SQL query to identify the players with the best scoring efficiency (goals per match played) in the current season, who have played at least 10 matches, including information about their position and nationality.","WITH player_matches AS (
+  SELECT p.player_id, p.first_name, p.last_name, p.position, p.nationality,         COUNT(DISTINCT m.match_id) AS matches_played
+  FROM players p
+  JOIN teams t ON p.team_id = t.team_id
+  JOIN matches m ON (t.team_id = m.home_team_id OR t.team_id = m.away_team_id)
+  WHERE m.season = (SELECT MAX(season) FROM matches)
+  GROUP BY p.player_id, p.first_name, p.last_name, p.position, p.nationality
+),
+player_goals AS (
+  SELECT g.player_id, COUNT(*) AS goals_scored
+  FROM goals g
+  JOIN matches m ON g.match_id = m.match_id
+  WHERE m.season = (SELECT MAX(season) FROM matches)
+  AND g.is_own_goal = FALSE
+  GROUP BY g.player_id
+)
+SELECT 
+  pm.player_id,
+  pm.first_name,
+  pm.last_name,
+  pm.position,
+  pm.nationality,
+  pm.matches_played,
+  COALESCE(pg.goals_scored, 0) AS goals_scored,
+  ROUND(COALESCE(pg.goals_scored, 0) * 1.0 / pm.matches_played, 3) AS goals_per_match
+FROM player_matches pm
+LEFT JOIN player_goals pg ON pm.player_id = pg.player_id
+WHERE pm.matches_played >= 10
+ORDER BY goals_per_match DESC, goals_scored DESC
+LIMIT 10;"
+"Given the following schema:
+CREATE TABLE users (user_id INT PRIMARY KEY, username VARCHAR(50), email VARCHAR(100), join_date DATE, last_login DATETIME, status VARCHAR(20));
+CREATE TABLE posts (post_id INT PRIMARY KEY, user_id INT, content TEXT, post_date DATETIME, likes INT, shares INT, FOREIGN KEY (user_id) REFERENCES users(user_id));
+CREATE TABLE comments (comment_id INT PRIMARY KEY, post_id INT, user_id INT, content TEXT, comment_date DATETIME, likes INT, FOREIGN KEY (post_id) REFERENCES posts(post_id), FOREIGN KEY (user_id) REFERENCES users(user_id));
+CREATE TABLE follows (follower_id INT, followee_id INT, follow_date DATE, PRIMARY KEY (follower_id, followee_id), FOREIGN KEY (follower_id) REFERENCES users(user_id), FOREIGN KEY (followee_id) REFERENCES users(user_id));
+
+Write a SQL query to find the most engaging users who have created posts that received both high comments and likes (in top 10%) in the past month.","WITH engagement_metrics AS (
+  SELECT p.user_id,
+         COUNT(DISTINCT p.post_id) AS post_count,
+         SUM(p.likes) AS total_likes,
+         COUNT(DISTINCT c.comment_id) AS comment_count
+  FROM posts p
+  LEFT JOIN comments c ON p.post_id = c.post_id
+  WHERE p.post_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)
+  GROUP BY p.user_id
+),
+percentiles AS (
+  SELECT
+    PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY total_likes) AS likes_threshold,
+    PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY comment_count) AS comments_threshold
+  FROM engagement_metrics
+)
+SELECT u.user_id, u.username, e.post_count, e.total_likes, e.comment_count
+FROM users u
+JOIN engagement_metrics e ON u.user_id = e.user_id
+CROSS JOIN percentiles p
+WHERE e.total_likes > p.likes_threshold
+AND e.comment_count > p.comments_threshold
+ORDER BY (e.total_likes + e.comment_count) DESC;"
+"Given the following schema:
+CREATE TABLE products (product_id INT PRIMARY KEY, name VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2));
+CREATE TABLE customers (customer_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE);
+CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE, total_amount DECIMAL(10,2), FOREIGN KEY (customer_id) REFERENCES customers(customer_id));
+CREATE TABLE order_items (item_id INT PRIMARY KEY, order_id INT, product_id INT, quantity INT, FOREIGN KEY (order_id) REFERENCES orders(order_id), FOREIGN KEY (product_id) REFERENCES products(product_id));
+
+Write a SQL query to find the top 5 customers who have spent the most money in the past month, showing their name, email, and total amount spent.","SELECT c.name, c.email, SUM(o.total_amount) AS total_spent
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+WHERE o.order_date >= CURRENT_DATE - INTERVAL '1 month'
+GROUP BY c.customer_id, c.name, c.email
+ORDER BY total_spent DESC
+LIMIT 5;"
+"Given the following schema:
+CREATE TABLE products (product_id INT PRIMARY KEY, name VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2));
+CREATE TABLE customers (customer_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE);
+CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE, total_amount DECIMAL(10,2), FOREIGN KEY (customer_id) REFERENCES customers(customer_id));
+CREATE TABLE order_items (item_id INT PRIMARY KEY, order_id INT, product_id INT, quantity INT, FOREIGN KEY (order_id) REFERENCES orders(order_id), FOREIGN KEY (product_id) REFERENCES products(product_id));
+
+Write a SQL query to find the most popular product category based on the total quantity sold.","SELECT p.category, SUM(oi.quantity) AS total_quantity
+FROM products p
+JOIN order_items oi ON p.product_id = oi.product_id
+GROUP BY p.category
+ORDER BY total_quantity DESC
+LIMIT 1;"
+"Given the following schema:
+CREATE TABLE products (product_id INT PRIMARY KEY, name VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2));
+CREATE TABLE customers (customer_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE);
+CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE, total_amount DECIMAL(10,2), FOREIGN KEY (customer_id) REFERENCES customers(customer_id));
+CREATE TABLE order_items (item_id INT PRIMARY KEY, order_id INT, product_id INT, quantity INT, FOREIGN KEY (order_id) REFERENCES orders(order_id), FOREIGN KEY (product_id) REFERENCES products(product_id));
+
+Find all customers who have made at least 3 orders and show their name, email, and the number of orders they've made.","SELECT c.name, c.email, COUNT(o.order_id) AS order_count
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+GROUP BY c.customer_id, c.name, c.email
+HAVING COUNT(o.order_id) >= 3
+ORDER BY order_count DESC;"
+"Given the following schema:
+CREATE TABLE products (product_id INT PRIMARY KEY, name VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2));
+CREATE TABLE customers (customer_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE);
+CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE, total_amount DECIMAL(10,2), FOREIGN KEY (customer_id) REFERENCES customers(customer_id));
+CREATE TABLE order_items (item_id INT PRIMARY KEY, order_id INT, product_id INT, quantity INT, FOREIGN KEY (order_id) REFERENCES orders(order_id), FOREIGN KEY (product_id) REFERENCES products(product_id));
+
+Write a SQL query to identify the average order value for each customer who joined in the past year, listing their name and average order amount.","SELECT c.name, AVG(o.total_amount) AS average_order_value
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+WHERE c.join_date >= CURRENT_DATE - INTERVAL '1 year'
+GROUP BY c.customer_id, c.name
+ORDER BY average_order_value DESC;"
+"Given the following schema:
+CREATE TABLE products (product_id INT PRIMARY KEY, name VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2));
+CREATE TABLE customers (customer_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE);
+CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE, total_amount DECIMAL(10,2), FOREIGN KEY (customer_id) REFERENCES customers(customer_id));
+CREATE TABLE order_items (item_id INT PRIMARY KEY, order_id INT, product_id INT, quantity INT, FOREIGN KEY (order_id) REFERENCES orders(order_id), FOREIGN KEY (product_id) REFERENCES products(product_id));
+
+Write a SQL query to find all products that have never been ordered.","SELECT p.product_id, p.name, p.category, p.price
+FROM products p
+LEFT JOIN order_items oi ON p.product_id = oi.product_id
+WHERE oi.item_id IS NULL;"
+"Given the following schema:
+CREATE TABLE products (product_id INT PRIMARY KEY, name VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2));
+CREATE TABLE customers (customer_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE);
+CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE, total_amount DECIMAL(10,2), FOREIGN KEY (customer_id) REFERENCES customers(customer_id));
+CREATE TABLE order_items (item_id INT PRIMARY KEY, order_id INT, product_id INT, quantity INT, FOREIGN KEY (order_id) REFERENCES orders(order_id), FOREIGN KEY (product_id) REFERENCES products(product_id));
+
+Write a SQL query to calculate the total revenue generated by each product category in the last quarter.","SELECT p.category, SUM(p.price * oi.quantity) AS total_revenue
+FROM products p
+JOIN order_items oi ON p.product_id = oi.product_id
+JOIN orders o ON oi.order_id = o.order_id
+WHERE o.order_date >= CURRENT_DATE - INTERVAL '3 months'
+GROUP BY p.category
+ORDER BY total_revenue DESC;"
+"Given the following schema:
+CREATE TABLE products (product_id INT PRIMARY KEY, name VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2));
+CREATE TABLE customers (customer_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE);
+CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE, total_amount DECIMAL(10,2), FOREIGN KEY (customer_id) REFERENCES customers(customer_id));
+CREATE TABLE order_items (item_id INT PRIMARY KEY, order_id INT, product_id INT, quantity INT, FOREIGN KEY (order_id) REFERENCES orders(order_id), FOREIGN KEY (product_id) REFERENCES products(product_id));
+
+Write a SQL query to find the customer who made the most recent order.","SELECT c.customer_id, c.name, c.email, o.order_date
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+WHERE o.order_date = (SELECT MAX(order_date) FROM orders)
+LIMIT 1;"
+"Given the following schema:
+CREATE TABLE products (product_id INT PRIMARY KEY, name VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2));
+CREATE TABLE customers (customer_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE);
+CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE, total_amount DECIMAL(10,2), FOREIGN KEY (customer_id) REFERENCES customers(customer_id));
+CREATE TABLE order_items (item_id INT PRIMARY KEY, order_id INT, product_id INT, quantity INT, FOREIGN KEY (order_id) REFERENCES orders(order_id), FOREIGN KEY (product_id) REFERENCES products(product_id));
+
+Write a SQL query to find the top 3 most expensive products in each category, displaying the category, product name, and price.","WITH ranked_products AS (
+  SELECT
+    p.category,
+    p.name,
+    p.price,
+    RANK() OVER (PARTITION BY p.category ORDER BY p.price DESC) AS price_rank
+  FROM products p
+)
+SELECT category, name, price
+FROM ranked_products
+WHERE price_rank <= 3
+ORDER BY category, price_rank;"
+"Given the following schema:
+CREATE TABLE products (product_id INT PRIMARY KEY, name VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2));
+CREATE TABLE customers (customer_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE);
+CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE, total_amount DECIMAL(10,2), FOREIGN KEY (customer_id) REFERENCES customers(customer_id));
+CREATE TABLE order_items (item_id INT PRIMARY KEY, order_id INT, product_id INT, quantity INT, FOREIGN KEY (order_id) REFERENCES orders(order_id), FOREIGN KEY (product_id) REFERENCES products(product_id));
+
+Write a SQL query to calculate the month-over-month percentage change in total sales for the past 6 months.","WITH monthly_sales AS (
+  SELECT
+    DATE_TRUNC('month', order_date) AS month,
+    SUM(total_amount) AS monthly_total
+  FROM orders
+  WHERE order_date >= CURRENT_DATE - INTERVAL '6 months'
+  GROUP BY DATE_TRUNC('month', order_date)
+),
+monthly_change AS (
+  SELECT
+    month,
+    monthly_total,
+    LAG(monthly_total) OVER (ORDER BY month) AS previous_month_total
+  FROM monthly_sales
+)
+SELECT
+  month,
+  monthly_total,
+  previous_month_total,
+  CASE
+    WHEN previous_month_total IS NULL OR previous_month_total = 0 THEN NULL
+    ELSE ROUND((monthly_total - previous_month_total) / previous_month_total * 100, 2)
+  END AS percentage_change
+FROM monthly_change
+ORDER BY month;"
+"Given the following schema:
+CREATE TABLE products (product_id INT PRIMARY KEY, name VARCHAR(100), category VARCHAR(50), price DECIMAL(10,2));
+CREATE TABLE customers (customer_id INT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), join_date DATE);
+CREATE TABLE orders (order_id INT PRIMARY KEY, customer_id INT, order_date DATE, total_amount DECIMAL(10,2), FOREIGN KEY (customer_id) REFERENCES customers(customer_id));
+CREATE TABLE order_items (item_id INT PRIMARY KEY, order_id INT, product_id INT, quantity INT, FOREIGN KEY (order_id) REFERENCES orders(order_id), FOREIGN KEY (product_id) REFERENCES products(product_id));
+
+Write a SQL query to find the average number of items per order for each product category.","SELECT
+  p.category,
+  AVG(oi.quantity) AS avg_items_per_order
+FROM order_items oi
+JOIN products p ON oi.product_id = p.product_id
+GROUP BY p.category
+ORDER BY avg_items_per_order DESC;"

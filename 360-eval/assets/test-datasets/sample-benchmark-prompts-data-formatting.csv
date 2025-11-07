@@ -1,0 +1,321 @@
+text_prompt,golden_answer
+"Format the following employee data as a markdown table with headers for ID, Name, Department, and Salary: 1, Alice Johnson, Marketing, $75,000; 2, Robert Chen, Engineering, $95,000; 3, Maria Garcia, Finance, $82,000","| ID | Name | Department | Salary |
+|----|------|------------|--------|
+| 1 | Alice Johnson | Marketing | $75,000 |
+| 2 | Robert Chen | Engineering | $95,000 |
+| 3 | Maria Garcia | Finance | $82,000 |"
+"Convert this list of product information into a JSON array: Product: Laptop XPS, Price: $1,299, Stock: 45; Product: Wireless Mouse, Price: $29.99, Stock: 122; Product: 4K Monitor, Price: $349.50, Stock: 37","[
+  {
+    ""product"": ""Laptop XPS"",
+    ""price"": ""$1,299"",
+    ""stock"": 45
+  },
+  {
+    ""product"": ""Wireless Mouse"",
+    ""price"": ""$29.99"",
+    ""stock"": 122
+  },
+  {
+    ""product"": ""4K Monitor"",
+    ""price"": ""$349.50"",
+    ""stock"": 37
+  }
+]"
+"Format the following project timeline milestones as a bulleted list with dates and descriptions: Project Start, January 15, 2024, Initial team assembly; Design Phase, February 10, 2024, Complete wireframes and mockups; Development Sprint 1, March 5, 2024, Core functionality implementation; Testing, April 20, 2024, Quality assurance and bug fixes; Launch, May 30, 2024, Public release and marketing campaign","• January 15, 2024: Project Start - Initial team assembly
+• February 10, 2024: Design Phase - Complete wireframes and mockups
+• March 5, 2024: Development Sprint 1 - Core functionality implementation
+• April 20, 2024: Testing - Quality assurance and bug fixes
+• May 30, 2024: Launch - Public release and marketing campaign"
+"Transform this customer survey data into a CSV format with headers: Name, Age, Rating, Feedback. Include data for: John Smith, 34, 4.5, Very satisfied with service; Emily Wong, 28, 3.0, Product quality could be improved; Michael Brown, 42, 5.0, Excellent customer support; Sarah Kim, 31, 2.5, Delivery was delayed twice","Name,Age,Rating,Feedback
+John Smith,34,4.5,""Very satisfied with service""
+Emily Wong,28,3.0,""Product quality could be improved""
+Michael Brown,42,5.0,""Excellent customer support""
+Sarah Kim,31,2.5,""Delivery was delayed twice"""
+"Format these book references in APA style: 1) Title: The Psychology of Decision Making, Author: Daniel Kahneman, Year: 2011, Publisher: Farrar, Straus and Giroux; 2) Title: Algorithms to Live By, Authors: Brian Christian and Tom Griffiths, Year: 2016, Publisher: Henry Holt and Co.; 3) Title: Sapiens: A Brief History of Humankind, Author: Yuval Noah Harari, Year: 2014, Publisher: Harper","Kahneman, D. (2011). The Psychology of Decision Making. Farrar, Straus and Giroux.
+
+Christian, B., & Griffiths, T. (2016). Algorithms to Live By. Henry Holt and Co.
+
+Harari, Y. N. (2014). Sapiens: A Brief History of Humankind. Harper."
+"Create an HTML table with the following student exam results: Student: Alex Chen, Math: 94, Science: 88, English: 91; Student: Priya Patel, Math: 85, Science: 92, English: 89; Student: Jordan Taylor, Math: 79, Science: 86, English: 95","<table>
+  <thead>
+    <tr>
+      <th>Student</th>
+      <th>Math</th>
+      <th>Science</th>
+      <th>English</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Alex Chen</td>
+      <td>94</td>
+      <td>88</td>
+      <td>91</td>
+    </tr>
+    <tr>
+      <td>Priya Patel</td>
+      <td>85</td>
+      <td>92</td>
+      <td>89</td>
+    </tr>
+    <tr>
+      <td>Jordan Taylor</td>
+      <td>79</td>
+      <td>86</td>
+      <td>95</td>
+    </tr>
+  </tbody>
+</table>"
+"Format the following city data as YAML: City: San Francisco, Population: 884,363, Area: 46.87 sq mi, Founded: 1776; City: Chicago, Population: 2,746,388, Area: 227.63 sq mi, Founded: 1833; City: Austin, Population: 964,177, Area: 271.8 sq mi, Founded: 1839","cities:
+  - name: San Francisco
+    population: 884363
+    area: 46.87
+    area_unit: sq mi
+    founded: 1776
+  - name: Chicago
+    population: 2746388
+    area: 227.63
+    area_unit: sq mi
+    founded: 1833
+  - name: Austin
+    population: 964177
+    area: 271.8
+    area_unit: sq mi
+    founded: 1839"
+"Create a structured XML document for the following product inventory data: Category: Electronics, Item: Smartphone, Brand: TechX, Model: X20, Price: $699; Category: Electronics, Item: Laptop, Brand: ComputeMax, Model: UltraBook 15, Price: $1299; Category: Appliances, Item: Refrigerator, Brand: CoolTech, Model: FreezeKing 500, Price: $899","<?xml version=""1.0"" encoding=""UTF-8""?>
+<inventory>
+  <product category=""Electronics"">
+    <item>Smartphone</item>
+    <brand>TechX</brand>
+    <model>X20</model>
+    <price>$699</price>
+  </product>
+  <product category=""Electronics"">
+    <item>Laptop</item>
+    <brand>ComputeMax</brand>
+    <model>UltraBook 15</model>
+    <price>$1299</price>
+  </product>
+  <product category=""Appliances"">
+    <item>Refrigerator</item>
+    <brand>CoolTech</brand>
+    <model>FreezeKing 500</model>
+    <price>$899</price>
+  </product>
+</inventory>"
+"Format these contact details into a vCard format: Name: Jennifer Wilson, Title: Marketing Director, Company: Bright Ideas Inc., Email: jwilson@brightideas.com, Phone: (555) 123-4567, Address: 789 Innovation Parkway, Suite 300, San Jose, CA 95110","BEGIN:VCARD
+VERSION:3.0
+N:Wilson;Jennifer;;;
+FN:Jennifer Wilson
+TITLE:Marketing Director
+ORG:Bright Ideas Inc.
+EMAIL:jwilson@brightideas.com
+TEL;TYPE=WORK,VOICE:(555) 123-4567
+ADR;TYPE=WORK:;;789 Innovation Parkway, Suite 300;San Jose;CA;95110;
+END:VCARD"
+"Format the following meeting minutes as a properly structured document with sections for attendees, agenda items, discussions, and action items: Meeting: Q3 Planning, Date: July 15, 2024, Attendees: David Kim, Lisa Chen, Marcus Johnson, Priya Singh. Agenda Items: Budget Review, Project Timeline, New Initiatives. Discussions: Budget currently on track with 5% variance, Project timeline delayed by two weeks due to vendor issues, Three new initiatives proposed for Q4. Action Items: David to update budget forecast by July 22, Lisa to contact vendor about timeline concerns, Team to vote on new initiatives by July 30.","# Q3 Planning Meeting Minutes
+**Date:** July 15, 2024
+
+## Attendees
+- David Kim
+- Lisa Chen
+- Marcus Johnson
+- Priya Singh
+
+## Agenda Items
+1. Budget Review
+2. Project Timeline
+3. New Initiatives
+
+## Discussions
+- Budget currently on track with 5% variance
+- Project timeline delayed by two weeks due to vendor issues
+- Three new initiatives proposed for Q4
+
+## Action Items
+- [ ] David to update budget forecast by July 22
+- [ ] Lisa to contact vendor about timeline concerns
+- [ ] Team to vote on new initiatives by July 30"
+"Format the following employee data as a markdown table with headers for ID, Name, Department, and Salary: 1, Alice Johnson, Marketing, $75,000; 2, Robert Chen, Engineering, $95,000; 3, Maria Garcia, Finance, $82,000","| ID | Name | Department | Salary |
+|----|------|------------|--------|
+| 1 | Alice Johnson | Marketing | $75,000 |
+| 2 | Robert Chen | Engineering | $95,000 |
+| 3 | Maria Garcia | Finance | $82,000 |"
+"Convert this list of product information into a JSON array: Product: Laptop XPS, Price: $1,299, Stock: 45; Product: Wireless Mouse, Price: $29.99, Stock: 122; Product: 4K Monitor, Price: $349.50, Stock: 37","[ { ""product"": ""Laptop XPS"", ""price"": ""$1,299"", ""stock"": 45 }, { ""product"": ""Wireless Mouse"", ""price"": ""$29.99"", ""stock"": 122 }, { ""product"": ""4K Monitor"", ""price"": ""$349.50"", ""stock"": 37 } ]"
+"Format the following student grade data as an HTML table with headers for Student ID, Name, Subject, and Grade: 101, John Smith, Mathematics, A-; 102, Emma Davis, Physics, B+; 103, Miguel Torres, Chemistry, A","<table>
+  <thead>
+    <tr>
+      <th>Student ID</th>
+      <th>Name</th>
+      <th>Subject</th>
+      <th>Grade</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>101</td>
+      <td>John Smith</td>
+      <td>Mathematics</td>
+      <td>A-</td>
+    </tr>
+    <tr>
+      <td>102</td>
+      <td>Emma Davis</td>
+      <td>Physics</td>
+      <td>B+</td>
+    </tr>
+    <tr>
+      <td>103</td>
+      <td>Miguel Torres</td>
+      <td>Chemistry</td>
+      <td>A</td>
+    </tr>
+  </tbody>
+</table>"
+"Convert this weather forecast data into XML format: City: New York, High: 78°F, Low: 65°F, Condition: Partly Cloudy; City: Chicago, High: 82°F, Low: 70°F, Condition: Sunny; City: Seattle, High: 65°F, Low: 52°F, Condition: Rainy","<weather>
+  <forecast>
+    <city>New York</city>
+    <high>78°F</high>
+    <low>65°F</low>
+    <condition>Partly Cloudy</condition>
+  </forecast>
+  <forecast>
+    <city>Chicago</city>
+    <high>82°F</high>
+    <low>70°F</low>
+    <condition>Sunny</condition>
+  </forecast>
+  <forecast>
+    <city>Seattle</city>
+    <high>65°F</high>
+    <low>52°F</low>
+    <condition>Rainy</condition>
+  </forecast>
+</weather>"
+"Format this recipe data as a markdown table with columns for Ingredient, Quantity, and Unit: Flour, 2.5, cups; Sugar, 1, cup; Eggs, 3, whole; Butter, 0.5, cup; Vanilla Extract, 1, teaspoon","| Ingredient | Quantity | Unit |
+|------------|----------|------|
+| Flour | 2.5 | cups |
+| Sugar | 1 | cup |
+| Eggs | 3 | whole |
+| Butter | 0.5 | cup |
+| Vanilla Extract | 1 | teaspoon |"
+"Convert the following book information into JSON format: Title: The Great Gatsby, Author: F. Scott Fitzgerald, Year: 1925, Pages: 180; Title: To Kill a Mockingbird, Author: Harper Lee, Year: 1960, Pages: 281; Title: 1984, Author: George Orwell, Year: 1949, Pages: 328","[
+  {
+    ""title"": ""The Great Gatsby"",
+    ""author"": ""F. Scott Fitzgerald"",
+    ""year"": 1925,
+    ""pages"": 180
+  },
+  {
+    ""title"": ""To Kill a Mockingbird"",
+    ""author"": ""Harper Lee"",
+    ""year"": 1960,
+    ""pages"": 281
+  },
+  {
+    ""title"": ""1984"",
+    ""author"": ""George Orwell"",
+    ""year"": 1949,
+    ""pages"": 328
+  }
+]"
+"Create an HTML definition list (dl, dt, dd) from these computer terms and definitions: CPU: Central Processing Unit, the primary component of a computer that performs calculations; RAM: Random Access Memory, temporary data storage that loses its contents when power is off; GPU: Graphics Processing Unit, specialized processor for rendering images and video","<dl>
+  <dt>CPU</dt>
+  <dd>Central Processing Unit, the primary component of a computer that performs calculations</dd>
+  <dt>RAM</dt>
+  <dd>Random Access Memory, temporary data storage that loses its contents when power is off</dd>
+  <dt>GPU</dt>
+  <dd>Graphics Processing Unit, specialized processor for rendering images and video</dd>
+</dl>"
+"Format this server log information as a JSON array: Timestamp: 2023-08-10T14:22:15, Level: ERROR, Message: Database connection failed; Timestamp: 2023-08-10T14:23:05, Level: INFO, Message: Server restarted; Timestamp: 2023-08-10T14:25:40, Level: WARNING, Message: High memory usage detected","[
+  {
+    ""timestamp"": ""2023-08-10T14:22:15"",
+    ""level"": ""ERROR"",
+    ""message"": ""Database connection failed""
+  },
+  {
+    ""timestamp"": ""2023-08-10T14:23:05"",
+    ""level"": ""INFO"",
+    ""message"": ""Server restarted""
+  },
+  {
+    ""timestamp"": ""2023-08-10T14:25:40"",
+    ""level"": ""WARNING"",
+    ""message"": ""High memory usage detected""
+  }
+]"
+"Transform these country data into XML: Country: Japan, Capital: Tokyo, Population: 125.8 million, Currency: Yen; Country: Brazil, Capital: Brasília, Population: 213.9 million, Currency: Real; Country: Egypt, Capital: Cairo, Population: 104.3 million, Currency: Pound","<countries>
+  <country>
+    <name>Japan</name>
+    <capital>Tokyo</capital>
+    <population>125.8 million</population>
+    <currency>Yen</currency>
+  </country>
+  <country>
+    <name>Brazil</name>
+    <capital>Brasília</capital>
+    <population>213.9 million</population>
+    <currency>Real</currency>
+  </country>
+  <country>
+    <name>Egypt</name>
+    <capital>Cairo</capital>
+    <population>104.3 million</population>
+    <currency>Pound</currency>
+  </country>
+</countries>"
+"Format this weekly schedule as an HTML table with rowspan for days and colspan for multi-hour events: Monday 9AM: Team Meeting, 2 hours; Monday 11AM: Project Planning, 1 hour; Monday 1PM: Lunch; Tuesday 9AM: Client Call, 1 hour; Tuesday 11AM: Development, 3 hours; Wednesday 9AM: Sprint Review, 2 hours","<table border=""1"">
+  <thead>
+    <tr>
+      <th>Day</th>
+      <th>9AM</th>
+      <th>10AM</th>
+      <th>11AM</th>
+      <th>12PM</th>
+      <th>1PM</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Monday</td>
+      <td colspan=""2"">Team Meeting</td>
+      <td>Project Planning</td>
+      <td></td>
+      <td>Lunch</td>
+    </tr>
+    <tr>
+      <td>Tuesday</td>
+      <td>Client Call</td>
+      <td colspan=""3"">Development</td>
+    </tr>
+    <tr>
+      <td>Wednesday</td>
+      <td colspan=""2"">Sprint Review</td>
+      <td></td>
+      <td></td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>"
+"Convert this project task list into markdown format with nested checkboxes and headings: Project: Website Redesign; Phase 1: Planning - Task: Define requirements (Complete), Task: Create sitemap (Complete), Task: Design wireframes (In Progress); Phase 2: Development - Task: Setup development environment (Not Started), Task: Implement homepage (Not Started), Task: Develop contact form (Not Started); Phase 3: Testing - Task: Cross-browser testing (Not Started), Task: Mobile responsiveness (Not Started)","# Website Redesign Project
+
+## Phase 1: Planning
+- [x] Define requirements
+- [x] Create sitemap
+- [ ] Design wireframes
+
+## Phase 2: Development
+- [ ] Setup development environment
+- [ ] Implement homepage
+- [ ] Develop contact form
+
+## Phase 3: Testing
+- [ ] Cross-browser testing
+- [ ] Mobile responsiveness"
+"Format this comparison of programming languages as a markdown table with aligned columns and formatting. Include language name, year created, primary use case, and popularity ranking. Data: Python, 1991, Data Science/ML, #1 (use bold); JavaScript, 1995, Web Development, #2; Java, 1995, Enterprise, #3; C++, 1985, Systems Programming, #4; Ruby, 1995, Web Development, #5 (use italics)","| Language   | Year Created | Primary Use Case     | Popularity Ranking |
+|:-----------|:-----------:|:---------------------|------------------:|
+| **Python** | 1991        | Data Science/ML      | **#1**            |
+| JavaScript | 1995        | Web Development      | #2                |
+| Java       | 1995        | Enterprise           | #3                |
+| C++        | 1985        | Systems Programming  | #4                |
+| *Ruby*     | 1995        | Web Development      | *#5*              |"

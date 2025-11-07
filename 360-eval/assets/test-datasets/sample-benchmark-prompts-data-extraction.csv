@@ -1,0 +1,62 @@
+text_prompt,golden_answer
+"Extract the company name, CEO, and founding year from this text: 'Quantum Dynamics Ltd. was established in 2015 by Dr. Sarah Johnson, who continues to serve as the CEO. The company specializes in quantum computing solutions.'","Company Name: Quantum Dynamics Ltd.
+CEO: Dr. Sarah Johnson
+Founding Year: 2015"
+"Extract the product name, price, and release date from this product announcement: 'The new GalaxyBook Pro will be available starting March 15, 2024, at a retail price of $1,299. This premium laptop features a 4K OLED display and 1TB SSD storage.'","Product Name: GalaxyBook Pro
+Price: $1,299
+Release Date: March 15, 2024"
+"Extract the movie title, director, and release year from this review: 'Directed by Christopher Nolan, ""Inception"" (2010) remains one of the most thought-provoking science fiction films of the past decade, blending stunning visuals with a complex narrative about dreams within dreams.'","Movie Title: Inception
+Director: Christopher Nolan
+Release Year: 2010"
+"Extract the conference name, location, and dates from this announcement: 'We are pleased to invite you to the International AI Summit taking place at the Zurich Convention Center from September 5-7, 2024. Early bird registration ends July 31.'","Conference Name: International AI Summit
+Location: Zurich Convention Center
+Dates: September 5-7, 2024"
+"Extract the restaurant name, cuisine type, and address from this review: 'We had an amazing dinner at La Maison Bleu, a French bistro located at 142 Riverside Avenue. The escargot and coq au vin were authentic and delicious.'","Restaurant Name: La Maison Bleu
+Cuisine Type: French
+Address: 142 Riverside Avenue"
+"Extract the book title, author, and publication year from this description: 'Published in 2019, ""The Silent Patient"" by Alex Michaelides quickly became a bestseller, captivating readers with its psychological thriller elements and unexpected twist ending.'","Book Title: The Silent Patient
+Author: Alex Michaelides
+Publication Year: 2019"
+"Extract the university name, location, and founding date from this information: 'Stanford University, located in Stanford, California, was founded in 1885 by Leland and Jane Stanford in memory of their only child, Leland Stanford Jr.'","University Name: Stanford University
+Location: Stanford, California
+Founding Date: 1885"
+"Extract the smartphone model, storage capacity, and launch price from this specification: 'The iPhone 15 Pro with 256GB of storage was launched in September 2023 at a price point of $1,099, featuring the new A17 Pro chip and titanium frame.'","Smartphone Model: iPhone 15 Pro
+Storage Capacity: 256GB
+Launch Price: $1,099"
+"Extract the concert artist, venue, and date from this event description: 'Grammy-winner Taylor Swift will bring her record-breaking Eras Tour to Madison Square Garden on August 12, 2024, with special guest Paramore opening the show.'","Concert Artist: Taylor Swift
+Venue: Madison Square Garden
+Date: August 12, 2024"
+"Extract the job title, required experience, and salary range from this posting: 'We're looking for a Senior Software Engineer with at least 5 years of experience in cloud infrastructure. The position offers a competitive salary range of $120,000-$150,000 based on experience.'","Job Title: Senior Software Engineer
+Required Experience: 5 years
+Salary Range: $120,000-$150,000"
+"Extract the product name, price, and release date from this description: 'The XPS 15 Ultrabook from Dell was released on June 7, 2023 with a starting price of $1,299. It features a 15-inch 4K OLED display and the latest Intel processors.'","Product Name: XPS 15 Ultrabook
+Price: $1,299
+Release Date: June 7, 2023"
+"Identify the movie title, director, and main actor from this review: 'Christopher Nolan's ""Inception"" stars Leonardo DiCaprio in a mind-bending journey through dreams within dreams that challenges viewers to question reality itself.'","Movie Title: Inception
+Director: Christopher Nolan
+Main Actor: Leonardo DiCaprio
+"
+"Find the university name, program, and application deadline in this announcement: 'Stanford University's Computer Science PhD program is now accepting applications for the Fall 2024 cohort. All materials must be submitted by December 15, 2023 for consideration.'","University Name: Stanford University
+Program: Computer Science PhD
+Application Deadline: December 15, 2023"
+"Extract the author name, book title, and publication year from this text: 'Michelle Obama's memoir ""Becoming"" was published in 2018 by Crown Publishing and quickly became one of the best-selling books of the decade, with over 10 million copies sold worldwide.'","Author Name: Michelle Obama
+Book Title: Becoming
+Publication Year: 2018"
+"Identify the disease, symptoms, and treatment from this medical information: 'Celiac disease causes symptoms like abdominal pain and malnutrition due to gluten sensitivity. Treatment involves strict adherence to a gluten-free diet to prevent intestinal damage.'","Disease: Celiac disease
+Symptoms: abdominal pain and malnutrition
+Treatment: gluten-free diet"
+"Extract the property type, price, and square footage from this listing: 'This charming Victorian townhouse is available for $875,000. With 2,450 square feet of living space across three floors, it offers plenty of room for a growing family.'","Property Type: Victorian townhouse
+Price: $875,000
+Square Footage: 2,450 square feet"
+"Find the athlete name, sport, and world record in this news: 'Jamaican sprinter Usain Bolt set the current 100m world record of 9.58 seconds at the 2009 World Championships in Berlin, a record that has remained unbroken for over a decade.'","Athlete Name: Usain Bolt
+Sport: sprinting
+World Record: 9.58 seconds in 100m"
+"Extract the job title, company, and required experience from this posting: 'Google is seeking a Senior Machine Learning Engineer to join their AI research team in Mountain View. Candidates should have at least 5 years of experience in deep learning and hold an advanced degree in Computer Science or related field.'","Job Title: Senior Machine Learning Engineer
+Company: Google
+Required Experience: 5 years"
+"Identify the scientific discovery, research team, and publication date from this news: 'On March 17, 2023, researchers at MIT's Media Lab announced they had developed a new biodegradable plastic alternative made entirely from wood cellulose. The breakthrough was published in Nature Sustainability after three years of laboratory testing.'","Scientific Discovery: biodegradable plastic alternative from wood cellulose
+Research Team: MIT's Media Lab
+Publication Date: March 17, 2023"
+"Extract the species name, conservation status, and habitat from this wildlife report: 'The Amur leopard (Panthera pardus orientalis) remains critically endangered with fewer than 100 individuals left in the wild. These rare big cats are primarily found in the temperate forests of the Russian Far East, where they face continued threats from poaching and habitat loss.'","Species Name: Amur leopard
+Conservation Status: critically endangered
+Habitat: temperate forests of the Russian Far East"

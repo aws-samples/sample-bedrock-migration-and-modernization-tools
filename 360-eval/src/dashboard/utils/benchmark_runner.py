@@ -13,9 +13,14 @@ from datetime import datetime
 from .state_management import update_evaluation_status
 from .constants import DEFAULT_OUTPUT_DIR, STATUS_FILES_DIR
 from .csv_processor import (
-    convert_to_jsonl, 
-    create_model_profiles_jsonl, 
+    convert_to_jsonl,
+    create_model_profiles_jsonl,
     create_judge_profiles_jsonl
+)
+from .process_manager import (
+    create_lock_file,
+    remove_lock_file,
+    kill_process_group
 )
 
 # Set up dashboard logger
@@ -413,10 +418,14 @@ def run_benchmark_process(eval_id):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                cwd=working_dir
+                cwd=working_dir,
+                preexec_fn=os.setpgrp if os.name != 'nt' else None  # Create process group on Unix
             )
-            
+
             dashboard_logger.info(f"Benchmark process started for {eval_id} with PID {process.pid}")
+
+            # Create lock file to track this process
+            create_lock_file(eval_id, process.pid, cmd)
             
             # Set up threads to read process output with reduced logging
             stdout_line_count = 0
@@ -507,23 +516,29 @@ def run_benchmark_process(eval_id):
                 if stderr_content and any(critical in stderr_content.lower() for critical in ['fatal', 'critical error', 'traceback', 'exception']):
                     error_msg += f". Error details: {stderr_content[:300]}"
                 dashboard_logger.error(f"Benchmark execution failed for {eval_id}: {error_msg}")
-                _update_status_file(status_file, "failed", 0, 
+                _update_status_file(status_file, "failed", 0,
                                   logs_dir=str(logs_dir),
                                   error=error_msg)
                 update_evaluation_status(eval_id, "failed", 0, error=error_msg)
                 _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+                # Remove lock file on failure
+                remove_lock_file(eval_id)
                 return False
-            
+
             dashboard_logger.info(f"Benchmark execution completed successfully for {eval_id}")
-            
+            # Remove lock file on success
+            remove_lock_file(eval_id)
+
         except Exception as e:
             dashboard_logger.exception(f"Exception during subprocess execution: {str(e)}")
             error_msg = f"Subprocess error: {str(e)}"
-            _update_status_file(status_file, "failed", 0, 
+            _update_status_file(status_file, "failed", 0,
                               logs_dir=str(logs_dir),
                               error=error_msg)
             update_evaluation_status(eval_id, "failed", 0, error=error_msg)
             _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+            # Remove lock file on exception
+            remove_lock_file(eval_id)
             return False
         
         # Look for generated results
@@ -1010,10 +1025,14 @@ def run_rag_benchmark_process(eval_id):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                cwd=working_dir
+                cwd=working_dir,
+                preexec_fn=os.setpgrp if os.name != 'nt' else None  # Create process group on Unix
             )
 
             dashboard_logger.info(f"RAG benchmark process started for {eval_id} with PID {process.pid}")
+
+            # Create lock file to track this process
+            create_lock_file(eval_id, process.pid, cmd)
 
             # Set up threads to read process output
             stdout_line_count = 0
@@ -1082,9 +1101,13 @@ def run_rag_benchmark_process(eval_id):
                 _update_status_file(status_file, "failed", 0, logs_dir=str(logs_dir), error=error_msg)
                 update_evaluation_status(eval_id, "failed", 0, error=error_msg)
                 _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+                # Remove lock file on failure
+                remove_lock_file(eval_id)
                 return False
 
             dashboard_logger.info(f"RAG benchmark execution completed successfully for {eval_id}")
+            # Remove lock file on success
+            remove_lock_file(eval_id)
 
         except Exception as e:
             dashboard_logger.exception(f"Exception during RAG subprocess execution: {str(e)}")
@@ -1092,6 +1115,8 @@ def run_rag_benchmark_process(eval_id):
             _update_status_file(status_file, "failed", 0, logs_dir=str(logs_dir), error=error_msg)
             update_evaluation_status(eval_id, "failed", 0, error=error_msg)
             _cleanup_evaluation_logs(eval_id, preserve_on_failure=True)
+            # Remove lock file on exception
+            remove_lock_file(eval_id)
             return False
 
         # Look for generated results (RAG uses rag_invocations_ prefix)

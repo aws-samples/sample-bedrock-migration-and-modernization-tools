@@ -44,10 +44,18 @@ from src.dashboard.components.report_viewer import ReportViewerComponent
 from src.dashboard.components.unprocessed_viewer import UnprocessedRecordsViewer
 from src.dashboard.utils.state_management import initialize_session_state
 from src.dashboard.utils.constants import APP_TITLE, SIDEBAR_INFO, PROJECT_ROOT
+from src.dashboard.utils.process_manager import cleanup_stale_processes
 
 # Initialize session state at module level to ensure it's available before component rendering
 if "evaluations" not in st.session_state:
     initialize_session_state()
+
+# Cleanup stale processes from previous runs (only once per session)
+if "process_cleanup_done" not in st.session_state:
+    logger.info("Cleaning up stale processes from previous runs...")
+    stats = cleanup_stale_processes()
+    logger.info(f"Process cleanup stats: {stats}")
+    st.session_state.process_cleanup_done = True
     
 # Debug session state
 print("Session state initialized at module level:")

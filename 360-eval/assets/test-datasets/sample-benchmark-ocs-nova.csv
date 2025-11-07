@@ -1,0 +1,931 @@
+prompt,golden_answer,url_image
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": true,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>Question 3<br>A string of length <span class=\""math-inline\""><asciimath style=\""display:none;\"">L</asciimath></span> and mass <span class=\""math-inline\""><asciimath style=\""display:none;\"">M</asciimath></span> is under a tension <span class=\""math-inline\""><asciimath style=\""display:none;\"">F</asciimath></span>. One end of it is fixed in place at <span class=\""math-inline\""><asciimath style=\""display:none;\"">x = 0</asciimath></span>, while the other end is free to move up and down at <span class=\""math-inline\""><asciimath style=\""display:none;\"">x = L</asciimath></span>. (a) Starting from the standard form of <span class=\""math-inline\""><asciimath style=\""display:none;\"">y(x, t)</asciimath></span> for a harmonic standing wave, derive the wavelength of the normal modes on this string: <span class=\""math-inline\""><asciimath style=\""display:none;\"">lambda_n = 4L/n</asciimath></span>. (b) State clearly, what values of <span class=\""math-inline\""><asciimath style=\""display:none;\"">n</asciimath></span> are allowed. (c) Obtain the normal mode frequencies <span class=\""math-inline\""><asciimath style=\""display:none;\"">v</asciimath></span> in terms of <span class=\""math-inline\""><asciimath style=\""display:none;\"">L</asciimath></span>, <span class=\""math-inline\""><asciimath style=\""display:none;\"">M</asciimath></span>, <span class=\""math-inline\""><asciimath style=\""display:none;\"">F</asciimath></span> and <span class=\""math-inline\""><asciimath style=\""display:none;\"">n</asciimath></span> and write the full wave functions in these terms (for arbitrary amplitude, <span class=\""math-inline\""><asciimath style=\""display:none;\"">A</asciimath></span>). (d) Sketch the first two allowed harmonics, indicating the positions of all modes and antinodes. (e) With <span class=\""math-inline\""><asciimath style=\""display:none;\"">L = 2</asciimath></span> m and <span class=\""math-inline\""><asciimath style=\""display:none;\"">M = 8</asciimath></span> g, the string supports the standing waves <span class=\""math-inline\""><asciimath style=\""display:none;\"">y(x, t) = 0.03 sin(3.25pi x) cos(162.5pi t)</asciimath></span> for <span class=\""math-inline\""><asciimath style=\""display:none;\"">x</asciimath></span> and <span class=\""math-inline\""><asciimath style=\""display:none;\"">y</asciimath></span> in metres and <span class=\""math-inline\""><asciimath style=\""display:none;\"">t</asciimath></span> in seconds. Find (i) the value of <span class=\""math-inline\""><asciimath style=\""display:none;\"">n</asciimath></span> for this harmonic; (ii) the tension in the string.</p>"",
+  ""text"": ""Question 3\nA string of length $L$ and mass $M$ is under a tension $F$. One end of it is fixed in place at $x = 0$, while the other end is free to move up and down at $x = L$. (a) Starting from the standard form of $y(x, t)$ for a harmonic standing wave, derive the wavelength of the normal modes on this string: $\\lambda_n = \\frac{4L}{n}$. (b) State clearly, what values of $n$ are allowed. (c) Obtain the normal mode frequencies $v$ in terms of $L$, $M$, $F$ and $n$ and write the full wave functions in these terms (for arbitrary amplitude, $A$). (d) Sketch the first two allowed harmonics, indicating the positions of all modes and antinodes. (e) With $L = 2$ m and $M = 8$ g, the string supports the standing waves $y(x, t) = 0.03 \\sin(3.25\\pi x) \\cos(162.5\\pi t)$ for $x$ and $y$ in metres and $t$ in seconds. Find (i) the value of $n$ for this harmonic; (ii) the tension in the string."",
+  ""question_region_html"": ""<p>Question 3<br>A string of length <span class=\""math-inline\""><asciimath style=\""display:none;\"">L</asciimath></span> and mass <span class=\""math-inline\""><asciimath style=\""display:none;\"">M</asciimath></span> is under a tension <span class=\""math-inline\""><asciimath style=\""display:none;\"">F</asciimath></span>. One end of it is fixed in place at <span class=\""math-inline\""><asciimath style=\""display:none;\"">x = 0</asciimath></span>, while the other end is free to move up and down at <span class=\""math-inline\""><asciimath style=\""display:none;\"">x = L</asciimath></span>. (a) Starting from the standard form of <span class=\""math-inline\""><asciimath style=\""display:none;\"">y(x, t)</asciimath></span> for a harmonic standing wave, derive the wavelength of the normal modes on this string: <span class=\""math-inline\""><asciimath style=\""display:none;\"">lambda_n = 4L/n</asciimath></span>. (b) State clearly, what values of <span class=\""math-inline\""><asciimath style=\""display:none;\"">n</asciimath></span> are allowed. (c) Obtain the normal mode frequencies <span class=\""math-inline\""><asciimath style=\""display:none;\"">v</asciimath></span> in terms of <span class=\""math-inline\""><asciimath style=\""display:none;\"">L</asciimath></span>, <span class=\""math-inline\""><asciimath style=\""display:none;\"">M</asciimath></span>, <span class=\""math-inline\""><asciimath style=\""display:none;\"">F</asciimath></span> and <span class=\""math-inline\""><asciimath style=\""display:none;\"">n</asciimath></span> and write the full wave functions in these terms (for arbitrary amplitude, <span class=\""math-inline\""><asciimath style=\""display:none;\"">A</asciimath></span>). (d) Sketch the first two allowed harmonics, indicating the positions of all modes and antinodes. (e) With <span class=\""math-inline\""><asciimath style=\""display:none;\"">L = 2</asciimath></span> m and <span class=\""math-inline\""><asciimath style=\""display:none;\"">M = 8</asciimath></span> g, the string supports the standing waves <span class=\""math-inline\""><asciimath style=\""display:none;\"">y(x, t) = 0.03 sin(3.25pi x) cos(162.5pi t)</asciimath></span> for <span class=\""math-inline\""><asciimath style=\""display:none;\"">x</asciimath></span> and <span class=\""math-inline\""><asciimath style=\""display:none;\"">y</asciimath></span> in metres and <span class=\""math-inline\""><asciimath style=\""display:none;\"">t</asciimath></span> in seconds. Find (i) the value of <span class=\""math-inline\""><asciimath style=\""display:none;\"">n</asciimath></span> for this harmonic; (ii) the tension in the string.</p>"",
+  ""transcription_score"": 0.9963489,
+  ""confidence"": 0.9956237
+}",https://media.test.cheggcdn.com/media_testing/541/54176073-a8b0-4341-b4ce-6669e94e1f95/3_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": true,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": true,
+  ""raw_html"": ""<p>2. Using Castigliano's theorem, determine the displacement of point B of the beam shown below. Take E = 205 GPa, I = 165×10<sup>-6</sup> m<sup>4</sup>.</p><p>The diagram shows a beam with a distributed load that increases linearly from left to right, with w = 2 kN/m at the right end of the distributed load. There is also a point load P = 9 kN pointing downward, and a moment M = 19 kN·m applied at the right end. The beam is supported at the left end and right end. The distance from the left support to point B is 6 m, and from point B to the right support is 5 m.</p>"",
+  ""text"": ""2. Using Castigliano's theorem, determine the displacement of point B of the beam shown below. Take E = 205 GPa, I = 165×10^{-6} m^4.\n\nP = 9 kN\nw = 2 kN/m\nM = 19 kN·m\n\n[The diagram shows a beam with supports at both ends. Point B is located 6 m from the left support. The right support is 5 m from point B. There is a linearly varying distributed load on the left portion, a point load P at point B, and a moment M at the right support.]"",
+  ""question_region_html"": ""<p>2. Using Castigliano's theorem, determine the displacement of point B of the beam shown below. Take E = 205 GPa, I = 165×10<sup>-6</sup> m<sup>4</sup>.</p><div><img src=\""beam diagram showing a beam with distributed load of w = 2 kN/m, point load P = 9 kN at point B, and moment M = 19 kN·m at right end. The beam spans 11 m total with 6 m from left support to point B and 5 m from point B to right support.\""></div>"",
+  ""transcription_score"": 0.9782,
+  ""confidence"": 0.9465
+}",https://media.test.cheggcdn.com/media_testing/6a0/6a0698e4-6c85-4b86-a2c0-ccc9df49e868/16_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": true,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<div><p>7.26 An LTI system has the transfer function</p>\n<p><span class=\""math-inline\""><asciimath style=\""display:none;\"">H(z) = \\frac{(z-1)(z-6)}{(z-2)(z-3)}</asciimath></span>.</p>\n<p>Compute the following:</p>\n<p>(a) The zeros and poles. Is the system stable?</p>\n<p>(b) The difference equation.</p>\n<p>(c) The response to input x[n] = {1, −5, 6}.</p>\n<p>(d) The impulse response h[n].</p></div>"",
+  ""text"": ""7.26 An LTI system has the transfer function\n\nH(z) = \\frac{(z-1)(z-6)}{(z-2)(z-3)}.\n\nCompute the following:\n(a) The zeros and poles. Is the system stable?\n(b) The difference equation.\n(c) The response to input x[n] = {1, −5, 6}.\n(d) The impulse response h[n]."",
+  ""question_region_html"": ""<p>7.26 An LTI system has the transfer function</p>\n<p><span class=\""math-inline\""><asciimath style=\""display:none;\"">H(z) = \\frac{(z-1)(z-6)}{(z-2)(z-3)}</asciimath></span>.</p>\n<p>Compute the following:</p>\n<p>(a) The zeros and poles. Is the system stable?</p>\n<p>(b) The difference equation.</p>\n<p>(c) The response to input x[n] = {1, −5, 6}.</p>\n<p>(d) The impulse response h[n].</p>"",
+  ""transcription_score"": 0.9945678,
+  ""confidence"": 0.995
+}",https://media.test.cheggcdn.com/media_testing/59e/59e7cf88-abfd-47d8-87b9-a04206d2c7e9/17_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": true,
+  ""has_asciimath"": true,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>4. For the beam and loading shown, determine (a) the slope at end A, (b) the deflection at point C. Use E =200 GPa, <span class=\""math-inline\""><asciimath style=\""display:none;\"">I_x = 6.83×10^6 mm^4</asciimath></span>. <u>Use the singularity function method only.</u></p><div><img src=\""[beam diagram showing a W150×13.5 beam with supports at points A and D, with a 20 kN concentrated load and 12 kN/m distributed load. Point B is 0.4 m from A, point C is 0.8 m from B, and point D is 0.4 m from C]\""></div>"",
+  ""text"": ""4. For the beam and loading shown, determine (a) the slope at end A, (b) the deflection at point C. Use E =200 GPa, $I_x = 6.83\\times10^6 mm^4$. Use the singularity function method only."",
+  ""question_region_html"": ""<p>4. For the beam and loading shown, determine (a) the slope at end A, (b) the deflection at point C. Use E =200 GPa, <span class=\""math-inline\""><asciimath style=\""display:none;\"">I_x = 6.83×10^6 mm^4</asciimath></span>. <u>Use the singularity function method only.</u></p>"",
+  ""transcription_score"": 0.9985632,
+  ""confidence"": 0.9974215
+}",https://media.test.cheggcdn.com/media_testing/233/23371021-4414-4e8a-bde9-10fac37183f8/20_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": true,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>3. Vehicles arrive at a toll booth according to the function <span class=\""math-inline\""><asciimath style=\""display:none;\"">Y (t) = 5.2-0.20t</asciimath></span> where <span class=\""math-inline\""><asciimath style=\""display:none;\"">Y (t)</asciimath></span> is in vehicles per minute and t is in minutes. The toll booth operator processes one vehicle every 20 seconds. Determine the time that the 20<sup>th</sup> vehicle to arrive waits from its arrival to its departure.</p>"",
+  ""text"": ""3. Vehicles arrive at a toll booth according to the function $Y (t) = 5.2-0.20t$ where $Y (t)$ is in vehicles per minute and t is in minutes. The toll booth operator processes one vehicle every 20 seconds. Determine the time that the 20th vehicle to arrive waits from its arrival to its departure."",
+  ""question_region_html"": ""<p>3. Vehicles arrive at a toll booth according to the function <span class=\""math-inline\""><asciimath style=\""display:none;\"">Y (t) = 5.2-0.20t</asciimath></span> where <span class=\""math-inline\""><asciimath style=\""display:none;\"">Y (t)</asciimath></span> is in vehicles per minute and t is in minutes. The toll booth operator processes one vehicle every 20 seconds. Determine the time that the 20<sup>th</sup> vehicle to arrive waits from its arrival to its departure.</p>"",
+  ""transcription_score"": 0.99843242,
+  ""confidence"": 0.9972845
+}",https://media.test.cheggcdn.com/media_testing/64a/64a91209-9411-4751-93da-0002756e3b35/8_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": true,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>Solve for a in the triple integral. (Enter your answers as a comma-separated list.)</p><p><span class=\""math-inline\""><asciimath style=\""display:none;\"">\\int_0^1 \\int_0^{3-a-y^2} \\int_a^{4-x-y^2} dz dx dy = \\frac{34}{15}</asciimath></span></p><p>a = </p>"",
+  ""text"": ""Solve for a in the triple integral. (Enter your answers as a comma-separated list.)\n\n\\int_0^1 \\int_0^{3-a-y^2} \\int_a^{4-x-y^2} dz dx dy = \\frac{34}{15}\n\na ="",
+  ""question_region_html"": ""<p>Solve for a in the triple integral. (Enter your answers as a comma-separated list.)</p><p><span class=\""math-inline\""><asciimath style=\""display:none;\"">\\int_0^1 \\int_0^{3-a-y^2} \\int_a^{4-x-y^2} dz dx dy = \\frac{34}{15}</asciimath></span></p><p>a = </p>"",
+  ""transcription_score"": 0.9995,
+  ""confidence"": 0.987654
+}",https://media.test.cheggcdn.com/media_testing/9b3/9b3f960f-7a14-43d7-be05-b44b457546ca/21_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>5. of the car that can accelerate from rest to a grade. Compute the equivalent radius of the vertical curve.</p><p>A vehicle traveling at a speed of 80 kph which accelerates 3.41 m/s². The perception reaction time for the driver is 2.5 sec. If the maximum grade of the road is 4%, compute the minimum sight distance.</p>"",
+  ""text"": ""5. of the car that can accelerate from rest to a grade. Compute the equivalent radius of the vertical curve.\n\nA vehicle traveling at a speed of 80 kph which accelerates 3.41 m/s². The perception reaction time for the driver is 2.5 sec. If the maximum grade of the road is 4%, compute the minimum sight distance."",
+  ""question_region_html"": ""<p>5. of the car that can accelerate from rest to a grade. Compute the equivalent radius of the vertical curve.</p><p>A vehicle traveling at a speed of 80 kph which accelerates 3.41 m/s². The perception reaction time for the driver is 2.5 sec. If the maximum grade of the road is 4%, compute the minimum sight distance.</p>"",
+  ""transcription_score"": 0.982,
+  ""confidence"": 0.985
+}",https://media.test.cheggcdn.com/media_testing/be2/be2656f4-61a2-4174-b718-1e2871bd954d/19_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": true,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>Question 2    (3 points) For which value of k is the following series diverges? <span class=\""math-inline\""><asciimath style=\""display:none\"">sum_(n=1)^oo (n!)^k/(kn)^n</asciimath></span></p><p>□ 2    □ 3    □ 2    □ 3    □ 4</p>"",
+  ""text"": ""Question 2    (3 points) For which value of k is the following series diverges? \\sum_{n=1}^{\\infty}\\frac{(n!)^k}{(kn)^n}\n\n□ 2    □ 3    □ 2    □ 3    □ 4"",
+  ""question_region_html"": ""<p>Question 2    (3 points) For which value of k is the following series diverges? <span class=\""math-inline\""><asciimath style=\""display:none\"">sum_(n=1)^oo (n!)^k/(kn)^n</asciimath></span></p><p>□ 2    □ 3    □ 2    □ 3    □ 4</p>"",
+  ""transcription_score"": 0.985,
+  ""confidence"": 0.975
+}",https://media.test.cheggcdn.com/media_testing/81b/81bc13e3-d9dd-4d8a-b4e2-fa575464970e/13_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>George gets paid every Friday for a week's work. Mai Ling gets paid for every five wedding veils she sews and completes. Fabio gets paid a bonus at varying periods of time based upon the success of the stock market. Which of the following schedules of partial reinforcement are the correct types for George, Mai Ling, and Fabio?</p><p>George is on a ________ schedule of reinforcement.</p><p>Mai Ling is on a ________ schedule of reinforcement.</p><p>Fabio is on a ________ schedule of reinforcement.</p><p>○ fixed ratio (FR)....variable ratio (VR)...variable interval (VI)</p><p>○ fixed interval (FI)....fixed ratio (FR)....variable interval (VI)</p><p>○ fixed ratio (FR)....variable interval (VI)....fixed interval (FI)</p><p>○ variable ratio (VR)....variable interval (VI)....fixed ratio (FR)</p>"",
+  ""text"": ""George gets paid every Friday for a week's work. Mai Ling gets paid for every five wedding veils she sews and completes. Fabio gets paid a bonus at varying periods of time based upon the success of the stock market. Which of the following schedules of partial reinforcement are the correct types for George, Mai Ling, and Fabio?\n\nGeorge is on a ________ schedule of reinforcement.\nMai Ling is on a ________ schedule of reinforcement.\nFabio is on a ________ schedule of reinforcement.\n\n○ fixed ratio (FR)....variable ratio (VR)...variable interval (VI)\n○ fixed interval (FI)....fixed ratio (FR)....variable interval (VI)\n○ fixed ratio (FR)....variable interval (VI)....fixed interval (FI)\n○ variable ratio (VR)....variable interval (VI)....fixed ratio (FR)"",
+  ""question_region_html"": ""<p>George gets paid every Friday for a week's work. Mai Ling gets paid for every five wedding veils she sews and completes. Fabio gets paid a bonus at varying periods of time based upon the success of the stock market. Which of the following schedules of partial reinforcement are the correct types for George, Mai Ling, and Fabio?</p><p>George is on a ________ schedule of reinforcement.</p><p>Mai Ling is on a ________ schedule of reinforcement.</p><p>Fabio is on a ________ schedule of reinforcement.</p><p>○ fixed ratio (FR)....variable ratio (VR)...variable interval (VI)</p><p>○ fixed interval (FI)....fixed ratio (FR)....variable interval (VI)</p><p>○ fixed ratio (FR)....variable interval (VI)....fixed interval (FI)</p><p>○ variable ratio (VR)....variable interval (VI)....fixed ratio (FR)</p>"",
+  ""transcription_score"": 0.9981375,
+  ""confidence"": 0.9942186
+}",https://media.test.cheggcdn.com/media_testing/48a/48ac2d0e-4662-4131-aead-67ec29bcceb8/9_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": true,
+  ""has_asciimath"": true,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>QUESTION-1 (35pts): The terminated two-port circuit shown in the figure below is described in terms of its b parameters which are:</p><p><span class=\""math-inline\""><asciimath style=\""display:none;\"">b_{11} = 12</asciimath></span>     <span class=\""math-inline\""><asciimath style=\""display:none;\"">b_{12} = 7</asciimath></span>     <span class=\""math-inline\""><asciimath style=\""display:none;\"">b_{21} = 4</asciimath></span>     <span class=\""math-inline\""><asciimath style=\""display:none;\"">b_{22} = 23</asciimath></span></p><p>a) (15 pts) Find the phasor voltage <span class=\""math-inline\""><asciimath style=\""display:none;\"">V_2</asciimath></span></p><p>b) (10 pts) Find average power delivered to the load</p><p>c) (10 pts) Find average power provided by the voltage source</p><div style=\""border: 1px solid black; padding: 10px;\""><p>The formulas you may need:</p><p><span class=\""math-inline\""><asciimath style=\""display:none;\"">Z_{in} = \\frac{b_{22}Z_L + b_{12}}{b_{21}Z_L + b_{11}}</asciimath></span>     <span class=\""math-inline\""><asciimath style=\""display:none;\"">\\frac{V_2}{V_1} = \\frac{1}{b_{12} + b_{11}Z_2 + b_{22}Z_L + b_{21}Z_2Z_L}</asciimath></span></p></div><p>[Circuit diagram showing a two-port network with 200∠0° source, 4kΩ resistor, and 58kΩ load]</p>"",
+  ""text"": ""QUESTION-1 (35pts): The terminated two-port circuit shown in the figure below is described in terms of its b parameters which are:\n\n$b_{11} = 12$     $b_{12} = 7$     $b_{21} = 4$     $b_{22} = 23$\n\na) (15 pts) Find the phasor voltage $V_2$\nb) (10 pts) Find average power delivered to the load\nc) (10 pts) Find average power provided by the voltage source\n\nThe formulas you may need:\n$Z_{in} = \\frac{b_{22}Z_L + b_{12}}{b_{21}Z_L + b_{11}}$     $\\frac{V_2}{V_1} = \\frac{1}{b_{12} + b_{11}Z_2 + b_{22}Z_L + b_{21}Z_2Z_L}$"",
+  ""question_region_html"": ""<p>QUESTION-1 (35pts): The terminated two-port circuit shown in the figure below is described in terms of its b parameters which are:</p><p><span class=\""math-inline\""><asciimath style=\""display:none;\"">b_{11} = 12</asciimath></span>     <span class=\""math-inline\""><asciimath style=\""display:none;\"">b_{12} = 7</asciimath></span>     <span class=\""math-inline\""><asciimath style=\""display:none;\"">b_{21} = 4</asciimath></span>     <span class=\""math-inline\""><asciimath style=\""display:none;\"">b_{22} = 23</asciimath></span></p><p>a) (15 pts) Find the phasor voltage <span class=\""math-inline\""><asciimath style=\""display:none;\"">V_2</asciimath></span></p><p>b) (10 pts) Find average power delivered to the load</p><p>c) (10 pts) Find average power provided by the voltage source</p><div style=\""border: 1px solid black; padding: 10px;\""><p>The formulas you may need:</p><p><span class=\""math-inline\""><asciimath style=\""display:none;\"">Z_{in} = \\frac{b_{22}Z_L + b_{12}}{b_{21}Z_L + b_{11}}</asciimath></span>     <span class=\""math-inline\""><asciimath style=\""display:none;\"">\\frac{V_2}{V_1} = \\frac{1}{b_{12} + b_{11}Z_2 + b_{22}Z_L + b_{21}Z_2Z_L}</asciimath></span></p></div>"",
+  ""transcription_score"": 0.9951742,
+  ""confidence"": 0.98732941
+}",https://media.test.cheggcdn.com/media_testing/5b3/5b3c4869-d830-442a-a57b-48ca4ee46512/23_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","```json
+{
+  ""has_table"": false,
+  ""has_diagram"": true,
+  ""has_asciimath"": true,
+  ""is_printed"": false,
+  ""is_handwritten"": true,
+  ""raw_html"": ""<p>A diagram shows a truss structure with labeled points A, B, C, D. There is a 2.5 KN force applied downward at point D. The diagram shows a triangular truss with horizontal distances marked: 1m from left edge to point A, 1m from A to D, 1m from D to B, and 1m from B to C.</p><p>Below the diagram is handwritten text:</p><p>Determine the force in truss below using method P = 3.42 KN given</p><p>Solution:</p>"",
+  ""text"": ""2.5 KN\n\n      1m    1m      1m     1m\n      |<->|<->|<->|<->|\n          D\n          ^\n         /|\\\n        / | \\\n       /  |  \\\n      /   |   \\\n     /    |    \\\n    /     |     \\\n   /      |      \\\n  /       |       \\\nA         B        C\n|\nv\nP\n\nDetermine the force in truss below using method\nP = 3.42 KN given\n\nSolution:"",
+  ""question_region_html"": ""<p>A diagram shows a truss structure with labeled points A, B, C, D. There is a 2.5 KN force applied downward at point D. The diagram shows a triangular truss with horizontal distances marked: 1m from left edge to point A, 1m from A to D, 1m from D to B, and 1m from B to C.</p><p>Below the diagram is handwritten text:</p><p>Determine the force in truss below using <span class=\""math-inline\""><asciimath style=\""display:none;\"">method</asciimath></span></p><p>P = 3.42 KN <span class=\""math-inline\""><asciimath style=\""display:none;\"">given</asciimath></span></p><p>Solution:</p>"",
+  ""transcription_score"": 0.95,
+  ""confidence"": 0.87341259
+}
+```",https://media.test.cheggcdn.com/media_testing/12a/12af9191-6e77-4064-925f-fb9ed89496fe/15_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": true,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<div>11-30. <a href=\""#\"">Figure 11P-30</a> shows a simplified design of an airplane attitude controller.</div><div><img src=\""image.jpg\"" alt=\""Block diagram of an airplane attitude controller showing input X, controller block, summing junctions, transfer functions 0.9/s^2 and 1/(0.5s+1), disturbance input D, and output Y\""></div><div>Figure 11P-30</div><div>where D is the disturbance torque. Design a PID controller with the following satisfactions:</div><div>(a) Zero steady-state error</div><div>(b) PM = 65°</div><div>(c) High bandwidth (as high as possible)</div>"",
+  ""text"": ""11-30. Figure 11P-30 shows a simplified design of an airplane attitude controller.\n\nFigure 11P-30\n\nwhere D is the disturbance torque. Design a PID controller with the following satisfactions:\n(a) Zero steady-state error\n(b) PM = 65°\n(c) High bandwidth (as high as possible)"",
+  ""question_region_html"": ""<div>11-30. <a href=\""#\"">Figure 11P-30</a> shows a simplified design of an airplane attitude controller.</div><div><img src=\""image.jpg\"" alt=\""Block diagram of an airplane attitude controller showing input X, controller block, summing junctions, transfer functions 0.9/s^2 and 1/(0.5s+1), disturbance input D, and output Y\""></div><div>Figure 11P-30</div><div>where D is the disturbance torque. Design a PID controller with the following satisfactions:</div><div>(a) Zero steady-state error</div><div>(b) PM = 65°</div><div>(c) High bandwidth (as high as possible)</div>"",
+  ""transcription_score"": 0.98765432,
+  ""confidence"": 0.98432156
+}",https://media.test.cheggcdn.com/media_testing/117/1176e509-d140-45ed-8c10-d91259e3705d/2_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": true,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": true,
+  ""raw_html"": ""<p>2. Using Castigliano's theorem, determine the displacement of point D of the beam shown below. Take E = 200 GPa, I = 16×10<sup>6</sup> mm<sup>4</sup>.</p><p>[Diagram showing a beam with distributed load q = 2 kN/m on section BC, point load P = 9 kN at point B, and moment M = 19 kN·m at point D. The beam spans 6 m with supports at points A and D]</p><p>3. A thin-walled cylinder with 0.11 m internal diameter and 0.16 m external diameter is fabricated of a material whose yield strength is 300 MPa and Poisson's ratio ν = 0.29. The cylinder is subjected to an internal pressure and times greater than the external pressure. Using Tresca's yield criterion and a safety factor of 3, find:</p><p>a) the maximum shear stress criterion</p><p>b) von Mises criterion</p><p>4. A two-dimensional strain field is given by...</p><p>[Handwritten notes/calculations appear in margins and near problems]</p>"",
+  ""text"": ""2. Using Castigliano's theorem, determine the displacement of point D of the beam shown below. Take E = 200 GPa, I = 16×10^6 mm^4.\n\n[Diagram showing a beam with distributed load q = 2 kN/m on section BC, point load P = 9 kN at point B, and moment M = 19 kN·m at point D. The beam spans 6 m with supports at points A and D]\n\n3. A thin-walled cylinder with 0.11 m internal diameter and 0.16 m external diameter is fabricated of a material whose yield strength is 300 MPa and Poisson's ratio ν = 0.29. The cylinder is subjected to an internal pressure and times greater than the external pressure. Using Tresca's yield criterion and a safety factor of 3, find:\n\na) the maximum shear stress criterion\nb) von Mises criterion\n\n4. A two-dimensional strain field is given by..."",
+  ""question_region_html"": ""<p>2. Using Castigliano's theorem, determine the displacement of point D of the beam shown below. Take E = 200 GPa, I = 16×10<sup>6</sup> mm<sup>4</sup>.</p><p>[Diagram showing a beam with distributed load q = 2 kN/m on section BC, point load P = 9 kN at point B, and moment M = 19 kN·m at point D. The beam spans 6 m with supports at points A and D]</p><p>3. A thin-walled cylinder with 0.11 m internal diameter and 0.16 m external diameter is fabricated of a material whose yield strength is 300 MPa and Poisson's ratio ν = 0.29. The cylinder is subjected to an internal pressure and times greater than the external pressure. Using Tresca's yield criterion and a safety factor of 3, find:</p><p>a) the maximum shear stress criterion</p><p>b) von Mises criterion</p><p>4. A two-dimensional strain field is given by...</p>"",
+  ""transcription_score"": 0.953,
+  ""confidence"": 0.89542316
+}",https://media.test.cheggcdn.com/media_testing/91f/91f821f9-4b33-4bb3-bfe9-15f50cc77f16/11_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<h4>Question 1</h4><p>The G-string on a guitar has a linear mass density of 3 g/m and is 63 cm long. It is tuned to have a fundamentla frequency of 196 Hz. (a) What is the tension in the tuned string? (b) Calculate the wavelengths of the first three harmonics. (c) Sketch the transverse displacement of the string as a function of x for each of these harmonics.</p>"",
+  ""text"": ""Question 1\nThe G-string on a guitar has a linear mass density of 3 g/m and is 63 cm long. It is tuned to have a fundamentla frequency of 196 Hz. (a) What is the tension in the tuned string? (b) Calculate the wavelengths of the first three harmonics. (c) Sketch the transverse displacement of the string as a function of x for each of these harmonics."",
+  ""question_region_html"": ""<h4>Question 1</h4><p>The G-string on a guitar has a linear mass density of 3 g/m and is 63 cm long. It is tuned to have a fundamentla frequency of 196 Hz. (a) What is the tension in the tuned string? (b) Calculate the wavelengths of the first three harmonics. (c) Sketch the transverse displacement of the string as a function of x for each of these harmonics.</p>"",
+  ""transcription_score"": 0.987,
+  ""confidence"": 0.989
+}",https://media.test.cheggcdn.com/media_testing/878/87890359-e588-441a-aa6d-d2800ad093e7/25_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": true,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>7.16 Compute the <i>z</i>-transforms of the following signals. Cast your answer in the form of a rational fraction.</p><p>(a) (1+2<sup>n</sup>) <i>u</i>[<i>n</i>]</p><p>(b) 2<sup>n</sup><i>u</i>[<i>n</i>] + 3<sup>n</sup><i>u</i>[<i>n</i>]</p><p>(c) {1, −2} + (2)<sup>n</sup><i>u</i>[<i>n</i>]</p><p>(d) 2<sup><i>n</i>+1</sup>cos(3<i>n</i> + 4) <i>u</i>[<i>n</i>]</p>"",
+  ""text"": ""7.16 Compute the $z$-transforms of the following signals. Cast your answer in the form of a rational fraction.\n(a) $(1+2^n) u[n]$\n(b) $2^n u[n] + 3^n u[n]$\n(c) $\\{1, -2\\} + (2)^n u[n]$\n(d) $2^{n+1} \\cos(3n + 4) u[n]$"",
+  ""question_region_html"": ""<p>7.16 Compute the <span class=\""math-inline\""><asciimath style=\""display:none;\"">z</asciimath></span>-transforms of the following signals. Cast your answer in the form of a rational fraction.</p><p>(a) <span class=\""math-inline\""><asciimath style=\""display:none;\"">(1+2^n) u[n]</asciimath></span></p><p>(b) <span class=\""math-inline\""><asciimath style=\""display:none;\"">2^n u[n] + 3^n u[n]</asciimath></span></p><p>(c) <span class=\""math-inline\""><asciimath style=\""display:none;\"">\\{1, -2\\} + (2)^n u[n]</asciimath></span></p><p>(d) <span class=\""math-inline\""><asciimath style=\""display:none;\"">2^{n+1} cos(3n + 4) u[n]</asciimath></span></p>"",
+  ""transcription_score"": 0.9985,
+  ""confidence"": 0.99854721
+}",https://media.test.cheggcdn.com/media_testing/d06/d06fe357-de03-48ae-9c0c-4604d97e7671/7_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","```json
+{
+  ""has_table"": false,
+  ""has_diagram"": true,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>Example 02.</p><p>Determine la pendiente de la viga en apoyo A. Si eye es de acero A 36 y tiene un diámetro de 30 mm.</p><div><img src=\""diagram.png\"" alt=\""Beam diagram showing a horizontal beam with supports at both ends and various measurements and forces. The beam is 1 m long with measurements of 0.6 m, 0.45 m marked. Forces of 700 N and 90 N are shown at left support, and 160 N and 160 N shown at the right end.\""></div>"",
+  ""text"": ""Example 02.\n\nDetermine la pendiente de la viga en apoyo A. Si eye es de acero A 36 y tiene un diámetro de 30 mm."",
+  ""question_region_html"": ""<p>Example 02.</p><p>Determine la pendiente de la viga en apoyo A. Si eye es de acero A 36 y tiene un diámetro de 30 mm.</p><div><img src=\""diagram.png\"" alt=\""Beam diagram showing a horizontal beam with supports at both ends and various measurements and forces. The beam is 1 m long with measurements of 0.6 m, 0.45 m marked. Forces of 700 N and 90 N are shown at left support, and 160 N and 160 N shown at the right end.\""></div>"",
+  ""transcription_score"": 0.9875234,
+  ""confidence"": 0.9812345
+}```",https://media.test.cheggcdn.com/media_testing/570/5708deea-c26d-4e4a-884f-c5b89922a415/12_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": true,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>QUESTION 2:</p><p>In the figure below, the arm AB of the solid beam is parallel to the z axis. The cross-section of the beam AD is shown in the figure. Diameter of the beam is 40 mm. For the loading shown,</p><p>a. Calculate the stresses on point H</p><p>b. Calculate the stresses on point J.</p><div>[This is a diagram showing a 3D beam structure with the following elements:</div><div>- A beam with circular cross-section (diameter 40mm)</div><div>- Points labeled A, B, D, E, H, J</div><div>- Dimensions shown: 200 mm, 150 mm, 225 mm, 125 mm, 25 mm</div><div>- A force of 2 kN applied at point D</div><div>- A coordinate system with x, y, z axes</div><div>- A separate detail showing the circular cross-section with points H and J marked on it]</div>"",
+  ""text"": ""QUESTION 2:\n\nIn the figure below, the arm AB of the solid beam is parallel to the z axis. The cross-section of the beam AD is shown in the figure. Diameter of the beam is 40 mm. For the loading shown,\na. Calculate the stresses on point H\nb. Calculate the stresses on point J."",
+  ""question_region_html"": ""<p>QUESTION 2:</p><p>In the figure below, the arm AB of the solid beam is parallel to the z axis. The cross-section of the beam AD is shown in the figure. Diameter of the beam is 40 mm. For the loading shown,</p><p>a. Calculate the stresses on point H</p><p>b. Calculate the stresses on point J.</p>"",
+  ""transcription_score"": 0.9988721,
+  ""confidence"": 0.9975463
+}",https://media.test.cheggcdn.com/media_testing/5c1/5c1f097a-d74f-431f-b889-a2de0a71a3de/22_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": true,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>An electron and a proton, starting from rest, are accelerated through an electric potential difference of the same magnitude. In the process, the electron gains a speed v<sub>e</sub>, while the proton acquires a speed v<sub>p</sub>. Find the ratio v<sub>e</sub>/v<sub>p</sub>.</p><p>v<sub>e</sub>/v<sub>p</sub> = Number <span class=\""math-inline\""><asciimath style=\""display:none;\"">43</asciimath></span> Units <span class=\""math-inline\""><asciimath style=\""display:none;\""></asciimath></span></p>"",
+  ""text"": ""An electron and a proton, starting from rest, are accelerated through an electric potential difference of the same magnitude. In the process, the electron gains a speed v_{e}, while the proton acquires a speed v_{p}. Find the ratio v_{e}/v_{p}.\n\nv_{e}/v_{p} = Number [] Units []"",
+  ""question_region_html"": ""<p>An electron and a proton, starting from rest, are accelerated through an electric potential difference of the same magnitude. In the process, the electron gains a speed v<sub>e</sub>, while the proton acquires a speed v<sub>p</sub>. Find the ratio v<sub>e</sub>/v<sub>p</sub>.</p><p>v<sub>e</sub>/v<sub>p</sub> = Number <span class=\""math-inline\""><asciimath style=\""display:none;\"">43</asciimath></span> Units <span class=\""math-inline\""><asciimath style=\""display:none;\""></asciimath></span></p>"",
+  ""transcription_score"": 0.9987614,
+  ""confidence"": 0.9992451
+}",https://media.test.cheggcdn.com/media_testing/1c4/1c425f27-e695-41cd-85e4-08eef1ae1257/14_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": true,
+  ""has_asciimath"": true,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>Derive the equation for the elastic curve that is valid for 0 ≤ <span class=\""math-inline\""><asciimath style=\""display:none;\"">x</asciimath></span> < <span class=\""math-inline\""><asciimath style=\""display:none;\"">aL</asciimath></span>. Take <span class=\""math-inline\""><asciimath style=\""display:none;\"">a</asciimath></span> to be 2/3. This is a symbolic answer and you may take <span class=\""math-inline\""><asciimath style=\""display:none;\"">EI</asciimath></span> to be constant.</p><p>NOTE: The slope at <span class=\""math-inline\""><asciimath style=\""display:none;\"">A</asciimath></span> is <span class=\""math-inline\""><asciimath style=\""display:none;\"">-4 PL^2/(81 EI)</asciimath></span>.</p><div><img src=\""[Image showing a beam diagram with points A and B. A force P is applied downward at a distance aL from the left end. The beam length is divided into sections aL and (1-a)L. At the bottom is an equation v(x) = -Px^3/(12EI) + PL^2x/(81EI) with a checkmark.]\"" alt=\""Beam diagram with a force P applied downward, showing points A and B, dimensions, and the elastic curve equation\""></div>"",
+  ""text"": ""Derive the equation for the elastic curve that is valid for 0 ≤ x < aL. Take a to be 2/3. This is a symbolic answer and you may take EI to be constant.\n\nNOTE: The slope at A is $-\\frac{4 PL^2}{81 EI}$.\n\n[The diagram shows a simply supported beam with supports at points A and B. A downward force P is applied at a distance aL from the left end. The total length is L, with sections marked as aL and (1-a)L. The elastic curve equation v(x) = $-\\frac{Px^3}{12EI} + \\frac{PL^2x}{81EI}$ is shown with a checkmark.]"",
+  ""question_region_html"": ""<p>Derive the equation for the elastic curve that is valid for 0 ≤ <span class=\""math-inline\""><asciimath style=\""display:none;\"">x</asciimath></span> < <span class=\""math-inline\""><asciimath style=\""display:none;\"">aL</asciimath></span>. Take <span class=\""math-inline\""><asciimath style=\""display:none;\"">a</asciimath></span> to be 2/3. This is a symbolic answer and you may take <span class=\""math-inline\""><asciimath style=\""display:none;\"">EI</asciimath></span> to be constant.</p><p>NOTE: The slope at <span class=\""math-inline\""><asciimath style=\""display:none;\"">A</asciimath></span> is <span class=\""math-inline\""><asciimath style=\""display:none;\"">-4 PL^2/(81 EI)</asciimath></span>.</p><div><img src=\""[Image of beam with force P applied]\"" alt=\""Beam diagram showing a simply supported beam with force P applied at point aL from left support. The beam has total length L divided into sections aL and (1-a)L.\""></div><div><span class=\""math-inline\""><asciimath style=\""display:none;\"">v(x) = -Px^3/(12EI) + PL^2x/(81EI)</asciimath></span></div>"",
+  ""transcription_score"": 0.9732491,
+  ""confidence"": 0.95617834
+}",https://media.test.cheggcdn.com/media_testing/279/279494c0-8d87-4590-9f87-090bb238f574/5_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>Which statements apply to a general, planar force system?</p><p>○ The influence of a force on the system does not change if it is shifted arbitrarily in the system with respect to its point of application. But the orientation of its line of effect remains the same.</p><p>○ A general, planar force system can't be replaced at any point in the plane by the resultant force and a resultant torque can be replaced.</p><p>○ The external effect of a force on the system remains the same when the force is displaced along its effect line.</p>"",
+  ""text"": ""Which statements apply to a general, planar force system?\n\n○ The influence of a force on the system does not change if it is shifted arbitrarily in the system with respect to its point of application. But the orientation of its line of effect remains the same.\n\n○ A general, planar force system can't be replaced at any point in the plane by the resultant force and a resultant torque can be replaced.\n\n○ The external effect of a force on the system remains the same when the force is displaced along its effect line."",
+  ""question_region_html"": ""<p>Which statements apply to a general, planar force system?</p><p>○ The influence of a force on the system does not change if it is shifted arbitrarily in the system with respect to its point of application. But the orientation of its line of effect remains the same.</p><p>○ A general, planar force system can't be replaced at any point in the plane by the resultant force and a resultant torque can be replaced.</p><p>○ The external effect of a force on the system remains the same when the force is displaced along its effect line.</p>"",
+  ""transcription_score"": 0.9975,
+  ""confidence"": 0.9965
+}",https://media.test.cheggcdn.com/media_testing/e54/e5455c16-def9-4e59-8269-be858eeca691/10_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","```json
+{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>TB MC OIL 0551 (43/55) Worn Crankshaft/manufacturers and dists.<br><br>73 Wapping Lane, London, E1W 2RL. Telephone 0171 702 0700. Company Registration No. 259227 England. Registered Office: 73 Wapping Lane, London, E1W 2RL. Vat Registration No. 238 5866 25. A Castrol International company</p>"",
+  ""text"": ""TB MC OIL 0551 (43/55) Worn Crankshaft/manufacturers and dists.\n\n73 Wapping Lane, London, E1W 2RL. Telephone 0171 702 0700. Company Registration No. 259227 England. Registered Office: 73 Wapping Lane, London, E1W 2RL. Vat Registration No. 238 5866 25. A Castrol International company"",
+  ""question_region_html"": ""<p>TB MC OIL 0551 (43/55) Worn Crankshaft/manufacturers and dists.<br><br>73 Wapping Lane, London, E1W 2RL. Telephone 0171 702 0700. Company Registration No. 259227 England. Registered Office: 73 Wapping Lane, London, E1W 2RL. Vat Registration No. 238 5866 25. A Castrol International company</p>"",
+  ""transcription_score"": 0.9875,
+  ""confidence"": 0.987
+}
+```",https://media.test.cheggcdn.com/media_testing/8c6/8c66c2c1-2389-4707-8f10-d10112c7841e/24_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": true,
+  ""has_diagram"": false,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<div class=\""exercise-container\"">\n  <h3>Exercise</h3>\n  <p>Not everyone has identical basal metabolic rates. In fact, variability has been reported among individuals.</p>\n  <p>Which of the following factors do scientists believe can influence a person's BMR? Select all that apply.</p>\n  <table class=\""options-table\"">\n    <tr>\n      <td class=\""option selected\"">By respiration rate/breaths per minute</td>\n      <td class=\""option\"">By keeping temperature monitoring records</td>\n      <td class=\""option\"">By taking (or measuring) vital traces (heart rate)</td>\n      <td class=\""option\"">By making photos of all food you ingest</td>\n    </tr>\n  </table>\n  <div class=\""next-button\"">Next</div>\n</div>"",
+  ""text"": ""Exercise\n\nNot everyone has identical basal metabolic rates. In fact, variability has been reported among individuals.\n\nWhich of the following factors do scientists believe can influence a person's BMR? Select all that apply.\n\n[Selected] By respiration rate/breaths per minute\n[ ] By keeping temperature monitoring records\n[ ] By taking (or measuring) vital traces (heart rate)\n[ ] By making photos of all food you ingest"",
+  ""question_region_html"": ""<div>\n<h3>Exercise</h3>\n<p>Not everyone has identical basal metabolic rates. In fact, variability has been reported among individuals.</p>\n<p>Which of the following factors do scientists believe can influence a person's BMR? Select all that apply.</p>\n<table>\n<tr>\n<td class=\""selected\"">By respiration rate/breaths per minute</td>\n<td>By keeping temperature monitoring records</td>\n<td>By taking (or measuring) vital traces (heart rate)</td>\n<td>By making photos of all food you ingest</td>\n</tr>\n</table>\n<div>Next</div>\n</div>"",
+  ""transcription_score"": 0.98654321,
+  ""confidence"": 0.95437852
+}",https://media.test.cheggcdn.com/media_testing/517/51794061-ffe6-4838-8d28-6ba8a049d845/4_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>Question 2: What tools would be useful to get the best out of the networking? Tick all that apply.<br>a) Support of friends and family<br>b) Associates to work with you<br>c) Regular contact with your networks<br>d) Toolbox, torch and instructions<br>e) Support staff<br>f) Give up friends and work as many hours as possible</p><p>Question 3: A good network group might be arranged by which organisation? Tick all that apply.<br>a) Network Rail<br>b) The British Broadcasting Company<br>c) Business Network International<br>d) Local sewer network<br>e) London Underground Network<br>f) Chamber of Commerce</p><p>Question 4: What phrases would best describe the benefits of a network to your business? Tick all that apply.<br>a) It's like having dozens of people working for you<br>b) Allows me to connect to other computers and the Internet<br>c) It cost a lot of money to keep giving out business cards<br>d) A good source of business contacts<br>e) I am the only electrician in the group<br>f) It is about connecting with people<br>g) It stops me from working and making money</p>"",
+  ""text"": ""Question 2: What tools would be useful to get the best out of the networking? Tick all that apply.\na) Support of friends and family\nb) Associates to work with you\nc) Regular contact with your networks\nd) Toolbox, torch and instructions\ne) Support staff\nf) Give up friends and work as many hours as possible\n\nQuestion 3: A good network group might be arranged by which organisation? Tick all that apply.\na) Network Rail\nb) The British Broadcasting Company\nc) Business Network International\nd) Local sewer network\ne) London Underground Network\nf) Chamber of Commerce\n\nQuestion 4: What phrases would best describe the benefits of a network to your business? Tick all that apply.\na) It's like having dozens of people working for you\nb) Allows me to connect to other computers and the Internet\nc) It cost a lot of money to keep giving out business cards\nd) A good source of business contacts\ne) I am the only electrician in the group\nf) It is about connecting with people\ng) It stops me from working and making money"",
+  ""question_region_html"": ""<p>Question 2: What tools would be useful to get the best out of the networking? Tick all that apply.<br>a) Support of friends and family<br>b) Associates to work with you<br>c) Regular contact with your networks<br>d) Toolbox, torch and instructions<br>e) Support staff<br>f) Give up friends and work as many hours as possible</p><p>Question 3: A good network group might be arranged by which organisation? Tick all that apply.<br>a) Network Rail<br>b) The British Broadcasting Company<br>c) Business Network International<br>d) Local sewer network<br>e) London Underground Network<br>f) Chamber of Commerce</p><p>Question 4: What phrases would best describe the benefits of a network to your business? Tick all that apply.<br>a) It's like having dozens of people working for you<br>b) Allows me to connect to other computers and the Internet<br>c) It cost a lot of money to keep giving out business cards<br>d) A good source of business contacts<br>e) I am the only electrician in the group<br>f) It is about connecting with people<br>g) It stops me from working and making money</p>"",
+  ""transcription_score"": 0.9875,
+  ""confidence"": 0.98532614
+}",https://media.test.cheggcdn.com/media_testing/30b/30b1a9f5-68fd-4b9c-80fb-f2374ae74402/6_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>1.5      What are the criticisms of functionalism theory?                                                                 (5)</p><p>[20]</p><p>Question 2</p>"",
+  ""text"": ""1.5      What are the criticisms of functionalism theory?                                                                 (5)\n[20]\n\nQuestion 2"",
+  ""question_region_html"": ""<p>1.5      What are the criticisms of functionalism theory?                                                                 (5)</p><p>[20]</p><p>Question 2</p>"",
+  ""transcription_score"": 0.9895,
+  ""confidence"": 0.985
+}",https://media.test.cheggcdn.com/media_testing/cb0/cb0e35c1-ca36-492e-aa89-929774cbe5f0/18_copy.png?id=8
+"## Role: OCR System. You analyze a student‑submitted image and return a structured transcription.
+
+## Instruction
+Transcribe the given image into a JSON object with the following keys:
+
+### Keys
+- has_table: boolean - true if any table is present
+- has_diagram: boolean - true if any diagram/figure is present
+- has_asciimath: boolean - true if the region of interest contains AsciiMath
+- is_printed: boolean - true if printed (typeset) text is detected
+- is_handwritten: boolean - true if handwritten text is detected
+- raw_html: string - well-formed HTML transcription representing every visible element in the image - text, math, diagrams, tables, captions, page numbers, Internet Browser Tabs, Header, Footer, Address bar Icons, everything. Do not mask, omit, or replace any part of the image.
+- text: string - LaTeX transcription of the cropped region of interest
+- question_region_html: string - well-formed HTML transcription of the cropped region of interest
+- transcription_score: number - Mean of all confidenceRate values in lineData (range 0-1)
+- confidence: number - Overall confidence (0-1, up to 8 significant digits) that the entire response is correct
+
+### Guidelines
+- Use dot notation for all numbers; trim superfluous trailing zeros
+- #Region of interest# masks irrelevant areas which aren't part of the question content
+- In question_region_html and raw_html, represent every mathematical expression in AsciiMath using <span class='math-inline'><asciimath>...</asciimath></span>
+- Ensure question_region_html and raw_html are valid, well-formed HTML
+- lineData is an array of objects, each describing one line with type: text, math, table, diagram, equation_number, diagram_info, chart, form_field, code, pseudocode, or page_info, and confidenceRate (0-1)
+
+Provide your response immediately without any preamble or additional information:
+","{
+  ""has_table"": false,
+  ""has_diagram"": false,
+  ""has_asciimath"": false,
+  ""is_printed"": true,
+  ""is_handwritten"": false,
+  ""raw_html"": ""<p>Failed - (no permissions to trigger downstream pipeline) <span style=\""background-color: #f8f8f8; padding: 5px; border-radius: 3px;\""><span style=\""color: red;\"">✕</span> test_robot_independent_dev</span></p>"",
+  ""text"": ""Failed - (no permissions to trigger downstream pipeline) ✕ test_robot_independent_dev"",
+  ""question_region_html"": ""<p>Failed - (no permissions to trigger downstream pipeline) <span style=\""background-color: #f8f8f8; padding: 5px; border-radius: 3px;\""><span style=\""color: red;\"">✕</span> test_robot_independent_dev</span></p>"",
+  ""transcription_score"": 0.995,
+  ""confidence"": 0.987
+}",https://media.test.cheggcdn.com/media_testing/c71/c7120acf-7d87-4bc8-a94d-d3d9619027d8/1_copy.png?id=8

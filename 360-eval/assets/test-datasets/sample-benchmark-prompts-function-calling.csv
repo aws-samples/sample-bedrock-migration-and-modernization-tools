@@ -1,0 +1,853 @@
+text_prompt,golden_answer
+"## Task: Generate the proper function call as plain arguments dictionary to calculate the distance between points in coordinates using the function:
+
+## Function:
+def calculate_distance(**kwargs):
+    """"""""""""Calculate the Euclidean distance between two points in 2D space.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - x1 (float): X-coordinate of the first point
+            - y1 (float): Y-coordinate of the first point
+            - x2 (float): X-coordinate of the second point
+            - y2 (float): Y-coordinate of the second point
+        
+    Returns:
+        float: The Euclidean distance between the two points
+    """"""""""""
+    required_params = ['x1', 'y1', 'x2', 'y2']
+    for param in required_params:
+        if param not in kwargs:
+            raise ValueError(f""""The '{param}' parameter is required"""")
+    
+    x1, y1 = kwargs['x1'], kwargs['y1']
+    x2, y2 = kwargs['x2'], kwargs['y2']
+    
+    distance = ((x2 - x1)**2 + (y2 - y1)**2)**0.5
+    return distance
+
+## User request:
+Calculate the distance between points (3, 4) and (6, 8)
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+
+class DistanceParameters(BaseModel):
+    x1: float = Field(..., description= X-coordinate of the first point�)
+    y1: float = Field(..., description= Y-coordinate of the first point�)
+    x2: float = Field(..., description= X-coordinate of the second point�)
+    y2: float = Field(..., description= Y-coordinate of the second point�)
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'x1': 3, 'y1': 4, 'x2': 6, 'y2': 8}"
+"## Task: Generate the proper function call as plain arguments dictionary to validate email address john.doe@example.com using this function: 
+
+## Function:
+def validate_email(**kwargs):
+    """"""Validate if a string is a proper email address format.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - email (str): The email address to validate
+            - check_domain (bool, optional): Whether to verify domain exists. Defaults to False.
+        
+    Returns:
+        dict: A dictionary with 'is_valid' (bool) and 'reason' (str, if invalid)
+    """"""
+    if 'email' not in kwargs:
+        raise ValueError(""The 'email' parameter is required"")
+    
+    email = kwargs['email']
+    check_domain = kwargs.get('check_domain', False)
+    
+    # Function implementation details
+    return {'is_valid': True, 'reason': ''}
+
+
+## User request:
+Validate this email: john.doe@example.com without domain checking
+
+## Pydantic output format:
+from pydantic import BaseModel, EmailStr
+
+class EmailConfig(BaseModel):
+    email: EmailStr
+    check_domain: bool
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'email': 'john.doe@example.com', 'check_domain': False}"
+"## Task:  Generate the proper function call as plain arguments dictionary to convert USD to EUR  using this function: 
+
+## Function:
+def convert_currency(**kwargs):
+    """"""Convert an amount from one currency to another.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - amount (float): The amount to convert
+            - from_currency (str): The source currency code (e.g., 'USD')
+            - to_currency (str): The target currency code (e.g., 'EUR')
+            - date (str, optional): Date for historical rates in YYYY-MM-DD format
+        
+    Returns:
+        dict: A dictionary with 'converted_amount' and 'rate'
+    """"""
+    required_params = ['amount', 'from_currency', 'to_currency']
+    for param in required_params:
+        if param not in kwargs:
+            raise ValueError(f""The '{param}' parameter is required"")
+    
+    # Function implementation details
+    return {'converted_amount': 0.0, 'rate': 0.0}
+
+## User request:
+Convert 500 USD to EUR using today's rate
+
+## Pydantic output format:
+from typing import Optional
+from pydantic import BaseModel, Field
+
+class CurrencyConversionParams(BaseModel):
+    amount: float = Field(..., description=""The amount to convert"")
+    from_currency: str = Field(..., description=""The source currency code (e.g., 'USD')"")
+    to_currency: str = Field(..., description=""The target currency code (e.g., 'EUR')"")
+    date: Optional[str] = Field(None, description=""Date for historical rates in YYYY-MM-DD format"")
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'amount': 500, 'from_currency': 'USD', 'to_currency': 'EUR'}"
+"## Task: Generate the proper function call as plain arguments dictionary to analyze the sentiment of sentence 'The product exceeded my expectations and arrived ahead of schedule' using this function: 
+
+## Function:
+def analyze_sentiment(**kwargs):
+    """"""Analyze the sentiment of provided text.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - text (str): The text to analyze
+            - language (str, optional): The language code. Defaults to 'en'.
+            - detailed (bool, optional): Whether to return detailed analysis. Defaults to False.
+        
+    Returns:
+        dict: A dictionary with sentiment scores and analysis
+    """"""
+    if 'text' not in kwargs:
+        raise ValueError(""The 'text' parameter is required"")
+    
+    # Function implementation details
+    return {'sentiment': 'positive', 'score': 0.8}
+
+## User request:
+Analyze the sentiment of this review in English with detailed analysis: ""The product exceeded my expectations and arrived ahead of schedule.""
+
+## Pydantic output format:
+class SentimentAnalysisParams(BaseModel):
+    text: str = Field(..., description=""The text to analyze"")
+    language: str = Field(""en"", description=""The language code"")
+    detailed: bool = Field(False, description=""Whether to return detailed analysis"")
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'text': 'The product exceeded my expectations and arrived ahead of schedule.', 'language': 'en', 'detailed': True}"
+"## Task: Generate the proper function call as plain arguments dictionary to schedule a meeting using this function: 
+
+## Function:
+def schedule_meeting(**kwargs):
+    """"""Schedule a meeting on a calendar.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - title (str): Meeting title
+            - start_time (str): Start time in ISO format (YYYY-MM-DDTHH:MM:SS)
+            - duration_minutes (int): Duration in minutes
+            - attendees (list): List of attendee email addresses
+            - location (str, optional): Meeting location or URL
+            - description (str, optional): Meeting description
+    
+    Returns:
+        dict: Meeting details with confirmation ID
+    """"""
+    required_params = ['title', 'start_time', 'duration_minutes', 'attendees']
+    for param in required_params:
+        if param not in kwargs:
+            raise ValueError(f""The '{param}' parameter is required"")
+    
+    # Function implementation details
+    
+    # Generate a confirmation ID (example implementation)
+    import uuid
+    confirmation_id = str(uuid.uuid4())
+    
+    # Return a dictionary with meeting details and confirmation ID
+    return {
+        ""confirmation_id"": confirmation_id,
+        ""meeting_details"": kwargs
+    }
+
+
+## User request:
+Schedule a project kickoff meeting tomorrow at 2pm for 60 minutes with team@example.com and client@example.com in Conference Room A with the description ""Discuss project timeline and goals""
+
+## Pydantic output format:
+class MeetingRequest(BaseModel):
+    """"""Data model for meeting request parameters.""""""
+    title: str = Field(..., description=""Meeting title"")
+    start_time: datetime = Field(..., description=""Start time of the meeting"")
+    duration_minutes: int = Field(..., gt=0, description=""Duration of the meeting in minutes"")
+    attendees: List[EmailStr] = Field(..., min_items=1, description=""List of attendee email addresses"")
+    location: Optional[str] = Field(None, description=""Meeting location or URL"")
+    description: Optional[str] = Field(None, description=""Meeting description"")
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'title': 'Project Kickoff Meeting', 'start_time': '2023-11-15T14:00:00', 'duration_minutes': 60, 'attendees': ['team@example.com', 'client@example.com'], 'location': 'Conference Room A', 'description': 'Discuss project timeline and goals'}"
+"## Task: Generate the proper function call as plain arguments dictionary to convert degrees Celsius to Fahrenheit using the function: 
+
+## Function:
+def celsius_to_fahrenheit(**kwargs):
+    """"""Convert temperature from Celsius to Fahrenheit.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - celsius (float): Temperature in Celsius
+        
+    Returns:
+        float: Temperature in Fahrenheit
+    """"""
+    if 'celsius' not in kwargs:
+        raise ValueError(""The 'celsius' parameter is required"")
+    
+    celsius = kwargs['celsius']
+    fahrenheit = (celsius * 9/5) + 32
+    return fahrenheit
+
+
+## User request:
+Convert 20 degrees Celsius to Fahrenheit
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+
+class CelsiusInput(BaseModel):
+    celsius: float = Field(..., description=""Temperature in Celsius"")
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'celsius': 25}"
+"## Task: Generate the proper function call as plain arguments dictionary to calculate BMI for a person using the function:
+ 
+## Function:
+def calculate_bmi(**kwargs):
+    """"""Calculate Body Mass Index (BMI).
+    
+    Args:
+        **kwargs: Keyword arguments
+            - height_cm (float): Height in centimeters
+            - weight_kg (float): Weight in kilograms
+        
+    Returns:
+        float: BMI value
+    """"""
+    if 'height_cm' not in kwargs or 'weight_kg' not in kwargs:
+        raise ValueError(""Both 'height_cm' and 'weight_kg' parameters are required"")
+    
+    height_m = kwargs['height_cm'] / 100
+    bmi = kwargs['weight_kg'] / (height_m * height_m)
+    return round(bmi, 2)
+
+
+## User request: Calculate BMI for a person who is 175 cm tall and weighs 70 kg using the function
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+
+class BMIInput(BaseModel):
+    height_cm: float = Field(..., description=""Height in centimeters"")
+    weight_kg: float = Field(..., description=""Weight in kilograms"")
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'height_cm': 175, 'weight_kg': 70}"
+"## Task: Generate the proper function call as plain arguments dictionary to calculate a monthly mortgage payment using the function: 
+
+## Function:
+def calculate_mortgage_payment(**kwargs):
+    """"""Calculate monthly mortgage payment.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - principal (float): Loan amount in dollars
+            - annual_interest_rate (float): Annual interest rate as a percentage
+            - term_years (int): Length of mortgage in years
+        
+    Returns:
+        float: Monthly payment amount
+    """"""
+    if 'principal' not in kwargs or 'annual_interest_rate' not in kwargs or 'term_years' not in kwargs:
+        raise ValueError(""'principal', 'annual_interest_rate', and 'term_years' are all required"")
+    
+    p = kwargs['principal']
+    r = kwargs['annual_interest_rate'] / 100 / 12  # Monthly interest rate
+    n = kwargs['term_years'] * 12  # Number of payments
+    
+    payment = p * (r * (1 + r)**n) / ((1 + r)**n - 1)
+    return round(payment, 2)
+
+## User request: Calculate a monthly mortgage payment for a $300,000 loan with 4.5% annual interest rate and 30-year term
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+
+class MortgageInput(BaseModel):
+    principal: float = Field(..., description=""Loan amount in dollars"")
+    annual_interest_rate: float = Field(..., description=""Annual interest rate as a percentage"")
+    term_years: int = Field(..., description=""Length of mortgage in years"")
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'principal': 300000, 'annual_interest_rate': 4.5, 'term_years': 30}"
+"## Task: Generate the proper function call as plain arguments dictionary to create a password using the function: 
+
+## Function:
+def generate_password(**kwargs):
+    """"""Generate a secure random password.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - length (int): Length of password
+            - include_uppercase (bool): Include uppercase letters
+            - include_lowercase (bool): Include lowercase letters
+            - include_numbers (bool): Include numeric digits
+            - include_special (bool): Include special characters
+        
+    Returns:
+        str: Generated password
+    """"""
+    import random
+    import string
+    
+    if 'length' not in kwargs:
+        raise ValueError(""The 'length' parameter is required"")
+    
+    chars = ''
+    if kwargs.get('include_uppercase', False):
+        chars += string.ascii_uppercase
+    if kwargs.get('include_lowercase', False):
+        chars += string.ascii_lowercase
+    if kwargs.get('include_numbers', False):
+        chars += string.digits
+    if kwargs.get('include_special', False):
+        chars += string.punctuation
+    
+    if not chars:
+        raise ValueError(""At least one character type must be included"")
+    
+    return ''.join(random.choice(chars) for _ in range(kwargs['length']))
+
+
+## User request:
+create a password with 12 characters, including uppercase letters, lowercase letters, numbers, and special characters 
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+
+class PasswordGenerationInput(BaseModel):
+    length: int = Field(..., description=""Length of the password"")
+    include_uppercase: bool = Field(..., description=""Whether to include uppercase letters"")
+    include_lowercase: bool = Field(..., description=""Whether to include lowercase letters"")
+    include_numbers: bool = Field(..., description=""Whether to include numbers"")
+    include_special: bool = Field(..., description=""Whether to include special characters"")
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'length': 12, 'include_uppercase': True, 'include_lowercase': True, 'include_numbers': True, 'include_special': True}"
+"## Task: Generate the proper function call as plain arguments dictionary to calculate the distance between locations using the function: 
+
+## Function:
+def calculate_distance(**kwargs):
+    """"""Calculate the distance between two points using the Haversine formula.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - lat1 (float): Latitude of point 1 in degrees
+            - lon1 (float): Longitude of point 1 in degrees
+            - lat2 (float): Latitude of point 2 in degrees
+            - lon2 (float): Longitude of point 2 in degrees
+        
+    Returns:
+        float: Distance in kilometers
+    """"""
+    import math
+    
+    required_params = ['lat1', 'lon1', 'lat2', 'lon2']
+    for param in required_params:
+        if param not in kwargs:
+            raise ValueError(f""The '{param}' parameter is required"")
+    
+    # Convert latitude and longitude from degrees to radians
+    lat1 = math.radians(kwargs['lat1'])
+    lon1 = math.radians(kwargs['lon1'])
+    lat2 = math.radians(kwargs['lat2'])
+    lon2 = math.radians(kwargs['lon2'])
+    
+    # Haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    r = 6371  # Radius of Earth in kilometers
+    
+    return round(c * r, 2)
+
+## User request:
+Calculate the distance between New York (40.7128° N, 74.0060° W) and Los Angeles (34.0522° N, 118.2437° W)
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+
+class GeoCoordinatesInput(BaseModel):
+    lat1: float = Field(..., description=""Latitude of first location in decimal degrees"")
+    lon1: float = Field(..., description=""Longitude of first location in decimal degrees"")
+    lat2: float = Field(..., description=""Latitude of second location in decimal degrees"")
+    lon2: float = Field(..., description=""Longitude of second location in decimal degrees"")
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'lat1': 40.7128, 'lon1': -74.0060, 'lat2': 34.0522, 'lon2': -118.2437}"
+"## Task: Generate the proper function call as plain arguments dictionary to calculate the area of a rectangle using the function: 
+
+## Function:
+def rectangle_area(**kwargs):
+    """"""Calculate the area of a rectangle.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - length (float): Length of the rectangle
+            - width (float): Width of the rectangle
+        
+    Returns:
+        float: Area of the rectangle
+    """"""
+    required_params = ['length', 'width']
+    for param in required_params:
+        if param not in kwargs:
+            raise ValueError(f""The '{param}' parameter is required"")
+    
+    area = kwargs['length'] * kwargs['width']
+    return area
+
+
+## User request:
+Calculate the area of a rectangle with length 10 and width 5
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+
+class RectangleInput(BaseModel):
+    length: float = Field(..., description=""Length of the rectangle"")
+    width: float = Field(..., description=""Width of the rectangle"")
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'length': 10, 'width': 5}"
+"## Task: Generate the proper function call as plain arguments dictionary to calculate the volume of a cylinder using the function: 
+
+## Function:
+def cylinder_volume(**kwargs):
+    """"""Calculate the volume of a cylinder.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - radius (float): Radius of the cylinder
+            - height (float): Height of the cylinder
+            - pi (float, optional): Value of pi, defaults to 3.14159
+        
+    Returns:
+        float: Volume of the cylinder
+    """"""
+    required_params = ['radius', 'height']
+    for param in required_params:
+        if param not in kwargs:
+            raise ValueError(f""The '{param}' parameter is required"")
+    
+    pi = kwargs.get('pi', 3.14159)
+    volume = pi * (kwargs['radius']**2) * kwargs['height']
+    return volume
+
+## User request:
+Calculate the volume of a cylinder with radius 3 and height 10
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+
+class RectangleInput(BaseModel):
+    length: float = Field(..., description=""Length of the rectangle"")
+    width: float = Field(..., description=""Width of the rectangle"")
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'radius': 3, 'height': 10}"
+"## Task: Generate the proper function call as plain arguments dictionary to calculate the average of numbers using the function: 
+
+## Function:
+def calculate_average(**kwargs):
+    """"""Calculate the average (mean) of a list of numbers.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - numbers (list): List of numbers
+        
+    Returns:
+        float: Average of the numbers
+    """"""
+    if 'numbers' not in kwargs:
+        raise ValueError(f""The 'numbers' parameter is required"")
+    
+    numbers = kwargs['numbers']
+    if not numbers:
+        return 0
+    
+    return sum(numbers) / len(numbers)
+
+## User request:
+Calculate the average of the numbers 10, 15, 20, 25, and 30
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+from typing import List
+
+class AverageInput(BaseModel):
+    numbers: List[float] = Field(..., description=""List of numbers to average"")
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'numbers': [10, 15, 20, 25, 30]}"
+"## Task: Generate the proper function call as plain arguments dictionary to calculate simple interest using the function: 
+
+## Function:
+def simple_interest(**kwargs):
+    """"""Calculate simple interest.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - principal (float): Principal amount
+            - rate (float): Interest rate (in decimal, e.g., 0.05 for 5%)
+            - time (float): Time period in years
+        
+    Returns:
+        float: Simple interest amount
+    """"""
+    required_params = ['principal', 'rate', 'time']
+    for param in required_params:
+        if param not in kwargs:
+            raise ValueError(f""The '{param}' parameter is required"")
+    
+    principal = kwargs['principal']
+    rate = kwargs['rate']
+    time = kwargs['time']
+    
+    interest = principal * rate * time
+    return interest
+
+## User request:
+Calculate the simple interest for a principal of $1000, rate of 5%, and time period of 2 years
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+
+class SimpleInterestInput(BaseModel):
+    principal: float = Field(..., description=""Principal amount"")
+    rate: float = Field(..., description=""Interest rate (in decimal, e.g., 0.05 for 5%)"")
+    time: float = Field(..., description=""Time period in years"")
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'principal': 1000, 'rate': 0.05, 'time': 2}"
+"## Task: Generate the proper function call as plain arguments dictionary to convert between units of length using the function: 
+
+## Function:
+def convert_length(**kwargs):
+    """"""Convert between different units of length.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - value (float): The value to convert
+            - from_unit (str): The unit to convert from ('meters', 'feet', 'inches', 'kilometers')
+            - to_unit (str): The unit to convert to ('meters', 'feet', 'inches', 'kilometers')
+        
+    Returns:
+        float: Converted length value
+    """"""
+    required_params = ['value', 'from_unit', 'to_unit']
+    for param in required_params:
+        if param not in kwargs:
+            raise ValueError(f""The '{param}' parameter is required"")
+    
+    # Conversion factors to meters
+    to_meters = {
+        'meters': 1,
+        'feet': 0.3048,
+        'inches': 0.0254,
+        'kilometers': 1000
+    }
+    
+    # Convert to meters first
+    meters = kwargs['value'] * to_meters[kwargs['from_unit']]
+    
+    # Convert from meters to target unit
+    result = meters / to_meters[kwargs['to_unit']]
+    return result
+
+## User request:
+Convert 5 kilometers to miles
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+from enum import Enum
+from typing import Literal
+
+class LengthUnit(str, Enum):
+    METERS = ""meters""
+    FEET = ""feet""
+    INCHES = ""inches""
+    KILOMETERS = ""kilometers""
+    MILES = ""miles""  # Added based on your example
+
+class LengthConversionInput(BaseModel):
+    value: float = Field(..., description=""The value to convert"")
+    from_unit: LengthUnit = Field(..., description=""The unit to convert from"")
+    to_unit: LengthUnit = Field(..., description=""The unit to convert to"")
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'value': 5, 'from_unit': 'kilometers', 'to_unit': 'miles'}"
+"## Task: Generate the proper function call as plain arguments dictionary to solve a quadratic equation using the function: 
+
+## Function:
+def solve_quadratic(**kwargs):
+    """"""Solve a quadratic equation of the form ax² + bx + c = 0.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - a (float): Coefficient of x²
+            - b (float): Coefficient of x
+            - c (float): Constant term
+        
+    Returns:
+        tuple: Two solutions (x1, x2) to the quadratic equation
+    """"""
+    required_params = ['a', 'b', 'c']
+    for param in required_params:
+        if param not in kwargs:
+            raise ValueError(f""The '{param}' parameter is required"")
+    
+    a = kwargs['a']
+    b = kwargs['b']
+    c = kwargs['c']
+    
+    discriminant = b**2 - 4*a*c
+    
+    if discriminant < 0:
+        return None  # No real solutions
+    
+    x1 = (-b + discriminant**0.5) / (2*a)
+    x2 = (-b - discriminant**0.5) / (2*a)
+    
+    return (x1, x2)
+
+
+## User request:
+Solve the quadratic equation 2x² + 5x - 3 = 0
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+from typing import Optional, Tuple, Union
+
+class QuadraticInput(BaseModel):
+    a: float = Field(..., description=""Coefficient of x_"")
+    b: float = Field(..., description=""Coefficient of x"")
+    c: float = Field(..., description=""Constant term"")
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'a': 2, 'b': 5, 'c': -3}"
+"## Task: Generate the proper function call as plain arguments dictionary to calculate compound interest using the function: 
+
+## Function:
+def compound_interest(**kwargs):
+    """"""Calculate compound interest.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - principal (float): Principal amount
+            - rate (float): Annual interest rate (in decimal)
+            - time (float): Time in years
+            - compounds_per_year (int, optional): Number of times interest is compounded per year, defaults to 1
+        
+    Returns:
+        float: Final amount after compound interest
+    """"""
+    required_params = ['principal', 'rate', 'time']
+    for param in required_params:
+        if param not in kwargs:
+            raise ValueError(f""The '{param}' parameter is required"")
+    
+    principal = kwargs['principal']
+    rate = kwargs['rate']
+    time = kwargs['time']
+    compounds_per_year = kwargs.get('compounds_per_year', 1)
+    
+    amount = principal * (1 + rate/compounds_per_year)**(compounds_per_year*time)
+    return amount
+
+## User request:
+Calculate the compound interest for $5000 invested at 8% for 3 years, compounded quarterly
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+from typing import Optional
+
+class CompoundInterestInput(BaseModel):
+    principal: float = Field(..., description=""Principal amount"")
+    rate: float = Field(..., description=""Annual interest rate (in decimal)"")
+    time: float = Field(..., description=""Time in years"")
+    compounds_per_year: Optional[int] = Field(1, description=""Number of times interest is compounded per year"")
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'principal': 5000, 'rate': 0.08, 'time': 3, 'compounds_per_year': 4}"
+"## Task: Generate the proper function call as plain arguments dictionary to calculate a percentage discount using the function: 
+
+## Function:
+def calculate_discount(**kwargs):
+    """"""Calculate the final price after applying a percentage discount.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - original_price (float): The original price before discount
+            - discount_percentage (float): The discount percentage (e.g., 20 for 20%)
+        
+    Returns:
+        float: The final price after discount
+    """"""
+    required_params = ['original_price', 'discount_percentage']
+    for param in required_params:
+        if param not in kwargs:
+            raise ValueError(f""The '{param}' parameter is required"")
+    
+    original_price = kwargs['original_price']
+    discount_percentage = kwargs['discount_percentage']
+    
+    discount_amount = original_price * (discount_percentage / 100)
+    final_price = original_price - discount_amount
+    
+    return final_price
+
+## User request:
+Calculate the final price of a $120 item after applying a 25% discount
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+
+class DiscountInput(BaseModel):
+    original_price: float = Field(..., description=""The original price before discount"", gt=0)
+    discount_percentage: float = Field(..., description=""The discount percentage (e.g., 20 for 20%)"", ge=0, le=100)
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'original_price': 120, 'discount_percentage': 25}"
+"## Task: Generate the proper function call as plain arguments dictionary to convert Fahrenheit temperature to Celsius using the function: 
+
+## Function:
+def fahrenheit_to_celsius(**kwargs):
+    """"""Convert temperature from Fahrenheit to Celsius.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - fahrenheit (float): Temperature in Fahrenheit
+        
+    Returns:
+        float: Temperature in Celsius
+    """"""
+    if 'fahrenheit' not in kwargs:
+        raise ValueError(f""The 'fahrenheit' parameter is required"")
+    
+    celsius = (kwargs['fahrenheit'] - 32) * 5/9
+    return celsius
+
+## User request:
+Convert 98.6 degrees Fahrenheit to Celsius
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+
+class FahrenheitInput(BaseModel):
+    fahrenheit: float = Field(..., description=""Temperature in Fahrenheit"")
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.",{'fahrenheit': 98.6}
+"## Task: Generate the proper function call as plain arguments dictionary to calculate the area of a triangle using the function: 
+
+## Function:
+def triangle_area(**kwargs):
+    """"""Calculate the area of a triangle using different formulas based on provided parameters.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - base (float, optional): Base length of the triangle
+            - height (float, optional): Height of the triangle
+            - a (float, optional): First side length for Heron's formula
+            - b (float, optional): Second side length for Heron's formula
+            - c (float, optional): Third side length for Heron's formula
+        
+    Returns:
+        float: Area of the triangle
+    """"""
+    if 'base' in kwargs and 'height' in kwargs:
+        # Use standard formula: area = 0.5 * base * height
+        return 0.5 * kwargs['base'] * kwargs['height']
+    elif all(side in kwargs for side in ['a', 'b', 'c']):
+        # Use Heron's formula
+        a, b, c = kwargs['a'], kwargs['b'], kwargs['c']
+        s = (a + b + c) / 2  # Semi-perimeter
+        area = (s * (s-a) * (s-b) * (s-c)) ** 0.5
+        return area
+    else:
+        raise ValueError(""Either 'base' and 'height' or all three sides 'a', 'b', 'c' must be provided"")
+
+## User request:
+Calculate the area of a triangle with base 8 and height 6
+
+## Pydantic output format:
+from pydantic import BaseModel, Field, root_validator
+from typing import Optional
+
+class TriangleAreaInput(BaseModel):
+    # Parameters for standard formula
+    base: Optional[float] = Field(None, description=""Base length of the triangle"", gt=0)
+    height: Optional[float] = Field(None, description=""Height of the triangle"", gt=0)
+    
+    # Parameters for Heron's formula
+    a: Optional[float] = Field(None, description=""First side length for Heron's formula"", gt=0)
+    b: Optional[float] = Field(None, description=""Second side length for Heron's formula"", gt=0)
+    c: Optional[float] = Field(None, description=""Third side length for Heron's formula"", gt=0)
+
+
+Please provide your dictionary immediately after reading the output format, without any preamble.","{'base': 8, 'height': 6}"
+"## Task: Generate the proper function call as plain arguments dictionary to find the nth term in a Fibonacci sequence using the function: 
+
+## Function:
+def fibonacci_term(**kwargs):
+    """"""Calculate the nth term in the Fibonacci sequence.
+    
+    Args:
+        **kwargs: Keyword arguments
+            - n (int): Position in the sequence (1-based indexing where fib(1)=1, fib(2)=1)
+        
+    Returns:
+        int: The nth Fibonacci number
+    """"""
+    if 'n' not in kwargs:
+        raise ValueError(f""The 'n' parameter is required"")
+    
+    n = kwargs['n']
+    
+    if n <= 0:
+        raise ValueError(""n must be a positive integer"")
+    elif n == 1 or n == 2:
+        return 1
+    
+    a, b = 1, 1
+    for _ in range(3, n + 1):
+        a, b = b, a + b
+    
+    return b
+
+## User request:
+Find the 10th term in the Fibonacci sequence
+
+## Pydantic output format:
+from pydantic import BaseModel, Field
+
+class FibonacciInput(BaseModel):
+    n: int = Field(..., description=""Position in the sequence (1-based indexing where fib(1)=1, fib(2)=1)"", gt=0)
+
+Please provide your dictionary immediately after reading the output format, without any preamble.",{'n': 10}
