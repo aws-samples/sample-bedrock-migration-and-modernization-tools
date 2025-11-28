@@ -1,0 +1,23 @@
+# Core Haystack (v2, with top-level exports used by PyPDFToDocument and Agent)
+haystack-ai==2.13.0
+chroma-haystack
+
+# Amazon Bedrock integration for Haystack (Agent + ChatGenerator, Evaluators)
+amazon-bedrock-haystack
+
+# AWS SDKs / orchestration
+boto3>=1.34.0
+botocore>=1.34.0
+sagemaker==2.228.0
+mlflow>=2.9.0
+
+# Search
+ddgs
+
+# Data & utils (friendly with Studio images)
+numpy
+pandas>=2.0.0
+pypdf
+sentence-transformers>=3.0.0
+tqdm
+seaborn
