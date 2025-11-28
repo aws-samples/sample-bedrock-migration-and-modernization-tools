@@ -40,7 +40,7 @@ The pipeline integrates:
 ![Pipeline](images/4-pipeline-dag.png)
 
 **MLflow**  
-![MLflow](images/mlflow.png)
+![MLflow](images/6-mlflow-metrics.png)
 
 **Architecture Diagram**  
 ![Architecture](images/mrmd.png)
