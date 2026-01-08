@@ -81,6 +81,89 @@ MODEL_FAMILY_OPTIMIZATION_MAP = {
     "mistral.mixtral": "mistral.mistral-large-2407-v1:0",  # Map Mixtral to Large for optimization
 }
 
+# ----------------------------------------
+# Service Tier Configuration
+# ----------------------------------------
+
+# Bedrock models that support service tier (priority, default, flex)
+# Based on AWS Bedrock documentation for inference optimization
+BEDROCK_SERVICE_TIER_SUPPORTED_MODELS = [
+    # Amazon Nova family
+    "amazon.nova-lite",
+    "amazon.nova-micro",
+    "amazon.nova-pro",
+    "amazon.nova-premier",
+
+    # Anthropic Claude 3.5+ family
+    "anthropic.claude-3-5-haiku",
+    "anthropic.claude-3-5-sonnet",
+    "anthropic.claude-3-7-sonnet",
+    "anthropic.claude-sonnet-4",
+    "anthropic.claude-opus-4",
+
+    # DeepSeek
+    "deepseek.deepseek-r1",
+    "deepseek.v3",
+
+    # Meta Llama family
+    "meta.llama3-70b",
+    "meta.llama3-1-70b",
+    "meta.llama3-2-11b",
+    "meta.llama3-3-70b",
+    "meta.llama4-maverick-17b",
+    "meta.llama4-scout-17b",
+
+    # Mistral family
+    "mistral.mistral-large-2402",
+    "mistral.mistral-large-2407",
+    "mistral.mixtral",
+]
+
+# Valid service tier options
+SERVICE_TIER_OPTIONS = ["default", "priority", "flex"]
+
+
+def is_service_tier_supported(model_id):
+    """
+    Check if a model supports service tier selection (priority, default, flex).
+
+    This function handles various model ID formats including:
+    - Regional prefixes (us., eu., ap., ca., sa.)
+    - bedrock/ and converse/ prefixes
+    - Different version suffixes
+
+    Args:
+        model_id: The model ID to check (may include bedrock/ prefix, regional prefix, version)
+
+    Returns:
+        bool: True if model supports service tier, False otherwise
+
+    Examples:
+        >>> is_service_tier_supported("bedrock/us.amazon.nova-pro-v1:0")
+        True
+        >>> is_service_tier_supported("anthropic.claude-3-5-sonnet-20241022-v2:0")
+        True
+        >>> is_service_tier_supported("openai/gpt-4o")
+        False
+        >>> is_service_tier_supported("meta.llama2-13b-chat-v1")
+        False
+    """
+    # Remove bedrock and converse prefixes
+    clean_id = model_id.replace("bedrock/", "").replace("converse/", "")
+
+    # Remove regional prefixes (us., eu., ap., ca., sa.)
+    if "." in clean_id:
+        parts = clean_id.split(".", 1)
+        if parts[0] in ["us", "eu", "ap", "ca", "sa"]:
+            clean_id = parts[1]
+
+    # Check if any supported model pattern matches
+    for pattern in BEDROCK_SERVICE_TIER_SUPPORTED_MODELS:
+        if pattern in clean_id:
+            return True
+
+    return False
+
 
 def get_optimization_target_model(model_id):
     """

@@ -87,14 +87,23 @@ def extract_model_name(model_id):
         # Remove suffix temporarily for processing
         model_id = model_id.replace("_Prompt_Optimized", "")
 
+    # Check if this is a service tier variant (_priority, _flex, _default)
+    service_tier_suffix = ""
+    for tier in ["_priority", "_flex", "_default"]:
+        if model_id.endswith(tier):
+            service_tier_suffix = tier
+            # Remove suffix temporarily for processing
+            model_id = model_id[:-len(tier)]
+            break
+
     if '.' in model_id:
         parts = model_id.split('.')
         if len(parts) == 3:
             model_name = parts[-1].split(':')[0].split('-v')[0]
         else:
             model_name = parts[-2] + '.' + parts[-1]
-        return model_name + optimization_suffix
-    return model_id.split(':')[0] + optimization_suffix
+        return model_name + optimization_suffix + service_tier_suffix
+    return model_id.split(':')[0] + optimization_suffix + service_tier_suffix
 
 def parse_json_string(json_str):
     try:

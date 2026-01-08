@@ -1,12 +1,26 @@
-{"model_id":"bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2","input_token_cost": 0.0008, "output_token_cost": 0.0032, "target_rpm": 60}
-{"model_id":"bedrock/us.amazon.nova-micro-v1:0", "region": "us-west-2","input_token_cost": 0.000035, "output_token_cost": 0.00014}
-{"model_id":"bedrock/us.amazon.nova-lite-v1:0", "region": "us-west-2","input_token_cost": 0.00006, "output_token_cost": 0.00024}
-{"model_id":"bedrock/us.meta.llama3-3-70b-instruct-v1:0", "region": "us-east-2", "input_token_cost": 0.00072, "output_token_cost": 0.00072}
-{"model_id":"bedrock/us.mistral.mixtral-8x7b-instruct-v0:1", "region": "us-east-2", "input_token_cost": 0.00045, "output_token_cost": 0.0007}
-{"model_id":"bedrock/us.mistral.pixtral-large-2502-v1:0", "region": "us-east-1", "input_token_cost": 0.002, "output_token_cost": 0.006}
+{"model_id":"bedrock/us.amazon.nova-2-lite-v1:0", "region": "us-west-2","input_token_cost": 0.00006, "output_token_cost": 0.00024}
+{"model_id":"bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", "region": "us-west-2", "input_token_cost": 0.001, "output_token_cost": 0.005}
+{"model_id":"bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0", "region": "us-west-2", "input_token_cost": 0.003, "output_token_cost": 0.015}
+{"model_id":"bedrock/us.deepseek.r1-v1:0", "region": "us-west-2", "input_token_cost": 0.00058, "output_token_cost": 0.00168}
+{"model_id":"bedrock/deepseek.v3-v1:0", "region": "us-west-2", "input_token_cost": 0.00058, "output_token_cost": 0.00168}
+{"model_id":"bedrock/moonshot.kimi-k2-thinking", "region": "us-west-2", "input_token_cost": 0.0006, "output_token_cost": 0.0025}
+{"model_id":"bedrock/openai.gpt-oss-safeguard-120b:0", "region": "us-west-2", "input_token_cost": 0.00015, "output_token_cost": 0.0006}
+{"model_id":"bedrock/openai.gpt-oss-safeguard-20b:0", "region": "us-west-2", "input_token_cost": 0.00007, "output_token_cost": 0.0003}
 {"model_id":"bedrock/openai.gpt-oss-120b-1:0", "region": "us-west-2", "input_token_cost": 0.00015, "output_token_cost": 0.0006}
 {"model_id":"bedrock/openai.gpt-oss-20b-1:0", "region": "us-west-2", "input_token_cost": 0.00007, "output_token_cost": 0.0003}
-{"model_id":"bedrock/us.anthropic.claude-3-7-sonnet-20250219-v1:0", "region": "us-west-2", "input_token_cost": 0.003, "output_token_cost": 0.015}
-{"model_id":"bedrock/deepseek.v3-v1:0", "region": "us-west-2", "input_token_cost": 0.00058, "output_token_cost": 0.00168}
+{"model_id":"bedrock/qwen.qwen3-next-80b-a3b", "region": "us-west-2", "input_token_cost": 0.00015, "output_token_cost": 0.0012}
 {"model_id":"bedrock/qwen.qwen3-coder-30b-a3b-v1:0", "region": "us-west-2", "input_token_cost": 0.00015, "output_token_cost": 0.0006}
-
+{"model_id":"bedrock/qwen.qwen3-vl-235b-a22b", "region": "us-west-2", "input_token_cost": 0.00053, "output_token_cost": 0.00266}
+{"model_id":"bedrock/us.amazon.nova-2-lite-v1:0", "region": "us-east-1","input_token_cost": 0.00006, "output_token_cost": 0.00024}
+{"model_id":"bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", "region": "us-east-1", "input_token_cost": 0.001, "output_token_cost": 0.005}
+{"model_id":"bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0", "region": "us-east-1", "input_token_cost": 0.003, "output_token_cost": 0.015}
+{"model_id":"bedrock/deepseek.v3-v1:0", "region": "us-east-1", "input_token_cost": 0.00058, "output_token_cost": 0.00168}
+{"model_id":"bedrock/us.deepseek.r1-v1:0", "region": "us-east-1", "input_token_cost": 0.00058, "output_token_cost": 0.00168}
+{"model_id":"bedrock/moonshot.kimi-k2-thinking", "region": "us-east-1", "input_token_cost": 0.0006, "output_token_cost": 0.0025}
+{"model_id":"bedrock/openai.gpt-oss-safeguard-120b", "region": "us-east-1", "input_token_cost": 0.00015, "output_token_cost": 0.0006}
+{"model_id":"bedrock/openai.gpt-oss-safeguard-20b", "region": "us-east-1", "input_token_cost": 0.00007, "output_token_cost": 0.0003}
+{"model_id":"bedrock/openai.gpt-oss-120b-1:0", "region": "us-east-1", "input_token_cost": 0.00015, "output_token_cost": 0.0006}
+{"model_id":"bedrock/openai.gpt-oss-20b-1:0", "region": "us-east-1", "input_token_cost": 0.00007, "output_token_cost": 0.0003}
+{"model_id":"bedrock/qwen.qwen3-next-80b-a3b", "region": "us-east-1", "input_token_cost": 0.00015, "output_token_cost": 0.0012}
+{"model_id":"bedrock/qwen.qwen3-coder-30b-a3b-v1:0", "region": "us-east-1", "input_token_cost": 0.00015, "output_token_cost": 0.0006}
+{"model_id":"bedrock/qwen.qwen3-vl-235b-a22b", "region": "us-east-1", "input_token_cost": 0.00053, "output_token_cost": 0.00266}

@@ -203,6 +203,7 @@ def benchmark(
         user_defined_metrics,
         yard_stick=3,
         vision_enabled=None,
+        service_tier=None,
 ):
     logging.debug(f"Starting benchmark for model: {model_id} in region: {region}")
     status = "Success"
@@ -230,6 +231,10 @@ def benchmark(
             params['api_key'] = os.getenv('AZURE_API_KEY')
         elif "bedrock" in model_id:
             params['aws_region_name'] = region
+            # Add service tier for Bedrock models if specified and not default
+            if service_tier and service_tier != "default":
+                params['serviceTier'] = {"type": service_tier}
+                logging.info(f"Using service tier '{service_tier}' for model {model_id}")
             # Model ID preparation for litellm is now handled centrally in run_inference()
         elif 'openai/' in model_id:
             params['api_key'] = os.getenv('OPENAI_API')
@@ -428,6 +433,7 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
                     user_metrics,
                     yard_stick=yard_stick,
                     vision_enabled=scn.get("image_path", None),
+                    service_tier=scn.get("service_tier", None),
                 )
 
                 # Add throttle metrics to result
@@ -493,6 +499,10 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
                     # If this is an optimized prompt, append label to model_id for display
                     if scn.get("prompt_optimization_label"):
                         result_record["model_id"] = f"{scn['model_id']}_{scn['prompt_optimization_label']}"
+
+                    # If this has a service tier label, append it to model_id for display
+                    if scn.get("service_tier_label"):
+                        result_record["model_id"] = f"{scn['model_id']}{scn['service_tier_label']}"
 
                     recs.append(result_record)
                     logging.debug(

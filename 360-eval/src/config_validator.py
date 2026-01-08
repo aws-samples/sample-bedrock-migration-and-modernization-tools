@@ -11,6 +11,11 @@ import os
 import sys
 import re
 from typing import Dict, List, Optional, Tuple
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+from utils import SERVICE_TIER_OPTIONS, is_service_tier_supported
 
 
 def validate_model_profile(profile: Dict, line_num: int) -> List[str]:
@@ -58,6 +63,25 @@ def validate_model_profile(profile: Dict, line_num: int) -> List[str]:
                 errors.append(f"Line {line_num}: Warning: target_rpm ({target_rpm}) is very high (>600 RPM). Consider lower values for reliability testing.")
             elif not isinstance(target_rpm, int):
                 errors.append(f"Line {line_num}: Warning: target_rpm ({target_rpm}) should be an integer")
+
+    # Validate service_tier (optional field)
+    if "service_tier" in profile:
+        service_tier = profile["service_tier"]
+        model_id = profile.get("model_id", "")
+
+        if service_tier is not None:  # Allow None/null value
+            # Check if it's a valid tier option
+            if not isinstance(service_tier, str):
+                errors.append(f"Line {line_num}: service_tier must be a string")
+            elif service_tier not in SERVICE_TIER_OPTIONS:
+                errors.append(f"Line {line_num}: service_tier '{service_tier}' must be one of: {', '.join(SERVICE_TIER_OPTIONS)}")
+
+            # Check if the model supports service tiers
+            if model_id and "bedrock/" in model_id:
+                if not is_service_tier_supported(model_id):
+                    errors.append(f"Line {line_num}: Warning: Model '{model_id}' may not support service_tier. Will fall back to default tier at runtime.")
+            elif model_id:
+                errors.append(f"Line {line_num}: Warning: service_tier is only supported for Bedrock models, not '{model_id}'. This field will be ignored.")
 
     return errors
 

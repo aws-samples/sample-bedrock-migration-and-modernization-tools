@@ -183,6 +183,16 @@ The benchmarking tool requires model profiles in JSONL format, with each line co
   - Useful for identifying error rates and throttling thresholds
   - Set to `null` or omit the field for no rate limiting
 
+- `service_tier` (optional): Inference service tier for Bedrock models (example: "priority")
+  - **Bedrock models only** - controls the processing tier for model requests
+  - Valid values: `"default"`, `"priority"`, or `"flex"`
+    - `priority`: Higher priority processing with guaranteed capacity
+    - `default`: Standard processing tier (used if not specified)
+    - `flex`: Cost-optimized processing for batch workloads
+  - Multiple tiers can be tested by creating separate entries with the same model_id
+  - Each tier will appear as a separate model variant in results (e.g., `model-name_priority`)
+  - Unsupported models will fall back to default tier automatically
+
 Examples:
 
 **Bedrock Model with Rate Limiting:**
@@ -205,7 +215,21 @@ Examples:
 {"model_id": "gemini/gemini-2.0-flash", "input_token_cost": 0.00015, "output_token_cost": 0.0006}
 ```
 
-Sample model profiles are provided in `default-config/models_profiles.jsonl`.
+**Bedrock Model with Service Tier (Priority):**
+```json
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "service_tier": "priority"}
+```
+
+**Multiple Service Tiers for Same Model:**
+```json
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "service_tier": "default"}
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "service_tier": "priority"}
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "service_tier": "flex"}
+```
+
+Sample model profiles are provided in:
+- `default-config/models_profiles.jsonl` - Standard model configurations
+- `default-config/models_profiles_service_tier_examples.jsonl` - Service tier examples
 
 ## Judge Configuration
 
@@ -274,9 +298,21 @@ streamlit run src/streamlit_dashboard.py
 
 The dashboard provides:
 - **Setup Tab**: Configure evaluations, models, and advanced settings
+  - **Model Configuration**: Select models and configure service tiers
+    - For supported Bedrock models, check multiple service tier boxes to test different tiers
+    - Each selected tier creates a separate model entry in results
+    - Service tier selection appears below the model dropdown for compatible models
 - **Monitor Tab**: Track running evaluations in real-time
 - **Evaluations Tab**: View and analyze evaluation results
 - **Reports Tab**: Browse and view generated HTML reports
+
+#### Using Service Tiers in the Dashboard
+
+1. Navigate to **Setup** → **Model Configuration** tab
+2. Select a Bedrock model that supports service tiers (e.g., Amazon Nova, Claude 3.5+)
+3. Check one or more service tier options (Default, Priority, Flex)
+4. Click **Add Model** - this will create separate entries for each selected tier
+5. Each tier variant will appear in results as `model-name_priority`, `model-name_flex`, etc.
 
 ### File Path Resolution
 

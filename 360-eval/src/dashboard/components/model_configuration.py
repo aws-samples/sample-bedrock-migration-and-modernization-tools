@@ -3,7 +3,7 @@
 import streamlit as st
 import pandas as pd
 from ..utils.constants import (
-    DEFAULT_BEDROCK_MODELS, 
+    DEFAULT_BEDROCK_MODELS,
     DEFAULT_OPENAI_MODELS,
     DEFAULT_COST_MAP,
     DEFAULT_JUDGES_COST,
@@ -12,7 +12,9 @@ from ..utils.constants import (
     MODEL_TO_REGIONS,
     REGION_TO_MODELS,
     JUDGE_MODEL_TO_REGIONS,
-    JUDGE_REGION_TO_MODELS
+    JUDGE_REGION_TO_MODELS,
+    SERVICE_TIER_OPTIONS,
+    is_service_tier_supported
 )
 from ..utils.state_management import save_current_evaluation
 
@@ -87,16 +89,34 @@ class ModelConfigurationComponent:
             st.info("No models selected. Please select at least one model to evaluate.")
         else:
             selected_models_df = pd.DataFrame(st.session_state.current_evaluation_config["selected_models"])
-            selected_models_df = selected_models_df.rename(columns={
+
+            # Build rename mapping based on what columns exist
+            rename_map = {
                 "id": "Model ID",
                 "region": "AWS Region",
                 "input_cost": "Input Cost (per token)",
                 "output_cost": "Output Cost (per token)",
                 "target_rpm": "Target RPM"
-            })
+            }
+
+            # Add service_tier to rename map if it exists
+            if "service_tier" in selected_models_df.columns:
+                rename_map["service_tier"] = "Service Tier"
+
+            selected_models_df = selected_models_df.rename(columns=rename_map)
+
             # Replace None/NaN in Target RPM with "No Limit"
             if "Target RPM" in selected_models_df.columns:
                 selected_models_df["Target RPM"] = selected_models_df["Target RPM"].fillna("No Limit")
+
+            # Replace None/NaN in Service Tier with "default"
+            if "Service Tier" in selected_models_df.columns:
+                selected_models_df["Service Tier"] = selected_models_df["Service Tier"].fillna("default")
+
+            # Drop service_tier_label column if it exists (redundant - used only for display suffix)
+            columns_to_drop = ["service_tier_label"]
+            selected_models_df = selected_models_df.drop(columns=[col for col in columns_to_drop if col in selected_models_df.columns], errors='ignore')
+
             st.dataframe(selected_models_df, hide_index=True)
             
             # Button to remove all selected models
@@ -220,8 +240,26 @@ class ModelConfigurationComponent:
                 "Add Model",
                 key=f"{prefix}_add_model",
                 on_click=self._add_model,
-                args=(selected_model, region, input_cost, output_cost, target_rpm)
+                args=(selected_model, region, input_cost, output_cost, target_rpm, prefix)
             )
+
+        # Service tier selection for Bedrock models only
+        if prefix == "bedrock" and model_list and is_service_tier_supported(selected_model):
+            st.markdown("**Service Tier Options** (select multiple to test different tiers)")
+            tier_cols = st.columns(len(SERVICE_TIER_OPTIONS))
+            selected_tiers = []
+
+            for idx, tier in enumerate(SERVICE_TIER_OPTIONS):
+                with tier_cols[idx]:
+                    if st.checkbox(
+                        tier.capitalize(),
+                        key=f"{prefix}_tier_{tier}",
+                        help=f"Select {tier} tier for this model"
+                    ):
+                        selected_tiers.append(tier)
+
+            # Store selected tiers in session state for this model
+            st.session_state[f"{prefix}_selected_tiers"] = selected_tiers
     
     def _render_judge_selection(self, region):
         """Render the judge model selection UI."""
@@ -276,27 +314,71 @@ class ModelConfigurationComponent:
                 args=(selected_judge, judge_region, judge_input_cost, judge_output_cost)
             )
     
-    def _add_model(self, model_id, region, input_cost, output_cost, target_rpm=None):
-        """Add a model to the selected models list."""
-        # Check if model is already selected with same region
-        for model in st.session_state.current_evaluation_config["selected_models"]:
-            # Check if the model ID matches and either region matches or isn't present
-            if model["id"] == model_id and model.get("region", "") == region:
-                # Update costs, region, and RPM if model already exists
-                model["input_cost"] = input_cost
-                model["output_cost"] = output_cost
-                model["region"] = region
-                model["target_rpm"] = target_rpm
-                return
+    def _add_model(self, model_id, region, input_cost, output_cost, target_rpm=None, prefix="bedrock"):
+        """Add a model to the selected models list.
 
-        # Add new model
-        st.session_state.current_evaluation_config["selected_models"].append({
-            "id": model_id,
-            "region": region,
-            "input_cost": input_cost,
-            "output_cost": output_cost,
-            "target_rpm": target_rpm
-        })
+        For Bedrock models with service tier support, creates separate entries for each selected tier.
+        """
+        # Get selected service tiers for this model (Bedrock only)
+        selected_tiers = []
+        if prefix == "bedrock" and is_service_tier_supported(model_id):
+            selected_tiers = st.session_state.get(f"{prefix}_selected_tiers", [])
+
+        # If no tiers selected or not a supported Bedrock model, add single model entry
+        if not selected_tiers:
+            # Check if model is already selected with same region (no tier)
+            for model in st.session_state.current_evaluation_config["selected_models"]:
+                if (model["id"] == model_id and
+                    model.get("region", "") == region and
+                    model.get("service_tier") is None):
+                    # Update costs, region, and RPM if model already exists
+                    model["input_cost"] = input_cost
+                    model["output_cost"] = output_cost
+                    model["region"] = region
+                    model["target_rpm"] = target_rpm
+                    return
+
+            # Add new model without service tier
+            st.session_state.current_evaluation_config["selected_models"].append({
+                "id": model_id,
+                "region": region,
+                "input_cost": input_cost,
+                "output_cost": output_cost,
+                "target_rpm": target_rpm,
+                "service_tier": None,
+                "service_tier_label": None
+            })
+        else:
+            # Add separate entry for each selected tier
+            for tier in selected_tiers:
+                # Create label suffix for display purposes
+                tier_label = f"_{tier}" if tier != "default" else ""
+
+                # Check if this model+tier combination already exists
+                existing_model = None
+                for model in st.session_state.current_evaluation_config["selected_models"]:
+                    if (model["id"] == model_id and
+                        model.get("region", "") == region and
+                        model.get("service_tier") == tier):
+                        existing_model = model
+                        break
+
+                if existing_model:
+                    # Update existing model+tier entry
+                    existing_model["input_cost"] = input_cost
+                    existing_model["output_cost"] = output_cost
+                    existing_model["target_rpm"] = target_rpm
+                else:
+                    # Add new model+tier entry
+                    st.session_state.current_evaluation_config["selected_models"].append({
+                        "id": model_id,
+                        "region": region,
+                        "input_cost": input_cost,
+                        "output_cost": output_cost,
+                        "target_rpm": target_rpm,
+                        "service_tier": tier,
+                        "service_tier_label": tier_label
+                    })
     
     def _add_judge_model(self, model_id, region, input_cost, output_cost):
         """Add a judge model to the judge models list."""
