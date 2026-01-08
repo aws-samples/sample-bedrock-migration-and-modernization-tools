@@ -288,6 +288,37 @@ This will check:
 - Cost values within reasonable ranges
 - Region format for AWS models
 
+### Model Capability Validation
+
+**NEW:** Validate actual Bedrock model availability and service tier support by testing with real API calls. Results are cached to provide accurate service tier options in the dashboard.
+
+```bash
+# Validate all models (first-time setup or after adding new models)
+python src/validate_model_capabilities.py
+
+# Force re-validation (ignore existing cache)
+python src/validate_model_capabilities.py --force
+
+# Validate specific model
+python src/validate_model_capabilities.py --model "bedrock/us.amazon.nova-2-lite-v1:0" --region "us-west-2"
+
+# Test specific service tier
+python src/validate_model_capabilities.py --model "bedrock/us.amazon.nova-2-lite-v1:0" --region "us-west-2" --tier "priority"
+```
+
+**What it does:**
+- Tests each model+region combination with a minimal API request (~1 token input, 5 tokens output)
+- Tests all service tiers (default, priority, flex) for each model
+- Caches results in `.cache/model_capabilities.json`
+- Automatically detects when `models_profiles.jsonl` changes and prompts re-validation
+- Cost: ~$0.001 per full validation
+
+**Benefits:**
+- ✅ Accurate service tier availability (no guesswork)
+- ✅ Dashboard shows only available tiers for each model
+- ✅ Models unavailable in specific regions are greyed out
+- ✅ Cached results avoid repeated API calls
+
 ### Streamlit Dashboard
 
 Launch the interactive web dashboard for a user-friendly evaluation experience:

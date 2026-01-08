@@ -123,9 +123,11 @@ BEDROCK_SERVICE_TIER_SUPPORTED_MODELS = [
 SERVICE_TIER_OPTIONS = ["default", "priority", "flex"]
 
 
-def is_service_tier_supported(model_id):
+def is_service_tier_supported(model_id, region=None):
     """
     Check if a model supports service tier selection (priority, default, flex).
+
+    Uses cached validation results when available, falls back to pattern matching.
 
     This function handles various model ID formats including:
     - Regional prefixes (us., eu., ap., ca., sa.)
@@ -134,19 +136,42 @@ def is_service_tier_supported(model_id):
 
     Args:
         model_id: The model ID to check (may include bedrock/ prefix, regional prefix, version)
+        region: Optional AWS region for more accurate cache lookup
 
     Returns:
         bool: True if model supports service tier, False otherwise
 
     Examples:
-        >>> is_service_tier_supported("bedrock/us.amazon.nova-pro-v1:0")
+        >>> is_service_tier_supported("bedrock/us.amazon.nova-pro-v1:0", "us-west-2")
         True
         >>> is_service_tier_supported("anthropic.claude-3-5-sonnet-20241022-v2:0")
         True
         >>> is_service_tier_supported("openai/gpt-4o")
         False
-        >>> is_service_tier_supported("meta.llama2-13b-chat-v1")
-        False
+    """
+    # Try cache-based lookup first
+    try:
+        from model_capability_validator import get_available_service_tiers
+        tiers = get_available_service_tiers(model_id, region) if region else []
+
+        # If we have cache data and more than just "default" tier, it's supported
+        if tiers and len(tiers) > 1:
+            return True
+        # If cache explicitly shows only default, it's not supported
+        elif tiers and len(tiers) == 1:
+            return False
+    except (ImportError, Exception):
+        # Cache not available or error, fall back to pattern matching
+        pass
+
+    # Fallback to pattern matching
+    return _fallback_service_tier_pattern_check(model_id)
+
+
+def _fallback_service_tier_pattern_check(model_id):
+    """
+    Fallback pattern-based check for service tier support.
+    Used when cache is unavailable.
     """
     # Remove bedrock and converse prefixes
     clean_id = model_id.replace("bedrock/", "").replace("converse/", "")
@@ -163,6 +188,25 @@ def is_service_tier_supported(model_id):
             return True
 
     return False
+
+
+def get_available_service_tiers(model_id, region):
+    """
+    Get list of available service tiers for a model+region combination.
+
+    Args:
+        model_id: Full model ID
+        region: AWS region
+
+    Returns:
+        List of available tier names (e.g., ["default", "priority", "flex"])
+    """
+    try:
+        from model_capability_validator import get_available_service_tiers as get_tiers
+        return get_tiers(model_id, region)
+    except (ImportError, Exception):
+        # Cache not available, return default only
+        return ["default"]
 
 
 def get_optimization_target_model(model_id):

@@ -16,6 +16,17 @@ from ..utils.constants import (
     SERVICE_TIER_OPTIONS,
     is_service_tier_supported
 )
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parents[3] / "src"))
+from model_capability_validator import (
+    get_available_service_tiers,
+    get_model_capabilities,
+    is_cache_valid,
+    load_capability_cache,
+    validate_all_models,
+    CACHE_FILE
+)
 from ..utils.state_management import save_current_evaluation
 
 
@@ -53,7 +64,10 @@ class ModelConfigurationComponent:
     
     def render(self):
         """Render the model configuration component."""
-        
+
+        # Check if model capability validation is needed
+        self._render_validation_banner()
+
         # Determine available regions based on selected model
         available_regions = st.session_state.filtered_regions if hasattr(st.session_state, 'filtered_regions') else list(REGION_TO_MODELS.keys())
         if not available_regions:
@@ -180,13 +194,51 @@ class ModelConfigurationComponent:
 
         with col1:
             if prefix == "bedrock":
+                # Check availability for each Bedrock model and annotate
+                annotated_models = []
+                model_availability = {}  # Store availability status
+
+                for model_id in model_list if model_list else []:
+                    capabilities = get_model_capabilities(model_id, region)
+
+                    if capabilities and capabilities.get("available"):
+                        # Model is available
+                        annotated_models.append(model_id)
+                        model_availability[model_id] = {
+                            "available": True,
+                            "error": None,
+                            "service_tiers": capabilities.get("service_tiers", ["default"])
+                        }
+                    elif capabilities and not capabilities.get("available"):
+                        # Model is unavailable (tested and failed)
+                        unavailable_label = f"⚠️ {model_id} (unavailable)"
+                        annotated_models.append(unavailable_label)
+                        model_availability[unavailable_label] = {
+                            "available": False,
+                            "error": capabilities.get("error", "Not available in this region"),
+                            "service_tiers": [],
+                            "original_id": model_id
+                        }
+                    else:
+                        # No cache data available
+                        annotated_models.append(model_id)
+                        model_availability[model_id] = {
+                            "available": None,  # Unknown
+                            "error": "Not validated",
+                            "service_tiers": ["default"]
+                        }
+
+                # Store availability map in session state for later use
+                st.session_state[f"{prefix}_model_availability"] = model_availability
+
                 # For Bedrock models, add on_change callback
                 selected_model = st.selectbox(
                     "Select Model",
-                    options=model_list if model_list else ["No models available in this region"],
+                    options=annotated_models if annotated_models else ["No models available in this region"],
                     key=f"{prefix}_model_select",
-                    on_change=self._on_model_change if model_list else None,
-                    disabled=not model_list
+                    on_change=self._on_model_change if annotated_models else None,
+                    disabled=not annotated_models,
+                    help="Models marked with ⚠️ are not available in the selected region"
                 )
             else:
                 # For non-Bedrock models, no region filtering
@@ -195,6 +247,7 @@ class ModelConfigurationComponent:
                     options=model_list,
                     key=f"{prefix}_model_select"
                 )
+                model_availability = {}
 
         # Get default costs
         default_input_cost = DEFAULT_COST_MAP.get(selected_model, {"input": 0.001, "output": 0.002})["input"]
@@ -223,43 +276,90 @@ class ModelConfigurationComponent:
             )
 
         with col4:
-            target_rpm = st.number_input(
-                "Target RPM",
-                min_value=0,
-                max_value=600,
-                value=0,
-                step=10,
-                key=f"{prefix}_target_rpm",
-                help="Requests per minute (0 = no rate limiting). Use to test model reliability at specific load levels."
-            )
-            # Convert 0 to None for storage (0 means no rate limiting)
-            target_rpm = target_rpm if target_rpm > 0 else None
+            # Service tier dropdown for Bedrock models
+            if prefix == "bedrock":
+                # Get available tiers for this specific model+region
+                available_tiers = get_available_service_tiers(selected_model, region)
+
+                if available_tiers and len(available_tiers) > 0:
+                    selected_tier = st.selectbox(
+                        "Service Tier",
+                        options=available_tiers,
+                        key=f"{prefix}_service_tier_select",
+                        help="Select the service tier for this model. You can add the same model multiple times with different tiers."
+                    )
+                else:
+                    # Fallback to default if no tiers available
+                    selected_tier = st.selectbox(
+                        "Service Tier",
+                        options=["default"],
+                        key=f"{prefix}_service_tier_select",
+                        help="Service tier for this model"
+                    )
+            else:
+                # Non-Bedrock models - show Target RPM in col4
+                target_rpm = st.number_input(
+                    "Target RPM",
+                    min_value=0,
+                    max_value=600,
+                    value=0,
+                    step=10,
+                    key=f"{prefix}_target_rpm",
+                    help="Requests per minute (0 = no rate limiting). Use to test model reliability at specific load levels."
+                )
+                # Convert 0 to None for storage (0 means no rate limiting)
+                target_rpm = target_rpm if target_rpm > 0 else None
 
         with col5:
+            # For Bedrock models, show Target RPM in col5; for others, show Add button
+            if prefix == "bedrock":
+                target_rpm = st.number_input(
+                    "Target RPM",
+                    min_value=0,
+                    max_value=600,
+                    value=0,
+                    step=10,
+                    key=f"{prefix}_target_rpm",
+                    help="Requests per minute (0 = no rate limiting). Use to test model reliability at specific load levels."
+                )
+                # Convert 0 to None for storage (0 means no rate limiting)
+                target_rpm = target_rpm if target_rpm > 0 else None
+
+            # Check if model is unavailable (for Bedrock models)
+            model_info = model_availability.get(selected_model, {}) if prefix == "bedrock" else {}
+            is_unavailable = model_info.get("available") == False
+
+            # Get the selected tier for Bedrock models
+            selected_tier = st.session_state.get(f"{prefix}_service_tier_select", "default") if prefix == "bedrock" else None
+
             st.button(
                 "Add Model",
                 key=f"{prefix}_add_model",
                 on_click=self._add_model,
-                args=(selected_model, region, input_cost, output_cost, target_rpm, prefix)
+                args=(selected_model, region, input_cost, output_cost, target_rpm, prefix, selected_tier),
+                disabled=is_unavailable,
+                help="This model is not available in the selected region" if is_unavailable else "Add this model to your evaluation"
             )
 
-        # Service tier selection for Bedrock models only
-        if prefix == "bedrock" and model_list and is_service_tier_supported(selected_model):
-            st.markdown("**Service Tier Options** (select multiple to test different tiers)")
-            tier_cols = st.columns(len(SERVICE_TIER_OPTIONS))
-            selected_tiers = []
+        # Show availability status for Bedrock models
+        if prefix == "bedrock" and model_availability:
+            model_info = model_availability.get(selected_model, {})
 
-            for idx, tier in enumerate(SERVICE_TIER_OPTIONS):
-                with tier_cols[idx]:
-                    if st.checkbox(
-                        tier.capitalize(),
-                        key=f"{prefix}_tier_{tier}",
-                        help=f"Select {tier} tier for this model"
-                    ):
-                        selected_tiers.append(tier)
+            if model_info.get("available") == False:
+                # Model is unavailable
+                error_msg = model_info.get("error", "Not available in this region")
+                st.error(f"⚠️ **Model Unavailable:** {error_msg}")
+            elif model_info.get("available") == None:
+                # Model not validated
+                st.info("ℹ️ **Not Validated:** This model hasn't been validated yet. Run validation to check availability and service tier support.")
+            elif model_info.get("available") == True:
+                # Model is available - show service tier count
+                tiers = model_info.get("service_tiers", [])
+                if len(tiers) > 1:
+                    st.success(f"✅ **Available** with {len(tiers)} service tiers: {', '.join(tiers)}")
+                else:
+                    st.success(f"✅ **Available** (default tier only)")
 
-            # Store selected tiers in session state for this model
-            st.session_state[f"{prefix}_selected_tiers"] = selected_tiers
     
     def _render_judge_selection(self, region):
         """Render the judge model selection UI."""
@@ -314,71 +414,45 @@ class ModelConfigurationComponent:
                 args=(selected_judge, judge_region, judge_input_cost, judge_output_cost)
             )
     
-    def _add_model(self, model_id, region, input_cost, output_cost, target_rpm=None, prefix="bedrock"):
+    def _add_model(self, model_id, region, input_cost, output_cost, target_rpm=None, prefix="bedrock", selected_tier=None):
         """Add a model to the selected models list.
 
-        For Bedrock models with service tier support, creates separate entries for each selected tier.
+        For Bedrock models, adds the model with the specified service tier.
         """
-        # Get selected service tiers for this model (Bedrock only)
-        selected_tiers = []
-        if prefix == "bedrock" and is_service_tier_supported(model_id):
-            selected_tiers = st.session_state.get(f"{prefix}_selected_tiers", [])
+        # For Bedrock models, use the selected tier; for others, set to None
+        if prefix == "bedrock":
+            tier = selected_tier if selected_tier else "default"
+            # Create label suffix for display purposes
+            tier_label = f"_{tier}" if tier != "default" else ""
+        else:
+            tier = None
+            tier_label = None
 
-        # If no tiers selected or not a supported Bedrock model, add single model entry
-        if not selected_tiers:
-            # Check if model is already selected with same region (no tier)
-            for model in st.session_state.current_evaluation_config["selected_models"]:
-                if (model["id"] == model_id and
-                    model.get("region", "") == region and
-                    model.get("service_tier") is None):
-                    # Update costs, region, and RPM if model already exists
-                    model["input_cost"] = input_cost
-                    model["output_cost"] = output_cost
-                    model["region"] = region
-                    model["target_rpm"] = target_rpm
-                    return
+        # Check if this model+region+tier combination already exists
+        existing_model = None
+        for model in st.session_state.current_evaluation_config["selected_models"]:
+            if (model["id"] == model_id and
+                model.get("region", "") == region and
+                model.get("service_tier") == tier):
+                existing_model = model
+                break
 
-            # Add new model without service tier
+        if existing_model:
+            # Update existing model entry
+            existing_model["input_cost"] = input_cost
+            existing_model["output_cost"] = output_cost
+            existing_model["target_rpm"] = target_rpm
+        else:
+            # Add new model entry
             st.session_state.current_evaluation_config["selected_models"].append({
                 "id": model_id,
                 "region": region,
                 "input_cost": input_cost,
                 "output_cost": output_cost,
                 "target_rpm": target_rpm,
-                "service_tier": None,
-                "service_tier_label": None
+                "service_tier": tier,
+                "service_tier_label": tier_label
             })
-        else:
-            # Add separate entry for each selected tier
-            for tier in selected_tiers:
-                # Create label suffix for display purposes
-                tier_label = f"_{tier}" if tier != "default" else ""
-
-                # Check if this model+tier combination already exists
-                existing_model = None
-                for model in st.session_state.current_evaluation_config["selected_models"]:
-                    if (model["id"] == model_id and
-                        model.get("region", "") == region and
-                        model.get("service_tier") == tier):
-                        existing_model = model
-                        break
-
-                if existing_model:
-                    # Update existing model+tier entry
-                    existing_model["input_cost"] = input_cost
-                    existing_model["output_cost"] = output_cost
-                    existing_model["target_rpm"] = target_rpm
-                else:
-                    # Add new model+tier entry
-                    st.session_state.current_evaluation_config["selected_models"].append({
-                        "id": model_id,
-                        "region": region,
-                        "input_cost": input_cost,
-                        "output_cost": output_cost,
-                        "target_rpm": target_rpm,
-                        "service_tier": tier,
-                        "service_tier_label": tier_label
-                    })
     
     def _add_judge_model(self, model_id, region, input_cost, output_cost):
         """Add a judge model to the judge models list."""
@@ -480,4 +554,75 @@ class ModelConfigurationComponent:
     def _is_configuration_valid(self):
         """Check if the current configuration is valid."""
         return len(self._get_missing_configuration_items()) == 0
-    
+
+    def _render_validation_banner(self):
+        """Render validation status banner for model capabilities."""
+        cache_exists = CACHE_FILE.exists()
+        cache_valid = is_cache_valid() if cache_exists else False
+
+        # Determine banner state
+        if not cache_exists:
+            banner_type = "warning"
+            banner_title = "⚠️ Model Capabilities Not Validated"
+            banner_message = "Service tier availability hasn't been validated. Run validation to see which tiers are available for each model."
+            show_banner = True
+        elif not cache_valid:
+            banner_type = "info"
+            banner_title = "ℹ️ Model Configuration Changed"
+            banner_message = "Your models_profiles.jsonl has changed since last validation. Re-validate to update service tier availability."
+            show_banner = True
+        else:
+            # Cache is valid, show compact success message
+            cache = load_capability_cache()
+            last_updated = cache.get("last_updated", "Unknown")
+            st.success(f"✅ Model capabilities validated (Last updated: {last_updated})")
+            show_banner = False
+
+        if show_banner:
+            # Show expandable validation banner
+            with st.expander(banner_title, expanded=True):
+                if banner_type == "warning":
+                    st.warning(banner_message)
+                else:
+                    st.info(banner_message)
+
+                st.markdown("""
+                **What validation does:**
+                - Tests each model+region combination with a tiny API request
+                - Discovers which service tiers (default, priority, flex) are available
+                - Caches results to avoid repeated calls
+                - Cost: ~$0.001 for full validation
+                """)
+
+                col1, col2 = st.columns([1, 3])
+
+                with col1:
+                    if st.button("🔍 Validate Now", key="validate_models_button", help="Run validation (takes 2-3 minutes)"):
+                        with st.spinner("⏳ Validating models... This may take 2-3 minutes"):
+                            try:
+                                # Run validation
+                                cache = validate_all_models(force=True)
+
+                                # Show success with summary
+                                capabilities = cache.get("capabilities", {})
+                                total_combos = sum(len(regions) for regions in capabilities.values())
+                                available_combos = sum(
+                                    1 for regions in capabilities.values()
+                                    for caps in regions.values()
+                                    if caps.get("available")
+                                )
+
+                                st.success(f"✅ Validation complete! {available_combos}/{total_combos} model+region combinations available.")
+                                st.info("💡 Refresh the page to see updated service tier options.")
+
+                                # Offer to rerun the app
+                                if st.button("🔄 Refresh Dashboard", key="refresh_after_validation"):
+                                    st.rerun()
+
+                            except Exception as e:
+                                st.error(f"❌ Validation failed: {str(e)}")
+                                st.info("Check logs for details. You can also run validation manually: `python src/validate_model_capabilities.py`")
+
+                with col2:
+                    st.info("**Alternative:** Run validation via command line:\n```bash\npython src/validate_model_capabilities.py\n```")
+

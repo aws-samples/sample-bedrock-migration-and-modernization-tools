@@ -654,7 +654,6 @@ def extract_models_from_profile_files(eval_id, eval_name):
                         model_info = {
                             "model_id": model_data.get("model_id", "Unknown Model"),
                             "region": model_data.get("region", "Unknown"),
-                            "inference_profile": model_data.get("inference_profile", ""),
                             "input_token_cost": model_data.get("input_token_cost", 0),
                             "output_token_cost": model_data.get("output_token_cost", 0)
                         }
