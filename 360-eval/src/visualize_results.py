@@ -2003,7 +2003,7 @@ def create_regional_performance_analysis(df):
 
 if __name__ == "__main__":
     # Use absolute path relative to project root
-    OUTPUT_DIR = PROJECT_ROOT / "benchmark-results"
+    OUTPUT_DIR = PROJECT_ROOT / "outputs"
     logger.info(f"Starting LLM benchmark report generation with timestamp: {TIMESTAMP}")
     try:
         report_file = create_html_report(OUTPUT_DIR, TIMESTAMP)

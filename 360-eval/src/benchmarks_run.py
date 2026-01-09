@@ -721,7 +721,7 @@ def main(
 
     # Create logs directory with absolute path
     logs_dir = os.path.join(project_root, "logs")
-    config_dir = os.path.join(project_root, "default-config")
+    config_dir = os.path.join(project_root, "config")
     os.makedirs(logs_dir, exist_ok=True)
 
     # Setup logging
@@ -740,8 +740,8 @@ def main(
     unprocessed_dir = os.path.join(output_dir, "unprocessed")
     os.makedirs(unprocessed_dir, exist_ok=True)
 
-    # Use consistent paths for prompt evaluations directory
-    eval_dir = os.path.join(project_root, "prompt-evaluations")
+    # Use consistent paths for runs directory
+    eval_dir = os.path.join(project_root, "runs")
     os.makedirs(eval_dir, exist_ok=True)
 
     file_path = os.path.join(eval_dir, input_file)
@@ -1028,7 +1028,7 @@ def main(
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description="Advanced Unified LLM Benchmarking Tool")
     p.add_argument("input_file", help="JSONL file with scenarios")
-    p.add_argument("--output_dir", default="benchmark-results")
+    p.add_argument("--output_dir", default="outputs")
     p.add_argument("--report", type=lambda x: x.lower() == 'true', default=True)
     p.add_argument("--parallel_calls", type=int, default=4)
     p.add_argument("--invocations_per_scenario", type=int, default=2)

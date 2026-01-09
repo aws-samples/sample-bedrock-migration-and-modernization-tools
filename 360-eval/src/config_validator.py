@@ -272,7 +272,7 @@ def main():
     """Main CLI entry point"""
     if len(sys.argv) != 2:
         print("Usage: python config_validator.py <config_directory>")
-        print("Example: python config_validator.py default-config/")
+        print("Example: python config_validator.py config/")
         sys.exit(1)
     
     config_dir = sys.argv[1]

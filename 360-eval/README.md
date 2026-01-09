@@ -228,8 +228,8 @@ Examples:
 ```
 
 Sample model profiles are provided in:
-- `default-config/models_profiles.jsonl` - Standard model configurations
-- `default-config/models_profiles_service_tier_examples.jsonl` - Service tier examples
+- `config/models_profiles.jsonl` - Standard model configurations
+- `config/models_profiles_service_tier_examples.jsonl` - Service tier examples
 
 ## Judge Configuration
 
@@ -254,7 +254,7 @@ Example:
 {"model_id": "bedrock/us.amazon.nova-premier-v1:0", "region": "us-east-2", "input_cost_per_1k": 0.0025, "output_cost_per_1k": 0.0125}
 ```
 
-Sample judge profiles are provided in `default-config/judge_profiles.jsonl`.
+Sample judge profiles are provided in `config/judge_profiles.jsonl`.
 
 ### 📝 Vision Model Compatibility Important Notes
 
@@ -278,7 +278,7 @@ When using the vision functionality (`--vision_enabled true` flag or enabling "V
 Before running evaluations, validate your configuration files to catch errors early:
 
 ```bash
-python src/config_validator.py default-config/
+python src/config_validator.py config/
 ```
 
 This will check:
@@ -347,17 +347,17 @@ The dashboard provides:
 
 ### File Path Resolution
 
-- **Input evaluation files**: Should be placed in the `prompt-evaluations/` directory. The tool will automatically look for input files in this directory.
-- **Model profiles**: If not specified, defaults to `default-config/models_profiles.jsonl`
-- **Judge profiles**: If not specified, defaults to `default-config/judge_profiles.jsonl`
-- **Output files**: Saved to the directory specified by `--output_dir` (default: `benchmark-results/`)
-- **Unprocessed records**: Failed evaluations are logged in `benchmark-results/unprocessed/`
+- **Input evaluation files**: Should be placed in the `runs/` directory. The tool will automatically look for input files in this directory.
+- **Model profiles**: If not specified, defaults to `config/models_profiles.jsonl`
+- **Judge profiles**: If not specified, defaults to `config/judge_profiles.jsonl`
+- **Output files**: Saved to the directory specified by `--output_dir` (default: `outputs/`)
+- **Unprocessed records**: Failed evaluations are logged in `outputs/unprocessed/`
 
 ### Running Benchmarks (CLI)
 
 ```bash
 # Basic usage
-# Note: Input files should be placed in the prompt-evaluations/ directory
+# Note: Input files should be placed in the runs/ directory
 python src/benchmarks_run.py input_file.jsonl
 ```
 
@@ -405,7 +405,7 @@ python src/benchmarks_run.py input_file.jsonl \
 ```
 
 **Output:**
-- Optimization logs are saved to `benchmark-results/prompt_optimization_log_<experiment_name>_<timestamp>.json`
+- Optimization logs are saved to `outputs/prompt_optimization_log_<experiment_name>_<timestamp>.json`
 - Shows which prompts were successfully optimized, skipped, or failed
 - In `evaluate_both` mode, optimized variants are labeled with `_Prompt_Optimized` suffix in reports
 
@@ -416,8 +416,8 @@ python src/benchmarks_run.py input_file.jsonl \
 
 #### Command Line Arguments
 
-- `input_file`: JSONL file with benchmark scenarios (required) - should be placed in `prompt-evaluations/` directory
-- `--output_dir`: Directory to save results (default: "benchmark-results")
+- `input_file`: JSONL file with benchmark scenarios (required) - should be placed in `runs/` directory
+- `--output_dir`: Directory to save results (default: "outputs")
 - `--parallel_calls`: Number of parallel API calls (default: 4)
 - `--invocations_per_scenario`: Invocations per scenario (default: 2)
 - `--sleep_between_invocations`: Sleep time in seconds between invocations (default: 3)
@@ -426,8 +426,8 @@ python src/benchmarks_run.py input_file.jsonl \
 - `--experiment_wait_time`: Wait time in seconds between experiments (default: 0, no wait)
 - `--temperature_variations`: Number of temperature variations (±25% percentile increments, default: 0)
 - `--user_defined_metrics`: Comma-delimited user-defined evaluation metrics tailored to specific use cases
-- `--model_file_name`: Name of the JSONL file containing the models to evaluate (defaults to `default-config/models_profiles.jsonl`)
-- `--judge_file_name`: Name of the JSONL file containing the judges used to evaluate (defaults to `default-config/judge_profiles.jsonl`)
+- `--model_file_name`: Name of the JSONL file containing the models to evaluate (defaults to `config/models_profiles.jsonl`)
+- `--judge_file_name`: Name of the JSONL file containing the judges used to evaluate (defaults to `config/judge_profiles.jsonl`)
 - `--evaluation_pass_threshold`: Threshold score used to determine Pass|Fail (default: 3 out of 5)
 - `--report`: Generate HTML report after benchmarking (default: true)
 - `--vision_enabled`: Enable vision model capabilities for image inputs (default: false)
@@ -435,7 +435,7 @@ python src/benchmarks_run.py input_file.jsonl \
 
 ### Visualizing Results
 
-The benchmarking tool automatically generates interactive HTML reports when it completes. These reports can be found in the output directory specified (default: `benchmark-results/`).
+The benchmarking tool automatically generates interactive HTML reports when it completes. These reports can be found in the output directory specified (default: `outputs/`).
 
 **⚠️ Report Generation Requirement:**
 HTML report generation requires access to the `us.amazon.nova-premier-v1:0` model in your AWS account. This model is used to analyze evaluation results and create the report content. If this model is not accessible, evaluations will complete successfully but HTML reports will not be generated.
@@ -456,13 +456,13 @@ The reports include:
 ## Project Structure
 - `assets/html_template.txt`: Web report template
 - `assets/scale_icon.png`: Dashboard icon
-- `default-config/`: Default configuration files
+- `config/`: Default configuration files
   - `models_profiles.jsonl`: Model configuration examples
   - `judge_profiles.jsonl`: Judge configuration examples
 - `logs/`: Logs of evaluation sessions are stored here
-- `benchmark-results/`: Output directory for results and reports
+- `outputs/`: Output directory for results and reports
   - `unprocessed/`: Records that failed to be evaluated
-- `prompt-evaluations/`: Input directory for evaluation scenarios
+- `runs/`: Input directory for evaluation scenarios
 - `src/`: Source code
   - `benchmarks_run.py`: Main benchmarking engine
   - `config_validator.py`: Configuration validation tool

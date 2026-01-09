@@ -110,7 +110,7 @@ def _cleanup_evaluation_logs(eval_id, preserve_on_failure=False, eval_name=None)
                             deleted_files.append(f"Log: {log_file}")
             
             # 2. Delete JSONL files from prompt-evaluations directory
-            prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "prompt-evaluations"
+            prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "runs"
             if prompt_eval_dir.exists() and eval_name:
                 # Pattern: Benchmark-{eval_name}.jsonl or {eval_name}.jsonl
                 jsonl_patterns = [
@@ -284,7 +284,7 @@ def run_benchmark_process(eval_id):
         try:
             # Check if JSONL file already exists (for resumed evaluations)
             from .constants import PROJECT_ROOT
-            prompt_eval_dir = Path(PROJECT_ROOT) / "prompt-evaluations"
+            prompt_eval_dir = Path(PROJECT_ROOT) / "runs"
             jsonl_path = prompt_eval_dir / f"{eval_name}.jsonl"
             
             if jsonl_path.exists():
@@ -712,7 +712,7 @@ def _store_model_judge_data_and_cleanup(eval_id, eval_name, output_dir):
     
     try:
         # Construct file paths
-        prompt_eval_dir = Path(output_dir).parent / "prompt-evaluations"
+        prompt_eval_dir = Path(output_dir).parent / "runs"
         composite_id = f"{eval_id}_{eval_name}"
         
         # Try to find model profiles file

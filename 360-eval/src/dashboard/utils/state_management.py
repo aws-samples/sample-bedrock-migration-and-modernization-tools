@@ -328,7 +328,7 @@ def delete_evaluation_from_disk(eval_id, eval_name):
             csv_file.unlink()
             deleted_files.append(f"CSV data: {csv_file}")
         
-        # 2. Delete CSV invocation files from benchmark-results directory
+        # 2. Delete CSV invocation files from outputs directory
         benchmark_results_dir = Path(DEFAULT_OUTPUT_DIR)
         
         # Look for invocation CSV files with various patterns
@@ -384,7 +384,7 @@ def delete_evaluation_from_disk(eval_id, eval_name):
                     deleted_files.append(f"Unprocessed: {unprocessed_file}")
         
         # 6. Delete JSONL prompt files from prompt-evaluations directory
-        prompt_eval_dir = benchmark_results_dir.parent / "prompt-evaluations"
+        prompt_eval_dir = benchmark_results_dir.parent / "runs"
         if prompt_eval_dir.exists():
             jsonl_patterns = [
                 f"{eval_name}.jsonl",
@@ -582,7 +582,7 @@ def extract_task_info_from_jsonl_simple(eval_name):
         from pathlib import Path
         
         # Look in prompt-evaluations directory
-        prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "prompt-evaluations"
+        prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "runs"
         if not prompt_eval_dir.exists():
             return {"task_type": "Unknown", "task_criteria": "Unknown"}
         
