@@ -617,48 +617,15 @@ def extract_models_from_profile_files(eval_id, eval_name):
         composite_id = f"{eval_id}_{eval_name}"
         status_file = status_dir / f"eval_{composite_id}_status.json"
         
-        # Try composite status file first
+        # Try composite status file
         if status_file.exists():
             with open(status_file, 'r') as f:
                 status_data = json.load(f)
                 if "models_data" in status_data and status_data["models_data"]:
                     return status_data["models_data"]
-        
-        # Fallback to legacy status file
-        legacy_status_file = status_dir / f"eval_{eval_id}_status.json"
-        if legacy_status_file.exists():
-            with open(legacy_status_file, 'r') as f:
-                status_data = json.load(f)
-                if "models_data" in status_data and status_data["models_data"]:
-                    return status_data["models_data"]
-        
-        # Fallback to old profile files method (for backward compatibility)
-        prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "prompt-evaluations"
-        if not prompt_eval_dir.exists():
-            return [{"model_id": "Unknown Model", "region": "Unknown", "input_token_cost": 0, "output_token_cost": 0}]
-        
-        # Try composite naming first
-        model_file = prompt_eval_dir / f"model_profiles_{composite_id}.jsonl"
-        
-        # Fallback to ID-only naming
-        if not model_file.exists():
-            model_file = prompt_eval_dir / f"model_profiles_{eval_id}.jsonl"
-        
-        if model_file.exists():
-            models = []
-            with open(model_file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if line.strip():
-                        model_data = json.loads(line)
-                        # Extract complete model information
-                        model_info = {
-                            "model_id": model_data.get("model_id", "Unknown Model"),
-                            "region": model_data.get("region", "Unknown"),
-                            "input_token_cost": model_data.get("input_token_cost", 0),
-                            "output_token_cost": model_data.get("output_token_cost", 0)
-                        }
-                        models.append(model_info)
-            return models
+
+        # If status file doesn't exist, return default
+        return [{"model_id": "Unknown Model", "region": "Unknown", "input_token_cost": 0, "output_token_cost": 0}]
         
     except Exception as e:
         import logging
@@ -678,48 +645,15 @@ def extract_judges_from_profile_files(eval_id, eval_name):
         composite_id = f"{eval_id}_{eval_name}"
         status_file = status_dir / f"eval_{composite_id}_status.json"
         
-        # Try composite status file first
+        # Try composite status file
         if status_file.exists():
             with open(status_file, 'r') as f:
                 status_data = json.load(f)
                 if "judges_data" in status_data and status_data["judges_data"]:
                     return status_data["judges_data"]
-        
-        # Fallback to legacy status file
-        legacy_status_file = status_dir / f"eval_{eval_id}_status.json"
-        if legacy_status_file.exists():
-            with open(legacy_status_file, 'r') as f:
-                status_data = json.load(f)
-                if "judges_data" in status_data and status_data["judges_data"]:
-                    return status_data["judges_data"]
-        
-        # Fallback to old profile files method (for backward compatibility)
-        prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "prompt-evaluations"
-        if not prompt_eval_dir.exists():
-            return [{"model_id": "Unknown Judge", "region": "Unknown", "input_cost_per_1k": 0, "output_cost_per_1k": 0}]
-        
-        # Try composite naming first
-        judge_file = prompt_eval_dir / f"judge_profiles_{composite_id}.jsonl"
-        
-        # Fallback to ID-only naming
-        if not judge_file.exists():
-            judge_file = prompt_eval_dir / f"judge_profiles_{eval_id}.jsonl"
-        
-        if judge_file.exists():
-            judges = []
-            with open(judge_file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if line.strip():
-                        judge_data = json.loads(line)
-                        # Extract complete judge information
-                        judge_info = {
-                            "model_id": judge_data.get("model_id", "Unknown Judge"),
-                            "region": judge_data.get("region", "Unknown"),
-                            "input_cost_per_1k": judge_data.get("input_cost_per_1k", 0),
-                            "output_cost_per_1k": judge_data.get("output_cost_per_1k", 0)
-                        }
-                        judges.append(judge_info)
-            return judges
+
+        # If status file doesn't exist, return default
+        return [{"model_id": "Unknown Judge", "region": "Unknown", "input_cost_per_1k": 0, "output_cost_per_1k": 0}]
         
     except Exception as e:
         import logging

@@ -5,7 +5,6 @@ from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parents[2]))
-from utils import SERVICE_TIER_OPTIONS, is_service_tier_supported
 
 # Project root directory
 # Calculate project root - go up one level from the src directory

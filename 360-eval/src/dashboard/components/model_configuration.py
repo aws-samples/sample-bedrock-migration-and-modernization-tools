@@ -12,9 +12,7 @@ from ..utils.constants import (
     MODEL_TO_REGIONS,
     REGION_TO_MODELS,
     JUDGE_MODEL_TO_REGIONS,
-    JUDGE_REGION_TO_MODELS,
-    SERVICE_TIER_OPTIONS,
-    is_service_tier_supported
+    JUDGE_REGION_TO_MODELS
 )
 import sys
 from pathlib import Path

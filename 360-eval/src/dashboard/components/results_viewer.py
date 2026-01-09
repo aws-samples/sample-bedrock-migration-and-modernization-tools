@@ -267,9 +267,8 @@ class ResultsViewerComponent:
         from ..utils.constants import STATUS_FILES_DIR
         status_dir = Path(STATUS_FILES_DIR)
         
-        # Try both composite and legacy formats for status file
+        # Find composite format status file
         status_file = None
-        # First try to find composite format by looking at evaluation name
         for eval_config in st.session_state.evaluations:
             if eval_config["id"] == eval_id:
                 eval_name = eval_config.get("name", "")
@@ -278,12 +277,6 @@ class ResultsViewerComponent:
                 if composite_status_file.exists():
                     status_file = composite_status_file
                     break
-        
-        # Fallback to legacy format
-        if not status_file:
-            legacy_status_file = status_dir / f"eval_{eval_id}_status.json"
-            if legacy_status_file.exists():
-                status_file = legacy_status_file
         
         
         # Find the evaluation configuration

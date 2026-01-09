@@ -11,8 +11,7 @@ import litellm
 import requests
 import requests.exceptions
 from tenacity import retry, stop_after_delay, wait_exponential, retry_if_exception_type
-from litellm import completion, RateLimitError, ServiceUnavailableError, APIError, APIConnectionError, BadRequestError
-from litellm import token_counter
+from litellm import completion, RateLimitError, ServiceUnavailableError, APIError, APIConnectionError, BadRequestError, token_counter
 from botocore.exceptions import ClientError
 import litellm
 
@@ -20,7 +19,6 @@ litellm.drop_params = True
 # litellm.set_verbose = True
 
 logger = logging.getLogger(__name__)
-litellm.drop_params = True
 
 # ----------------------------------------
 # Prompt Optimization Configuration
@@ -85,40 +83,6 @@ MODEL_FAMILY_OPTIMIZATION_MAP = {
 # Service Tier Configuration
 # ----------------------------------------
 
-# Bedrock models that support service tier (priority, default, flex)
-# Based on AWS Bedrock documentation for inference optimization
-BEDROCK_SERVICE_TIER_SUPPORTED_MODELS = [
-    # Amazon Nova family
-    "amazon.nova-lite",
-    "amazon.nova-micro",
-    "amazon.nova-pro",
-    "amazon.nova-premier",
-
-    # Anthropic Claude 3.5+ family
-    "anthropic.claude-3-5-haiku",
-    "anthropic.claude-3-5-sonnet",
-    "anthropic.claude-3-7-sonnet",
-    "anthropic.claude-sonnet-4",
-    "anthropic.claude-opus-4",
-
-    # DeepSeek
-    "deepseek.deepseek-r1",
-    "deepseek.v3",
-
-    # Meta Llama family
-    "meta.llama3-70b",
-    "meta.llama3-1-70b",
-    "meta.llama3-2-11b",
-    "meta.llama3-3-70b",
-    "meta.llama4-maverick-17b",
-    "meta.llama4-scout-17b",
-
-    # Mistral family
-    "mistral.mistral-large-2402",
-    "mistral.mistral-large-2407",
-    "mistral.mixtral",
-]
-
 # Valid service tier options
 SERVICE_TIER_OPTIONS = ["default", "priority", "flex"]
 
@@ -127,7 +91,7 @@ def is_service_tier_supported(model_id, region=None):
     """
     Check if a model supports service tier selection (priority, default, flex).
 
-    Uses cached validation results when available, falls back to pattern matching.
+    Uses cached validation results from model_capability_validator.
 
     This function handles various model ID formats including:
     - Regional prefixes (us., eu., ap., ca., sa.)
@@ -140,6 +104,7 @@ def is_service_tier_supported(model_id, region=None):
 
     Returns:
         bool: True if model supports service tier, False otherwise
+        Returns False if cache is unavailable (run validation to populate cache)
 
     Examples:
         >>> is_service_tier_supported("bedrock/us.amazon.nova-pro-v1:0", "us-west-2")
@@ -149,7 +114,7 @@ def is_service_tier_supported(model_id, region=None):
         >>> is_service_tier_supported("openai/gpt-4o")
         False
     """
-    # Try cache-based lookup first
+    # Use cache-based lookup
     try:
         from model_capability_validator import get_available_service_tiers
         tiers = get_available_service_tiers(model_id, region) if region else []
@@ -160,53 +125,13 @@ def is_service_tier_supported(model_id, region=None):
         # If cache explicitly shows only default, it's not supported
         elif tiers and len(tiers) == 1:
             return False
-    except (ImportError, Exception):
-        # Cache not available or error, fall back to pattern matching
+    except (ImportError, Exception) as e:
+        # Cache not available - recommend running validation
+        logger.debug(f"Service tier check failed for {model_id}: {e}. Run validation to populate cache.")
         pass
 
-    # Fallback to pattern matching
-    return _fallback_service_tier_pattern_check(model_id)
-
-
-def _fallback_service_tier_pattern_check(model_id):
-    """
-    Fallback pattern-based check for service tier support.
-    Used when cache is unavailable.
-    """
-    # Remove bedrock and converse prefixes
-    clean_id = model_id.replace("bedrock/", "").replace("converse/", "")
-
-    # Remove regional prefixes (us., eu., ap., ca., sa.)
-    if "." in clean_id:
-        parts = clean_id.split(".", 1)
-        if parts[0] in ["us", "eu", "ap", "ca", "sa"]:
-            clean_id = parts[1]
-
-    # Check if any supported model pattern matches
-    for pattern in BEDROCK_SERVICE_TIER_SUPPORTED_MODELS:
-        if pattern in clean_id:
-            return True
-
+    # If cache unavailable or no data, return False (conservative default)
     return False
-
-
-def get_available_service_tiers(model_id, region):
-    """
-    Get list of available service tiers for a model+region combination.
-
-    Args:
-        model_id: Full model ID
-        region: AWS region
-
-    Returns:
-        List of available tier names (e.g., ["default", "priority", "flex"])
-    """
-    try:
-        from model_capability_validator import get_available_service_tiers as get_tiers
-        return get_tiers(model_id, region)
-    except (ImportError, Exception):
-        # Cache not available, return default only
-        return ["default"]
 
 
 def get_optimization_target_model(model_id):
