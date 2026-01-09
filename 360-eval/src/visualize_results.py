@@ -263,6 +263,16 @@ def load_data(directory, evaluation_names=None):
     df = (df[df['api_call_status'] == 'Success']
           .reset_index(drop=True)
           .assign(model_name=lambda x: x['model_id'].apply(extract_model_name)))
+
+    # Create model_name_with_tier for latency/cost grouping (keep original model_name for accuracy)
+    if 'service_tier' in df.columns:
+        df['model_name_with_tier'] = df.apply(
+            lambda row: f"{row['model_name']}_{row['service_tier']}" if pd.notna(row.get('service_tier')) else row['model_name'],
+            axis=1
+        )
+    else:
+        df['model_name_with_tier'] = df['model_name']
+
     parsed_dicts = df['performance_metrics'].apply(parse_json_string)
     del df['performance_metrics']
     # Convert the Series of dictionaries to a DataFrame
@@ -442,8 +452,10 @@ def calculate_metrics_by_model_task_temperature(df):
 
 
 def calculate_latency_metrics(df):
-    """Calculate aggregated latency metrics by model."""
-    latency = df.groupby(['model_name']).agg({
+    """Calculate aggregated latency metrics by model (with service tier if available)."""
+    # Use model_name_with_tier to preserve service tier distinctions
+    group_col = 'model_name_with_tier' if 'model_name_with_tier' in df.columns else 'model_name'
+    latency = df.groupby([group_col]).agg({
         'time_to_first_byte': ['mean', 'min', 'max', 'std'],
         'time_to_last_byte': ['mean', 'min', 'max', 'std'],
         'OTPS': ['mean', 'min', 'max', 'std']
@@ -459,12 +471,19 @@ def calculate_latency_metrics(df):
         'OTPS_mean': 'avg_otps'
     })
 
-    return latency.reset_index()
+    latency = latency.reset_index()
+    # Rename the grouping column back to model_name for consistency with visualizations
+    if group_col == 'model_name_with_tier':
+        latency = latency.rename(columns={'model_name_with_tier': 'model_name'})
+
+    return latency
 
 
 def calculate_cost_metrics(df):
-    """Calculate aggregated cost metrics by model."""
-    cost = df.groupby(['model_name']).agg({
+    """Calculate aggregated cost metrics by model (with service tier if available)."""
+    # Use model_name_with_tier to preserve service tier distinctions
+    group_col = 'model_name_with_tier' if 'model_name_with_tier' in df.columns else 'model_name'
+    cost = df.groupby([group_col]).agg({
         'response_cost': ['mean', 'min', 'max', 'sum'],
         'input_tokens': ['mean', 'sum'],
         'output_tokens': ['mean', 'sum']
@@ -481,7 +500,12 @@ def calculate_cost_metrics(df):
         'output_tokens_mean': 'avg_output_tokens'
     })
 
-    return cost.reset_index()
+    cost = cost.reset_index()
+    # Rename the grouping column back to model_name for consistency with visualizations
+    if group_col == 'model_name_with_tier':
+        cost = cost.rename(columns={'model_name_with_tier': 'model_name'})
+
+    return cost
 
 
 def create_normal_distribution_histogram(df,
