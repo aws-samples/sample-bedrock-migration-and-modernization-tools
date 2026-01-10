@@ -139,11 +139,15 @@ class EvaluationMonitorComponent:
                     name_field = f"{eval_config['name']}"
                 else:
                     name_field = eval_config["name"]
-                
-                    
+
+                # Determine task type display value
+                task_type = eval_config.get("task_type", "")
+                if not task_type or task_type.strip() == "":
+                    task_type = "Latency Benchmark"
+
                 eval_data.append({
                     "Name": name_field,
-                    "Task Type": eval_config["task_type"],
+                    "Task Type": task_type,
                     "Models": len(eval_config["selected_models"]),
                     "Status": eval_config["status"].capitalize(),
                     "Created": pd.to_datetime(eval_config["created_at"]).strftime("%Y-%m-%d %H:%M") if eval_config.get("created_at") else "N/A",
