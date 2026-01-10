@@ -138,9 +138,16 @@ class ModelConfigurationComponent:
             )
         
         # Judge model selection
-        st.subheader("Judge Models")
-        self._render_judge_selection(selected_region)
-        
+        # Read from widget key directly for immediate reactivity
+        is_latency_only = st.session_state.get("latency_only_mode", False)
+
+        st.subheader("Judge Models" + (" (Not used in latency-only mode)" if is_latency_only else ""))
+
+        if is_latency_only:
+            st.info("ℹ️ Judge models are not needed for latency-only evaluations. Only performance metrics will be collected.")
+
+        self._render_judge_selection(selected_region, disabled=is_latency_only)
+
         # If we have selected judge models, display them
         if st.session_state.current_evaluation_config["judge_models"]:
             judge_models_df = pd.DataFrame(st.session_state.current_evaluation_config["judge_models"])
@@ -151,12 +158,13 @@ class ModelConfigurationComponent:
                 "output_cost": "Output Cost (per token)"
             })
             st.dataframe(judge_models_df, hide_index=True)
-            
+
             # Button to remove all judge models
             st.button(
                 "Clear Judge Models",
                 on_click=self._clear_judge_models,
-                key="clear_judges"
+                key="clear_judges",
+                disabled=is_latency_only
             )
         
         # Show validation status
@@ -359,18 +367,19 @@ class ModelConfigurationComponent:
                     st.success(f"✅ **Available** (default tier only)")
 
     
-    def _render_judge_selection(self, region):
+    def _render_judge_selection(self, region, disabled=False):
         """Render the judge model selection UI."""
         # Ignore the passed region parameter - use judge's own regions from config
         judge_options = [m[0] for m in DEFAULT_JUDGES]
         judge_regions = {m[0]: m[1] for m in DEFAULT_JUDGES}
         col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
-        
+
         with col1:
             selected_judge = st.selectbox(
                 "Select Judge Model",
                 options=judge_options,
-                key="judge_model_select"
+                key="judge_model_select",
+                disabled=disabled
             )
         
         # Handle case where selectbox returns index instead of value
@@ -390,9 +399,10 @@ class ModelConfigurationComponent:
                 value=default_input_cost,
                 step=0.0001,
                 format="%.6f",
-                key="judge_input_cost"
+                key="judge_input_cost",
+                disabled=disabled
             )
-        
+
         with col3:
             judge_output_cost = st.number_input(
                 "Output Cost",
@@ -401,15 +411,17 @@ class ModelConfigurationComponent:
                 value=default_output_cost,
                 step=0.0001,
                 format="%.6f",
-                key="judge_output_cost"
+                key="judge_output_cost",
+                disabled=disabled
             )
-        
+
         with col4:
             st.button(
                 "Add Judge",
                 key="add_judge",
                 on_click=self._add_judge_model,
-                args=(selected_judge, judge_region, judge_input_cost, judge_output_cost)
+                args=(selected_judge, judge_region, judge_input_cost, judge_output_cost),
+                disabled=disabled
             )
     
     def _add_model(self, model_id, region, input_cost, output_cost, target_rpm=None, prefix="bedrock", selected_tier=None):
@@ -523,28 +535,33 @@ class ModelConfigurationComponent:
         elif not config["prompt_column"] or not config["golden_answer_column"]:
             missing_items.append("prompt and golden answer column selection")
         
+        # Check if latency-only mode is enabled
+        is_latency_only = config.get("latency_only_mode", False)
+
         # Check for task type and criteria (support both old and new format)
-        task_evaluations = config.get("task_evaluations", [])
-        if task_evaluations:
-            # New format: check each task evaluation
-            for i, task_eval in enumerate(task_evaluations):
-                if not task_eval.get("task_type", "").strip():
-                    missing_items.append(f"task type for evaluation {i+1}")
-                if not task_eval.get("task_criteria", "").strip():
-                    missing_items.append(f"task criteria for evaluation {i+1}")
-        else:
-            # Fallback to old format for backward compatibility
-            if not config.get("task_type", "").strip():
-                missing_items.append("task type")
-            if not config.get("task_criteria", "").strip():
-                missing_items.append("task criteria")
-        
+        # Skip task type and criteria validation in latency-only mode
+        if not is_latency_only:
+            task_evaluations = config.get("task_evaluations", [])
+            if task_evaluations:
+                # New format: check each task evaluation
+                for i, task_eval in enumerate(task_evaluations):
+                    if not task_eval.get("task_type", "").strip():
+                        missing_items.append(f"task type for evaluation {i+1}")
+                    if not task_eval.get("task_criteria", "").strip():
+                        missing_items.append(f"task criteria for evaluation {i+1}")
+            else:
+                # Fallback to old format for backward compatibility
+                if not config.get("task_type", "").strip():
+                    missing_items.append("task type")
+                if not config.get("task_criteria", "").strip():
+                    missing_items.append("task criteria")
+
         # Check for at least one target model
         if not config["selected_models"]:
             missing_items.append("at least one target model")
-        
-        # Check for at least one judge model
-        if not config["judge_models"]:
+
+        # Check for at least one judge model (only in full 360 mode)
+        if not is_latency_only and not config["judge_models"]:
             missing_items.append("at least one judge model")
         
         return missing_items

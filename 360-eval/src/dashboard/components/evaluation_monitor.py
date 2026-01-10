@@ -306,9 +306,18 @@ class EvaluationMonitorComponent:
             for eval_config in st.session_state.evaluations:
                 if eval_config["id"] == eval_id:
                     # Validate the configuration
-                    if not eval_config.get("selected_models") or not eval_config.get("judge_models"):
-                        st.error(f"Evaluation '{eval_config['name']}' is missing required configuration: models or judge models")
+                    is_latency_only = eval_config.get("latency_only_mode", False)
+
+                    # Check for target models (always required)
+                    if not eval_config.get("selected_models"):
+                        st.error(f"Evaluation '{eval_config['name']}' is missing required configuration: target models")
                         continue
+
+                    # Check for judge models (only required in full 360 mode)
+                    if not is_latency_only and not eval_config.get("judge_models"):
+                        st.error(f"Evaluation '{eval_config['name']}' is missing required configuration: judge models")
+                        continue
+
                     evals_to_run.append(eval_config)
                     break
         

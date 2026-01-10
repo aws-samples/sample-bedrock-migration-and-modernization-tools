@@ -204,6 +204,7 @@ def benchmark(
         yard_stick=3,
         vision_enabled=None,
         service_tier=None,
+        latency_only_mode=False,
 ):
     logging.debug(f"Starting benchmark for model: {model_id} in region: {region}")
     status = "Success"
@@ -261,21 +262,31 @@ def benchmark(
         inference_request_count = r['retry_count']
 
         if resp_txt:
-            multi = evaluate_with_judges(
-                judge_models,
-                prompt,
-                resp_txt,
-                golden_answer,
-                task_types,
-                task_criteria,
-                user_defined_metrics,
-                yard_stick=yard_stick
-            )
-            perf["judge_success"] = (multi["majority_judgment"] == "PASS")
-            perf["judge_explanation"] = ";".join(list(set(multi["majority_explanations"])))
-            perf["judge_details"] = multi["judge_details"]
-            perf["judge_scores"] = multi["majority_score"]
-            evaluation_cost_data = multi["eval_cost"]
+            if latency_only_mode:
+                # Latency-only mode: Skip judge evaluation and use placeholders
+                perf["judge_success"] = "N/A"
+                perf["judge_explanation"] = "N/A"
+                perf["judge_details"] = []
+                perf["judge_scores"] = {}
+                evaluation_cost_data = 0
+                logging.info(f"Latency-only mode: Skipping judge evaluation for {model_id}")
+            else:
+                # Full 360 evaluation mode: Run judge evaluation
+                multi = evaluate_with_judges(
+                    judge_models,
+                    prompt,
+                    resp_txt,
+                    golden_answer,
+                    task_types,
+                    task_criteria,
+                    user_defined_metrics,
+                    yard_stick=yard_stick
+                )
+                perf["judge_success"] = (multi["majority_judgment"] == "PASS")
+                perf["judge_explanation"] = ";".join(list(set(multi["majority_explanations"])))
+                perf["judge_details"] = multi["judge_details"]
+                perf["judge_scores"] = multi["majority_score"]
+                evaluation_cost_data = multi["eval_cost"]
         else:
             logging.error(f"Target model error: Model {model_id} returned an empty output.")
 
@@ -338,7 +349,8 @@ def benchmark(
         "model_response": resp_txt,
         "performance_metrics": perf,
         "evaluation_cost": evaluation_cost_data,
-        "inference_request_count": inference_request_count
+        "inference_request_count": inference_request_count,
+        "eval_type": "latency" if latency_only_mode else "360"
     }
 
 
@@ -375,7 +387,7 @@ def expand_scenarios(raw, cfg):
 # ----------------------------------------
 # Parallel execution
 # ----------------------------------------
-def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
+def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3, latency_only_mode=False):
     all_recs = []
     unprocessed_records = []
     lock = Lock()
@@ -434,6 +446,7 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
                     yard_stick=yard_stick,
                     vision_enabled=scn.get("image_path", None),
                     service_tier=scn.get("service_tier", None),
+                    latency_only_mode=latency_only_mode,
                 )
 
                 # Add throttle metrics to result
@@ -447,7 +460,8 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
 
                 # Check for failures: API errors OR empty performance metrics OR judge evaluation failures
                 has_api_error = r["api_call_status"] != "Success" or r["error_code"] is not None
-                has_no_evaluation = not perf or not judge_details
+                # In latency-only mode, empty judge_details is expected and not an error
+                has_no_evaluation = (not latency_only_mode) and (not perf or not judge_details)
                 has_judge_errors = any(
                     j.get("error_type") in ["inference_failure", "parsing_failure", "judge_exception", "json_not_found"]
                     for j in judge_details
@@ -709,7 +723,8 @@ def main(
         yard_stick=3,
         vision_enabled=False,
         experiment_wait_time=0,
-        prompt_optimization_mode="none"
+        prompt_optimization_mode="none",
+        latency_only_mode=False
 ):
     user_defined_metrics_list = None
     if user_defined_metrics:
@@ -753,17 +768,21 @@ def main(
     model_path = os.path.join(eval_dir, model_file_name)
 
     # Validate configuration files before loading
-    logging.info("Validating judge profiles...")
-    judge_errors, judge_warnings = validate_jsonl_file(judge_path, "judge")
-    if judge_errors:
-        logging.error("Judge profiles validation failed:")
-        for error in judge_errors:
-            logging.error(f"  {error}")
-        raise ValueError(f"Invalid judge profiles configuration. Found {len(judge_errors)} error(s).")
+    # Skip judge validation in latency-only mode (empty judge file is expected)
+    if not latency_only_mode:
+        logging.info("Validating judge profiles...")
+        judge_errors, judge_warnings = validate_jsonl_file(judge_path, "judge")
+        if judge_errors:
+            logging.error("Judge profiles validation failed:")
+            for error in judge_errors:
+                logging.error(f"  {error}")
+            raise ValueError(f"Invalid judge profiles configuration. Found {len(judge_errors)} error(s).")
 
-    if judge_warnings:
-        for warning in judge_warnings:
-            logging.warning(warning)
+        if judge_warnings:
+            for warning in judge_warnings:
+                logging.warning(warning)
+    else:
+        logging.info("Latency-only mode: Skipping judge profiles validation")
 
     logging.info("Validating model profiles...")
     model_errors, model_warnings = validate_jsonl_file(model_path, "model")
@@ -779,9 +798,15 @@ def main(
 
     logging.info("Configuration validation completed successfully")
 
-    with open(judge_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            judges_list.append(json.loads(line))
+    # Load judge profiles (skip in latency-only mode)
+    if not latency_only_mode:
+        with open(judge_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():  # Skip empty lines
+                    judges_list.append(json.loads(line))
+        logging.info(f"Loaded {len(judges_list)} judge model(s)")
+    else:
+        logging.info("Latency-only mode: Skipping judge profiles loading")
 
     cfg = {
         "parallel_calls": parallel_calls,
@@ -793,7 +818,8 @@ def main(
         "EXPERIMENT_NAME": experiment_name,
         "judge_models": judges_list,
         "user_defined_metrics": user_defined_metrics_list,
-        "prompt_optimization_mode": prompt_optimization_mode
+        "prompt_optimization_mode": prompt_optimization_mode,
+        "latency_only_mode": latency_only_mode
     }
 
     # Load scenarios
@@ -944,7 +970,7 @@ def main(
         logging.info(f"=== Run {run}/{experiment_counts} (Started: {run_timestamp}) ===")
 
         try:
-            results, unprocessed_file_path, unprocessed_count = execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=int(yard_stick))
+            results, unprocessed_file_path, unprocessed_count = execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=int(yard_stick), latency_only_mode=latency_only_mode)
 
             if not results:
                 logging.error(f"Run {run}/{experiment_counts} produced no results. Check the unprocessed records file.")
@@ -1047,6 +1073,8 @@ if __name__ == "__main__":
                    default="none",
                    choices=["none", "optimize_only", "evaluate_both"],
                    help="Prompt optimization mode (Bedrock only): none, optimize_only, or evaluate_both")
+    p.add_argument("--latency_only_mode", type=lambda x: x.lower() == 'true', default=False,
+                   help="Enable latency-only evaluation mode (skip LLM judge evaluation)")
     args = p.parse_args()
     main(
         args.input_file,
@@ -1064,5 +1092,6 @@ if __name__ == "__main__":
         args.evaluation_pass_threshold,
         args.vision_enabled,
         args.experiment_wait_time,
-        args.prompt_optimization_mode
+        args.prompt_optimization_mode,
+        args.latency_only_mode
     )

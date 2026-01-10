@@ -167,18 +167,36 @@ class EvaluationSetupComponent:
             # Preview CSV data
             st.subheader("Data Preview")
             st.dataframe(preview_csv_data(df), hide_index=True)
-        
+
+        # Evaluation Type Configuration
+        st.subheader("📊 Evaluation Type")
+
+        latency_only_mode = st.session_state.current_evaluation_config.get("latency_only_mode", False)
+        st.checkbox(
+            "Latency Only Evaluation",
+            value=latency_only_mode,
+            key="latency_only_mode",
+            on_change=self._update_latency_only_mode,
+            help="Enable to skip LLM judge accuracy evaluation and only measure latency, throughput, tokens, and cost metrics. Use this for performance testing without quality assessment."
+        )
+
+        if st.session_state.current_evaluation_config.get("latency_only_mode", False):
+            st.info("ℹ️ **Latency-only mode enabled**: Judge evaluation will be skipped. Only performance metrics (latency, throughput, tokens, cost) will be collected. The CSV output will show 'N/A' for all accuracy-related fields.")
+
         # Task evaluations section
         st.subheader("Task Evaluations")
-        
+
+        # Check if latency-only mode is enabled (read from the widget key directly)
+        is_latency_only = st.session_state.get("latency_only_mode", False)
+
         # Initialize session state for task counter if not present
         if "task_counter" not in st.session_state:
             st.session_state.task_counter = 1
-        
+
         # Initialize task_evaluations if not present
         if "task_evaluations" not in st.session_state.current_evaluation_config:
             st.session_state.current_evaluation_config["task_evaluations"] = [{"task_type": "", "task_criteria": "", "temperature": 0.7, "user_defined_metrics": ""}]
-        
+
         # Initialize number of tasks if not present
         if "num_tasks" not in st.session_state:
             st.session_state.num_tasks = len(st.session_state.current_evaluation_config["task_evaluations"])
@@ -225,21 +243,23 @@ class EvaluationSetupComponent:
             
             with col1:
                 task_type = st.text_input(
-                    "Task Type",
+                    "Task Type" + (" (Not used in latency-only mode)" if is_latency_only else ""),
                     value=task_eval.get("task_type", ""),
                     key=f"task_type_{i}",
-                    placeholder="e.g., Summarization, Question-Answering",
-                    help="What kind of task is this? Examples: Summarization, Translation, Creative Writing, Code Generation, Question-Answering, Classification"
+                    placeholder="e.g., Summarization, Question-Answering" if not is_latency_only else "Not needed for latency-only evaluation",
+                    help="What kind of task is this? Examples: Summarization, Translation, Creative Writing, Code Generation, Question-Answering, Classification" if not is_latency_only else "Task type is not used in latency-only mode as there is no judge evaluation.",
+                    disabled=is_latency_only
                 )
                 
             with col2:
                 task_criteria = st.text_area(
-                    "Task Criteria",
+                    "Task Criteria" + (" (Not used in latency-only mode)" if is_latency_only else ""),
                     value=task_eval.get("task_criteria", ""),
                     key=f"task_criteria_{i}",
-                    placeholder="Specific evaluation instructions",
+                    placeholder="Specific evaluation instructions" if not is_latency_only else "Not needed for latency-only evaluation",
                     height=100,
-                    help="Detailed instructions for how this task should be evaluated. Be specific about what makes a good vs. poor response. Example: 'Summarize the text while preserving all key facts and maintaining a professional tone.'"
+                    help="Detailed instructions for how this task should be evaluated. Be specific about what makes a good vs. poor response. Example: 'Summarize the text while preserving all key facts and maintaining a professional tone.'" if not is_latency_only else "Task criteria is not used in latency-only mode as there is no judge evaluation.",
+                    disabled=is_latency_only
                 )
             
             # Second row for temperature and user-defined metrics
@@ -258,11 +278,12 @@ class EvaluationSetupComponent:
                 
             with col4:
                 user_defined_metrics = st.text_input(
-                    "User-Defined Metrics (optional)",
+                    "User-Defined Metrics (optional)" + (" - Not used" if is_latency_only else ""),
                     value=task_eval.get("user_defined_metrics", ""),
                     key=f"user_defined_metrics_{i}",
-                    placeholder="e.g., business writing style, brand adherence",
-                    help="Additional custom criteria to evaluate beyond the standard metrics (correctness, completeness, etc.). Separate multiple criteria with commas. Examples: 'professional tone', 'brand voice consistency', 'technical accuracy'"
+                    placeholder="e.g., business writing style, brand adherence" if not is_latency_only else "Not needed for latency-only evaluation",
+                    help="Additional custom criteria to evaluate beyond the standard metrics (correctness, completeness, etc.). Separate multiple criteria with commas. Examples: 'professional tone', 'brand voice consistency', 'technical accuracy'" if not is_latency_only else "User-defined metrics are not used in latency-only mode as there is no judge evaluation.",
+                    disabled=is_latency_only
                 )
             
             # Update the task evaluation in session state
@@ -321,6 +342,9 @@ class EvaluationSetupComponent:
         }
         selected = st.session_state.prompt_optimization_radio
         st.session_state.current_evaluation_config["prompt_optimization_mode"] = optimization_options[selected]
+
+    def _update_latency_only_mode(self):
+        st.session_state.current_evaluation_config["latency_only_mode"] = st.session_state.latency_only_mode
 
     # No longer need add/remove methods - handled by number input
     

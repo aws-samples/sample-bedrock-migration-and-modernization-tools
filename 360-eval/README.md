@@ -432,6 +432,44 @@ python src/benchmarks_run.py input_file.jsonl \
 - `--report`: Generate HTML report after benchmarking (default: true)
 - `--vision_enabled`: Enable vision model capabilities for image inputs (default: false)
 - `--prompt_optimization_mode`: Prompt optimization mode - `none`, `optimize_only`, or `evaluate_both` (default: none)
+- `--latency_only_mode`: Enable latency-only evaluation mode - skips LLM judge evaluation and only measures performance metrics (default: false)
+
+### Latency-Only Evaluation Mode
+
+The framework supports a **latency-only evaluation mode** that skips the LLM judge accuracy evaluation and focuses exclusively on performance metrics. This mode is useful when you only need to measure inference speed, throughput, tokens, and cost without assessing response quality.
+
+**When to use latency-only mode:**
+- Performance benchmarking and load testing
+- Cost analysis across different models
+- Token throughput comparison
+- Initial model screening before full evaluation
+
+**How to enable:**
+
+**CLI:**
+```bash
+python src/benchmarks_run.py input_file.jsonl --latency_only_mode true
+```
+
+**Dashboard:**
+1. Navigate to the **Setup** tab
+2. Under **Evaluation Type**, check the **"Latency Only Evaluation"** checkbox
+3. Configure your evaluation as normal and run
+
+**What happens in latency-only mode:**
+- ✅ Model inference runs normally (full response generated)
+- ✅ All performance metrics collected (TTFT, TTLB, throughput, tokens, cost)
+- ❌ Judge evaluation skipped (no accuracy assessment)
+- 📊 CSV output contains `'N/A'` for all judge-related fields
+- 📊 `eval_type` column shows `'latency'` (vs `'360'` for full evaluation)
+- 📊 HTML reports show placeholder messages for accuracy-related charts
+- 📊 Latency/cost/throughput charts display normally
+
+**CSV Output Structure:**
+```
+model_id,eval_type,time_to_first_byte,throughput_tps,response_cost,judge_success,judge_explanation,judge_scores
+us.amazon.nova-pro-v1:0,latency,0.234,45.2,0.00012,N/A,N/A,{}
+```
 
 ### Visualizing Results
 

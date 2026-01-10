@@ -69,6 +69,7 @@ def initialize_session_state():
             "failure_threshold": DEFAULT_FAILURE_THRESHOLD,
             "experiment_wait_time": 0,  # Wait time in seconds between experiments
             "prompt_optimization_mode": "none",  # Prompt optimization mode: none, optimize_only, evaluate_both
+            "latency_only_mode": False,  # Latency-only evaluation mode (skip judge evaluation)
             "selected_models": [],
             "judge_models": [],
             "user_defined_metrics": "",
@@ -104,6 +105,7 @@ def create_new_evaluation():
         "failure_threshold": DEFAULT_FAILURE_THRESHOLD,
         "experiment_wait_time": 0,  # Wait time in seconds between experiments
         "prompt_optimization_mode": "none",  # Prompt optimization mode: none, optimize_only, evaluate_both
+        "latency_only_mode": False,  # Latency-only evaluation mode (skip judge evaluation)
         "selected_models": [],
         "judge_models": [],
         "user_defined_metrics": "",

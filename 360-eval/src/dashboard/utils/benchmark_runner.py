@@ -331,8 +331,17 @@ def run_benchmark_process(eval_id):
                 "",
                 custom_filename=model_file_name
             )
+            # For latency-only mode, create judge profiles with empty list (will create empty file)
+            is_latency_only = evaluation_config.get("latency_only_mode", False)
+            dashboard_logger.info(f"Latency-only mode: {is_latency_only}, judge_models in config: {len(evaluation_config.get('judge_models', []))}")
+
+            if is_latency_only:
+                judge_models = []
+            else:
+                judge_models = evaluation_config.get("judge_models", [])
+
             judges_jsonl = create_judge_profiles_jsonl(
-                evaluation_config["judge_models"],
+                judge_models,
                 "",
                 custom_filename=judge_file_name
             )
@@ -379,6 +388,10 @@ def run_benchmark_process(eval_id):
         # Add prompt optimization mode
         if evaluation_config.get("prompt_optimization_mode", "none") != "none":
             cmd.extend(["--prompt_optimization_mode", evaluation_config["prompt_optimization_mode"]])
+
+        # Add latency-only mode
+        if evaluation_config.get("latency_only_mode", False):
+            cmd.extend(["--latency_only_mode", "True"])
 
         # Start benchmark execution
         working_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -202,7 +202,7 @@ def create_judge_profiles_jsonl(judges, output_dir, custom_filename=None):
                     "output_cost_per_1k": judge["output_cost"]
                 }
                 f.write(json.dumps(entry) + '\n')
-    except IOError as e:
+    except (IOError, KeyError) as e:
         raise Exception(f"Failed to write judge profiles to {jsonl_path}: {e}")
     
     return str(jsonl_path)
