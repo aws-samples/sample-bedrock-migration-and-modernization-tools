@@ -441,8 +441,12 @@ def calculate_metrics_by_model_task(df):
 
     # Calculate value_ratio only if success_rate exists (360 mode)
     if has_task_success:
-        max_raw_ratio = metrics['success_rate'].max() / (metrics['avg_cost'].min() + EPSILON_DIVISION)
-        metrics['value_ratio'] = VALUE_RATIO_MULTIPLIER * (metrics['success_rate'] / (metrics['avg_cost'] + EPSILON_DIVISION)) / max_raw_ratio
+        # Use only non-NaN success_rate values for calculating max (to handle mixed evaluations)
+        valid_success_rates = metrics['success_rate'].dropna()
+        if not valid_success_rates.empty:
+            max_raw_ratio = valid_success_rates.max() / (metrics['avg_cost'].min() + EPSILON_DIVISION)
+            # Calculate value_ratio, will be NaN for rows where success_rate is NaN (latency-only tasks)
+            metrics['value_ratio'] = VALUE_RATIO_MULTIPLIER * (metrics['success_rate'] / (metrics['avg_cost'] + EPSILON_DIVISION)) / max_raw_ratio
 
     return metrics
 
@@ -847,13 +851,19 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
     visualizations['cost_comparison'] = cost_fig
 
     # 5. Task-Model Success Rate Heatmap
-    if has_latency_only:
-        # Use placeholder for latency-only mode
+    # Only skip if there's NO success_rate data at all (filter out NaN rows first)
+    has_success_rate_data = 'success_rate' in model_task_metrics.columns and model_task_metrics['success_rate'].notna().any()
+
+    if not has_success_rate_data:
+        # Use placeholder only if there's absolutely no success_rate data
         heatmap_fig = create_placeholder_chart("Success rate heatmap not available in latency-only mode")
     else:
+        # Filter to only rows with success_rate data (exclude latency-only tasks in mixed reports)
+        metrics_with_success = model_task_metrics[model_task_metrics['success_rate'].notna()].copy()
+
         # Pivot to create model vs task matrix (use task_display_name for proper disambiguation)
         pivot_success = pd.pivot_table(
-            model_task_metrics,
+            metrics_with_success,
             values='success_rate',
             index='model_name',
             columns='task_display_name',  # Use task_display_name instead of task_types
@@ -878,7 +888,7 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
     visualizations['model_task_heatmap'] = heatmap_fig
 
     # 6. Model-Task Bubble Chart
-    if has_latency_only:
+    if not has_success_rate_data:
         # For latency-only mode, create a simplified bubble chart with only latency vs cost
         model_task_metrics_round = model_task_metrics
         average_cost_round = model_task_metrics_round.round({'avg_otps': 2, 'value_ratio': 2})
@@ -919,8 +929,9 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
         )
         bubble_fig.for_each_annotation(lambda a: a.update(font=dict(color="#90caf9", size=12)))
     else:
-        # Full 360 evaluation mode with success_rate
-        model_task_metrics_round = model_task_metrics
+        # Full 360 evaluation mode with success_rate - filter to only rows with success_rate
+        metrics_with_success = model_task_metrics[model_task_metrics['success_rate'].notna()].copy()
+        model_task_metrics_round = metrics_with_success
         average_cost_round = model_task_metrics_round.round({'avg_otps': 2, 'value_ratio': 2})
         bubble_fig = px.scatter(
             average_cost_round,
@@ -1015,17 +1026,21 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
 
     radar_charts = {}
 
-    if not has_latency_only:
+    # Only skip radar charts if there's NO success_rate data at all
+    if has_success_rate_data:
+        # Filter dataframe to only rows with judge scores (exclude latency-only in mixed reports)
+        df_with_scores = df[df['judge_success'] != 'N/A'].copy()
+
         # Identify unique task configurations (handles edge case of same task with different metrics)
-        unique_task_configs = identify_unique_task_configs(df)
+        unique_task_configs = identify_unique_task_configs(df_with_scores)
 
         # Define color palette for models
         color_palette = px.colors.qualitative.Plotly + px.colors.qualitative.Set2
 
         # Create one chart per unique task configuration
         for unique_task_name, (original_task, metric_sig, indices) in unique_task_configs.items():
-            # Filter data for this task configuration
-            task_data = df.loc[indices].copy()
+            # Filter data for this task configuration (use df_with_scores to exclude latency-only)
+            task_data = df_with_scores.loc[indices].copy()
 
             if task_data.empty:
                 continue
@@ -1373,8 +1388,11 @@ def generate_task_findings(df, model_task_metrics, has_latency_only=False):
         findings = []
 
         if not task_data.empty:
-            # Skip accuracy-related findings in latency-only mode
-            if not has_latency_only:
+            # Check if this specific task has success_rate data (for mixed evaluations)
+            task_has_success_rate = 'success_rate' in task_data.columns and task_data['success_rate'].notna().any()
+
+            # Skip accuracy-related findings only if this specific task has no success_rate
+            if task_has_success_rate and not has_latency_only:
                 # Best accuracy model
                 best_acc_idx = task_data['success_rate'].idxmax()
                 best_acc = task_data.loc[best_acc_idx]
@@ -1392,8 +1410,8 @@ def generate_task_findings(df, model_task_metrics, has_latency_only=False):
             findings.append(
                 f"{best_otps['model_name']} had the highest throughput ({best_otps['avg_otps']:.1f} tokens/sec)")
 
-            # Skip value ratio in latency-only mode (requires success_rate)
-            if not has_latency_only:
+            # Skip value ratio only if this task has no success_rate
+            if task_has_success_rate and not has_latency_only:
                 # Best value model
                 best_value_idx = task_data['value_ratio'].idxmax()
                 best_value = task_data.loc[best_value_idx]
@@ -1431,45 +1449,63 @@ def generate_task_findings(df, model_task_metrics, has_latency_only=False):
 
 def generate_task_recommendations(model_task_metrics, has_latency_only=False):
     """Generate task-specific model recommendations (using task_display_name)."""
-    recommendations = []
+    recommendations_360 = []
+    recommendations_latency = []
 
-    # Loop through unique task_display_name to handle multiple configs
-    for task_display in model_task_metrics['task_display_name'].unique():
-        task_data = model_task_metrics[model_task_metrics['task_display_name'] == task_display]
+    # Separate tasks with success_rate (360) from those without (latency-only)
+    if 'success_rate' in model_task_metrics.columns:
+        metrics_360 = model_task_metrics[model_task_metrics['success_rate'].notna()].copy()
+        metrics_latency = model_task_metrics[model_task_metrics['success_rate'].isna()].copy()
+    else:
+        metrics_360 = pd.DataFrame()
+        metrics_latency = model_task_metrics.copy()
+
+    # Process 360 evaluation tasks
+    for task_display in metrics_360['task_display_name'].unique() if not metrics_360.empty else []:
+        task_data = metrics_360[metrics_360['task_display_name'] == task_display]
 
         if not task_data.empty:
             best_lat = task_data['avg_latency'].min()
             best_speed_model = '<br>'.join(task_data[task_data['avg_latency'] == best_lat]['model_name'].tolist())
 
-            # Create recommendation entry (use task_display for display)
-            rec_entry = {
-                'task': task_display,
-                'best_speed_model': best_speed_model,
-                'speed': f"{best_lat:.2f}s"
-            }
+            best_suc = task_data['success_rate'].max()
+            best_acc_model = '<br>'.join(task_data[task_data['success_rate'] == best_suc]['model_name'].tolist())
 
-            # Add accuracy and value metrics only in full 360 mode
-            if not has_latency_only:
-                best_suc = task_data['success_rate'].max()
-                best_acc_model = '<br>'.join(task_data[task_data['success_rate'] == best_suc]['model_name'].tolist())
+            best_value = task_data['value_ratio'].max()
+            best_value_model = '<br>'.join(task_data[task_data['value_ratio'] == best_value]['model_name'].tolist())
 
-                best_value = task_data['value_ratio'].max()
-                best_value_model = '<br>'.join(task_data[task_data['value_ratio'] == best_value]['model_name'].tolist())
+            recommendations_360.append({
+                'task': str(task_display),
+                'best_accuracy_model': str(best_acc_model),
+                'accuracy': f"{best_suc:.1%}",
+                'best_speed_model': str(best_speed_model),
+                'speed': f"{best_lat:.2f}s",
+                'best_value_model': str(best_value_model),
+                'value': f"{best_value:.2f}"
+            })
 
-                rec_entry['best_accuracy_model'] = best_acc_model
-                rec_entry['accuracy'] = f"{best_suc:.1%}"
-                rec_entry['best_value_model'] = best_value_model
-                rec_entry['value'] = f"{best_value:.2f}"
-            else:
-                # Placeholder values for latency-only mode
-                rec_entry['best_accuracy_model'] = "N/A"
-                rec_entry['accuracy'] = "N/A"
-                rec_entry['best_value_model'] = "N/A"
-                rec_entry['value'] = "N/A"
+    # Process latency-only tasks
+    for task_display in metrics_latency['task_display_name'].unique() if not metrics_latency.empty else []:
+        task_data = metrics_latency[metrics_latency['task_display_name'] == task_display]
 
-            recommendations.append(rec_entry)
+        if not task_data.empty:
+            best_lat = task_data['avg_latency'].min()
+            best_speed_model = '<br>'.join(task_data[task_data['avg_latency'] == best_lat]['model_name'].tolist())
 
-    return sorted(recommendations, key=lambda x: x['task'])
+            recommendations_latency.append({
+                'task': str(task_display),
+                'best_accuracy_model': "N/A",
+                'accuracy': "N/A",
+                'best_speed_model': str(best_speed_model),
+                'speed': f"{best_lat:.2f}s",
+                'best_value_model': "N/A",
+                'value': "N/A"
+            })
+
+    # Combine both lists
+    all_recommendations = recommendations_360 + recommendations_latency
+
+    return sorted(all_recommendations, key=lambda x: x['task'])
 
 
 def generate_histogram_findings(df, key='time_to_first_byte', label='Time to First Token'):
@@ -1596,8 +1632,18 @@ def create_html_report(output_dir, timestamp, evaluation_names=None):
         raise
 
 
-    # Check if this is a latency-only evaluation
-    has_latency_only = 'eval_type' in df.columns and (df['eval_type'] == 'latency').any()
+    # Check evaluation types in the dataset
+    has_latency = 'eval_type' in df.columns and (df['eval_type'] == 'latency').any()
+    has_360 = 'eval_type' in df.columns and (df['eval_type'] == '360').any()
+    has_mixed = has_latency and has_360
+    has_only_latency = has_latency and not has_360
+
+    if has_mixed:
+        logger.info("Detected mixed evaluation types: both latency-only and 360 evaluations present")
+    elif has_only_latency:
+        logger.info("Detected latency-only evaluation")
+    else:
+        logger.info("Detected 360 evaluation (with judge scoring)")
 
     # Calculate metrics
     logger.info("Calculating model-task metrics...")
@@ -1613,14 +1659,14 @@ def create_html_report(output_dir, timestamp, evaluation_names=None):
 
     # Create visualizations
     logger.info("Creating visualizations...")
-    visualizations = create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics, has_latency_only)
+    visualizations = create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics, has_only_latency)
 
     # Generate findings and recommendations
     logger.info("Generating task findings...")
-    task_findings = generate_task_findings(df, model_task_metrics, has_latency_only)
+    task_findings = generate_task_findings(df, model_task_metrics, has_only_latency)
 
     logger.info("Generating recommendations...")
-    task_recommendations = generate_task_recommendations(model_task_metrics, has_latency_only)
+    task_recommendations = generate_task_recommendations(model_task_metrics, has_only_latency)
     task_level_analysis = '# Task Level Analysis:\n'
     # Prepare task analysis data for template
     task_analysis = []

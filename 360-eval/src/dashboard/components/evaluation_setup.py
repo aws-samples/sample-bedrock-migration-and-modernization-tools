@@ -346,6 +346,29 @@ class EvaluationSetupComponent:
     def _update_latency_only_mode(self):
         st.session_state.current_evaluation_config["latency_only_mode"] = st.session_state.latency_only_mode
 
+        # Clear task-related fields when latency-only mode is enabled
+        if st.session_state.latency_only_mode:
+            # Clear the configuration values
+            st.session_state.current_evaluation_config["task_type"] = ""
+            st.session_state.current_evaluation_config["task_criteria"] = ""
+            st.session_state.current_evaluation_config["user_defined_metrics"] = ""
+            st.session_state.current_evaluation_config["judge_models"] = []
+
+            # Clear all task evaluations
+            if "task_evaluations" in st.session_state.current_evaluation_config:
+                for i, task_eval in enumerate(st.session_state.current_evaluation_config["task_evaluations"]):
+                    task_eval["task_type"] = ""
+                    task_eval["task_criteria"] = ""
+                    task_eval["user_defined_metrics"] = ""
+
+                    # Also clear the UI widget state keys (they use index-based keys)
+                    if f"task_type_{i}" in st.session_state:
+                        st.session_state[f"task_type_{i}"] = ""
+                    if f"task_criteria_{i}" in st.session_state:
+                        st.session_state[f"task_criteria_{i}"] = ""
+                    if f"user_defined_metrics_{i}" in st.session_state:
+                        st.session_state[f"user_defined_metrics_{i}"] = ""
+
     # No longer need add/remove methods - handled by number input
     
     def _update_output_dir(self):
@@ -592,12 +615,22 @@ class EvaluationSetupComponent:
         normalized = []
         for model in models:
             # Handle both old format (from loaded profiles) and new format
-            normalized.append({
+            normalized_model = {
                 "id": model.get("model_id") or model.get("id"),
                 "region": model.get("region", ""),
                 "input_cost": model.get("input_token_cost") or model.get("input_cost", 0),
                 "output_cost": model.get("output_token_cost") or model.get("output_cost", 0)
-            })
+            }
+
+            # Preserve service_tier if it exists (don't set to empty string if None)
+            if model.get("service_tier"):
+                normalized_model["service_tier"] = model.get("service_tier")
+
+            # Preserve target_rpm if it exists
+            if model.get("target_rpm") is not None:
+                normalized_model["target_rpm"] = model.get("target_rpm")
+
+            normalized.append(normalized_model)
         return normalized
     
     def _normalize_judges(self, judges):
