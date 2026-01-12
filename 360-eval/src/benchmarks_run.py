@@ -477,7 +477,7 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3, latency_onl
                         error_classification = "evaluation_missing"
                     else:
                         failed_judges = [j.get("model") for j in judge_details if j.get("error_type")]
-                        reason = f"Judge evaluation failure: {', '.join(failed_judges)}"
+                        reason = f"Jurors evaluation failure: {', '.join(failed_judges)}"
                         error_classification = "judge_failure"
 
                     logging.warning(
@@ -804,7 +804,7 @@ def main(
             for line in f:
                 if line.strip():  # Skip empty lines
                     judges_list.append(json.loads(line))
-        logging.info(f"Loaded {len(judges_list)} judge model(s)")
+        logging.info(f"Loaded {len(judges_list)} Jurors model(s)")
     else:
         logging.info("Latency-only mode: Skipping judge profiles loading")
 

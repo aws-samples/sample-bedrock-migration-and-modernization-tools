@@ -346,7 +346,7 @@ def run_benchmark_process(eval_id):
                 custom_filename=judge_file_name
             )
             
-            dashboard_logger.info(f"File setup completed for {eval_id}: JSONL={jsonl_path}, Models={models_jsonl}, Judges={judges_jsonl}")
+            dashboard_logger.info(f"File setup completed for {eval_id}: JSONL={jsonl_path}, Models={models_jsonl}, Jurors={judges_jsonl}")
             
         except Exception as e:
             error_msg = f"File setup error: {str(e)}"

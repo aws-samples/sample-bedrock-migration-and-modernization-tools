@@ -38,7 +38,7 @@ This project provides tools for:
 
 ### Core Capabilities
 - **Multi-model benchmarking**: Compare different models side-by-side, including Amazon Bedrock and third-party models (OpenAI, Google Gemini, Azure)
-- **LLM-as-jury evaluation**: Leverage multiple LLM judges to evaluate model responses with aggregated scoring
+- **LLM-as-jury evaluation**: Leverage multiple LLM Jurors to evaluate model responses with aggregated scoring
 - **Comprehensive metrics**: Track latency (TTFT, TTLB), throughput (tokens/sec), cost, and quality of responses
 - **Interactive visualizations**: Generate holistic HTML reports with performance comparisons, heatmaps, radar charts, and error analysis
 
@@ -51,7 +51,7 @@ This project provides tools for:
 - **Interactive web interface**: Launch a full-featured Streamlit dashboard for managing evaluations
 - **Real-time monitoring**: Track running evaluations with live progress updates
 - **Results visualization**: View and compare evaluation results directly in the browser
-- **Model configuration**: Easily configure models, judges, and evaluation parameters
+- **Model configuration**: Easily configure models, Jurors, and evaluation parameters
 - **Report viewer**: Browse and view generated HTML reports
 
 ### Advanced Features
@@ -233,12 +233,12 @@ Sample model profiles are provided in:
 
 ## Judge Configuration
 
-Judges are required input data in JSONL format, with each line containing a judge model used to evaluate the models' responses. Currently, only Bedrock models are supported as judges.
+Jurors are required input data in JSONL format, with each line containing a judge model used to evaluate the models' responses. Currently, only Bedrock models are supported as Jurors.
 
 ### Field Descriptions
 
 - `model_id`: Judge model identifier (example: "bedrock/us.amazon.nova-premier-v1:0")
-  - Currently only supporting Bedrock Model Judges
+  - Currently only supporting Bedrock Model Jurors
 
 - `region`: AWS region for Bedrock models (example: "us-east-1")
   - Region where the Bedrock model is available
@@ -427,7 +427,7 @@ python src/benchmarks_run.py input_file.jsonl \
 - `--temperature_variations`: Number of temperature variations (±25% percentile increments, default: 0)
 - `--user_defined_metrics`: Comma-delimited user-defined evaluation metrics tailored to specific use cases
 - `--model_file_name`: Name of the JSONL file containing the models to evaluate (defaults to `config/models_profiles.jsonl`)
-- `--judge_file_name`: Name of the JSONL file containing the judges used to evaluate (defaults to `config/judge_profiles.jsonl`)
+- `--judge_file_name`: Name of the JSONL file containing the Jurors used to evaluate (defaults to `config/judge_profiles.jsonl`)
 - `--evaluation_pass_threshold`: Threshold score used to determine Pass|Fail (default: 3 out of 5)
 - `--report`: Generate HTML report after benchmarking (default: true)
 - `--vision_enabled`: Enable vision model capabilities for image inputs (default: false)

@@ -203,13 +203,13 @@ class ResultsViewerComponent:
                 # Create judge summary
                 if isinstance(judges_info, list) and len(judges_info) > 0:
                     if isinstance(judges_info[0], dict):
-                        judges_summary = f"{len(judges_info)} judges"
+                        judges_summary = f"{len(judges_info)} jurors"
                         judges_details = ", ".join([j.get("model_id", "Unknown") for j in judges_info])
                     else:
-                        judges_summary = f"{len(judges_info)} judges"
+                        judges_summary = f"{len(judges_info)} jurors"
                         judges_details = ", ".join(judges_info)
                 else:
-                    judges_summary = "0 judges"
+                    judges_summary = "0 jurors"
                     judges_details = "None"
                 
                 # Extract file name from persistent storage or CSV data
@@ -238,7 +238,7 @@ class ResultsViewerComponent:
                     "Temperature": temperature,
                     "Custom Metrics": has_custom_metrics,
                     "Models": models_summary,
-                    "Judges": judges_summary,
+                    "Jurors": judges_summary,
                     "Completed": pd.to_datetime(eval_config["updated_at"]).strftime("%Y-%m-%d %H:%M")
                 })
             
@@ -362,7 +362,7 @@ class ResultsViewerComponent:
                 st.dataframe(judges_df, width='stretch', hide_index=True)
             else:
                 # Legacy format - just model IDs
-                st.write("Judges (legacy format):")
+                st.write("Jurors (legacy format):")
                 for judge in judges_info:
                     st.write(f"- {judge}")
         else:
