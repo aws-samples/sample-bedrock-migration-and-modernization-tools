@@ -853,7 +853,8 @@ def _update_status_file(status_file, status, progress, results=None, logs_dir=No
             "task_type": evaluation_config.get("task_type"),
             "task_criteria": evaluation_config.get("task_criteria"),
             "temperature": evaluation_config.get("temperature"),
-            "csv_file_name": evaluation_config.get("csv_file_name")
+            "csv_file_name": evaluation_config.get("csv_file_name"),
+            "stream_evaluation": evaluation_config.get("stream_evaluation", True)
         }
 
     with open(status_file, 'w') as f:

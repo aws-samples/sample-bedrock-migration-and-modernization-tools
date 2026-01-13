@@ -352,7 +352,8 @@ def benchmark(
         "performance_metrics": perf,
         "evaluation_cost": evaluation_cost_data,
         "inference_request_count": inference_request_count,
-        "eval_type": "latency" if latency_only_mode else "360"
+        "eval_type": "latency" if latency_only_mode else "360",
+        "stream": stream_evaluation
     }
 
 

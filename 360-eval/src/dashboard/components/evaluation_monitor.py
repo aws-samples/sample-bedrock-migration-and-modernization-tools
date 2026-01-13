@@ -149,6 +149,7 @@ class EvaluationMonitorComponent:
                     "Name": name_field,
                     "Task Type": task_type,
                     "Models": len(eval_config["selected_models"]),
+                    "Stream": "Yes" if eval_config.get("stream_evaluation", True) else "No",
                     "Status": eval_config["status"].capitalize(),
                     "Created": pd.to_datetime(eval_config["created_at"]).strftime("%Y-%m-%d %H:%M") if eval_config.get("created_at") else "N/A",
                 })

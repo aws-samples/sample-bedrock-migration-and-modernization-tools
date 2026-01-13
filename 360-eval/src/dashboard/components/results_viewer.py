@@ -236,6 +236,7 @@ class ResultsViewerComponent:
                     "Task Type": eval_config["task_type"],
                     "Data File": csv_file_name,
                     "Temperature": temperature,
+                    "Stream": "Yes" if eval_config.get("stream_evaluation", True) else "No",
                     "Custom Metrics": has_custom_metrics,
                     "Models": models_summary,
                     "Jurors": judges_summary,
