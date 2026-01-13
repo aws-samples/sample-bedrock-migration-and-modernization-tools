@@ -57,7 +57,8 @@ def evaluate_with_llm_judge(judge_model_id,
         resp = run_inference(model_name=judge_model_id,
                              prompt_text=eval_template,
                              provider_params=cfg,
-                             stream=False)
+                             stream=False,
+                             judge_eval=True)
         text = resp['text']
     except Exception as e:
         logging.error(f"Judge inference failed ({judge_model_id}): {e}", exc_info=True)
@@ -205,6 +206,7 @@ def benchmark(
         vision_enabled=None,
         service_tier=None,
         latency_only_mode=False,
+        stream_evaluation=True,
 ):
     logging.debug(f"Starting benchmark for model: {model_id} in region: {region}")
     status = "Success"
@@ -248,7 +250,7 @@ def benchmark(
                           in_cost,
                           out_cost,
                           provider_params=params,
-                          stream=True,
+                          stream=stream_evaluation,
                           vision_enabled=vision_enabled)
 
         resp_txt = r['model_response']
@@ -387,7 +389,7 @@ def expand_scenarios(raw, cfg):
 # ----------------------------------------
 # Parallel execution
 # ----------------------------------------
-def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3, latency_only_mode=False):
+def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3, latency_only_mode=False, stream_evaluation=True):
     all_recs = []
     unprocessed_records = []
     lock = Lock()
@@ -447,6 +449,7 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3, latency_onl
                     vision_enabled=scn.get("image_path", None),
                     service_tier=scn.get("service_tier", None),
                     latency_only_mode=latency_only_mode,
+                    stream_evaluation=stream_evaluation,
                 )
 
                 # Add throttle metrics to result
@@ -724,7 +727,8 @@ def main(
         vision_enabled=False,
         experiment_wait_time=0,
         prompt_optimization_mode="none",
-        latency_only_mode=False
+        latency_only_mode=False,
+        stream_evaluation=True
 ):
     user_defined_metrics_list = None
     if user_defined_metrics:
@@ -970,7 +974,7 @@ def main(
         logging.info(f"=== Run {run}/{experiment_counts} (Started: {run_timestamp}) ===")
 
         try:
-            results, unprocessed_file_path, unprocessed_count = execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=int(yard_stick), latency_only_mode=latency_only_mode)
+            results, unprocessed_file_path, unprocessed_count = execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=int(yard_stick), latency_only_mode=latency_only_mode, stream_evaluation=stream_evaluation)
 
             if not results:
                 logging.error(f"Run {run}/{experiment_counts} produced no results. Check the unprocessed records file.")
@@ -1075,6 +1079,8 @@ if __name__ == "__main__":
                    help="Prompt optimization mode (Bedrock only): none, optimize_only, or evaluate_both")
     p.add_argument("--latency_only_mode", type=lambda x: x.lower() == 'true', default=False,
                    help="Enable latency-only evaluation mode (skip LLM judge evaluation)")
+    p.add_argument("--stream_evaluation", type=lambda x: x.lower() == 'true', default=True,
+                   help="Use streaming mode for model evaluation (True=streaming, False=non-streaming)")
     args = p.parse_args()
     main(
         args.input_file,
@@ -1093,5 +1099,6 @@ if __name__ == "__main__":
         args.vision_enabled,
         args.experiment_wait_time,
         args.prompt_optimization_mode,
-        args.latency_only_mode
+        args.latency_only_mode,
+        args.stream_evaluation
     )

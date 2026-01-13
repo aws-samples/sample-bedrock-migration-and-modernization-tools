@@ -70,6 +70,7 @@ def initialize_session_state():
             "experiment_wait_time": 0,  # Wait time in seconds between experiments
             "prompt_optimization_mode": "none",  # Prompt optimization mode: none, optimize_only, evaluate_both
             "latency_only_mode": False,  # Latency-only evaluation mode (skip judge evaluation)
+            "stream_evaluation": True,  # Streaming mode for model evaluation (True=streaming, False=non-streaming)
             "selected_models": [],
             "judge_models": [],
             "user_defined_metrics": "",
@@ -106,6 +107,7 @@ def create_new_evaluation():
         "experiment_wait_time": 0,  # Wait time in seconds between experiments
         "prompt_optimization_mode": "none",  # Prompt optimization mode: none, optimize_only, evaluate_both
         "latency_only_mode": False,  # Latency-only evaluation mode (skip judge evaluation)
+        "stream_evaluation": True,  # Streaming mode for model evaluation (True=streaming, False=non-streaming)
         "selected_models": [],
         "judge_models": [],
         "user_defined_metrics": "",
@@ -271,6 +273,7 @@ def save_configuring_evaluation_to_disk(eval_config):
                 "golden_answer_column": eval_config.get("golden_answer_column"),
                 "vision_enabled": eval_config.get("vision_enabled", False),
                 "image_column": eval_config.get("image_column"),
+                "stream_evaluation": eval_config.get("stream_evaluation", True),
                 "csv_path": csv_path  # Store the path to the saved CSV file
             },
             # Store models and judges data for configuring evaluations

@@ -183,6 +183,21 @@ class EvaluationSetupComponent:
         if st.session_state.current_evaluation_config.get("latency_only_mode", False):
             st.info("ℹ️ **Latency-only mode enabled**: Judge evaluation will be skipped. Only performance metrics (latency, throughput, tokens, cost) will be collected. The CSV output will show 'N/A' for all accuracy-related fields.")
 
+        # Streaming evaluation configuration
+        st.markdown("#### Streaming Mode")
+
+        stream_evaluation = st.session_state.current_evaluation_config.get("stream_evaluation", True)
+        st.checkbox(
+            "Enable Streaming Evaluation",
+            value=stream_evaluation,
+            key="stream_evaluation",
+            on_change=self._update_stream_evaluation,
+            help="Enable to use streaming mode for model evaluation responses (chunks arrive incrementally). Disable for non-streaming mode (complete response at once). Non-streaming typically has lower latency for short responses."
+        )
+
+        if not st.session_state.current_evaluation_config.get("stream_evaluation", True):
+            st.info("ℹ️ **Non-streaming mode**: Responses will arrive as complete messages. TTFB will equal TTLB. Best for short responses and batch processing.")
+
         # Task evaluations section
         st.subheader("Task Evaluations")
 
@@ -369,8 +384,11 @@ class EvaluationSetupComponent:
                     if f"user_defined_metrics_{i}" in st.session_state:
                         st.session_state[f"user_defined_metrics_{i}"] = ""
 
+    def _update_stream_evaluation(self):
+        st.session_state.current_evaluation_config["stream_evaluation"] = st.session_state.stream_evaluation
+
     # No longer need add/remove methods - handled by number input
-    
+
     def _update_output_dir(self):
         st.session_state.current_evaluation_config["output_dir"] = st.session_state.output_dir
     

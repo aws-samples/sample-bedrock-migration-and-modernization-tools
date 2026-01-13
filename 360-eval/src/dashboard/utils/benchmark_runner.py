@@ -393,6 +393,11 @@ def run_benchmark_process(eval_id):
         if evaluation_config.get("latency_only_mode", False):
             cmd.extend(["--latency_only_mode", "True"])
 
+        # Add stream evaluation mode
+        if "stream_evaluation" in evaluation_config:
+            stream_val = "True" if evaluation_config["stream_evaluation"] else "False"
+            cmd.extend(["--stream_evaluation", stream_val])
+
         # Start benchmark execution
         working_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         dashboard_logger.info(f"Starting benchmark execution for {eval_id} - PID will be assigned, output to {output_dir}")

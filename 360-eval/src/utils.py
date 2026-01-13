@@ -759,7 +759,8 @@ def run_inference(model_name: str,
                   output_cost: float = 0.00001,
                   provider_params: dict = dict,
                   stream: bool = True,
-                  vision_enabled: str = None):
+                  vision_enabled: str = None,
+                  judge_eval: bool = None):
     # Concatenate user prompt for token counting
     if vision_enabled:
         messages = handle_vision(prompt_text, vision_enabled)
@@ -787,7 +788,38 @@ def run_inference(model_name: str,
             response["text"] = payload.choices[0].message.content
             response['outputTokens'] = payload.model_extra['usage']['completion_tokens']
             response['inputTokens'] = payload.model_extra['usage']['prompt_tokens']
-            return response
+
+            # If called from judge (judge_eval=True), return judge format
+            if judge_eval:
+                return response
+
+            # Otherwise, return full evaluation structure (non-streaming evaluation mode)
+            end_time = time.time()
+            total_runtime = end_time - start_time
+
+            input_tokens = response['inputTokens']
+            output_tokens = response['outputTokens']
+
+            throughput_tps = output_tokens / total_runtime if total_runtime > 0 else 0
+            tot_input_cost = input_tokens * (input_cost / 1000)
+            tot_output_cost = output_tokens * (output_cost / 1000)
+
+            # Capture finish_reason
+            finish_reason = payload.choices[0].finish_reason if hasattr(payload.choices[0], 'finish_reason') else None
+
+            return {
+                "model_response": response["text"],
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_runtime": total_runtime,
+                "time_to_first_byte": total_runtime,  # Same as total for non-streaming
+                "time_to_last_byte": total_runtime,   # Same as total for non-streaming
+                "throughput_tps": throughput_tps,
+                "total_cost": tot_output_cost + tot_input_cost,
+                "retry_count": retry_tracker.attempts,
+                "finish_reason": finish_reason,
+                "stream_metrics": None  # N/A for non-streaming
+            }
         else:
             time_to_first_token = 0
             for chunk in payload:
