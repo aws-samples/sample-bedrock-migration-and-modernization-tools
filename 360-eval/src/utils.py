@@ -61,9 +61,10 @@ MODEL_FAMILY_OPTIMIZATION_MAP = {
     "anthropic.claude-sonnet-4": "anthropic.claude-sonnet-4-20250514-v1:0",
     "anthropic.claude-opus-4": "anthropic.claude-opus-4-20250514-v1:0",
 
-    # DeepSeek
-    "deepseek.deepseek-r1": "deepseek.deepseek-r1-v1:0",
-    "deepseek.v3": "deepseek.deepseek-r1-v1:0",  # Map v3 to R1 for optimization
+    # DeepSeek - Tested and working with real AWS API
+    # Note: Config uses us.deepseek.r1-v1:0 (for inference) but optimization API needs deepseek.r1-v1:0
+    # The us. prefix is automatically stripped by get_optimization_target_model() before pattern matching
+    "deepseek.r1": "deepseek.r1-v1:0",
 
     # Meta Llama family
     "meta.llama3-70b": "meta.llama3-70b-instruct-v1:0",
