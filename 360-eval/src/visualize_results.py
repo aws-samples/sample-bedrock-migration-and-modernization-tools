@@ -105,7 +105,10 @@ except FileNotFoundError:
 
 
 def extract_model_name(model_id):
-    """Extract clean model name from ID."""
+    """Extract clean model name from ID.
+
+    Simple rule: Take everything after the last "/" and remove any ":[number]" suffix.
+    """
     # Check if this is an optimized prompt variant
     optimization_suffix = ""
     if "_Prompt_Optimized" in model_id:
@@ -122,14 +125,15 @@ def extract_model_name(model_id):
             model_id = model_id[:-len(tier)]
             break
 
-    if '.' in model_id:
-        parts = model_id.split('.')
-        if len(parts) == 3:
-            model_name = parts[-1].split(':')[0].split('-v')[0]
-        else:
-            model_name = parts[-2] + '.' + parts[-1]
-        return model_name + optimization_suffix + service_tier_suffix
-    return model_id.split(':')[0] + optimization_suffix + service_tier_suffix
+    # Simple rule: take everything after last "/"
+    if '/' in model_id:
+        model_id = model_id.split('/')[-1]
+
+    # Remove version suffix like :0, :1
+    if ':' in model_id:
+        model_id = model_id.split(':')[0]
+
+    return model_id + optimization_suffix + service_tier_suffix
 
 def parse_json_string(json_str):
     try:
@@ -1710,7 +1714,8 @@ def create_html_report(output_dir, timestamp, evaluation_names=None):
                               stream=False,
                               provider_params={"maxTokens": INFERENCE_MAX_TOKENS,
                                                "temperature": INFERENCE_TEMPERATURE,
-                                               "aws_region_name": INFERENCE_REGION})['text']
+                                               "aws_region_name": INFERENCE_REGION},
+                              judge_eval=True)['text']
     html = Template(HTML_TEMPLATE).render(
         timestamp=formatted_date,
         inference=inference,
