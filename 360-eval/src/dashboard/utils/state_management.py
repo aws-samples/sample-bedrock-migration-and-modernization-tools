@@ -415,6 +415,20 @@ def delete_evaluation_from_disk(eval_id, eval_name):
                     log_file.unlink()
                     deleted_files.append(f"Log: {log_file}")
 
+        # 8. Delete prompt optimization log files from outputs directory
+        if benchmark_results_dir.exists():
+            prompt_opt_patterns = [
+                f"prompt_optimization_log_{eval_name}_*.json",
+                f"prompt_optimization_log_*{composite_id}*.json",
+                f"prompt_optimization_log_*{eval_id}*.json"
+            ]
+
+            for pattern in prompt_opt_patterns:
+                opt_log_files = list(benchmark_results_dir.glob(pattern))
+                for opt_log_file in opt_log_files:
+                    opt_log_file.unlink()
+                    deleted_files.append(f"Prompt Optimization Log: {opt_log_file}")
+
         if deleted_files:
             print(f"Deleted {len(deleted_files)} files for evaluation {eval_name}:")
             for file_info in deleted_files:
