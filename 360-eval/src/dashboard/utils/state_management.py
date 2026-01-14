@@ -239,7 +239,7 @@ def save_configuring_evaluation_to_disk(eval_config):
         eval_id = eval_config["id"]
         eval_name = eval_config["name"]
         composite_id = f"{eval_id}_{eval_name}"
-        status_file = status_dir / f"eval_{composite_id}_status.json"
+        status_file = status_dir / f"evaluation_status_{composite_id}.json"
         
         # Save CSV data to disk if present
         csv_path = None
@@ -302,9 +302,9 @@ def delete_evaluation_from_disk(eval_id, eval_name):
         
         # 1. Delete status files from logs directory
         status_dir = Path(STATUS_FILES_DIR)
-        
-        # Try composite format first
-        status_file = status_dir / f"eval_{composite_id}_status.json"
+
+        # Delete new format: evaluation_status_{composite_id}.json
+        status_file = status_dir / f"evaluation_status_{composite_id}.json"
         if status_file.exists():
             # Read status file to get CSV path before deleting
             try:
@@ -317,15 +317,9 @@ def delete_evaluation_from_disk(eval_id, eval_name):
                     deleted_files.append(f"CSV data: {csv_path}")
             except Exception:
                 pass  # Continue with deletion even if we can't read the file
-            
+
             status_file.unlink()
             deleted_files.append(f"Status: {status_file}")
-        
-        # Try legacy format
-        legacy_status_file = status_dir / f"eval_{eval_id}_status.json"
-        if legacy_status_file.exists():
-            legacy_status_file.unlink()
-            deleted_files.append(f"Legacy status: {legacy_status_file}")
         
         # Also try to delete CSV file with composite naming
         csv_file = status_dir / f"eval_{composite_id}_data.csv"
@@ -405,7 +399,22 @@ def delete_evaluation_from_disk(eval_id, eval_name):
                 for jsonl_file in jsonl_files:
                     jsonl_file.unlink()
                     deleted_files.append(f"JSONL: {jsonl_file}")
-        
+
+        # 7. Delete benchmark log files from logs directory
+        logs_dir = status_dir  # logs directory is the same as status_dir (STATUS_FILES_DIR)
+        if logs_dir.exists():
+            log_patterns = [
+                f"360-benchmark-*-{eval_name}.log",
+                f"360-benchmark-*{composite_id}*.log",
+                f"360-benchmark-*{eval_id}*.log"
+            ]
+
+            for pattern in log_patterns:
+                log_files = list(logs_dir.glob(pattern))
+                for log_file in log_files:
+                    log_file.unlink()
+                    deleted_files.append(f"Log: {log_file}")
+
         if deleted_files:
             print(f"Deleted {len(deleted_files)} files for evaluation {eval_name}:")
             for file_info in deleted_files:
@@ -482,8 +491,8 @@ def load_evaluations_from_files():
             os.makedirs(status_dir, exist_ok=True)
             return
         
-        # Find all status files in logs directory
-        status_files = list(status_dir.glob("eval_*_status.json"))
+        # Find all status files in logs directory (new format)
+        status_files = list(status_dir.glob("evaluation_status_*.json"))
         
         # Get existing evaluation IDs to avoid duplicates
         existing_ids = {e["id"] for e in st.session_state.evaluations}
@@ -492,23 +501,25 @@ def load_evaluations_from_files():
             try:
                 # Extract eval_id from filename
                 filename = status_file.stem  # removes .json
-                # filename format: eval_{id}_{name}_status or eval_{id}_status
-                if filename.startswith("eval_") and filename.endswith("_status"):
-                    # Remove "eval_" prefix and "_status" suffix
-                    id_part = filename[5:-7]  # Remove "eval_" and "_status"
-                    
+                # filename format: evaluation_status_{id}_{name}
+                if filename.startswith("evaluation_status_"):
+                    # Remove "evaluation_status_" prefix
+                    id_part = filename[18:]  # Remove "evaluation_status_"
+
                     # Split by underscore - first part is always the ID
                     parts = id_part.split("_", 1)
                     eval_id = parts[0]
                     eval_name = parts[1] if len(parts) > 1 else f"Evaluation_{eval_id[:8]}"
-                    
+
                     # Skip if already in session state
                     if eval_id in existing_ids:
                         continue
-                    
-                    # Read status file
-                    with open(status_file, 'r') as f:
-                        status_data = json.load(f)
+                else:
+                    continue  # Skip files that don't match the new format
+
+                # Read status file
+                with open(status_file, 'r') as f:
+                    status_data = json.load(f)
                     
                     # Try to extract task info from JSONL file or status data
                     stored_config = status_data.get("evaluation_config", {})
@@ -620,9 +631,9 @@ def extract_models_from_profile_files(eval_id, eval_name):
         # First try to get from status file (now in logs directory)
         status_dir = Path(STATUS_FILES_DIR)
         composite_id = f"{eval_id}_{eval_name}"
-        status_file = status_dir / f"eval_{composite_id}_status.json"
-        
-        # Try composite status file
+        status_file = status_dir / f"evaluation_status_{composite_id}.json"
+
+        # Try new format status file
         if status_file.exists():
             with open(status_file, 'r') as f:
                 status_data = json.load(f)
@@ -648,9 +659,9 @@ def extract_judges_from_profile_files(eval_id, eval_name):
         # First try to get from status file (now in logs directory)
         status_dir = Path(STATUS_FILES_DIR)
         composite_id = f"{eval_id}_{eval_name}"
-        status_file = status_dir / f"eval_{composite_id}_status.json"
-        
-        # Try composite status file
+        status_file = status_dir / f"evaluation_status_{composite_id}.json"
+
+        # Try new format status file
         if status_file.exists():
             with open(status_file, 'r') as f:
                 status_data = json.load(f)

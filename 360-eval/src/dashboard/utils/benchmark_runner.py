@@ -167,7 +167,7 @@ def run_evaluations_linearly(evaluation_configs):
             update_evaluation_status(eval_id, "queued", 0)
             # Create status file immediately to persist queued evaluations
             composite_id = f"{eval_id}_{eval_name}"
-            status_file = Path(STATUS_FILES_DIR) / f"eval_{composite_id}_status.json"
+            status_file = Path(STATUS_FILES_DIR) / f"evaluation_status_{composite_id}.json"
             _update_status_file(status_file, "queued", 0, evaluation_config=eval_config)
             _evaluation_queue.append(eval_config.copy())
             dashboard_logger.info(f"Queued evaluation: '{eval_config['name']}' (ID: {eval_id})")
@@ -272,7 +272,7 @@ def run_benchmark_process(eval_id):
         os.makedirs(logs_dir, exist_ok=True)
         
         # Create a status file to track progress using composite ID (stored in logs directory)
-        status_file = Path(STATUS_FILES_DIR) / f"eval_{composite_id}_status.json"
+        status_file = Path(STATUS_FILES_DIR) / f"evaluation_status_{composite_id}.json"
         _update_status_file(status_file, "in-progress", 0, logs_dir=str(logs_dir))
         
         # Start time to track session evaluations
@@ -894,17 +894,13 @@ def sync_evaluations_from_files():
         eval_id = eval_config["id"]
         eval_name = eval_config.get("name", "")
         
-        # Try both composite ID format and legacy format
+        # Use new status file format
         from .constants import DEFAULT_OUTPUT_DIR
         output_dir = Path(DEFAULT_OUTPUT_DIR)
-        
-        # First try composite format: eval_{id}_{name}_status.json
+
+        # Use new format: evaluation_status_{id}_{name}.json
         composite_id = f"{eval_id}_{eval_name}"
-        status_file = Path(STATUS_FILES_DIR) / f"eval_{composite_id}_status.json"
-        
-        # If composite format doesn't exist, try legacy format
-        if not status_file.exists():
-            status_file = Path(STATUS_FILES_DIR) / f"eval_{eval_id}_status.json"
+        status_file = Path(STATUS_FILES_DIR) / f"evaluation_status_{composite_id}.json"
         
         dashboard_logger.debug(f"Checking status file for evaluation {eval_id}: {status_file}")
         

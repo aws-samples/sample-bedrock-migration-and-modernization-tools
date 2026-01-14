@@ -268,13 +268,13 @@ class ResultsViewerComponent:
         from ..utils.constants import STATUS_FILES_DIR
         status_dir = Path(STATUS_FILES_DIR)
         
-        # Find composite format status file
+        # Find new format status file
         status_file = None
         for eval_config in st.session_state.evaluations:
             if eval_config["id"] == eval_id:
                 eval_name = eval_config.get("name", "")
                 composite_id = f"{eval_id}_{eval_name}"
-                composite_status_file = status_dir / f"eval_{composite_id}_status.json"
+                composite_status_file = status_dir / f"evaluation_status_{composite_id}.json"
                 if composite_status_file.exists():
                     status_file = composite_status_file
                     break

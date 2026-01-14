@@ -222,7 +222,10 @@ class EvaluationMonitorComponent:
             for eval_config in st.session_state.evaluations:
                 # Check if this evaluation was started in this session (now in logs directory)
                 from ..utils.constants import STATUS_FILES_DIR
-                status_file = Path(STATUS_FILES_DIR) / f"eval_{eval_config['id']}_status.json"
+                eval_id = eval_config['id']
+                eval_name = eval_config.get('name', '')
+                composite_id = f"{eval_id}_{eval_name}"
+                status_file = Path(STATUS_FILES_DIR) / f"evaluation_status_{composite_id}.json"
                 if status_file.exists():
                     try:
                         with open(status_file, 'r') as f:
