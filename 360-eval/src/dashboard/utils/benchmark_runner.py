@@ -7,6 +7,7 @@ import os
 import json
 import logging
 import sys
+import re
 from pathlib import Path
 import streamlit as st
 from datetime import datetime
@@ -110,7 +111,7 @@ def _cleanup_evaluation_logs(eval_id, preserve_on_failure=False, eval_name=None)
                             deleted_files.append(f"Log: {log_file}")
             
             # 2. Delete JSONL files from prompt-evaluations directory
-            prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "prompt-evaluations"
+            prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "runs"
             if prompt_eval_dir.exists() and eval_name:
                 # Pattern: Benchmark-{eval_name}.jsonl or {eval_name}.jsonl
                 jsonl_patterns = [
@@ -167,7 +168,7 @@ def run_evaluations_linearly(evaluation_configs):
             update_evaluation_status(eval_id, "queued", 0)
             # Create status file immediately to persist queued evaluations
             composite_id = f"{eval_id}_{eval_name}"
-            status_file = Path(STATUS_FILES_DIR) / f"eval_{composite_id}_status.json"
+            status_file = Path(STATUS_FILES_DIR) / f"evaluation_status_{composite_id}.json"
             _update_status_file(status_file, "queued", 0, evaluation_config=eval_config)
             _evaluation_queue.append(eval_config.copy())
             dashboard_logger.info(f"Queued evaluation: '{eval_config['name']}' (ID: {eval_id})")
@@ -272,7 +273,7 @@ def run_benchmark_process(eval_id):
         os.makedirs(logs_dir, exist_ok=True)
         
         # Create a status file to track progress using composite ID (stored in logs directory)
-        status_file = Path(STATUS_FILES_DIR) / f"eval_{composite_id}_status.json"
+        status_file = Path(STATUS_FILES_DIR) / f"evaluation_status_{composite_id}.json"
         _update_status_file(status_file, "in-progress", 0, logs_dir=str(logs_dir))
         
         # Start time to track session evaluations
@@ -284,7 +285,7 @@ def run_benchmark_process(eval_id):
         try:
             # Check if JSONL file already exists (for resumed evaluations)
             from .constants import PROJECT_ROOT
-            prompt_eval_dir = Path(PROJECT_ROOT) / "prompt-evaluations"
+            prompt_eval_dir = Path(PROJECT_ROOT) / "runs"
             jsonl_path = prompt_eval_dir / f"{eval_name}.jsonl"
             
             if jsonl_path.exists():
@@ -331,13 +332,22 @@ def run_benchmark_process(eval_id):
                 "",
                 custom_filename=model_file_name
             )
+            # For latency-only mode, create judge profiles with empty list (will create empty file)
+            is_latency_only = evaluation_config.get("latency_only_mode", False)
+            dashboard_logger.info(f"Latency-only mode: {is_latency_only}, judge_models in config: {len(evaluation_config.get('judge_models', []))}")
+
+            if is_latency_only:
+                judge_models = []
+            else:
+                judge_models = evaluation_config.get("judge_models", [])
+
             judges_jsonl = create_judge_profiles_jsonl(
-                evaluation_config["judge_models"],
+                judge_models,
                 "",
                 custom_filename=judge_file_name
             )
             
-            dashboard_logger.info(f"File setup completed for {eval_id}: JSONL={jsonl_path}, Models={models_jsonl}, Judges={judges_jsonl}")
+            dashboard_logger.info(f"File setup completed for {eval_id}: JSONL={jsonl_path}, Models={models_jsonl}, Jurors={judges_jsonl}")
             
         except Exception as e:
             error_msg = f"File setup error: {str(e)}"
@@ -380,6 +390,15 @@ def run_benchmark_process(eval_id):
         if evaluation_config.get("prompt_optimization_mode", "none") != "none":
             cmd.extend(["--prompt_optimization_mode", evaluation_config["prompt_optimization_mode"]])
 
+        # Add latency-only mode
+        if evaluation_config.get("latency_only_mode", False):
+            cmd.extend(["--latency_only_mode", "True"])
+
+        # Add stream evaluation mode
+        if "stream_evaluation" in evaluation_config:
+            stream_val = "True" if evaluation_config["stream_evaluation"] else "False"
+            cmd.extend(["--stream_evaluation", stream_val])
+
         # Start benchmark execution
         working_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         dashboard_logger.info(f"Starting benchmark execution for {eval_id} - PID will be assigned, output to {output_dir}")
@@ -388,7 +407,26 @@ def run_benchmark_process(eval_id):
         # Create stdout/stderr capture variables
         stdout_capture = StringIO()
         stderr_capture = StringIO()
-        
+
+        # Shared progress tracking (thread-safe)
+        progress_lock = threading.Lock()
+        progress_state = {
+            "total_evaluations": 0,
+            "completed_evaluations": 0,
+            "last_update": time.time()
+        }
+
+        def parse_progress_from_line(line):
+            """Extract progress from subprocess log output."""
+            with progress_lock:
+                # Extract total: "Expanded to 250 scenarios"
+                if match := re.search(r'Expanded to (\d+) scenarios', line):
+                    progress_state["total_evaluations"] = int(match.group(1))
+
+                # Count completions: "Successfully processed: ... invocation N"
+                elif "Successfully processed:" in line:
+                    progress_state["completed_evaluations"] += 1
+
         # Run the benchmark command with output capture
         try:
             process = subprocess.Popen(
@@ -410,6 +448,10 @@ def run_benchmark_process(eval_id):
                 for line in iter(process.stdout.readline, ''):
                     stdout_capture.write(line)
                     stdout_line_count += 1
+
+                    # Parse progress from log output
+                    parse_progress_from_line(line)
+
                     # Only log every 50th line or important lines
                     if stdout_line_count % 50 == 0 or any(keyword in line.lower() for keyword in ['error', 'warning', 'completed', 'failed']):
                         dashboard_logger.debug(f"STDOUT ({stdout_line_count} lines): {line.strip()}")
@@ -430,38 +472,48 @@ def run_benchmark_process(eval_id):
             stdout_thread.start()
             stderr_thread.start()
             
-            # Monitor evaluation state with smart logging intervals
+            # Monitor evaluation state with progress updates every 10 seconds
             poll_count = 0
             last_log_time = time.time()
-            
+
             while True:
                 # Check if process is still running
                 if process.poll() is not None:
                     dashboard_logger.info(f"Benchmark process completed for {eval_id} with return code {process.returncode}")
                     break
-                
-                # Smart logging intervals: 1min, 5min, 10min, then every 10min
+
+                # Calculate real progress from parsed counts (every iteration = every 10 seconds)
                 current_time = time.time()
-                elapsed_minutes = (current_time - last_log_time) / 60
-                
+
+                with progress_lock:
+                    total = progress_state["total_evaluations"]
+                    completed = progress_state["completed_evaluations"]
+
+                if total > 0:
+                    progress = min(int((completed / total) * 100), 99)
+                else:
+                    # Fallback to time-based estimation if not parsed yet
+                    progress = min(poll_count * 2, 90)
+
+                # Update status to show progress (every 10 seconds)
+                _update_status_file(status_file, "running", progress, logs_dir=str(logs_dir))
+                update_evaluation_status(eval_id, "running", progress)
+
+                # Smart logging intervals: 1min, 5min, 10min, then every 10min
                 should_log = False
                 if poll_count == 6:  # 1 minute
                     should_log = True
-                elif poll_count == 30:  # 5 minutes  
+                elif poll_count == 30:  # 5 minutes
                     should_log = True
                 elif poll_count == 60:  # 10 minutes
                     should_log = True
                 elif poll_count > 60 and poll_count % 60 == 0:  # Every 10 minutes after that
                     should_log = True
-                
+
                 if should_log:
                     runtime_minutes = poll_count // 6
                     dashboard_logger.info(f"Benchmark process {process.pid} running for {runtime_minutes} minutes ({eval_id})")
                     last_log_time = current_time
-                    
-                    # Update status to show progress
-                    _update_status_file(status_file, "running", min(poll_count * 2, 90), logs_dir=str(logs_dir))
-                    update_evaluation_status(eval_id, "running", min(poll_count * 2, 90))
                 
                 # Wait before checking again
                 time.sleep(10)
@@ -712,7 +764,7 @@ def _store_model_judge_data_and_cleanup(eval_id, eval_name, output_dir):
     
     try:
         # Construct file paths
-        prompt_eval_dir = Path(output_dir).parent / "prompt-evaluations"
+        prompt_eval_dir = Path(output_dir).parent / "runs"
         composite_id = f"{eval_id}_{eval_name}"
         
         # Try to find model profiles file
@@ -835,7 +887,8 @@ def _update_status_file(status_file, status, progress, results=None, logs_dir=No
             "task_type": evaluation_config.get("task_type"),
             "task_criteria": evaluation_config.get("task_criteria"),
             "temperature": evaluation_config.get("temperature"),
-            "csv_file_name": evaluation_config.get("csv_file_name")
+            "csv_file_name": evaluation_config.get("csv_file_name"),
+            "stream_evaluation": evaluation_config.get("stream_evaluation", True)
         }
 
     with open(status_file, 'w') as f:
@@ -875,17 +928,13 @@ def sync_evaluations_from_files():
         eval_id = eval_config["id"]
         eval_name = eval_config.get("name", "")
         
-        # Try both composite ID format and legacy format
+        # Use new status file format
         from .constants import DEFAULT_OUTPUT_DIR
         output_dir = Path(DEFAULT_OUTPUT_DIR)
-        
-        # First try composite format: eval_{id}_{name}_status.json
+
+        # Use new format: evaluation_status_{id}_{name}.json
         composite_id = f"{eval_id}_{eval_name}"
-        status_file = Path(STATUS_FILES_DIR) / f"eval_{composite_id}_status.json"
-        
-        # If composite format doesn't exist, try legacy format
-        if not status_file.exists():
-            status_file = Path(STATUS_FILES_DIR) / f"eval_{eval_id}_status.json"
+        status_file = Path(STATUS_FILES_DIR) / f"evaluation_status_{composite_id}.json"
         
         dashboard_logger.debug(f"Checking status file for evaluation {eval_id}: {status_file}")
         

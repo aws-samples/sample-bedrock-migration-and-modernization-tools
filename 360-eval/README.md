@@ -38,7 +38,7 @@ This project provides tools for:
 
 ### Core Capabilities
 - **Multi-model benchmarking**: Compare different models side-by-side, including Amazon Bedrock and third-party models (OpenAI, Google Gemini, Azure)
-- **LLM-as-jury evaluation**: Leverage multiple LLM judges to evaluate model responses with aggregated scoring
+- **LLM-as-jury evaluation**: Leverage multiple LLM Jurors to evaluate model responses with aggregated scoring
 - **Comprehensive metrics**: Track latency (TTFT, TTLB), throughput (tokens/sec), cost, and quality of responses
 - **Interactive visualizations**: Generate holistic HTML reports with performance comparisons, heatmaps, radar charts, and error analysis
 
@@ -51,7 +51,7 @@ This project provides tools for:
 - **Interactive web interface**: Launch a full-featured Streamlit dashboard for managing evaluations
 - **Real-time monitoring**: Track running evaluations with live progress updates
 - **Results visualization**: View and compare evaluation results directly in the browser
-- **Model configuration**: Easily configure models, judges, and evaluation parameters
+- **Model configuration**: Easily configure models, Jurors, and evaluation parameters
 - **Report viewer**: Browse and view generated HTML reports
 
 ### Advanced Features
@@ -183,6 +183,16 @@ The benchmarking tool requires model profiles in JSONL format, with each line co
   - Useful for identifying error rates and throttling thresholds
   - Set to `null` or omit the field for no rate limiting
 
+- `service_tier` (optional): Inference service tier for Bedrock models (example: "priority")
+  - **Bedrock models only** - controls the processing tier for model requests
+  - Valid values: `"default"`, `"priority"`, or `"flex"`
+    - `priority`: Higher priority processing with guaranteed capacity
+    - `default`: Standard processing tier (used if not specified)
+    - `flex`: Cost-optimized processing for batch workloads
+  - Multiple tiers can be tested by creating separate entries with the same model_id
+  - Each tier will appear as a separate model variant in results (e.g., `model-name_priority`)
+  - Unsupported models will fall back to default tier automatically
+
 Examples:
 
 **Bedrock Model with Rate Limiting:**
@@ -205,16 +215,30 @@ Examples:
 {"model_id": "gemini/gemini-2.0-flash", "input_token_cost": 0.00015, "output_token_cost": 0.0006}
 ```
 
-Sample model profiles are provided in `default-config/models_profiles.jsonl`.
+**Bedrock Model with Service Tier (Priority):**
+```json
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "service_tier": "priority"}
+```
+
+**Multiple Service Tiers for Same Model:**
+```json
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "service_tier": "default"}
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "service_tier": "priority"}
+{"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "service_tier": "flex"}
+```
+
+Sample model profiles are provided in:
+- `config/models_profiles.jsonl` - Standard model configurations
+- `config/models_profiles_service_tier_examples.jsonl` - Service tier examples
 
 ## Judge Configuration
 
-Judges are required input data in JSONL format, with each line containing a judge model used to evaluate the models' responses. Currently, only Bedrock models are supported as judges.
+Jurors are required input data in JSONL format, with each line containing a judge model used to evaluate the models' responses. Currently, only Bedrock models are supported as Jurors.
 
 ### Field Descriptions
 
 - `model_id`: Judge model identifier (example: "bedrock/us.amazon.nova-premier-v1:0")
-  - Currently only supporting Bedrock Model Judges
+  - Currently only supporting Bedrock Model Jurors
 
 - `region`: AWS region for Bedrock models (example: "us-east-1")
   - Region where the Bedrock model is available
@@ -230,7 +254,7 @@ Example:
 {"model_id": "bedrock/us.amazon.nova-premier-v1:0", "region": "us-east-2", "input_cost_per_1k": 0.0025, "output_cost_per_1k": 0.0125}
 ```
 
-Sample judge profiles are provided in `default-config/judge_profiles.jsonl`.
+Sample judge profiles are provided in `config/judge_profiles.jsonl`.
 
 ### 📝 Vision Model Compatibility Important Notes
 
@@ -254,7 +278,7 @@ When using the vision functionality (`--vision_enabled true` flag or enabling "V
 Before running evaluations, validate your configuration files to catch errors early:
 
 ```bash
-python src/config_validator.py default-config/
+python src/config_validator.py config/
 ```
 
 This will check:
@@ -263,6 +287,37 @@ This will check:
 - Duplicate model IDs
 - Cost values within reasonable ranges
 - Region format for AWS models
+
+### Model Capability Validation
+
+**NEW:** Validate actual Bedrock model availability and service tier support by testing with real API calls. Results are cached to provide accurate service tier options in the dashboard.
+
+```bash
+# Validate all models (first-time setup or after adding new models)
+python src/validate_model_capabilities.py
+
+# Force re-validation (ignore existing cache)
+python src/validate_model_capabilities.py --force
+
+# Validate specific model
+python src/validate_model_capabilities.py --model "bedrock/us.amazon.nova-2-lite-v1:0" --region "us-west-2"
+
+# Test specific service tier
+python src/validate_model_capabilities.py --model "bedrock/us.amazon.nova-2-lite-v1:0" --region "us-west-2" --tier "priority"
+```
+
+**What it does:**
+- Tests each model+region combination with a minimal API request (~1 token input, 5 tokens output)
+- Tests all service tiers (default, priority, flex) for each model
+- Caches results in `.cache/model_capabilities.json`
+- Automatically detects when `models_profiles.jsonl` changes and prompts re-validation
+- Cost: ~$0.001 per full validation
+
+**Benefits:**
+- ✅ Accurate service tier availability (no guesswork)
+- ✅ Dashboard shows only available tiers for each model
+- ✅ Models unavailable in specific regions are greyed out
+- ✅ Cached results avoid repeated API calls
 
 ### Streamlit Dashboard
 
@@ -274,23 +329,35 @@ streamlit run src/streamlit_dashboard.py
 
 The dashboard provides:
 - **Setup Tab**: Configure evaluations, models, and advanced settings
+  - **Model Configuration**: Select models and configure service tiers
+    - For supported Bedrock models, check multiple service tier boxes to test different tiers
+    - Each selected tier creates a separate model entry in results
+    - Service tier selection appears below the model dropdown for compatible models
 - **Monitor Tab**: Track running evaluations in real-time
 - **Evaluations Tab**: View and analyze evaluation results
 - **Reports Tab**: Browse and view generated HTML reports
 
+#### Using Service Tiers in the Dashboard
+
+1. Navigate to **Setup** → **Model Configuration** tab
+2. Select a Bedrock model that supports service tiers (e.g., Amazon Nova, Claude 3.5+)
+3. Check one or more service tier options (Default, Priority, Flex)
+4. Click **Add Model** - this will create separate entries for each selected tier
+5. Each tier variant will appear in results as `model-name_priority`, `model-name_flex`, etc.
+
 ### File Path Resolution
 
-- **Input evaluation files**: Should be placed in the `prompt-evaluations/` directory. The tool will automatically look for input files in this directory.
-- **Model profiles**: If not specified, defaults to `default-config/models_profiles.jsonl`
-- **Judge profiles**: If not specified, defaults to `default-config/judge_profiles.jsonl`
-- **Output files**: Saved to the directory specified by `--output_dir` (default: `benchmark-results/`)
-- **Unprocessed records**: Failed evaluations are logged in `benchmark-results/unprocessed/`
+- **Input evaluation files**: Should be placed in the `runs/` directory. The tool will automatically look for input files in this directory.
+- **Model profiles**: If not specified, defaults to `config/models_profiles.jsonl`
+- **Judge profiles**: If not specified, defaults to `config/judge_profiles.jsonl`
+- **Output files**: Saved to the directory specified by `--output_dir` (default: `outputs/`)
+- **Unprocessed records**: Failed evaluations are logged in `outputs/unprocessed/`
 
 ### Running Benchmarks (CLI)
 
 ```bash
 # Basic usage
-# Note: Input files should be placed in the prompt-evaluations/ directory
+# Note: Input files should be placed in the runs/ directory
 python src/benchmarks_run.py input_file.jsonl
 ```
 
@@ -338,7 +405,7 @@ python src/benchmarks_run.py input_file.jsonl \
 ```
 
 **Output:**
-- Optimization logs are saved to `benchmark-results/prompt_optimization_log_<experiment_name>_<timestamp>.json`
+- Optimization logs are saved to `outputs/prompt_optimization_log_<experiment_name>_<timestamp>.json`
 - Shows which prompts were successfully optimized, skipped, or failed
 - In `evaluate_both` mode, optimized variants are labeled with `_Prompt_Optimized` suffix in reports
 
@@ -349,8 +416,8 @@ python src/benchmarks_run.py input_file.jsonl \
 
 #### Command Line Arguments
 
-- `input_file`: JSONL file with benchmark scenarios (required) - should be placed in `prompt-evaluations/` directory
-- `--output_dir`: Directory to save results (default: "benchmark-results")
+- `input_file`: JSONL file with benchmark scenarios (required) - should be placed in `runs/` directory
+- `--output_dir`: Directory to save results (default: "outputs")
 - `--parallel_calls`: Number of parallel API calls (default: 4)
 - `--invocations_per_scenario`: Invocations per scenario (default: 2)
 - `--sleep_between_invocations`: Sleep time in seconds between invocations (default: 3)
@@ -359,16 +426,54 @@ python src/benchmarks_run.py input_file.jsonl \
 - `--experiment_wait_time`: Wait time in seconds between experiments (default: 0, no wait)
 - `--temperature_variations`: Number of temperature variations (±25% percentile increments, default: 0)
 - `--user_defined_metrics`: Comma-delimited user-defined evaluation metrics tailored to specific use cases
-- `--model_file_name`: Name of the JSONL file containing the models to evaluate (defaults to `default-config/models_profiles.jsonl`)
-- `--judge_file_name`: Name of the JSONL file containing the judges used to evaluate (defaults to `default-config/judge_profiles.jsonl`)
+- `--model_file_name`: Name of the JSONL file containing the models to evaluate (defaults to `config/models_profiles.jsonl`)
+- `--judge_file_name`: Name of the JSONL file containing the Jurors used to evaluate (defaults to `config/judge_profiles.jsonl`)
 - `--evaluation_pass_threshold`: Threshold score used to determine Pass|Fail (default: 3 out of 5)
 - `--report`: Generate HTML report after benchmarking (default: true)
 - `--vision_enabled`: Enable vision model capabilities for image inputs (default: false)
 - `--prompt_optimization_mode`: Prompt optimization mode - `none`, `optimize_only`, or `evaluate_both` (default: none)
+- `--latency_only_mode`: Enable latency-only evaluation mode - skips LLM judge evaluation and only measures performance metrics (default: false)
+
+### Latency-Only Evaluation Mode
+
+The framework supports a **latency-only evaluation mode** that skips the LLM judge accuracy evaluation and focuses exclusively on performance metrics. This mode is useful when you only need to measure inference speed, throughput, tokens, and cost without assessing response quality.
+
+**When to use latency-only mode:**
+- Performance benchmarking and load testing
+- Cost analysis across different models
+- Token throughput comparison
+- Initial model screening before full evaluation
+
+**How to enable:**
+
+**CLI:**
+```bash
+python src/benchmarks_run.py input_file.jsonl --latency_only_mode true
+```
+
+**Dashboard:**
+1. Navigate to the **Setup** tab
+2. Under **Evaluation Type**, check the **"Latency Only Evaluation"** checkbox
+3. Configure your evaluation as normal and run
+
+**What happens in latency-only mode:**
+- ✅ Model inference runs normally (full response generated)
+- ✅ All performance metrics collected (TTFT, TTLB, throughput, tokens, cost)
+- ❌ Judge evaluation skipped (no accuracy assessment)
+- 📊 CSV output contains `'N/A'` for all judge-related fields
+- 📊 `eval_type` column shows `'latency'` (vs `'360'` for full evaluation)
+- 📊 HTML reports show placeholder messages for accuracy-related charts
+- 📊 Latency/cost/throughput charts display normally
+
+**CSV Output Structure:**
+```
+model_id,eval_type,time_to_first_byte,throughput_tps,response_cost,judge_success,judge_explanation,judge_scores
+us.amazon.nova-pro-v1:0,latency,0.234,45.2,0.00012,N/A,N/A,{}
+```
 
 ### Visualizing Results
 
-The benchmarking tool automatically generates interactive HTML reports when it completes. These reports can be found in the output directory specified (default: `benchmark-results/`).
+The benchmarking tool automatically generates interactive HTML reports when it completes. These reports can be found in the output directory specified (default: `outputs/`).
 
 **⚠️ Report Generation Requirement:**
 HTML report generation requires access to the `us.amazon.nova-premier-v1:0` model in your AWS account. This model is used to analyze evaluation results and create the report content. If this model is not accessible, evaluations will complete successfully but HTML reports will not be generated.
@@ -389,13 +494,13 @@ The reports include:
 ## Project Structure
 - `assets/html_template.txt`: Web report template
 - `assets/scale_icon.png`: Dashboard icon
-- `default-config/`: Default configuration files
+- `config/`: Default configuration files
   - `models_profiles.jsonl`: Model configuration examples
   - `judge_profiles.jsonl`: Judge configuration examples
 - `logs/`: Logs of evaluation sessions are stored here
-- `benchmark-results/`: Output directory for results and reports
+- `outputs/`: Output directory for results and reports
   - `unprocessed/`: Records that failed to be evaluated
-- `prompt-evaluations/`: Input directory for evaluation scenarios
+- `runs/`: Input directory for evaluation scenarios
 - `src/`: Source code
   - `benchmarks_run.py`: Main benchmarking engine
   - `config_validator.py`: Configuration validation tool

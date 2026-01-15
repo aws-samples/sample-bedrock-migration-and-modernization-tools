@@ -11,8 +11,7 @@ import litellm
 import requests
 import requests.exceptions
 from tenacity import retry, stop_after_delay, wait_exponential, retry_if_exception_type
-from litellm import completion, RateLimitError, ServiceUnavailableError, APIError, APIConnectionError, BadRequestError
-from litellm import token_counter
+from litellm import completion, RateLimitError, ServiceUnavailableError, APIError, APIConnectionError, BadRequestError, token_counter
 from botocore.exceptions import ClientError
 import litellm
 
@@ -20,7 +19,6 @@ litellm.drop_params = True
 # litellm.set_verbose = True
 
 logger = logging.getLogger(__name__)
-litellm.drop_params = True
 
 # ----------------------------------------
 # Prompt Optimization Configuration
@@ -63,9 +61,10 @@ MODEL_FAMILY_OPTIMIZATION_MAP = {
     "anthropic.claude-sonnet-4": "anthropic.claude-sonnet-4-20250514-v1:0",
     "anthropic.claude-opus-4": "anthropic.claude-opus-4-20250514-v1:0",
 
-    # DeepSeek
-    "deepseek.deepseek-r1": "deepseek.deepseek-r1-v1:0",
-    "deepseek.v3": "deepseek.deepseek-r1-v1:0",  # Map v3 to R1 for optimization
+    # DeepSeek - Tested and working with real AWS API
+    # Note: Config uses us.deepseek.r1-v1:0 (for inference) but optimization API needs deepseek.r1-v1:0
+    # The us. prefix is automatically stripped by get_optimization_target_model() before pattern matching
+    "deepseek.r1": "deepseek.r1-v1:0",
 
     # Meta Llama family
     "meta.llama3-70b": "meta.llama3-70b-instruct-v1:0",
@@ -80,6 +79,60 @@ MODEL_FAMILY_OPTIMIZATION_MAP = {
     "mistral.mistral-large-2407": "mistral.mistral-large-2407-v1:0",
     "mistral.mixtral": "mistral.mistral-large-2407-v1:0",  # Map Mixtral to Large for optimization
 }
+
+# ----------------------------------------
+# Service Tier Configuration
+# ----------------------------------------
+
+# Valid service tier options
+SERVICE_TIER_OPTIONS = ["default", "priority", "flex"]
+
+
+def is_service_tier_supported(model_id, region=None):
+    """
+    Check if a model supports service tier selection (priority, default, flex).
+
+    Uses cached validation results from model_capability_validator.
+
+    This function handles various model ID formats including:
+    - Regional prefixes (us., eu., ap., ca., sa.)
+    - bedrock/ and converse/ prefixes
+    - Different version suffixes
+
+    Args:
+        model_id: The model ID to check (may include bedrock/ prefix, regional prefix, version)
+        region: Optional AWS region for more accurate cache lookup
+
+    Returns:
+        bool: True if model supports service tier, False otherwise
+        Returns False if cache is unavailable (run validation to populate cache)
+
+    Examples:
+        >>> is_service_tier_supported("bedrock/us.amazon.nova-pro-v1:0", "us-west-2")
+        True
+        >>> is_service_tier_supported("anthropic.claude-3-5-sonnet-20241022-v2:0")
+        True
+        >>> is_service_tier_supported("openai/gpt-4o")
+        False
+    """
+    # Use cache-based lookup
+    try:
+        from model_capability_validator import get_available_service_tiers
+        tiers = get_available_service_tiers(model_id, region) if region else []
+
+        # If we have cache data and more than just "default" tier, it's supported
+        if tiers and len(tiers) > 1:
+            return True
+        # If cache explicitly shows only default, it's not supported
+        elif tiers and len(tiers) == 1:
+            return False
+    except (ImportError, Exception) as e:
+        # Cache not available - recommend running validation
+        logger.debug(f"Service tier check failed for {model_id}: {e}. Run validation to populate cache.")
+        pass
+
+    # If cache unavailable or no data, return False (conservative default)
+    return False
 
 
 def get_optimization_target_model(model_id):
@@ -276,11 +329,7 @@ def prepare_model_for_litellm(model_id):
     """
 
     # Check if this is a Bedrock model (contains regional prefix like us., eu., or anthropic., amazon., etc.)
-    is_bedrock_model = any(indicator in model_id for indicator in
-                          ['us.', 'eu.', 'ap.', 'ca.', 'sa.',  # Regional prefixes
-                           'anthropic.', 'amazon.', 'meta.', 'mistral.', 'deepseek.', 'qwen.',  # Model providers on Bedrock
-                           'openai.gpt-oss'])  # OpenAI on Bedrock
-
+    is_bedrock_model = model_id.startswith('bedrock/')
     if not is_bedrock_model:
         # Not a Bedrock model, return as-is
         logger.debug(f"Not a Bedrock model, returning as-is: {model_id}")
@@ -320,9 +369,9 @@ def setup_logging(log_dir='logs', experiment='none'):
         filemode='w'
     )
 
-    # Add console handler for warnings and above
+    # Add console handler for info and above (needed for progress tracking)
     console = logging.StreamHandler()
-    console.setLevel(logging.WARNING)
+    console.setLevel(logging.INFO)
     console.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     logging.getLogger('').addHandler(console)
 
@@ -707,7 +756,8 @@ def run_inference(model_name: str,
                   output_cost: float = 0.00001,
                   provider_params: dict = dict,
                   stream: bool = True,
-                  vision_enabled: str = None):
+                  vision_enabled: str = None,
+                  judge_eval: bool = None):
     # Concatenate user prompt for token counting
     if vision_enabled:
         messages = handle_vision(prompt_text, vision_enabled)
@@ -735,7 +785,38 @@ def run_inference(model_name: str,
             response["text"] = payload.choices[0].message.content
             response['outputTokens'] = payload.model_extra['usage']['completion_tokens']
             response['inputTokens'] = payload.model_extra['usage']['prompt_tokens']
-            return response
+
+            # If called from judge (judge_eval=True), return judge format
+            if judge_eval:
+                return response
+
+            # Otherwise, return full evaluation structure (non-streaming evaluation mode)
+            end_time = time.time()
+            total_runtime = end_time - start_time
+
+            input_tokens = response['inputTokens']
+            output_tokens = response['outputTokens']
+
+            throughput_tps = output_tokens / total_runtime if total_runtime > 0 else 0
+            tot_input_cost = input_tokens * (input_cost / 1000)
+            tot_output_cost = output_tokens * (output_cost / 1000)
+
+            # Capture finish_reason
+            finish_reason = payload.choices[0].finish_reason if hasattr(payload.choices[0], 'finish_reason') else None
+
+            return {
+                "model_response": response["text"],
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_runtime": total_runtime,
+                "time_to_first_byte": total_runtime,  # Same as total for non-streaming
+                "time_to_last_byte": total_runtime,   # Same as total for non-streaming
+                "throughput_tps": throughput_tps,
+                "total_cost": tot_output_cost + tot_input_cost,
+                "retry_count": retry_tracker.attempts,
+                "finish_reason": finish_reason,
+                "stream_metrics": None  # N/A for non-streaming
+            }
         else:
             time_to_first_token = 0
             for chunk in payload:

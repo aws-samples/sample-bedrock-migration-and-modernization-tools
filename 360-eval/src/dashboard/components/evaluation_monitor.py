@@ -86,7 +86,15 @@ class EvaluationMonitorComponent:
             if queue_status["current_evaluation"]:
                 current = queue_status["current_evaluation"]
                 st.info(f"▶️ Currently Running: **{current['name']}**")
-            
+
+                # Find the running evaluation to get its progress
+                running_eval = next((e for e in st.session_state.evaluations
+                                   if e["id"] == current["id"]), None)
+                if running_eval:
+                    progress_pct = running_eval.get("progress", 0)
+                    st.progress(progress_pct / 100.0)  # st.progress takes 0.0-1.0
+                    st.caption(f"Progress: {progress_pct}%")
+
             # Show queued evaluations
             if queue_status["queue_length"] > 0:
                 st.info(f"⏳ Queued Evaluations: **{queue_status['queue_length']}**")
@@ -139,13 +147,32 @@ class EvaluationMonitorComponent:
                     name_field = f"{eval_config['name']}"
                 else:
                     name_field = eval_config["name"]
-                
-                    
+
+                # Determine task type display value
+                task_type = eval_config.get("task_type", "")
+                if not task_type or task_type.strip() == "":
+                    task_type = "Latency Benchmark"
+
+                # Format progress display
+                status = eval_config["status"]
+                progress_value = eval_config.get("progress", 0)
+
+                if status == "running":
+                    progress_display = f"{progress_value}%"
+                elif status == "queued":
+                    progress_display = "Queued"
+                elif status == "completed":
+                    progress_display = "100%"
+                else:
+                    progress_display = "-"
+
                 eval_data.append({
                     "Name": name_field,
-                    "Task Type": eval_config["task_type"],
+                    "Task Type": task_type,
                     "Models": len(eval_config["selected_models"]),
-                    "Status": eval_config["status"].capitalize(),
+                    "Stream": "Yes" if eval_config.get("stream_evaluation", True) else "No",
+                    "Status": status.capitalize(),
+                    "Progress": progress_display,
                     "Created": pd.to_datetime(eval_config["created_at"]).strftime("%Y-%m-%d %H:%M") if eval_config.get("created_at") else "N/A",
                 })
             
@@ -217,7 +244,10 @@ class EvaluationMonitorComponent:
             for eval_config in st.session_state.evaluations:
                 # Check if this evaluation was started in this session (now in logs directory)
                 from ..utils.constants import STATUS_FILES_DIR
-                status_file = Path(STATUS_FILES_DIR) / f"eval_{eval_config['id']}_status.json"
+                eval_id = eval_config['id']
+                eval_name = eval_config.get('name', '')
+                composite_id = f"{eval_id}_{eval_name}"
+                status_file = Path(STATUS_FILES_DIR) / f"evaluation_status_{composite_id}.json"
                 if status_file.exists():
                     try:
                         with open(status_file, 'r') as f:
@@ -306,9 +336,18 @@ class EvaluationMonitorComponent:
             for eval_config in st.session_state.evaluations:
                 if eval_config["id"] == eval_id:
                     # Validate the configuration
-                    if not eval_config.get("selected_models") or not eval_config.get("judge_models"):
-                        st.error(f"Evaluation '{eval_config['name']}' is missing required configuration: models or judge models")
+                    is_latency_only = eval_config.get("latency_only_mode", False)
+
+                    # Check for target models (always required)
+                    if not eval_config.get("selected_models"):
+                        st.error(f"Evaluation '{eval_config['name']}' is missing required configuration: target models")
                         continue
+
+                    # Check for judge models (only required in full 360 mode)
+                    if not is_latency_only and not eval_config.get("judge_models"):
+                        st.error(f"Evaluation '{eval_config['name']}' is missing required configuration: judge models")
+                        continue
+
                     evals_to_run.append(eval_config)
                     break
         

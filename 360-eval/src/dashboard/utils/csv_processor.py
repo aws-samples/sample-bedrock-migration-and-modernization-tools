@@ -156,13 +156,16 @@ def create_model_profiles_jsonl(models, output_dir, custom_filename=None):
                 entry = {
                     "model_id": model["id"],
                     "region": model["region"],
-                    "inference_profile": "standard",
                     "input_token_cost": model["input_cost"],
                     "output_token_cost": model["output_cost"]
                 }
                 # Add target_rpm if it's configured (not None)
                 if model.get("target_rpm") is not None:
                     entry["target_rpm"] = model["target_rpm"]
+
+                # Add service_tier if it exists (for benchmark processing)
+                if model.get("service_tier") is not None:
+                    entry["service_tier"] = model["service_tier"]
 
                 f.write(json.dumps(entry) + '\n')
     except IOError as e:
@@ -199,7 +202,7 @@ def create_judge_profiles_jsonl(judges, output_dir, custom_filename=None):
                     "output_cost_per_1k": judge["output_cost"]
                 }
                 f.write(json.dumps(entry) + '\n')
-    except IOError as e:
+    except (IOError, KeyError) as e:
         raise Exception(f"Failed to write judge profiles to {jsonl_path}: {e}")
     
     return str(jsonl_path)

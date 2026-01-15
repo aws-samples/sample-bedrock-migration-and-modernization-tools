@@ -99,8 +99,8 @@ The Setup tab contains three sub-tabs:
 
 2. **Choose Judge Models**
    - Select models that will evaluate the responses
-   - Judges assess quality based on your task criteria
-   - Can use different models as judges than those being evaluated
+   - Jurors assess quality based on your task criteria
+   - Can use different models as Jurors than those being evaluated
    - Configure input/output costs for accurate cost tracking
 
 3. **Load Previous Configurations** (Optional)
@@ -188,7 +188,7 @@ The main table shows:
 - **Temperature**: Temperature setting used
 - **Custom Metrics**: Whether custom metrics were applied
 - **Models**: Number of models tested
-- **Judges**: Number of judge models used
+- **Jurors**: Number of judge models used
 - **Completed**: Completion timestamp
 
 #### 3.3 Detailed Analysis
@@ -260,9 +260,9 @@ customer_query,expected_response_type
    - Task 2: "Helpfulness" - Temperature 0.5 - "Be helpful and customer-friendly"
    - Task 3: "Brand Voice" - Temperature 0.4 - Custom metrics: "professional tone, brand consistency"
 
-#### Step 3: Select Models and Judges
+#### Step 3: Select Models and Jurors
 - **Models**: Test various LLM models
-- **Judges**: Use different models as judges
+- **Jurors**: Use different models as Jurors
 - **Settings**: 3 invocations per scenario, 2 experiment counts
 
 #### Step 4: Execute and Monitor
@@ -394,7 +394,7 @@ Each report is specific to one evaluation and combines data from that evaluation
 - **Start Small**: Begin with 1-2 models and simple criteria
 - **Iterative Approach**: Add complexity gradually
 - **Temperature Testing**: Use different temperatures for different task types
-- **Multiple Judges**: Use 2+ judge models for reliable assessment
+- **Multiple Jurors**: Use 2+ judge models for reliable assessment
 
 ### Execution Management
 - **Sequential Processing**: Let evaluations run one at a time
@@ -425,7 +425,7 @@ To complete this documentation, the following screenshots should be captured and
 7. **vision-model-config.png** - Vision model checkbox and image column selector
 8. **task-configuration.png** - Multiple task setup form
 9. **model-selection.png** - Model configuration with region and cost settings
-10. **selected-models-display.png** - Models and judges display tables
+10. **selected-models-display.png** - Models and Jurors display tables
 11. **advanced-configuration.png** - Advanced parameters tab
 
 ### Monitoring Screenshots

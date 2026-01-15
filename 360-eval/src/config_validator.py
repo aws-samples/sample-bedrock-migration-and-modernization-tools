@@ -11,18 +11,28 @@ import os
 import sys
 import re
 from typing import Dict, List, Optional, Tuple
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+from utils import SERVICE_TIER_OPTIONS, is_service_tier_supported
 
 
-def validate_model_profile(profile: Dict, line_num: int) -> List[str]:
-    """Validate a single model profile entry"""
+def validate_model_profile(profile: Dict, line_num: int) -> Tuple[List[str], List[str]]:
+    """Validate a single model profile entry
+
+    Returns:
+        Tuple of (errors, warnings)
+    """
     errors = []
-    
+    warnings = []
+
     # Required fields
     required_fields = ["model_id", "region", "input_token_cost", "output_token_cost"]
     for field in required_fields:
         if field not in profile:
             errors.append(f"Line {line_num}: Missing required field '{field}'")
-    
+
     # Validate model_id format
     if "model_id" in profile:
         model_id = profile["model_id"]
@@ -30,7 +40,7 @@ def validate_model_profile(profile: Dict, line_num: int) -> List[str]:
             errors.append(f"Line {line_num}: model_id must be a non-empty string")
         elif not re.match(r'^(bedrock/|openai/|anthropic/|gemini/|azure/)', model_id):
             errors.append(f"Line {line_num}: model_id '{model_id}' should start with a provider prefix (bedrock/, openai/, etc.)")
-    
+
     # Validate region
     if "region" in profile:
         region = profile["region"]
@@ -38,7 +48,7 @@ def validate_model_profile(profile: Dict, line_num: int) -> List[str]:
             errors.append(f"Line {line_num}: region must be a non-empty string")
         elif not re.match(r'^[a-z]{2}-[a-z]+-\d+$', region):
             errors.append(f"Line {line_num}: region '{region}' doesn't match AWS region format (e.g., 'us-east-1')")
-    
+
     # Validate costs
     for cost_field in ["input_token_cost", "output_token_cost"]:
         if cost_field in profile:
@@ -46,7 +56,7 @@ def validate_model_profile(profile: Dict, line_num: int) -> List[str]:
             if not isinstance(cost, (int, float)) or cost < 0:
                 errors.append(f"Line {line_num}: {cost_field} must be a non-negative number")
             elif cost > 1.0:
-                errors.append(f"Line {line_num}: Warning: {cost_field} ({cost}) seems unusually high (>$1 per 1K tokens)")
+                warnings.append(f"Line {line_num}: {cost_field} ({cost}) seems unusually high (>$1 per 1K tokens)")
 
     # Validate target_rpm (optional field)
     if "target_rpm" in profile:
@@ -55,11 +65,32 @@ def validate_model_profile(profile: Dict, line_num: int) -> List[str]:
             if not isinstance(target_rpm, (int, float)) or target_rpm <= 0:
                 errors.append(f"Line {line_num}: target_rpm must be a positive number")
             elif target_rpm > 600:
-                errors.append(f"Line {line_num}: Warning: target_rpm ({target_rpm}) is very high (>600 RPM). Consider lower values for reliability testing.")
+                warnings.append(f"Line {line_num}: target_rpm ({target_rpm}) is very high (>600 RPM). Consider lower values for reliability testing.")
             elif not isinstance(target_rpm, int):
-                errors.append(f"Line {line_num}: Warning: target_rpm ({target_rpm}) should be an integer")
+                warnings.append(f"Line {line_num}: target_rpm ({target_rpm}) should be an integer")
 
-    return errors
+    # Validate service_tier (optional field)
+    if "service_tier" in profile:
+        service_tier = profile["service_tier"]
+        model_id = profile.get("model_id", "")
+        region = profile.get("region", "")
+
+        if service_tier is not None:  # Allow None/null value
+            # Check if it's a valid tier option
+            if not isinstance(service_tier, str):
+                errors.append(f"Line {line_num}: service_tier must be a string")
+            elif service_tier not in SERVICE_TIER_OPTIONS:
+                errors.append(f"Line {line_num}: service_tier '{service_tier}' must be one of: {', '.join(SERVICE_TIER_OPTIONS)}")
+
+            # Check if the model supports service tiers (warning only, not blocking)
+            # Pass region to enable cache-based validation
+            if model_id and "bedrock/" in model_id:
+                if not is_service_tier_supported(model_id, region):
+                    warnings.append(f"Line {line_num}: Model '{model_id}' in region '{region}' may not support service_tier '{service_tier}'. Will fall back to default tier at runtime.")
+            elif model_id:
+                warnings.append(f"Line {line_num}: service_tier is only supported for Bedrock models, not '{model_id}'. This field will be ignored.")
+
+    return errors, warnings
 
 
 def validate_judge_profile(profile: Dict, line_num: int) -> List[str]:
@@ -133,42 +164,50 @@ def validate_jsonl_file(file_path: str, profile_type: str) -> Tuple[List[str], L
         errors.append(f"File is empty: {file_path}")
         return errors, warnings
     
-    model_ids_seen = set()
-    
+    model_keys_seen = set()
+
     for line_num, line in enumerate(lines, 1):
         line = line.strip()
         if not line:
             warnings.append(f"Line {line_num}: Empty line (will be skipped)")
             continue
-        
+
         try:
             profile = json.loads(line)
         except json.JSONDecodeError as e:
             errors.append(f"Line {line_num}: Invalid JSON - {e}")
             continue
-        
+
         if not isinstance(profile, dict):
             errors.append(f"Line {line_num}: Expected JSON object, got {type(profile).__name__}")
             continue
-        
-        # Check for duplicate model_ids
+
+        # Check for duplicate model_id + region + service_tier combinations
+        # This allows the same model with different service tiers or regions
         if "model_id" in profile:
             model_id = profile["model_id"]
-            if model_id in model_ids_seen:
-                errors.append(f"Line {line_num}: Duplicate model_id '{model_id}'")
+            region = profile.get("region", "")
+            service_tier = profile.get("service_tier", "")
+
+            # Create a unique key combining model_id, region, and service_tier
+            unique_key = (model_id, region, service_tier)
+
+            if unique_key in model_keys_seen:
+                errors.append(f"Line {line_num}: Duplicate model configuration: model_id='{model_id}', region='{region}', service_tier='{service_tier}'")
             else:
-                model_ids_seen.add(model_id)
+                model_keys_seen.add(unique_key)
         
         # Validate based on profile type
         if profile_type == "model":
-            profile_errors = validate_model_profile(profile, line_num)
+            profile_errors, profile_warnings = validate_model_profile(profile, line_num)
+            errors.extend(profile_errors)
+            warnings.extend(profile_warnings)
         elif profile_type == "judge":
             profile_errors = validate_judge_profile(profile, line_num)
+            errors.extend(profile_errors)
         else:
             errors.append(f"Invalid profile_type: {profile_type}")
             continue
-        
-        errors.extend(profile_errors)
     
     return errors, warnings
 
@@ -233,7 +272,7 @@ def main():
     """Main CLI entry point"""
     if len(sys.argv) != 2:
         print("Usage: python config_validator.py <config_directory>")
-        print("Example: python config_validator.py default-config/")
+        print("Example: python config_validator.py config/")
         sys.exit(1)
     
     config_dir = sys.argv[1]

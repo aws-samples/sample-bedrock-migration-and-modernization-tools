@@ -69,6 +69,8 @@ def initialize_session_state():
             "failure_threshold": DEFAULT_FAILURE_THRESHOLD,
             "experiment_wait_time": 0,  # Wait time in seconds between experiments
             "prompt_optimization_mode": "none",  # Prompt optimization mode: none, optimize_only, evaluate_both
+            "latency_only_mode": False,  # Latency-only evaluation mode (skip judge evaluation)
+            "stream_evaluation": True,  # Streaming mode for model evaluation (True=streaming, False=non-streaming)
             "selected_models": [],
             "judge_models": [],
             "user_defined_metrics": "",
@@ -104,6 +106,8 @@ def create_new_evaluation():
         "failure_threshold": DEFAULT_FAILURE_THRESHOLD,
         "experiment_wait_time": 0,  # Wait time in seconds between experiments
         "prompt_optimization_mode": "none",  # Prompt optimization mode: none, optimize_only, evaluate_both
+        "latency_only_mode": False,  # Latency-only evaluation mode (skip judge evaluation)
+        "stream_evaluation": True,  # Streaming mode for model evaluation (True=streaming, False=non-streaming)
         "selected_models": [],
         "judge_models": [],
         "user_defined_metrics": "",
@@ -235,7 +239,7 @@ def save_configuring_evaluation_to_disk(eval_config):
         eval_id = eval_config["id"]
         eval_name = eval_config["name"]
         composite_id = f"{eval_id}_{eval_name}"
-        status_file = status_dir / f"eval_{composite_id}_status.json"
+        status_file = status_dir / f"evaluation_status_{composite_id}.json"
         
         # Save CSV data to disk if present
         csv_path = None
@@ -269,6 +273,7 @@ def save_configuring_evaluation_to_disk(eval_config):
                 "golden_answer_column": eval_config.get("golden_answer_column"),
                 "vision_enabled": eval_config.get("vision_enabled", False),
                 "image_column": eval_config.get("image_column"),
+                "stream_evaluation": eval_config.get("stream_evaluation", True),
                 "csv_path": csv_path  # Store the path to the saved CSV file
             },
             # Store models and judges data for configuring evaluations
@@ -297,9 +302,9 @@ def delete_evaluation_from_disk(eval_id, eval_name):
         
         # 1. Delete status files from logs directory
         status_dir = Path(STATUS_FILES_DIR)
-        
-        # Try composite format first
-        status_file = status_dir / f"eval_{composite_id}_status.json"
+
+        # Delete new format: evaluation_status_{composite_id}.json
+        status_file = status_dir / f"evaluation_status_{composite_id}.json"
         if status_file.exists():
             # Read status file to get CSV path before deleting
             try:
@@ -312,15 +317,9 @@ def delete_evaluation_from_disk(eval_id, eval_name):
                     deleted_files.append(f"CSV data: {csv_path}")
             except Exception:
                 pass  # Continue with deletion even if we can't read the file
-            
+
             status_file.unlink()
             deleted_files.append(f"Status: {status_file}")
-        
-        # Try legacy format
-        legacy_status_file = status_dir / f"eval_{eval_id}_status.json"
-        if legacy_status_file.exists():
-            legacy_status_file.unlink()
-            deleted_files.append(f"Legacy status: {legacy_status_file}")
         
         # Also try to delete CSV file with composite naming
         csv_file = status_dir / f"eval_{composite_id}_data.csv"
@@ -328,7 +327,7 @@ def delete_evaluation_from_disk(eval_id, eval_name):
             csv_file.unlink()
             deleted_files.append(f"CSV data: {csv_file}")
         
-        # 2. Delete CSV invocation files from benchmark-results directory
+        # 2. Delete CSV invocation files from outputs directory
         benchmark_results_dir = Path(DEFAULT_OUTPUT_DIR)
         
         # Look for invocation CSV files with various patterns
@@ -384,7 +383,7 @@ def delete_evaluation_from_disk(eval_id, eval_name):
                     deleted_files.append(f"Unprocessed: {unprocessed_file}")
         
         # 6. Delete JSONL prompt files from prompt-evaluations directory
-        prompt_eval_dir = benchmark_results_dir.parent / "prompt-evaluations"
+        prompt_eval_dir = benchmark_results_dir.parent / "runs"
         if prompt_eval_dir.exists():
             jsonl_patterns = [
                 f"{eval_name}.jsonl",
@@ -400,7 +399,36 @@ def delete_evaluation_from_disk(eval_id, eval_name):
                 for jsonl_file in jsonl_files:
                     jsonl_file.unlink()
                     deleted_files.append(f"JSONL: {jsonl_file}")
-        
+
+        # 7. Delete benchmark log files from logs directory
+        logs_dir = status_dir  # logs directory is the same as status_dir (STATUS_FILES_DIR)
+        if logs_dir.exists():
+            log_patterns = [
+                f"360-benchmark-*-{eval_name}.log",
+                f"360-benchmark-*{composite_id}*.log",
+                f"360-benchmark-*{eval_id}*.log"
+            ]
+
+            for pattern in log_patterns:
+                log_files = list(logs_dir.glob(pattern))
+                for log_file in log_files:
+                    log_file.unlink()
+                    deleted_files.append(f"Log: {log_file}")
+
+        # 8. Delete prompt optimization log files from outputs directory
+        if benchmark_results_dir.exists():
+            prompt_opt_patterns = [
+                f"prompt_optimization_log_{eval_name}_*.json",
+                f"prompt_optimization_log_*{composite_id}*.json",
+                f"prompt_optimization_log_*{eval_id}*.json"
+            ]
+
+            for pattern in prompt_opt_patterns:
+                opt_log_files = list(benchmark_results_dir.glob(pattern))
+                for opt_log_file in opt_log_files:
+                    opt_log_file.unlink()
+                    deleted_files.append(f"Prompt Optimization Log: {opt_log_file}")
+
         if deleted_files:
             print(f"Deleted {len(deleted_files)} files for evaluation {eval_name}:")
             for file_info in deleted_files:
@@ -477,8 +505,8 @@ def load_evaluations_from_files():
             os.makedirs(status_dir, exist_ok=True)
             return
         
-        # Find all status files in logs directory
-        status_files = list(status_dir.glob("eval_*_status.json"))
+        # Find all status files in logs directory (new format)
+        status_files = list(status_dir.glob("evaluation_status_*.json"))
         
         # Get existing evaluation IDs to avoid duplicates
         existing_ids = {e["id"] for e in st.session_state.evaluations}
@@ -487,23 +515,25 @@ def load_evaluations_from_files():
             try:
                 # Extract eval_id from filename
                 filename = status_file.stem  # removes .json
-                # filename format: eval_{id}_{name}_status or eval_{id}_status
-                if filename.startswith("eval_") and filename.endswith("_status"):
-                    # Remove "eval_" prefix and "_status" suffix
-                    id_part = filename[5:-7]  # Remove "eval_" and "_status"
-                    
+                # filename format: evaluation_status_{id}_{name}
+                if filename.startswith("evaluation_status_"):
+                    # Remove "evaluation_status_" prefix
+                    id_part = filename[18:]  # Remove "evaluation_status_"
+
                     # Split by underscore - first part is always the ID
                     parts = id_part.split("_", 1)
                     eval_id = parts[0]
                     eval_name = parts[1] if len(parts) > 1 else f"Evaluation_{eval_id[:8]}"
-                    
+
                     # Skip if already in session state
                     if eval_id in existing_ids:
                         continue
-                    
-                    # Read status file
-                    with open(status_file, 'r') as f:
-                        status_data = json.load(f)
+                else:
+                    continue  # Skip files that don't match the new format
+
+                # Read status file
+                with open(status_file, 'r') as f:
+                    status_data = json.load(f)
                     
                     # Try to extract task info from JSONL file or status data
                     stored_config = status_data.get("evaluation_config", {})
@@ -582,7 +612,7 @@ def extract_task_info_from_jsonl_simple(eval_name):
         from pathlib import Path
         
         # Look in prompt-evaluations directory
-        prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "prompt-evaluations"
+        prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "runs"
         if not prompt_eval_dir.exists():
             return {"task_type": "Unknown", "task_criteria": "Unknown"}
         
@@ -615,51 +645,17 @@ def extract_models_from_profile_files(eval_id, eval_name):
         # First try to get from status file (now in logs directory)
         status_dir = Path(STATUS_FILES_DIR)
         composite_id = f"{eval_id}_{eval_name}"
-        status_file = status_dir / f"eval_{composite_id}_status.json"
-        
-        # Try composite status file first
+        status_file = status_dir / f"evaluation_status_{composite_id}.json"
+
+        # Try new format status file
         if status_file.exists():
             with open(status_file, 'r') as f:
                 status_data = json.load(f)
                 if "models_data" in status_data and status_data["models_data"]:
                     return status_data["models_data"]
-        
-        # Fallback to legacy status file
-        legacy_status_file = status_dir / f"eval_{eval_id}_status.json"
-        if legacy_status_file.exists():
-            with open(legacy_status_file, 'r') as f:
-                status_data = json.load(f)
-                if "models_data" in status_data and status_data["models_data"]:
-                    return status_data["models_data"]
-        
-        # Fallback to old profile files method (for backward compatibility)
-        prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "prompt-evaluations"
-        if not prompt_eval_dir.exists():
-            return [{"model_id": "Unknown Model", "region": "Unknown", "input_token_cost": 0, "output_token_cost": 0}]
-        
-        # Try composite naming first
-        model_file = prompt_eval_dir / f"model_profiles_{composite_id}.jsonl"
-        
-        # Fallback to ID-only naming
-        if not model_file.exists():
-            model_file = prompt_eval_dir / f"model_profiles_{eval_id}.jsonl"
-        
-        if model_file.exists():
-            models = []
-            with open(model_file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if line.strip():
-                        model_data = json.loads(line)
-                        # Extract complete model information
-                        model_info = {
-                            "model_id": model_data.get("model_id", "Unknown Model"),
-                            "region": model_data.get("region", "Unknown"),
-                            "inference_profile": model_data.get("inference_profile", ""),
-                            "input_token_cost": model_data.get("input_token_cost", 0),
-                            "output_token_cost": model_data.get("output_token_cost", 0)
-                        }
-                        models.append(model_info)
-            return models
+
+        # If status file doesn't exist, return default
+        return [{"model_id": "Unknown Model", "region": "Unknown", "input_token_cost": 0, "output_token_cost": 0}]
         
     except Exception as e:
         import logging
@@ -677,50 +673,17 @@ def extract_judges_from_profile_files(eval_id, eval_name):
         # First try to get from status file (now in logs directory)
         status_dir = Path(STATUS_FILES_DIR)
         composite_id = f"{eval_id}_{eval_name}"
-        status_file = status_dir / f"eval_{composite_id}_status.json"
-        
-        # Try composite status file first
+        status_file = status_dir / f"evaluation_status_{composite_id}.json"
+
+        # Try new format status file
         if status_file.exists():
             with open(status_file, 'r') as f:
                 status_data = json.load(f)
                 if "judges_data" in status_data and status_data["judges_data"]:
                     return status_data["judges_data"]
-        
-        # Fallback to legacy status file
-        legacy_status_file = status_dir / f"eval_{eval_id}_status.json"
-        if legacy_status_file.exists():
-            with open(legacy_status_file, 'r') as f:
-                status_data = json.load(f)
-                if "judges_data" in status_data and status_data["judges_data"]:
-                    return status_data["judges_data"]
-        
-        # Fallback to old profile files method (for backward compatibility)
-        prompt_eval_dir = Path(DEFAULT_OUTPUT_DIR).parent / "prompt-evaluations"
-        if not prompt_eval_dir.exists():
-            return [{"model_id": "Unknown Judge", "region": "Unknown", "input_cost_per_1k": 0, "output_cost_per_1k": 0}]
-        
-        # Try composite naming first
-        judge_file = prompt_eval_dir / f"judge_profiles_{composite_id}.jsonl"
-        
-        # Fallback to ID-only naming
-        if not judge_file.exists():
-            judge_file = prompt_eval_dir / f"judge_profiles_{eval_id}.jsonl"
-        
-        if judge_file.exists():
-            judges = []
-            with open(judge_file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if line.strip():
-                        judge_data = json.loads(line)
-                        # Extract complete judge information
-                        judge_info = {
-                            "model_id": judge_data.get("model_id", "Unknown Judge"),
-                            "region": judge_data.get("region", "Unknown"),
-                            "input_cost_per_1k": judge_data.get("input_cost_per_1k", 0),
-                            "output_cost_per_1k": judge_data.get("output_cost_per_1k", 0)
-                        }
-                        judges.append(judge_info)
-            return judges
+
+        # If status file doesn't exist, return default
+        return [{"model_id": "Unknown Judge", "region": "Unknown", "input_cost_per_1k": 0, "output_cost_per_1k": 0}]
         
     except Exception as e:
         import logging

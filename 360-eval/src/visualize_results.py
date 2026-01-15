@@ -63,6 +63,32 @@ logging.basicConfig(
 )
 logger.info(f"Starting visualization with project root: {PROJECT_ROOT}")
 
+
+def create_placeholder_chart(message="No data available for accuracy evaluation"):
+    """Create a placeholder chart for latency-only evaluations."""
+    fig = go.Figure()
+    fig.add_annotation(
+        text=message,
+        xref="paper",
+        yref="paper",
+        x=0.5,
+        y=0.5,
+        showarrow=False,
+        font=dict(size=16, color="#999999"),
+        align="center"
+    )
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="#1e1e1e",
+        plot_bgcolor="#2d2d2d",
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        height=400,
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+    return fig
+
+
 # Load HTML template with absolute path
 template_path = PROJECT_ROOT / "assets" / "html_template.txt"
 try:
@@ -79,7 +105,10 @@ except FileNotFoundError:
 
 
 def extract_model_name(model_id):
-    """Extract clean model name from ID."""
+    """Extract clean model name from ID.
+
+    Simple rule: Take everything after the last "/" and remove any ":[number]" suffix.
+    """
     # Check if this is an optimized prompt variant
     optimization_suffix = ""
     if "_Prompt_Optimized" in model_id:
@@ -87,14 +116,24 @@ def extract_model_name(model_id):
         # Remove suffix temporarily for processing
         model_id = model_id.replace("_Prompt_Optimized", "")
 
-    if '.' in model_id:
-        parts = model_id.split('.')
-        if len(parts) == 3:
-            model_name = parts[-1].split(':')[0].split('-v')[0]
-        else:
-            model_name = parts[-2] + '.' + parts[-1]
-        return model_name + optimization_suffix
-    return model_id.split(':')[0] + optimization_suffix
+    # Check if this is a service tier variant (_priority, _flex, _default)
+    service_tier_suffix = ""
+    for tier in ["_priority", "_flex", "_default"]:
+        if model_id.endswith(tier):
+            service_tier_suffix = tier
+            # Remove suffix temporarily for processing
+            model_id = model_id[:-len(tier)]
+            break
+
+    # Simple rule: take everything after last "/"
+    if '/' in model_id:
+        model_id = model_id.split('/')[-1]
+
+    # Remove version suffix like :0, :1
+    if ':' in model_id:
+        model_id = model_id.split(':')[0]
+
+    return model_id + optimization_suffix + service_tier_suffix
 
 def parse_json_string(json_str):
     try:
@@ -254,23 +293,53 @@ def load_data(directory, evaluation_names=None):
     df = (df[df['api_call_status'] == 'Success']
           .reset_index(drop=True)
           .assign(model_name=lambda x: x['model_id'].apply(extract_model_name)))
+
+    # Create model_name_with_tier for latency/cost grouping (keep original model_name for accuracy)
+    if 'service_tier' in df.columns:
+        df['model_name_with_tier'] = df.apply(
+            lambda row: f"{row['model_name']}_{row['service_tier']}" if pd.notna(row.get('service_tier')) else row['model_name'],
+            axis=1
+        )
+    else:
+        df['model_name_with_tier'] = df['model_name']
+
     parsed_dicts = df['performance_metrics'].apply(parse_json_string)
     del df['performance_metrics']
     # Convert the Series of dictionaries to a DataFrame
     unpacked_findings = pd.DataFrame(list(parsed_dicts))
     df = pd.concat([df, unpacked_findings], axis=1)
-    df['task_success'] = df['judge_success']
+
+    # Check if this is a latency-only evaluation
+    has_latency_only = 'eval_type' in df.columns and (df['eval_type'] == 'latency').any()
+
+    # Handle judge_success appropriately based on evaluation type
+    if has_latency_only:
+        # For latency-only records, judge_success is 'N/A', convert to None for processing
+        df['task_success'] = df['judge_success'].apply(lambda x: None if x == "N/A" else x)
+    else:
+        df['task_success'] = df['judge_success']
+
     # Calculate tokens per second
     df['OTPS'] = df['output_tokens'] / (df['time_to_last_byte'] + EPSILON_DIVISION)
 
-    judge_scores = pd.DataFrame(df['judge_scores'].to_dict()).transpose()
-    # Identify numeric index values
-    numeric_index_mask = pd.to_numeric(judge_scores.index, errors='coerce').notna()
-    # Filter and process judge scores (optimized with method chaining)
-    judge_scores_df = (judge_scores[numeric_index_mask]
-                       .reset_index(drop=True)
-                       .assign(mean_scores=lambda x: x.mean(axis=1)))
-    df = pd.concat([df, judge_scores_df], axis=1)
+    # Process judge scores only if we have actual judge evaluations
+    if not has_latency_only or (df['judge_success'] != "N/A").any():
+        try:
+            judge_scores = pd.DataFrame(df['judge_scores'].to_dict()).transpose()
+            # Identify numeric index values
+            numeric_index_mask = pd.to_numeric(judge_scores.index, errors='coerce').notna()
+            # Filter and process judge scores (optimized with method chaining)
+            judge_scores_df = (judge_scores[numeric_index_mask]
+                               .reset_index(drop=True)
+                               .assign(mean_scores=lambda x: x.mean(axis=1)))
+            df = pd.concat([df, judge_scores_df], axis=1)
+        except Exception as e:
+            # If judge_scores parsing fails (e.g., all N/A), create empty columns
+            logger.warning(f"Could not parse judge scores (latency-only mode): {e}")
+            df['mean_scores'] = None
+    else:
+        # Latency-only mode: No judge scores to process
+        df['mean_scores'] = None
     # ── Cost summary ───────────────────────────────────────────────────────────
     cost_stats = (
         df.groupby(["model_name"])["response_cost"]
@@ -304,32 +373,54 @@ def calculate_metrics_by_model_task(df):
 
     Properly handles cases where same task name has different configurations.
     """
-    # Group by model, task, AND config signature
-    metrics = df.groupby(['model_name', 'task_types', 'config_signature']).agg({
-        'task_success': ['mean', 'count'],
+    # Check if this is latency-only mode
+    has_task_success = 'task_success' in df.columns and df['task_success'].notna().any()
+
+    # Fill NaN task_types with a default value (for latency-only mode where task_types may be empty)
+    if 'task_types' in df.columns:
+        df['task_types'] = df['task_types'].fillna('Latency Benchmark')
+
+    # Build aggregation dict based on available columns
+    agg_dict = {
         'time_to_first_byte': ['mean', 'min', 'max'],
         'time_to_last_byte': ['mean', 'min', 'max'],
         'OTPS': ['mean', 'min', 'max'],
         'response_cost': ['mean', 'sum'],
         'output_tokens': ['mean', 'sum'],
         'input_tokens': ['mean', 'sum']
-    })
+    }
+
+    # Only include task_success if it exists and has valid data (not latency-only mode)
+    if has_task_success:
+        agg_dict['task_success'] = ['mean', 'count']
+    else:
+        # Use a different column for count in latency-only mode
+        agg_dict['time_to_first_byte'] = agg_dict['time_to_first_byte'] + ['count']
+
+    # Group by model, task, AND config signature
+    metrics = df.groupby(['model_name', 'task_types', 'config_signature']).agg(agg_dict)
 
     # Flatten multi-level column index
     metrics.columns = ['_'.join(col).strip() for col in metrics.columns.values]
 
     # Rename columns for clarity
-    metrics = metrics.rename(columns={
-        'task_success_mean': 'success_rate',
-        'task_success_count': 'sample_count',
+    rename_dict = {
         'time_to_first_byte_mean': 'avg_ttft',
         'time_to_last_byte_mean': 'avg_latency',
         'OTPS_mean': 'avg_otps',
         'response_cost_mean': 'avg_cost',
         'output_tokens_mean': 'avg_output_tokens',
         'input_tokens_mean': 'avg_input_tokens'
-    })
+    }
 
+    if has_task_success:
+        rename_dict['task_success_mean'] = 'success_rate'
+        rename_dict['task_success_count'] = 'sample_count'
+    else:
+        # In latency-only mode, use ttft count as sample_count
+        rename_dict['time_to_first_byte_count'] = 'sample_count'
+
+    metrics = metrics.rename(columns=rename_dict)
     metrics = metrics.reset_index()
 
     # Add task_display_name column with disambiguation
@@ -352,8 +443,14 @@ def calculate_metrics_by_model_task(df):
     metrics['task_display_name'] = metrics.apply(generate_task_display_name, axis=1)
     logger.info(f"Generated task display names with disambiguation for {len(metrics)} metric rows")
 
-    max_raw_ratio = metrics['success_rate'].max() / (metrics['avg_cost'].min() + EPSILON_DIVISION)
-    metrics['value_ratio'] = VALUE_RATIO_MULTIPLIER * (metrics['success_rate'] / (metrics['avg_cost'] + EPSILON_DIVISION)) / max_raw_ratio
+    # Calculate value_ratio only if success_rate exists (360 mode)
+    if has_task_success:
+        # Use only non-NaN success_rate values for calculating max (to handle mixed evaluations)
+        valid_success_rates = metrics['success_rate'].dropna()
+        if not valid_success_rates.empty:
+            max_raw_ratio = valid_success_rates.max() / (metrics['avg_cost'].min() + EPSILON_DIVISION)
+            # Calculate value_ratio, will be NaN for rows where success_rate is NaN (latency-only tasks)
+            metrics['value_ratio'] = VALUE_RATIO_MULTIPLIER * (metrics['success_rate'] / (metrics['avg_cost'] + EPSILON_DIVISION)) / max_raw_ratio
 
     return metrics
 
@@ -374,6 +471,9 @@ def calculate_metrics_by_model_task_temperature(df):
     if 'TEMPERATURE' not in df.columns:
         return None
 
+    # Check if this is latency-only mode
+    has_task_success = 'task_success' in df.columns and df['task_success'].notna().any()
+
     # Check if config_signature exists (should be added by load_data)
     if 'config_signature' not in df.columns:
         logger.warning("config_signature column not found in dataframe, temperature metrics may be incorrectly aggregated")
@@ -382,31 +482,47 @@ def calculate_metrics_by_model_task_temperature(df):
     else:
         groupby_cols = ['model_name', 'task_types', 'config_signature', 'TEMPERATURE']
 
-    # Group by model, task, config, and temperature
-    metrics = df.groupby(groupby_cols).agg({
-        'task_success': ['mean', 'count'],
+    # Build aggregation dict based on available columns
+    agg_dict = {
         'time_to_first_byte': ['mean', 'min', 'max'],
         'time_to_last_byte': ['mean', 'min', 'max'],
         'OTPS': ['mean', 'min', 'max'],
         'response_cost': ['mean', 'sum'],
         'output_tokens': ['mean', 'sum'],
         'input_tokens': ['mean', 'sum']
-    })
+    }
+
+    # Only include task_success if it exists and has valid data (not latency-only mode)
+    if has_task_success:
+        agg_dict['task_success'] = ['mean', 'count']
+    else:
+        # Use a different column for count in latency-only mode
+        agg_dict['time_to_first_byte'] = agg_dict['time_to_first_byte'] + ['count']
+
+    # Group by model, task, config, and temperature
+    metrics = df.groupby(groupby_cols).agg(agg_dict)
 
     # Flatten multi-level column index
     metrics.columns = ['_'.join(col).strip() for col in metrics.columns.values]
 
     # Rename columns for clarity
-    metrics = metrics.rename(columns={
-        'task_success_mean': 'success_rate',
-        'task_success_count': 'sample_count',
+    rename_dict = {
         'time_to_first_byte_mean': 'avg_ttft',
         'time_to_last_byte_mean': 'avg_latency',
         'OTPS_mean': 'avg_otps',
         'response_cost_mean': 'avg_cost',
         'output_tokens_mean': 'avg_output_tokens',
         'input_tokens_mean': 'avg_input_tokens'
-    })
+    }
+
+    if has_task_success:
+        rename_dict['task_success_mean'] = 'success_rate'
+        rename_dict['task_success_count'] = 'sample_count'
+    else:
+        # In latency-only mode, use ttft count as sample_count
+        rename_dict['time_to_first_byte_count'] = 'sample_count'
+
+    metrics = metrics.rename(columns=rename_dict)
 
     metrics = metrics.reset_index()
 
@@ -433,8 +549,10 @@ def calculate_metrics_by_model_task_temperature(df):
 
 
 def calculate_latency_metrics(df):
-    """Calculate aggregated latency metrics by model."""
-    latency = df.groupby(['model_name']).agg({
+    """Calculate aggregated latency metrics by model (with service tier if available)."""
+    # Use model_name_with_tier to preserve service tier distinctions
+    group_col = 'model_name_with_tier' if 'model_name_with_tier' in df.columns else 'model_name'
+    latency = df.groupby([group_col]).agg({
         'time_to_first_byte': ['mean', 'min', 'max', 'std'],
         'time_to_last_byte': ['mean', 'min', 'max', 'std'],
         'OTPS': ['mean', 'min', 'max', 'std']
@@ -450,12 +568,19 @@ def calculate_latency_metrics(df):
         'OTPS_mean': 'avg_otps'
     })
 
-    return latency.reset_index()
+    latency = latency.reset_index()
+    # Rename the grouping column back to model_name for consistency with visualizations
+    if group_col == 'model_name_with_tier':
+        latency = latency.rename(columns={'model_name_with_tier': 'model_name'})
+
+    return latency
 
 
 def calculate_cost_metrics(df):
-    """Calculate aggregated cost metrics by model."""
-    cost = df.groupby(['model_name']).agg({
+    """Calculate aggregated cost metrics by model (with service tier if available)."""
+    # Use model_name_with_tier to preserve service tier distinctions
+    group_col = 'model_name_with_tier' if 'model_name_with_tier' in df.columns else 'model_name'
+    cost = df.groupby([group_col]).agg({
         'response_cost': ['mean', 'min', 'max', 'sum'],
         'input_tokens': ['mean', 'sum'],
         'output_tokens': ['mean', 'sum']
@@ -472,7 +597,12 @@ def calculate_cost_metrics(df):
         'output_tokens_mean': 'avg_output_tokens'
     })
 
-    return cost.reset_index()
+    cost = cost.reset_index()
+    # Rename the grouping column back to model_name for consistency with visualizations
+    if group_col == 'model_name_with_tier':
+        cost = cost.rename(columns={'model_name_with_tier': 'model_name'})
+
+    return cost
 
 
 def create_normal_distribution_histogram(df,
@@ -652,7 +782,7 @@ def identify_unique_task_configs(df):
     return unique_configs
 
 
-def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics):
+def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics, has_latency_only=False):
     """Create visualizations for the report."""
     visualizations = {}
 
@@ -725,86 +855,141 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
     visualizations['cost_comparison'] = cost_fig
 
     # 5. Task-Model Success Rate Heatmap
-    # Pivot to create model vs task matrix (use task_display_name for proper disambiguation)
-    pivot_success = pd.pivot_table(
-        model_task_metrics,
-        values='success_rate',
-        index='model_name',
-        columns='task_display_name',  # Use task_display_name instead of task_types
-        aggfunc='mean'
-    ).infer_objects(copy=False).fillna(0)
+    # Only skip if there's NO success_rate data at all (filter out NaN rows first)
+    has_success_rate_data = 'success_rate' in model_task_metrics.columns and model_task_metrics['success_rate'].notna().any()
 
-    heatmap_fig = px.imshow(
-        pivot_success,
-        template="plotly_dark",  # Use the built-in dark template as a base
-        labels={'x': 'Task Type', 'y': 'Model', 'color': 'Success Rate'},
-        title='Success Rate by Model and Task Type',
-        color_continuous_scale='Earth', #'Viridis',
-        text_auto='.2f',
-        aspect='auto'
-    )
-    # Improve overall chart visibility
-    heatmap_fig.update_layout(
-        paper_bgcolor="#1e1e1e",
-        plot_bgcolor="#2d2d2d",  # Slightly lighter than paper for contrast
-    )
+    if not has_success_rate_data:
+        # Use placeholder only if there's absolutely no success_rate data
+        heatmap_fig = create_placeholder_chart("Success rate heatmap not available in latency-only mode")
+    else:
+        # Filter to only rows with success_rate data (exclude latency-only tasks in mixed reports)
+        metrics_with_success = model_task_metrics[model_task_metrics['success_rate'].notna()].copy()
+
+        # Pivot to create model vs task matrix (use task_display_name for proper disambiguation)
+        pivot_success = pd.pivot_table(
+            metrics_with_success,
+            values='success_rate',
+            index='model_name',
+            columns='task_display_name',  # Use task_display_name instead of task_types
+            aggfunc='mean'
+        ).infer_objects(copy=False).fillna(0)
+
+        heatmap_fig = px.imshow(
+            pivot_success,
+            template="plotly_dark",  # Use the built-in dark template as a base
+            labels={'x': 'Task Type', 'y': 'Model', 'color': 'Success Rate'},
+            title='Success Rate by Model and Task Type',
+            color_continuous_scale='Earth', #'Viridis',
+            text_auto='.2f',
+            aspect='auto'
+        )
+        # Improve overall chart visibility
+        heatmap_fig.update_layout(
+            paper_bgcolor="#1e1e1e",
+            plot_bgcolor="#2d2d2d",  # Slightly lighter than paper for contrast
+        )
 
     visualizations['model_task_heatmap'] = heatmap_fig
 
-    model_task_metrics_round = model_task_metrics
-    average_cost_round = model_task_metrics_round.round({'avg_otps': 2, 'value_ratio': 2})
     # 6. Model-Task Bubble Chart
-    bubble_fig = px.scatter(
-        average_cost_round,
-        template="plotly_dark",  # Keep the dark template for the base layout
-        x='avg_latency',
-        y='success_rate',
-        size='avg_otps',
-        color='avg_cost',
-        facet_col='task_display_name',  # Use task_display_name instead of task_types
-        facet_col_wrap=3,
-        hover_data=['model_name', 'value_ratio'],
-        labels={
-            'avg_latency': 'Latency (Secs)',
-            'success_rate': 'Success Rate',
-            'avg_cost': 'Cost (USD)',
-            'avg_otps': 'Tokens/sec',
-            'task_display_name': 'Task Type'  # Add label for task_display_name
-        },
-        title='Model Performance by Task Type',
-        color_continuous_scale='Earth',  # Use a brighter color scale
-        opacity=0.85  # Slightly increase transparency for better contrast
-    )
-
-    # Additional customizations to improve visibility
-    bubble_fig.update_traces(
-        marker=dict(
-            line=dict(width=1, color="rgba(255, 255, 255, 0.3)")  # Add subtle white outline
+    if not has_success_rate_data:
+        # For latency-only mode, create a simplified bubble chart with only latency vs cost
+        model_task_metrics_round = model_task_metrics
+        average_cost_round = model_task_metrics_round.round({'avg_otps': 2, 'value_ratio': 2})
+        bubble_fig = px.scatter(
+            average_cost_round,
+            template="plotly_dark",
+            x='avg_latency',
+            y='avg_cost',
+            size='avg_otps',
+            color='avg_otps',
+            facet_col='task_display_name',
+            facet_col_wrap=3,
+            hover_data=['model_name'],
+            labels={
+                'avg_latency': 'Latency (Secs)',
+                'avg_cost': 'Cost (USD)',
+                'avg_otps': 'Tokens/sec',
+                'task_display_name': 'Task Type'
+            },
+            title='Model Performance by Task Type (Latency-Only Mode)',
+            color_continuous_scale='Viridis',
+            opacity=0.85
         )
-    )
-
-    # You can also brighten the color bar
-    bubble_fig.update_layout(
-        coloraxis_colorbar=dict(
-            title_font_color="#ffffff",
-            tickfont_color="#ffffff",
+        bubble_fig.update_traces(
+            marker=dict(
+                line=dict(width=1, color="rgba(255, 255, 255, 0.3)")
+            )
         )
-    )
+        bubble_fig.update_layout(
+            coloraxis_colorbar=dict(
+                title_font_color="#ffffff",
+                tickfont_color="#ffffff",
+            ),
+            paper_bgcolor="#1e1e1e",
+            plot_bgcolor="#2d2d2d",
+            font=dict(color="#e0e0e0"),
+            title_font=dict(color="#90caf9", size=18)
+        )
+        bubble_fig.for_each_annotation(lambda a: a.update(font=dict(color="#90caf9", size=12)))
+    else:
+        # Full 360 evaluation mode with success_rate - filter to only rows with success_rate
+        metrics_with_success = model_task_metrics[model_task_metrics['success_rate'].notna()].copy()
+        model_task_metrics_round = metrics_with_success
+        average_cost_round = model_task_metrics_round.round({'avg_otps': 2, 'value_ratio': 2})
+        bubble_fig = px.scatter(
+            average_cost_round,
+            template="plotly_dark",  # Keep the dark template for the base layout
+            x='avg_latency',
+            y='success_rate',
+            size='avg_otps',
+            color='avg_cost',
+            facet_col='task_display_name',  # Use task_display_name instead of task_types
+            facet_col_wrap=3,
+            hover_data=['model_name', 'value_ratio'],
+            labels={
+                'avg_latency': 'Latency (Secs)',
+                'success_rate': 'Success Rate',
+                'avg_cost': 'Cost (USD)',
+                'avg_otps': 'Tokens/sec',
+                'task_display_name': 'Task Type'  # Add label for task_display_name
+            },
+            title='Model Performance by Task Type',
+            color_continuous_scale='Earth',  # Use a brighter color scale
+            opacity=0.85  # Slightly increase transparency for better contrast
+        )
 
-    # Make facet titles more visible
-    bubble_fig.for_each_annotation(lambda a: a.update(font=dict(color="#90caf9", size=12)))
+        # Additional customizations to improve visibility
+        bubble_fig.update_traces(
+            marker=dict(
+                line=dict(width=1, color="rgba(255, 255, 255, 0.3)")  # Add subtle white outline
+            )
+        )
 
-    # Improve overall chart visibility
-    bubble_fig.update_layout(
-        paper_bgcolor="#1e1e1e",
-        plot_bgcolor="#2d2d2d",  # Slightly lighter than paper for contrast
-        font=dict(color="#e0e0e0"),
-        title_font=dict(color="#90caf9", size=18)
-    )
+        # You can also brighten the color bar
+        bubble_fig.update_layout(
+            coloraxis_colorbar=dict(
+                title_font_color="#ffffff",
+                tickfont_color="#ffffff",
+            )
+        )
+
+        # Make facet titles more visible
+        bubble_fig.for_each_annotation(lambda a: a.update(font=dict(color="#90caf9", size=12)))
+
+        # Improve overall chart visibility
+        bubble_fig.update_layout(
+            paper_bgcolor="#1e1e1e",
+            plot_bgcolor="#2d2d2d",  # Slightly lighter than paper for contrast
+            font=dict(color="#e0e0e0"),
+            title_font=dict(color="#90caf9", size=18)
+        )
     visualizations['model_task_bubble'] = bubble_fig
 
     # 7. Error Analysis
-    if 'judge_explanation' in df.columns:
+    if has_latency_only:
+        visualizations['error_analysis'] = '<div id="not-found">Error analysis not available in latency-only mode</div>'
+    elif 'judge_explanation' in df.columns:
         fails = df[df['task_success'] == False].copy()
         if not fails.empty:
             fails['error'] = fails['judge_explanation'].fillna("Unknown").replace("", "Unknown")
@@ -843,122 +1028,127 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
     # Add this inside create_visualizations() function
     # Create one radar chart per task with all models overlaid
 
-    # Identify unique task configurations (handles edge case of same task with different metrics)
-    unique_task_configs = identify_unique_task_configs(df)
-
     radar_charts = {}
 
-    # Define color palette for models
-    color_palette = px.colors.qualitative.Plotly + px.colors.qualitative.Set2
+    # Only skip radar charts if there's NO success_rate data at all
+    if has_success_rate_data:
+        # Filter dataframe to only rows with judge scores (exclude latency-only in mixed reports)
+        df_with_scores = df[df['judge_success'] != 'N/A'].copy()
 
-    # Create one chart per unique task configuration
-    for unique_task_name, (original_task, metric_sig, indices) in unique_task_configs.items():
-        # Filter data for this task configuration
-        task_data = df.loc[indices].copy()
+        # Identify unique task configurations (handles edge case of same task with different metrics)
+        unique_task_configs = identify_unique_task_configs(df_with_scores)
 
-        if task_data.empty:
-            continue
+        # Define color palette for models
+        color_palette = px.colors.qualitative.Plotly + px.colors.qualitative.Set2
 
-        # Get all unique models for this task
-        models_in_task = task_data['model_name'].dropna().unique()
+        # Create one chart per unique task configuration
+        for unique_task_name, (original_task, metric_sig, indices) in unique_task_configs.items():
+            # Filter data for this task configuration (use df_with_scores to exclude latency-only)
+            task_data = df_with_scores.loc[indices].copy()
 
-        if len(models_in_task) == 0:
-            continue
-
-        # Determine the metric categories for this task (from metric signature)
-        task_categories = sorted(list(metric_sig)) if metric_sig else []
-
-        if not task_categories:
-            continue
-
-        # Create figure for this task
-        fig = go.Figure()
-
-        # Add one trace per model
-        for model_idx, model in enumerate(models_in_task):
-            # Filter data for this model
-            model_data = task_data[task_data['model_name'] == model]
-
-            # Extract scores for this model
-            scores_dicts = model_data['parsed_scores'].dropna().tolist()
-
-            if not scores_dicts:
+            if task_data.empty:
                 continue
 
-            # Calculate average scores for each category
-            avg_scores = {}
-            for score_dict in scores_dicts:
-                for key, value in score_dict.items():
-                    if key.startswith('AVG_'):
-                        category = key.replace('AVG_', '')
-                        if category in task_categories:
-                            if category not in avg_scores:
-                                avg_scores[category] = []
-                            avg_scores[category].append(value)
+            # Get all unique models for this task
+            models_in_task = task_data['model_name'].dropna().unique()
 
-            # Fill in values for each category
-            values = []
-            for category in task_categories:
-                scores = avg_scores.get(category, [])
-                if scores:
-                    values.append(sum(scores) / len(scores))
+            if len(models_in_task) == 0:
+                continue
+
+            # Determine the metric categories for this task (from metric signature)
+            task_categories = sorted(list(metric_sig)) if metric_sig else []
+
+            if not task_categories:
+                continue
+
+            # Create figure for this task
+            fig = go.Figure()
+
+            # Add one trace per model
+            for model_idx, model in enumerate(models_in_task):
+                # Filter data for this model
+                model_data = task_data[task_data['model_name'] == model]
+
+                # Extract scores for this model
+                scores_dicts = model_data['parsed_scores'].dropna().tolist()
+
+                if not scores_dicts:
+                    continue
+
+                # Calculate average scores for each category
+                avg_scores = {}
+                for score_dict in scores_dicts:
+                    for key, value in score_dict.items():
+                        if key.startswith('AVG_'):
+                            category = key.replace('AVG_', '')
+                            if category in task_categories:
+                                if category not in avg_scores:
+                                    avg_scores[category] = []
+                                avg_scores[category].append(value)
+
+                # Fill in values for each category
+                values = []
+                for category in task_categories:
+                    scores = avg_scores.get(category, [])
+                    if scores:
+                        values.append(sum(scores) / len(scores))
+                    else:
+                        values.append(0)
+
+                # Get color for this model
+                color = color_palette[model_idx % len(color_palette)]
+
+                # Convert hex color to rgb for fill
+                if color.startswith('#'):
+                    r = int(color[1:3], 16)
+                    g = int(color[3:5], 16)
+                    b = int(color[5:7], 16)
+                    fill_color = f'rgba({r}, {g}, {b}, 0.2)'
                 else:
-                    values.append(0)
+                    fill_color = f'rgba(100, 100, 100, 0.2)'
 
-            # Get color for this model
-            color = color_palette[model_idx % len(color_palette)]
+                # Add trace for this model
+                fig.add_trace(go.Scatterpolar(
+                    r=values + [values[0]],  # Close the polygon
+                    theta=task_categories + [task_categories[0]],  # Close the polygon
+                    fill='toself',
+                    name=model,
+                    opacity=0.7,
+                    line=dict(color=color, width=2),
+                    fillcolor=fill_color
+                ))
 
-            # Convert hex color to rgb for fill
-            if color.startswith('#'):
-                r = int(color[1:3], 16)
-                g = int(color[3:5], 16)
-                b = int(color[5:7], 16)
-                fill_color = f'rgba({r}, {g}, {b}, 0.2)'
-            else:
-                fill_color = f'rgba(100, 100, 100, 0.2)'
-
-            # Add trace for this model
-            fig.add_trace(go.Scatterpolar(
-                r=values + [values[0]],  # Close the polygon
-                theta=task_categories + [task_categories[0]],  # Close the polygon
-                fill='toself',
-                name=model,
-                opacity=0.7,
-                line=dict(color=color, width=2),
-                fillcolor=fill_color
-            ))
-
-        # Update layout
-        fig.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="#1e1e1e",
-            plot_bgcolor="#2d2d2d",
-            polar=dict(
-                radialaxis=dict(
-                    visible=True,
-                    range=[0, 5],  # Assuming scores are on a 0-5 scale
-                    gridcolor='rgba(128,128,128,0.3)'
+            # Update layout
+            fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="#1e1e1e",
+                plot_bgcolor="#2d2d2d",
+                polar=dict(
+                    radialaxis=dict(
+                        visible=True,
+                        range=[0, 5],  # Assuming scores are on a 0-5 scale
+                        gridcolor='rgba(128,128,128,0.3)'
+                    ),
+                    angularaxis=dict(
+                        gridcolor='rgba(128,128,128,0.3)'
+                    )
                 ),
-                angularaxis=dict(
-                    gridcolor='rgba(128,128,128,0.3)'
-                )
-            ),
-            title=f"{unique_task_name} - Model Comparison",
-            showlegend=True,
-            legend=dict(
-                orientation="v",
-                yanchor="top",
-                y=0.99,
-                xanchor="left",
-                x=1.05
-            ),
-            height=600,
-            width=1000,
-            margin=dict(l=100, r=200, b=100, t=120)
-        )
+                title=f"{unique_task_name} - Model Comparison",
+                showlegend=True,
+                legend=dict(
+                    orientation="v",
+                    yanchor="top",
+                    y=0.99,
+                    xanchor="left",
+                    x=1.05
+                ),
+                height=600,
+                width=1000,
+                margin=dict(l=100, r=200, b=100, t=120)
+            )
 
-        # Store the chart with unique task name
-        radar_charts[unique_task_name] = fig
+            # Store the chart with unique task name
+            radar_charts[unique_task_name] = fig
 
     visualizations['judge_score_radars'] = radar_charts
 
@@ -976,16 +1166,28 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
             task_temp_data = temp_metrics[temp_metrics['task_display_name'] == task_display]
 
             if not task_temp_data.empty:
-                # Create subplot with 2x2 grid
-                fig = make_subplots(
-                    rows=2, cols=2,
-                    subplot_titles=(
-                        "Success Rate by Temperature",
-                        "Latency (Secs) by Temperature",
-                        'Cost per Response (USD) by Temperature<br><span style="font-size: 12px;">Using μ (Micro) Symbol for Small Numbers</span>',
-                        "Tokens per Second by Temperature"
+                # Create subplot with 2x2 or 1x3 grid depending on mode
+                if has_latency_only:
+                    # Latency-only mode: skip success rate, use 1x3 grid
+                    fig = make_subplots(
+                        rows=1, cols=3,
+                        subplot_titles=(
+                            "Latency (Secs) by Temperature",
+                            'Cost per Response (USD) by Temperature<br><span style="font-size: 12px;">Using μ (Micro) Symbol for Small Numbers</span>',
+                            "Tokens per Second by Temperature"
+                        )
                     )
-                )
+                else:
+                    # Full 360 mode: include success rate, use 2x2 grid
+                    fig = make_subplots(
+                        rows=2, cols=2,
+                        subplot_titles=(
+                            "Success Rate by Temperature",
+                            "Latency (Secs) by Temperature",
+                            'Cost per Response (USD) by Temperature<br><span style="font-size: 12px;">Using μ (Micro) Symbol for Small Numbers</span>',
+                            "Tokens per Second by Temperature"
+                        )
+                    )
 
                 # Get unique temperatures and assign colors
                 unique_temps = sorted(task_temp_data['TEMPERATURE'].unique())
@@ -1001,26 +1203,28 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
                 # Get unique models for consistent x-axis ordering
                 unique_models = sorted(task_temp_data['model_name'].unique())
 
-                # Success Rate subplot (row=1, col=1)
-                for temp in unique_temps:
-                    temp_data = task_temp_data[task_temp_data['TEMPERATURE'] == temp].set_index('model_name')
-                    y_values = [temp_data.loc[model, 'success_rate'] if model in temp_data.index else None
-                                for model in unique_models]
+                # Success Rate subplot (row=1, col=1) - only in 360 mode
+                if not has_latency_only:
+                    for temp in unique_temps:
+                        temp_data = task_temp_data[task_temp_data['TEMPERATURE'] == temp].set_index('model_name')
+                        y_values = [temp_data.loc[model, 'success_rate'] if model in temp_data.index else None
+                                    for model in unique_models]
 
-                    fig.add_trace(
-                        go.Bar(
-                            x=unique_models,
-                            y=y_values,
-                            name=f'T={temp}',
-                            marker_color=temp_color_map[temp],
-                            hovertemplate='<b>%{x}</b><br>Success Rate: %{y:.1%}<br>Temperature: ' + str(temp) + '<extra></extra>',
-                            showlegend=True,
-                            legendgroup=f'temp_{temp}'
-                        ),
-                        row=1, col=1
-                    )
+                        fig.add_trace(
+                            go.Bar(
+                                x=unique_models,
+                                y=y_values,
+                                name=f'T={temp}',
+                                marker_color=temp_color_map[temp],
+                                hovertemplate='<b>%{x}</b><br>Success Rate: %{y:.1%}<br>Temperature: ' + str(temp) + '<extra></extra>',
+                                showlegend=True,
+                                legendgroup=f'temp_{temp}'
+                            ),
+                            row=1, col=1
+                        )
 
-                # Latency subplot (row=1, col=2)
+                # Latency subplot - position depends on mode
+                latency_row, latency_col = (1, 1) if has_latency_only else (1, 2)
                 for temp in unique_temps:
                     temp_data = task_temp_data[task_temp_data['TEMPERATURE'] == temp].set_index('model_name')
                     y_values = [temp_data.loc[model, 'avg_latency'] if model in temp_data.index else None
@@ -1033,13 +1237,14 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
                             name=f'T={temp}',
                             marker_color=temp_color_map[temp],
                             hovertemplate='<b>%{x}</b><br>Latency: %{y:.2f}s<br>Temperature: ' + str(temp) + '<extra></extra>',
-                            showlegend=False,
+                            showlegend=True if has_latency_only else False,
                             legendgroup=f'temp_{temp}'
                         ),
-                        row=1, col=2
+                        row=latency_row, col=latency_col
                     )
 
-                # Cost subplot (row=2, col=1)
+                # Cost subplot - position depends on mode
+                cost_row, cost_col = (1, 2) if has_latency_only else (2, 1)
                 for temp in unique_temps:
                     temp_data = task_temp_data[task_temp_data['TEMPERATURE'] == temp].set_index('model_name')
                     y_values = [temp_data.loc[model, 'avg_cost'] if model in temp_data.index else None
@@ -1055,10 +1260,11 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
                             showlegend=False,
                             legendgroup=f'temp_{temp}'
                         ),
-                        row=2, col=1
+                        row=cost_row, col=cost_col
                     )
 
-                # Tokens per Second subplot (row=2, col=2)
+                # Tokens per Second subplot - position depends on mode
+                otps_row, otps_col = (1, 3) if has_latency_only else (2, 2)
                 for temp in unique_temps:
                     temp_data = task_temp_data[task_temp_data['TEMPERATURE'] == temp].set_index('model_name')
                     y_values = [temp_data.loc[model, 'avg_otps'] if model in temp_data.index else None
@@ -1074,7 +1280,7 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
                             showlegend=False,
                             legendgroup=f'temp_{temp}'
                         ),
-                        row=2, col=2
+                        row=otps_row, col=otps_col
                     )
 
                 fig.update_layout(
@@ -1100,37 +1306,50 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
             task_data = model_task_metrics[model_task_metrics['task_display_name'] == task_display]
 
             if not task_data.empty:
-                # Create subplot with 2x2 grid
-                fig = make_subplots(
-                    rows=2, cols=2,
-                    subplot_titles=("Success Rate", "Latency (Secs)", 'Cost per Response (USD)<br><span style="font-size: 12px;">Using μ (Micro) Symbol for Small Numbers</span>', "Tokens per Second")
-                )
+                # Create subplot with 2x2 or 1x3 grid depending on mode
+                if has_latency_only:
+                    # Latency-only mode: skip success rate, use 1x3 grid
+                    fig = make_subplots(
+                        rows=1, cols=3,
+                        subplot_titles=("Latency (Secs)", 'Cost per Response (USD)<br><span style="font-size: 12px;">Using μ (Micro) Symbol for Small Numbers</span>', "Tokens per Second")
+                    )
+                else:
+                    # Full 360 mode: include success rate, use 2x2 grid
+                    fig = make_subplots(
+                        rows=2, cols=2,
+                        subplot_titles=("Success Rate", "Latency (Secs)", 'Cost per Response (USD)<br><span style="font-size: 12px;">Using μ (Micro) Symbol for Small Numbers</span>', "Tokens per Second")
+                    )
 
                 # Sort data for each subplot (using method chaining for efficiency)
-                by_success = task_data.sort_values('success_rate', ascending=False)
                 by_latency = task_data.sort_values('avg_latency')
                 by_cost = task_data.sort_values('avg_cost')
                 by_otps = task_data.sort_values('avg_otps', ascending=False)
 
-                # Add traces for each subplot
-                fig.add_trace(
-                    go.Bar(x=by_success['model_name'], y=by_success['success_rate'], marker_color='green'),
-                    row=1, col=1
-                )
+                # Add success rate trace only in 360 mode
+                if not has_latency_only:
+                    by_success = task_data.sort_values('success_rate', ascending=False)
+                    fig.add_trace(
+                        go.Bar(x=by_success['model_name'], y=by_success['success_rate'], marker_color='green'),
+                        row=1, col=1
+                    )
 
+                # Add other traces with position based on mode
+                latency_row, latency_col = (1, 1) if has_latency_only else (1, 2)
                 fig.add_trace(
                     go.Bar(x=by_latency['model_name'], y=by_latency['avg_latency'], marker_color='orange'),
-                    row=1, col=2
+                    row=latency_row, col=latency_col
                 )
 
+                cost_row, cost_col = (1, 2) if has_latency_only else (2, 1)
                 fig.add_trace(
                     go.Bar(x=by_cost['model_name'], y=by_cost['avg_cost'], marker_color='red'),
-                    row=2, col=1
+                    row=cost_row, col=cost_col
                 )
 
+                otps_row, otps_col = (1, 3) if has_latency_only else (2, 2)
                 fig.add_trace(
                     go.Bar(x=by_otps['model_name'], y=by_otps['avg_otps'], marker_color='blue'),
-                    row=2, col=2
+                    row=otps_row, col=otps_col
                 )
 
                 fig.update_layout(
@@ -1163,7 +1382,7 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
     return visualizations
 
 
-def generate_task_findings(df, model_task_metrics):
+def generate_task_findings(df, model_task_metrics, has_latency_only=False):
     """Generate key findings for each task configuration (using task_display_name)."""
     task_findings = {}
 
@@ -1173,10 +1392,15 @@ def generate_task_findings(df, model_task_metrics):
         findings = []
 
         if not task_data.empty:
-            # Best accuracy model
-            best_acc_idx = task_data['success_rate'].idxmax()
-            best_acc = task_data.loc[best_acc_idx]
-            findings.append(f"{best_acc['model_name']} had the highest success rate ({best_acc['success_rate']:.1%})")
+            # Check if this specific task has success_rate data (for mixed evaluations)
+            task_has_success_rate = 'success_rate' in task_data.columns and task_data['success_rate'].notna().any()
+
+            # Skip accuracy-related findings only if this specific task has no success_rate
+            if task_has_success_rate and not has_latency_only:
+                # Best accuracy model
+                best_acc_idx = task_data['success_rate'].idxmax()
+                best_acc = task_data.loc[best_acc_idx]
+                findings.append(f"{best_acc['model_name']} had the highest success rate ({best_acc['success_rate']:.1%})")
 
             # Best speed model
             best_speed_idx = task_data['avg_latency'].idxmin()
@@ -1190,15 +1414,17 @@ def generate_task_findings(df, model_task_metrics):
             findings.append(
                 f"{best_otps['model_name']} had the highest throughput ({best_otps['avg_otps']:.1f} tokens/sec)")
 
-            # Best value model
-            best_value_idx = task_data['value_ratio'].idxmax()
-            best_value = task_data.loc[best_value_idx]
-            findings.append(
-                f"{best_value['model_name']} offered the best value (success/cost ratio: {best_value['value_ratio']:.2f})")
+            # Skip value ratio only if this task has no success_rate
+            if task_has_success_rate and not has_latency_only:
+                # Best value model
+                best_value_idx = task_data['value_ratio'].idxmax()
+                best_value = task_data.loc[best_value_idx]
+                findings.append(
+                    f"{best_value['model_name']} offered the best value (success/cost ratio: {best_value['value_ratio']:.2f})")
 
-            # Average success rate
-            avg_success = task_data['success_rate'].mean()
-            findings.append(f"Average success rate for this task was {avg_success:.1%}")
+                # Average success rate
+                avg_success = task_data['success_rate'].mean()
+                findings.append(f"Average success rate for this task was {avg_success:.1%}")
 
             # Error analysis - filter by both task_types and config_signature
             task_types = task_data['task_types'].iloc[0]
@@ -1225,37 +1451,65 @@ def generate_task_findings(df, model_task_metrics):
     return task_findings
 
 
-def generate_task_recommendations(model_task_metrics):
+def generate_task_recommendations(model_task_metrics, has_latency_only=False):
     """Generate task-specific model recommendations (using task_display_name)."""
-    recommendations = []
+    recommendations_360 = []
+    recommendations_latency = []
 
-    # Loop through unique task_display_name to handle multiple configs
-    for task_display in model_task_metrics['task_display_name'].unique():
-        task_data = model_task_metrics[model_task_metrics['task_display_name'] == task_display]
+    # Separate tasks with success_rate (360) from those without (latency-only)
+    if 'success_rate' in model_task_metrics.columns:
+        metrics_360 = model_task_metrics[model_task_metrics['success_rate'].notna()].copy()
+        metrics_latency = model_task_metrics[model_task_metrics['success_rate'].isna()].copy()
+    else:
+        metrics_360 = pd.DataFrame()
+        metrics_latency = model_task_metrics.copy()
+
+    # Process 360 evaluation tasks
+    for task_display in metrics_360['task_display_name'].unique() if not metrics_360.empty else []:
+        task_data = metrics_360[metrics_360['task_display_name'] == task_display]
 
         if not task_data.empty:
-            # Find best models by different metrics
-            best_suc = task_data['success_rate'].max()
-            best_acc_model = '<br>'.join(task_data[task_data['success_rate'] == best_suc]['model_name'].tolist())
-
             best_lat = task_data['avg_latency'].min()
             best_speed_model = '<br>'.join(task_data[task_data['avg_latency'] == best_lat]['model_name'].tolist())
+
+            best_suc = task_data['success_rate'].max()
+            best_acc_model = '<br>'.join(task_data[task_data['success_rate'] == best_suc]['model_name'].tolist())
 
             best_value = task_data['value_ratio'].max()
             best_value_model = '<br>'.join(task_data[task_data['value_ratio'] == best_value]['model_name'].tolist())
 
-            # Create recommendation entry (use task_display for display)
-            recommendations.append({
-                'task': task_display,
-                'best_accuracy_model': best_acc_model,
+            recommendations_360.append({
+                'task': str(task_display),
+                'best_accuracy_model': str(best_acc_model),
                 'accuracy': f"{best_suc:.1%}",
-                'best_speed_model': best_speed_model,
+                'best_speed_model': str(best_speed_model),
                 'speed': f"{best_lat:.2f}s",
-                'best_value_model': best_value_model,
+                'best_value_model': str(best_value_model),
                 'value': f"{best_value:.2f}"
             })
 
-    return sorted(recommendations, key=lambda x: x['task'])
+    # Process latency-only tasks
+    for task_display in metrics_latency['task_display_name'].unique() if not metrics_latency.empty else []:
+        task_data = metrics_latency[metrics_latency['task_display_name'] == task_display]
+
+        if not task_data.empty:
+            best_lat = task_data['avg_latency'].min()
+            best_speed_model = '<br>'.join(task_data[task_data['avg_latency'] == best_lat]['model_name'].tolist())
+
+            recommendations_latency.append({
+                'task': str(task_display),
+                'best_accuracy_model': "N/A",
+                'accuracy': "N/A",
+                'best_speed_model': str(best_speed_model),
+                'speed': f"{best_lat:.2f}s",
+                'best_value_model': "N/A",
+                'value': "N/A"
+            })
+
+    # Combine both lists
+    all_recommendations = recommendations_360 + recommendations_latency
+
+    return sorted(all_recommendations, key=lambda x: x['task'])
 
 
 def generate_histogram_findings(df, key='time_to_first_byte', label='Time to First Token'):
@@ -1382,6 +1636,19 @@ def create_html_report(output_dir, timestamp, evaluation_names=None):
         raise
 
 
+    # Check evaluation types in the dataset
+    has_latency = 'eval_type' in df.columns and (df['eval_type'] == 'latency').any()
+    has_360 = 'eval_type' in df.columns and (df['eval_type'] == '360').any()
+    has_mixed = has_latency and has_360
+    has_only_latency = has_latency and not has_360
+
+    if has_mixed:
+        logger.info("Detected mixed evaluation types: both latency-only and 360 evaluations present")
+    elif has_only_latency:
+        logger.info("Detected latency-only evaluation")
+    else:
+        logger.info("Detected 360 evaluation (with judge scoring)")
+
     # Calculate metrics
     logger.info("Calculating model-task metrics...")
     model_task_metrics = calculate_metrics_by_model_task(df)
@@ -1396,14 +1663,14 @@ def create_html_report(output_dir, timestamp, evaluation_names=None):
 
     # Create visualizations
     logger.info("Creating visualizations...")
-    visualizations = create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics)
+    visualizations = create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics, has_only_latency)
 
     # Generate findings and recommendations
     logger.info("Generating task findings...")
-    task_findings = generate_task_findings(df, model_task_metrics)
+    task_findings = generate_task_findings(df, model_task_metrics, has_only_latency)
 
     logger.info("Generating recommendations...")
-    task_recommendations = generate_task_recommendations(model_task_metrics)
+    task_recommendations = generate_task_recommendations(model_task_metrics, has_only_latency)
     task_level_analysis = '# Task Level Analysis:\n'
     # Prepare task analysis data for template
     task_analysis = []
@@ -1442,12 +1709,13 @@ def create_html_report(output_dir, timestamp, evaluation_names=None):
 
     prompt_template = report_summary_template(models=unique_models, evaluations=f'{acc_analysis}\n\n{cost_analysis}\n\n{perf_analysis}\n\n{task_level_analysis}\n\n{recommendations}')  ## Append AND Format all evals ++ rename the columns to help the model
     # Model ID preparation for litellm (/converse addition) is now handled centrally in run_inference()
-    inference = run_inference(model_name='bedrock/us.amazon.nova-premier-v1:0',
+    inference = run_inference(model_name='bedrock/global.amazon.nova-2-lite-v1:0',
                               prompt_text=prompt_template,
                               stream=False,
                               provider_params={"maxTokens": INFERENCE_MAX_TOKENS,
                                                "temperature": INFERENCE_TEMPERATURE,
-                                               "aws_region_name": INFERENCE_REGION})['text']
+                                               "aws_region_name": INFERENCE_REGION},
+                              judge_eval=True)['text']
     html = Template(HTML_TEMPLATE).render(
         timestamp=formatted_date,
         inference=inference,
@@ -1577,13 +1845,17 @@ def create_integrated_analysis_table(model_task_metrics):
     # Prepare the data for the table
     table_data = model_task_metrics.copy()
 
+    # Check if this is latency-only mode
+    has_success_rate = 'success_rate' in table_data.columns
+
     thresholds['avg_latency'] = build_task_latency_thresholds(table_data[['model_name', 'task_types', 'avg_latency']].to_dict(orient='records'))
 
     # Format Model Name
     table_data['model_name'] = table_data['model_name'].apply(lambda x: x.split('/')[-1])
 
     # Format metrics for display
-    table_data['success_rate_fmt'] = table_data['success_rate'].apply(lambda x: f"{x:.1%}")
+    if has_success_rate:
+        table_data['success_rate_fmt'] = table_data['success_rate'].apply(lambda x: f"{x:.1%}")
     table_data['avg_latency_fmt'] = table_data['avg_latency'].apply(lambda x: f"{x:.2f}s")
     table_data['avg_cost_fmt'] = table_data['avg_cost'].apply(lambda x: f"${x:.4f}")
     table_data['avg_otps_fmt'] = table_data['avg_otps'].apply(lambda x: f"{x:.1f}")
@@ -1593,11 +1865,18 @@ def create_integrated_analysis_table(model_task_metrics):
     max_latency = table_data['avg_latency'].max() or 1
     max_cost = table_data['avg_cost'].max() or 1
 
-    table_data['composite_score'] = (
-            table_data['success_rate'] +
-            (1 - (table_data['avg_latency'] / max_latency)) * COMPOSITE_SCORE_WEIGHTS['latency'] +
-            (1 - (table_data['avg_cost'] / max_cost)) * COMPOSITE_SCORE_WEIGHTS['cost']
-    )
+    if has_success_rate:
+        table_data['composite_score'] = (
+                table_data['success_rate'] +
+                (1 - (table_data['avg_latency'] / max_latency)) * COMPOSITE_SCORE_WEIGHTS['latency'] +
+                (1 - (table_data['avg_cost'] / max_cost)) * COMPOSITE_SCORE_WEIGHTS['cost']
+        )
+    else:
+        # Latency-only mode: composite score based only on latency and cost
+        table_data['composite_score'] = (
+                (1 - (table_data['avg_latency'] / max_latency)) * COMPOSITE_SCORE_WEIGHTS['latency'] +
+                (1 - (table_data['avg_cost'] / max_cost)) * COMPOSITE_SCORE_WEIGHTS['cost']
+        )
 
     # Helper function to determine color based on value and thresholds
     def get_color(value, metric):
@@ -1630,52 +1909,81 @@ def create_integrated_analysis_table(model_task_metrics):
         fig = go.Figure()
 
         # Create table cells with conditional formatting
+        # Prepare headers and values based on mode
+        if has_success_rate:
+            header_values = ['Model', 'Task Type', 'Success Rate', 'Latency', 'Cost', 'Tokens/sec', 'Score']
+            cell_values = [
+                task_data['model_name'],
+                task_data['task_display_name'],
+                task_data['success_rate_fmt'],
+                task_data['avg_latency_fmt'],
+                task_data['avg_cost_fmt'],
+                task_data['avg_otps_fmt'],
+                task_data['composite_score'].apply(lambda x: f"{x:.2f}")
+            ]
+            fill_colors = [
+                ['#3a3a3a'] * len(task_data),  # Model column (dark gray)
+                ['#3a3a3a'] * len(task_data),  # Task column (dark gray)
+                [get_color(sr, 'success_rate') for sr in task_data['success_rate']],
+                [get_color(lt, 'avg_latency') for lt in task_data[['avg_latency','task_types']].to_dict(orient='records')],
+                [get_color(cost, 'avg_cost') for cost in task_data['avg_cost']],
+                [get_color(tps, 'avg_otps') for tps in task_data['avg_otps']],
+                [colors['good'] if score >= task_data['composite_score'].quantile(0.67) else
+                 colors['medium'] if score >= task_data['composite_score'].quantile(0.33) else
+                 colors['poor'] for score in task_data['composite_score']]
+            ]
+            font_colors = [
+                ['white'] * len(task_data),  # Model column
+                ['white'] * len(task_data),  # Task column
+                ['black'] * len(task_data),  # Success rate
+                ['black'] * len(task_data),  # Latency
+                ['black'] * len(task_data),  # Cost
+                ['black'] * len(task_data),  # Tokens/sec
+                ['black'] * len(task_data),  # Score
+            ]
+        else:
+            # Latency-only mode: skip success rate column
+            header_values = ['Model', 'Task Type', 'Latency', 'Cost', 'Tokens/sec', 'Score']
+            cell_values = [
+                task_data['model_name'],
+                task_data['task_display_name'],
+                task_data['avg_latency_fmt'],
+                task_data['avg_cost_fmt'],
+                task_data['avg_otps_fmt'],
+                task_data['composite_score'].apply(lambda x: f"{x:.2f}")
+            ]
+            fill_colors = [
+                ['#3a3a3a'] * len(task_data),  # Model column (dark gray)
+                ['#3a3a3a'] * len(task_data),  # Task column (dark gray)
+                [get_color(lt, 'avg_latency') for lt in task_data[['avg_latency','task_types']].to_dict(orient='records')],
+                [get_color(cost, 'avg_cost') for cost in task_data['avg_cost']],
+                [get_color(tps, 'avg_otps') for tps in task_data['avg_otps']],
+                [colors['good'] if score >= task_data['composite_score'].quantile(0.67) else
+                 colors['medium'] if score >= task_data['composite_score'].quantile(0.33) else
+                 colors['poor'] for score in task_data['composite_score']]
+            ]
+            font_colors = [
+                ['white'] * len(task_data),  # Model column
+                ['white'] * len(task_data),  # Task column
+                ['black'] * len(task_data),  # Latency
+                ['black'] * len(task_data),  # Cost
+                ['black'] * len(task_data),  # Tokens/sec
+                ['black'] * len(task_data),  # Score
+            ]
+
         fig.add_trace(go.Table(
             header=dict(
-                values=['Model', 'Task Type', 'Success Rate', 'Latency', 'Cost', 'Tokens/sec', 'Score'],
+                values=header_values,
                 font=dict(size=12, color='white'),
                 fill_color='#2E5A88',
                 align='left'
             ),
             cells=dict(
-                values=[
-                    task_data['model_name'],
-                    task_data['task_display_name'],  # Use task_display_name for display
-                    task_data['success_rate_fmt'],
-                    task_data['avg_latency_fmt'],
-                    task_data['avg_cost_fmt'],
-                    task_data['avg_otps_fmt'],
-                    task_data['composite_score'].apply(lambda x: f"{x:.2f}")
-                ],
+                values=cell_values,
                 align='left',
                 font=dict(size=11),
-                # Conditional formatting based on thresholds
-                fill_color=[
-                    ['#3a3a3a'] * len(task_data),  # Model column (dark gray)
-                    ['#3a3a3a'] * len(task_data),  # Task column (dark gray)
-                    # Success rate coloring (three-color)
-                    [get_color(sr, 'success_rate') for sr in task_data['success_rate']],
-                    # Latency coloring (three-color)
-                    [get_color(lt, 'avg_latency') for lt in task_data[['avg_latency','task_types']].to_dict(orient='records')],
-                    # Cost coloring (three-color)
-                    [get_color(cost, 'avg_cost') for cost in task_data['avg_cost']],
-                    # OTPS coloring
-                    [get_color(tps, 'avg_otps') for tps in task_data['avg_otps']],
-                    # Composite score coloring based on quantiles
-                    [colors['good'] if score >= task_data['composite_score'].quantile(0.67) else
-                     colors['medium'] if score >= task_data['composite_score'].quantile(0.33) else
-                     colors['poor'] for score in task_data['composite_score']]
-                ],
-                # Text color: white for dark columns, black for colored columns
-                font_color=[
-                    ['white'] * len(task_data),  # Model column (white text on dark background)
-                    ['white'] * len(task_data),  # Task column (white text on dark background)
-                    ['black'] * len(task_data),  # Success rate (black text on colored background)
-                    ['black'] * len(task_data),  # Latency (black text on colored background)
-                    ['black'] * len(task_data),  # Cost (black text on colored background)
-                    ['black'] * len(task_data),  # Tokens/sec (black text on colored background)
-                    ['black'] * len(task_data),  # Score (black text on colored background)
-                ]
+                fill_color=fill_colors,
+                font_color=font_colors
             )
         ))
 
@@ -1970,7 +2278,7 @@ def create_regional_performance_analysis(df):
 
 if __name__ == "__main__":
     # Use absolute path relative to project root
-    OUTPUT_DIR = PROJECT_ROOT / "benchmark-results"
+    OUTPUT_DIR = PROJECT_ROOT / "outputs"
     logger.info(f"Starting LLM benchmark report generation with timestamp: {TIMESTAMP}")
     try:
         report_file = create_html_report(OUTPUT_DIR, TIMESTAMP)

@@ -57,7 +57,8 @@ def evaluate_with_llm_judge(judge_model_id,
         resp = run_inference(model_name=judge_model_id,
                              prompt_text=eval_template,
                              provider_params=cfg,
-                             stream=False)
+                             stream=False,
+                             judge_eval=True)
         text = resp['text']
     except Exception as e:
         logging.error(f"Judge inference failed ({judge_model_id}): {e}", exc_info=True)
@@ -203,6 +204,9 @@ def benchmark(
         user_defined_metrics,
         yard_stick=3,
         vision_enabled=None,
+        service_tier=None,
+        latency_only_mode=False,
+        stream_evaluation=True,
 ):
     logging.debug(f"Starting benchmark for model: {model_id} in region: {region}")
     status = "Success"
@@ -230,6 +234,10 @@ def benchmark(
             params['api_key'] = os.getenv('AZURE_API_KEY')
         elif "bedrock" in model_id:
             params['aws_region_name'] = region
+            # Add service tier for Bedrock models if specified and not default
+            if service_tier and service_tier != "default":
+                params['serviceTier'] = {"type": service_tier}
+                logging.info(f"Using service tier '{service_tier}' for model {model_id}")
             # Model ID preparation for litellm is now handled centrally in run_inference()
         elif 'openai/' in model_id:
             params['api_key'] = os.getenv('OPENAI_API')
@@ -242,7 +250,7 @@ def benchmark(
                           in_cost,
                           out_cost,
                           provider_params=params,
-                          stream=True,
+                          stream=stream_evaluation,
                           vision_enabled=vision_enabled)
 
         resp_txt = r['model_response']
@@ -256,21 +264,31 @@ def benchmark(
         inference_request_count = r['retry_count']
 
         if resp_txt:
-            multi = evaluate_with_judges(
-                judge_models,
-                prompt,
-                resp_txt,
-                golden_answer,
-                task_types,
-                task_criteria,
-                user_defined_metrics,
-                yard_stick=yard_stick
-            )
-            perf["judge_success"] = (multi["majority_judgment"] == "PASS")
-            perf["judge_explanation"] = ";".join(list(set(multi["majority_explanations"])))
-            perf["judge_details"] = multi["judge_details"]
-            perf["judge_scores"] = multi["majority_score"]
-            evaluation_cost_data = multi["eval_cost"]
+            if latency_only_mode:
+                # Latency-only mode: Skip judge evaluation and use placeholders
+                perf["judge_success"] = "N/A"
+                perf["judge_explanation"] = "N/A"
+                perf["judge_details"] = []
+                perf["judge_scores"] = {}
+                evaluation_cost_data = 0
+                logging.info(f"Latency-only mode: Skipping judge evaluation for {model_id}")
+            else:
+                # Full 360 evaluation mode: Run judge evaluation
+                multi = evaluate_with_judges(
+                    judge_models,
+                    prompt,
+                    resp_txt,
+                    golden_answer,
+                    task_types,
+                    task_criteria,
+                    user_defined_metrics,
+                    yard_stick=yard_stick
+                )
+                perf["judge_success"] = (multi["majority_judgment"] == "PASS")
+                perf["judge_explanation"] = ";".join(list(set(multi["majority_explanations"])))
+                perf["judge_details"] = multi["judge_details"]
+                perf["judge_scores"] = multi["majority_score"]
+                evaluation_cost_data = multi["eval_cost"]
         else:
             logging.error(f"Target model error: Model {model_id} returned an empty output.")
 
@@ -333,7 +351,9 @@ def benchmark(
         "model_response": resp_txt,
         "performance_metrics": perf,
         "evaluation_cost": evaluation_cost_data,
-        "inference_request_count": inference_request_count
+        "inference_request_count": inference_request_count,
+        "eval_type": "latency" if latency_only_mode else "360",
+        "stream": stream_evaluation
     }
 
 
@@ -370,7 +390,7 @@ def expand_scenarios(raw, cfg):
 # ----------------------------------------
 # Parallel execution
 # ----------------------------------------
-def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
+def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3, latency_only_mode=False, stream_evaluation=True):
     all_recs = []
     unprocessed_records = []
     lock = Lock()
@@ -428,6 +448,9 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
                     user_metrics,
                     yard_stick=yard_stick,
                     vision_enabled=scn.get("image_path", None),
+                    service_tier=scn.get("service_tier", None),
+                    latency_only_mode=latency_only_mode,
+                    stream_evaluation=stream_evaluation,
                 )
 
                 # Add throttle metrics to result
@@ -441,7 +464,8 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
 
                 # Check for failures: API errors OR empty performance metrics OR judge evaluation failures
                 has_api_error = r["api_call_status"] != "Success" or r["error_code"] is not None
-                has_no_evaluation = not perf or not judge_details
+                # In latency-only mode, empty judge_details is expected and not an error
+                has_no_evaluation = (not latency_only_mode) and (not perf or not judge_details)
                 has_judge_errors = any(
                     j.get("error_type") in ["inference_failure", "parsing_failure", "judge_exception", "json_not_found"]
                     for j in judge_details
@@ -457,7 +481,7 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
                         error_classification = "evaluation_missing"
                     else:
                         failed_judges = [j.get("model") for j in judge_details if j.get("error_type")]
-                        reason = f"Judge evaluation failure: {', '.join(failed_judges)}"
+                        reason = f"Jurors evaluation failure: {', '.join(failed_judges)}"
                         error_classification = "judge_failure"
 
                     logging.warning(
@@ -494,8 +518,12 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3):
                     if scn.get("prompt_optimization_label"):
                         result_record["model_id"] = f"{scn['model_id']}_{scn['prompt_optimization_label']}"
 
+                    # If this has a service tier label, append it to model_id for display
+                    if scn.get("service_tier_label"):
+                        result_record["model_id"] = f"{scn['model_id']}{scn['service_tier_label']}"
+
                     recs.append(result_record)
-                    logging.debug(
+                    logging.info(
                         f"Successfully processed: {scn['model_id']}@{scn['region']}, invocation {invocation + 1}")
             except Exception as e:
                 # Log exception with full context and stack trace
@@ -699,7 +727,9 @@ def main(
         yard_stick=3,
         vision_enabled=False,
         experiment_wait_time=0,
-        prompt_optimization_mode="none"
+        prompt_optimization_mode="none",
+        latency_only_mode=False,
+        stream_evaluation=True
 ):
     user_defined_metrics_list = None
     if user_defined_metrics:
@@ -711,7 +741,7 @@ def main(
 
     # Create logs directory with absolute path
     logs_dir = os.path.join(project_root, "logs")
-    config_dir = os.path.join(project_root, "default-config")
+    config_dir = os.path.join(project_root, "config")
     os.makedirs(logs_dir, exist_ok=True)
 
     # Setup logging
@@ -730,8 +760,8 @@ def main(
     unprocessed_dir = os.path.join(output_dir, "unprocessed")
     os.makedirs(unprocessed_dir, exist_ok=True)
 
-    # Use consistent paths for prompt evaluations directory
-    eval_dir = os.path.join(project_root, "prompt-evaluations")
+    # Use consistent paths for runs directory
+    eval_dir = os.path.join(project_root, "runs")
     os.makedirs(eval_dir, exist_ok=True)
 
     file_path = os.path.join(eval_dir, input_file)
@@ -743,17 +773,21 @@ def main(
     model_path = os.path.join(eval_dir, model_file_name)
 
     # Validate configuration files before loading
-    logging.info("Validating judge profiles...")
-    judge_errors, judge_warnings = validate_jsonl_file(judge_path, "judge")
-    if judge_errors:
-        logging.error("Judge profiles validation failed:")
-        for error in judge_errors:
-            logging.error(f"  {error}")
-        raise ValueError(f"Invalid judge profiles configuration. Found {len(judge_errors)} error(s).")
+    # Skip judge validation in latency-only mode (empty judge file is expected)
+    if not latency_only_mode:
+        logging.info("Validating judge profiles...")
+        judge_errors, judge_warnings = validate_jsonl_file(judge_path, "judge")
+        if judge_errors:
+            logging.error("Judge profiles validation failed:")
+            for error in judge_errors:
+                logging.error(f"  {error}")
+            raise ValueError(f"Invalid judge profiles configuration. Found {len(judge_errors)} error(s).")
 
-    if judge_warnings:
-        for warning in judge_warnings:
-            logging.warning(warning)
+        if judge_warnings:
+            for warning in judge_warnings:
+                logging.warning(warning)
+    else:
+        logging.info("Latency-only mode: Skipping judge profiles validation")
 
     logging.info("Validating model profiles...")
     model_errors, model_warnings = validate_jsonl_file(model_path, "model")
@@ -769,9 +803,15 @@ def main(
 
     logging.info("Configuration validation completed successfully")
 
-    with open(judge_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            judges_list.append(json.loads(line))
+    # Load judge profiles (skip in latency-only mode)
+    if not latency_only_mode:
+        with open(judge_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():  # Skip empty lines
+                    judges_list.append(json.loads(line))
+        logging.info(f"Loaded {len(judges_list)} Jurors model(s)")
+    else:
+        logging.info("Latency-only mode: Skipping judge profiles loading")
 
     cfg = {
         "parallel_calls": parallel_calls,
@@ -783,7 +823,8 @@ def main(
         "EXPERIMENT_NAME": experiment_name,
         "judge_models": judges_list,
         "user_defined_metrics": user_defined_metrics_list,
-        "prompt_optimization_mode": prompt_optimization_mode
+        "prompt_optimization_mode": prompt_optimization_mode,
+        "latency_only_mode": latency_only_mode
     }
 
     # Load scenarios
@@ -934,7 +975,7 @@ def main(
         logging.info(f"=== Run {run}/{experiment_counts} (Started: {run_timestamp}) ===")
 
         try:
-            results, unprocessed_file_path, unprocessed_count = execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=int(yard_stick))
+            results, unprocessed_file_path, unprocessed_count = execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=int(yard_stick), latency_only_mode=latency_only_mode, stream_evaluation=stream_evaluation)
 
             if not results:
                 logging.error(f"Run {run}/{experiment_counts} produced no results. Check the unprocessed records file.")
@@ -1018,7 +1059,7 @@ def main(
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description="Advanced Unified LLM Benchmarking Tool")
     p.add_argument("input_file", help="JSONL file with scenarios")
-    p.add_argument("--output_dir", default="benchmark-results")
+    p.add_argument("--output_dir", default="outputs")
     p.add_argument("--report", type=lambda x: x.lower() == 'true', default=True)
     p.add_argument("--parallel_calls", type=int, default=4)
     p.add_argument("--invocations_per_scenario", type=int, default=2)
@@ -1037,6 +1078,10 @@ if __name__ == "__main__":
                    default="none",
                    choices=["none", "optimize_only", "evaluate_both"],
                    help="Prompt optimization mode (Bedrock only): none, optimize_only, or evaluate_both")
+    p.add_argument("--latency_only_mode", type=lambda x: x.lower() == 'true', default=False,
+                   help="Enable latency-only evaluation mode (skip LLM judge evaluation)")
+    p.add_argument("--stream_evaluation", type=lambda x: x.lower() == 'true', default=True,
+                   help="Use streaming mode for model evaluation (True=streaming, False=non-streaming)")
     args = p.parse_args()
     main(
         args.input_file,
@@ -1054,5 +1099,7 @@ if __name__ == "__main__":
         args.evaluation_pass_threshold,
         args.vision_enabled,
         args.experiment_wait_time,
-        args.prompt_optimization_mode
+        args.prompt_optimization_mode,
+        args.latency_only_mode,
+        args.stream_evaluation
     )

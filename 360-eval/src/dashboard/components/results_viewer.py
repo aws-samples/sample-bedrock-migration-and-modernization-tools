@@ -203,13 +203,13 @@ class ResultsViewerComponent:
                 # Create judge summary
                 if isinstance(judges_info, list) and len(judges_info) > 0:
                     if isinstance(judges_info[0], dict):
-                        judges_summary = f"{len(judges_info)} judges"
+                        judges_summary = f"{len(judges_info)} jurors"
                         judges_details = ", ".join([j.get("model_id", "Unknown") for j in judges_info])
                     else:
-                        judges_summary = f"{len(judges_info)} judges"
+                        judges_summary = f"{len(judges_info)} jurors"
                         judges_details = ", ".join(judges_info)
                 else:
-                    judges_summary = "0 judges"
+                    judges_summary = "0 jurors"
                     judges_details = "None"
                 
                 # Extract file name from persistent storage or CSV data
@@ -236,9 +236,10 @@ class ResultsViewerComponent:
                     "Task Type": eval_config["task_type"],
                     "Data File": csv_file_name,
                     "Temperature": temperature,
+                    "Stream": "Yes" if eval_config.get("stream_evaluation", True) else "No",
                     "Custom Metrics": has_custom_metrics,
                     "Models": models_summary,
-                    "Judges": judges_summary,
+                    "Jurors": judges_summary,
                     "Completed": pd.to_datetime(eval_config["updated_at"]).strftime("%Y-%m-%d %H:%M")
                 })
             
@@ -267,23 +268,16 @@ class ResultsViewerComponent:
         from ..utils.constants import STATUS_FILES_DIR
         status_dir = Path(STATUS_FILES_DIR)
         
-        # Try both composite and legacy formats for status file
+        # Find new format status file
         status_file = None
-        # First try to find composite format by looking at evaluation name
         for eval_config in st.session_state.evaluations:
             if eval_config["id"] == eval_id:
                 eval_name = eval_config.get("name", "")
                 composite_id = f"{eval_id}_{eval_name}"
-                composite_status_file = status_dir / f"eval_{composite_id}_status.json"
+                composite_status_file = status_dir / f"evaluation_status_{composite_id}.json"
                 if composite_status_file.exists():
                     status_file = composite_status_file
                     break
-        
-        # Fallback to legacy format
-        if not status_file:
-            legacy_status_file = status_dir / f"eval_{eval_id}_status.json"
-            if legacy_status_file.exists():
-                status_file = legacy_status_file
         
         
         # Find the evaluation configuration
@@ -369,7 +363,7 @@ class ResultsViewerComponent:
                 st.dataframe(judges_df, width='stretch', hide_index=True)
             else:
                 # Legacy format - just model IDs
-                st.write("Judges (legacy format):")
+                st.write("Jurors (legacy format):")
                 for judge in judges_info:
                     st.write(f"- {judge}")
         else:
