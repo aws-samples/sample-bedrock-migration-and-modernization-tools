@@ -7,6 +7,7 @@ import os
 import json
 import logging
 import sys
+import re
 from pathlib import Path
 import streamlit as st
 from datetime import datetime
@@ -406,7 +407,26 @@ def run_benchmark_process(eval_id):
         # Create stdout/stderr capture variables
         stdout_capture = StringIO()
         stderr_capture = StringIO()
-        
+
+        # Shared progress tracking (thread-safe)
+        progress_lock = threading.Lock()
+        progress_state = {
+            "total_evaluations": 0,
+            "completed_evaluations": 0,
+            "last_update": time.time()
+        }
+
+        def parse_progress_from_line(line):
+            """Extract progress from subprocess log output."""
+            with progress_lock:
+                # Extract total: "Expanded to 250 scenarios"
+                if match := re.search(r'Expanded to (\d+) scenarios', line):
+                    progress_state["total_evaluations"] = int(match.group(1))
+
+                # Count completions: "Successfully processed: ... invocation N"
+                elif "Successfully processed:" in line:
+                    progress_state["completed_evaluations"] += 1
+
         # Run the benchmark command with output capture
         try:
             process = subprocess.Popen(
@@ -428,6 +448,10 @@ def run_benchmark_process(eval_id):
                 for line in iter(process.stdout.readline, ''):
                     stdout_capture.write(line)
                     stdout_line_count += 1
+
+                    # Parse progress from log output
+                    parse_progress_from_line(line)
+
                     # Only log every 50th line or important lines
                     if stdout_line_count % 50 == 0 or any(keyword in line.lower() for keyword in ['error', 'warning', 'completed', 'failed']):
                         dashboard_logger.debug(f"STDOUT ({stdout_line_count} lines): {line.strip()}")
@@ -448,38 +472,48 @@ def run_benchmark_process(eval_id):
             stdout_thread.start()
             stderr_thread.start()
             
-            # Monitor evaluation state with smart logging intervals
+            # Monitor evaluation state with progress updates every 10 seconds
             poll_count = 0
             last_log_time = time.time()
-            
+
             while True:
                 # Check if process is still running
                 if process.poll() is not None:
                     dashboard_logger.info(f"Benchmark process completed for {eval_id} with return code {process.returncode}")
                     break
-                
-                # Smart logging intervals: 1min, 5min, 10min, then every 10min
+
+                # Calculate real progress from parsed counts (every iteration = every 10 seconds)
                 current_time = time.time()
-                elapsed_minutes = (current_time - last_log_time) / 60
-                
+
+                with progress_lock:
+                    total = progress_state["total_evaluations"]
+                    completed = progress_state["completed_evaluations"]
+
+                if total > 0:
+                    progress = min(int((completed / total) * 100), 99)
+                else:
+                    # Fallback to time-based estimation if not parsed yet
+                    progress = min(poll_count * 2, 90)
+
+                # Update status to show progress (every 10 seconds)
+                _update_status_file(status_file, "running", progress, logs_dir=str(logs_dir))
+                update_evaluation_status(eval_id, "running", progress)
+
+                # Smart logging intervals: 1min, 5min, 10min, then every 10min
                 should_log = False
                 if poll_count == 6:  # 1 minute
                     should_log = True
-                elif poll_count == 30:  # 5 minutes  
+                elif poll_count == 30:  # 5 minutes
                     should_log = True
                 elif poll_count == 60:  # 10 minutes
                     should_log = True
                 elif poll_count > 60 and poll_count % 60 == 0:  # Every 10 minutes after that
                     should_log = True
-                
+
                 if should_log:
                     runtime_minutes = poll_count // 6
                     dashboard_logger.info(f"Benchmark process {process.pid} running for {runtime_minutes} minutes ({eval_id})")
                     last_log_time = current_time
-                    
-                    # Update status to show progress
-                    _update_status_file(status_file, "running", min(poll_count * 2, 90), logs_dir=str(logs_dir))
-                    update_evaluation_status(eval_id, "running", min(poll_count * 2, 90))
                 
                 # Wait before checking again
                 time.sleep(10)

@@ -86,7 +86,15 @@ class EvaluationMonitorComponent:
             if queue_status["current_evaluation"]:
                 current = queue_status["current_evaluation"]
                 st.info(f"▶️ Currently Running: **{current['name']}**")
-            
+
+                # Find the running evaluation to get its progress
+                running_eval = next((e for e in st.session_state.evaluations
+                                   if e["id"] == current["id"]), None)
+                if running_eval:
+                    progress_pct = running_eval.get("progress", 0)
+                    st.progress(progress_pct / 100.0)  # st.progress takes 0.0-1.0
+                    st.caption(f"Progress: {progress_pct}%")
+
             # Show queued evaluations
             if queue_status["queue_length"] > 0:
                 st.info(f"⏳ Queued Evaluations: **{queue_status['queue_length']}**")
@@ -145,12 +153,26 @@ class EvaluationMonitorComponent:
                 if not task_type or task_type.strip() == "":
                     task_type = "Latency Benchmark"
 
+                # Format progress display
+                status = eval_config["status"]
+                progress_value = eval_config.get("progress", 0)
+
+                if status == "running":
+                    progress_display = f"{progress_value}%"
+                elif status == "queued":
+                    progress_display = "Queued"
+                elif status == "completed":
+                    progress_display = "100%"
+                else:
+                    progress_display = "-"
+
                 eval_data.append({
                     "Name": name_field,
                     "Task Type": task_type,
                     "Models": len(eval_config["selected_models"]),
                     "Stream": "Yes" if eval_config.get("stream_evaluation", True) else "No",
-                    "Status": eval_config["status"].capitalize(),
+                    "Status": status.capitalize(),
+                    "Progress": progress_display,
                     "Created": pd.to_datetime(eval_config["created_at"]).strftime("%Y-%m-%d %H:%M") if eval_config.get("created_at") else "N/A",
                 })
             

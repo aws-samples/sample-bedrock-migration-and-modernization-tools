@@ -369,9 +369,9 @@ def setup_logging(log_dir='logs', experiment='none'):
         filemode='w'
     )
 
-    # Add console handler for warnings and above
+    # Add console handler for info and above (needed for progress tracking)
     console = logging.StreamHandler()
-    console.setLevel(logging.WARNING)
+    console.setLevel(logging.INFO)
     console.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     logging.getLogger('').addHandler(console)
 

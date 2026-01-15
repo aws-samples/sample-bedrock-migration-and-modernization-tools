@@ -523,7 +523,7 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3, latency_onl
                         result_record["model_id"] = f"{scn['model_id']}{scn['service_tier_label']}"
 
                     recs.append(result_record)
-                    logging.debug(
+                    logging.info(
                         f"Successfully processed: {scn['model_id']}@{scn['region']}, invocation {invocation + 1}")
             except Exception as e:
                 # Log exception with full context and stack trace
