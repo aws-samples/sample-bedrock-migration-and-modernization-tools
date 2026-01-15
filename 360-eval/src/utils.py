@@ -329,11 +329,7 @@ def prepare_model_for_litellm(model_id):
     """
 
     # Check if this is a Bedrock model (contains regional prefix like us., eu., or anthropic., amazon., etc.)
-    is_bedrock_model = any(indicator in model_id for indicator in
-                          ['us.', 'eu.', 'ap.', 'ca.', 'sa.',  # Regional prefixes
-                           'anthropic.', 'amazon.', 'meta.', 'mistral.', 'deepseek.', 'qwen.',  # Model providers on Bedrock
-                           'openai.gpt-oss'])  # OpenAI on Bedrock
-
+    is_bedrock_model = model_id.startswith('bedrock/')
     if not is_bedrock_model:
         # Not a Bedrock model, return as-is
         logger.debug(f"Not a Bedrock model, returning as-is: {model_id}")

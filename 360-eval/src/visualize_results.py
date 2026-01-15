@@ -1709,7 +1709,7 @@ def create_html_report(output_dir, timestamp, evaluation_names=None):
 
     prompt_template = report_summary_template(models=unique_models, evaluations=f'{acc_analysis}\n\n{cost_analysis}\n\n{perf_analysis}\n\n{task_level_analysis}\n\n{recommendations}')  ## Append AND Format all evals ++ rename the columns to help the model
     # Model ID preparation for litellm (/converse addition) is now handled centrally in run_inference()
-    inference = run_inference(model_name='bedrock/us.amazon.nova-premier-v1:0',
+    inference = run_inference(model_name='bedrock/global.amazon.nova-2-lite-v1:0',
                               prompt_text=prompt_template,
                               stream=False,
                               provider_params={"maxTokens": INFERENCE_MAX_TOKENS,
