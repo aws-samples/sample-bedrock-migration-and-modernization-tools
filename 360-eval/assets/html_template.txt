@@ -309,13 +309,45 @@
   
   <div class="section" id="ttfb-distribution">
     <h2>Time to First Token Distribution Analysis</h2>
-    {% if ttfb_histogram_div %}
+    {% if ttfb_histograms_by_task %}
     <div class="card">
-      <h3>TTFT Distribution by Model</h3>
-      <div class="chart-description">
+      <div class="highlight">
+        <p>The charts below show TTFT distribution for each task. Select a task to view its performance characteristics.</p>
+        <div class="model-selector">
+          <label for="ttfbTaskSelect">Select Task: </label>
+          <select id="ttfbTaskSelect" onchange="showTTFBTask(this.value)">
+            {% for task_name in ttfb_histograms_by_task.keys() %}
+            <option value="{{ task_name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') }}"
+                    {% if loop.first %}selected{% endif %}>{{ task_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
-      {{ ttfb_histogram_div | safe }}
     </div>
+
+    <div class="ttfb-charts-container">
+      {% for task_name, histogram_html in ttfb_histograms_by_task.items() %}
+      <div id="ttfb-hist-{{ task_name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') }}"
+           class="ttfb-task-chart"
+           style="{% if not loop.first %}display: none;{% endif %}">
+        <div class="card">
+          <h3>TTFT Distribution by Model - {{ task_name }}</h3>
+          {{ histogram_html | safe }}
+        </div>
+
+        {% if task_name in ttfb_boxplots_by_task %}
+        <div class="card">
+          <h3>TTFT Percentile Distribution Analysis - {{ task_name }}</h3>
+          <div class="chart-description">
+            <p>Stacked horizontal bars showing percentile ranges (0-25%, 25-50%, 50-75%, 75-90%, 90-95%, 95-99%, 99-100%) for each model. Wider segments indicate greater variability in that percentile range. Color gradients from green (fast) to red (slow) help identify performance patterns. The red vertical line marks the 99th percentile threshold.</p>
+          </div>
+          {{ ttfb_boxplots_by_task[task_name] | safe }}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
     <div class="card">
       <h3>Key Findings</h3>
       <div class="highlight">
@@ -339,13 +371,45 @@
 
   <div class="section" id="accuracy-distribution">
     <h2>Average of Evaluation Scores Distribution Analysis</h2>
-    {% if accuracy_histogram_div %}
+    {% if accuracy_histograms_by_task %}
     <div class="card">
-      <h3>Average of Evaluation Scores Distribution by Model</h3>
-      <div class="chart-description">
+      <div class="highlight">
+        <p>The charts below show accuracy distribution for each task. Select a task to view its performance characteristics.</p>
+        <div class="model-selector">
+          <label for="accuracyTaskSelect">Select Task: </label>
+          <select id="accuracyTaskSelect" onchange="showAccuracyTask(this.value)">
+            {% for task_name in accuracy_histograms_by_task.keys() %}
+            <option value="{{ task_name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') }}"
+                    {% if loop.first %}selected{% endif %}>{{ task_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
-      {{ accuracy_histogram_div | safe }}
     </div>
+
+    <div class="accuracy-charts-container">
+      {% for task_name, histogram_html in accuracy_histograms_by_task.items() %}
+      <div id="accuracy-hist-{{ task_name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') }}"
+           class="accuracy-task-chart"
+           style="{% if not loop.first %}display: none;{% endif %}">
+        <div class="card">
+          <h3>Accuracy Distribution by Model - {{ task_name }}</h3>
+          {{ histogram_html | safe }}
+        </div>
+
+        {% if task_name in accuracy_boxplots_by_task %}
+        <div class="card">
+          <h3>Accuracy Percentile Distribution Analysis - {{ task_name }}</h3>
+          <div class="chart-description">
+            <p>Stacked horizontal bars showing percentile ranges (0-25%, 25-50%, 50-75%, 75-90%, 90-95%, 95-99%, 99-100%) for each model. Wider segments indicate greater variability in that percentile range. Color gradients from red (low accuracy) to green (high accuracy) help identify performance patterns. The red vertical line marks the 1st percentile threshold.</p>
+          </div>
+          {{ accuracy_boxplots_by_task[task_name] | safe }}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
     <div class="card">
       <h3>Key Findings</h3>
       <div class="highlight">
@@ -543,13 +607,43 @@
     function scrollToSection(sectionId) {
       const element = document.getElementById(sectionId);
       if (element) {
-        element.scrollIntoView({ 
+        element.scrollIntoView({
           behavior: 'smooth',
           block: 'start'
         });
       }
     }
-    
+
+    function showTTFBTask(taskName) {
+      // Hide all TTFB task charts
+      document.querySelectorAll('.ttfb-task-chart').forEach(function(el) {
+        el.style.display = 'none';
+      });
+
+      // Show the selected task's charts
+      const selectedChart = document.getElementById('ttfb-hist-' + taskName);
+      if (selectedChart) {
+        selectedChart.style.display = 'block';
+        // Force Plotly to resize
+        window.dispatchEvent(new Event('resize'));
+      }
+    }
+
+    function showAccuracyTask(taskName) {
+      // Hide all accuracy task charts
+      document.querySelectorAll('.accuracy-task-chart').forEach(function(el) {
+        el.style.display = 'none';
+      });
+
+      // Show the selected task's charts
+      const selectedChart = document.getElementById('accuracy-hist-' + taskName);
+      if (selectedChart) {
+        selectedChart.style.display = 'block';
+        // Force Plotly to resize
+        window.dispatchEvent(new Event('resize'));
+      }
+    }
+
     // Initialize on load
     window.addEventListener('load', function () {
       window.dispatchEvent(new Event('resize'));

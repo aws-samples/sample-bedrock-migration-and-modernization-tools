@@ -611,6 +611,7 @@ def create_normal_distribution_histogram(df,
     """
     Creates overlapping histogram plots with normal distribution curves for time_to_first_byte by model.
     Only creates the plot if there are more than 2000 records available.
+    X-axis is capped at 99th percentile to prevent outliers from compressing the visualization.
 
     Args:
         df: DataFrame containing the benchmark data
@@ -640,6 +641,37 @@ def create_normal_distribution_histogram(df,
 
     logger.info(f"Creating {label} Distribution by Model histogram with {len(df)} records")
 
+    # Determine if this is an accuracy metric (higher is better) or latency metric (lower is better)
+    is_accuracy_metric = 'accuracy' in label.lower() or 'score' in label.lower()
+
+    # Calculate percentiles across all data for x-axis limit
+    p99 = df_clean[key].quantile(0.99)
+    p95 = df_clean[key].quantile(0.95)
+    p90 = df_clean[key].quantile(0.90)
+    p50 = df_clean[key].quantile(0.50)
+    p10 = df_clean[key].quantile(0.10)
+    p5 = df_clean[key].quantile(0.05)
+    p1 = df_clean[key].quantile(0.01)
+
+    # For accuracy metrics, outliers are low values (poor performance)
+    # For latency metrics, outliers are high values (slow performance)
+    if is_accuracy_metric:
+        outliers = df_clean[df_clean[key] < p1]
+        outlier_count = len(outliers)
+        outlier_pct = (outlier_count / len(df_clean)) * 100
+        x_min = p1
+        x_max = df_clean[key].max()
+        outlier_threshold = p1
+        outlier_direction = "below"
+    else:
+        outliers = df_clean[df_clean[key] > p99]
+        outlier_count = len(outliers)
+        outlier_pct = (outlier_count / len(df_clean)) * 100
+        x_min = df_clean[key].min()
+        x_max = p99
+        outlier_threshold = p99
+        outlier_direction = "beyond"
+
     # Create figure
     fig = go.Figure()
 
@@ -658,39 +690,89 @@ def create_normal_distribution_histogram(df,
         mean = model_data.mean()
         std = model_data.std()
 
-        # Add histogram
+        # Use percent normalization for all metrics - much more interpretable
+        # Include mean and std in legend for easy reference
         fig.add_trace(go.Histogram(
             x=model_data,
-            name=f'{model} (n={len(model_data)})',
+            name=f'{model} (n={len(model_data)}, μ={mean:.3f}, σ={std:.3f})',
             opacity=0.6,
             marker_color=colors[i % len(colors)],
-            histnorm='probability density',  # Normalize to match normal curve
-            nbinsx=50,
+            histnorm='percent',  # Y-axis shows percentage of observations
+            nbinsx=200,  # Increased from 100 for even finer granularity
             showlegend=True
         ))
 
-        # Generate points for normal distribution curve
-        x_range = np.linspace(
-            model_data.min() - NORMAL_DISTRIBUTION_RANGE_MULTIPLIER * std,
-            model_data.max() + NORMAL_DISTRIBUTION_RANGE_MULTIPLIER * std,
-            NORMAL_DISTRIBUTION_POINTS
+    # Add percentile lines (different for accuracy vs latency metrics)
+    if is_accuracy_metric:
+        percentile_lines = [
+            (p1, 'p1', 'solid'),
+            (p5, 'p5', 'dashdot'),
+            (p10, 'p10', 'dash'),
+            (p50, 'p50 (Median)', 'dot')
+        ]
+    else:
+        percentile_lines = [
+            (p50, 'p50 (Median)', 'dot'),
+            (p90, 'p90', 'dash'),
+            (p95, 'p95', 'dashdot'),
+            (p99, 'p99', 'solid')
+        ]
+
+    for percentile_val, percentile_label, line_style in percentile_lines:
+        fig.add_vline(
+            x=percentile_val,
+            line_dash=line_style,
+            line_color='rgba(255, 255, 255, 0.4)',
+            line_width=1,
+            annotation_text=f"{percentile_label}<br>{percentile_val:.3f}",
+            annotation_position="top" if is_accuracy_metric else "top",
+            annotation=dict(
+                font=dict(size=10, color='rgba(255, 255, 255, 0.7)'),
+                showarrow=False
+            )
         )
-        normal_curve = stats.norm.pdf(x_range, mean, std)
 
-        # Add normal distribution curve
-        fig.add_trace(go.Scatter(
-            x=x_range,
-            y=normal_curve,
-            mode='lines',
-            name=f'{model} Normal (μ={mean:.3f}, σ={std:.3f})',
-            line=dict(
-                color=colors[i % len(colors)],
-                width=2,
-                dash='dash'
-            ),
-            opacity=0.8,
-            showlegend=True
-        ))
+    # Add annotation box for outlier information
+    if is_accuracy_metric:
+        annotation_text = (
+            f"<b>Showing 99% of data</b><br>"
+            f"Range: {p1:.3f} - 1.0<br>"
+            f"Outliers: {outlier_count} ({outlier_pct:.1f}%)<br>"
+            f"{outlier_direction} {p1:.3f}"
+        )
+        subtitle_text = f'{label} Distribution by Model<br><sub>Percentage Distribution (Capped at 1st Percentile)</sub>'
+        x_range_min = p1 * 0.98
+        x_range_max = df_clean[key].max() * 1.02
+    else:
+        annotation_text = (
+            f"<b>Showing 99% of data</b><br>"
+            f"Range: 0 - {p99:.3f}s<br>"
+            f"Outliers: {outlier_count} ({outlier_pct:.1f}%)<br>"
+            f"{outlier_direction} {p99:.3f}s"
+        )
+        subtitle_text = f'{label} Distribution by Model<br><sub>Percentage Distribution (Capped at 99th Percentile)</sub>'
+        x_range_min = 0
+        x_range_max = p99 * 1.02
+
+    # All metrics now use percentage normalization for clearer interpretation
+    y_axis_title = 'Percentage of Observations (%)'
+
+    fig.add_annotation(
+        text=annotation_text,
+        xref="paper",
+        yref="paper",
+        x=0.98,
+        y=0.98,
+        xanchor="right",
+        yanchor="top",
+        showarrow=False,
+        bgcolor="rgba(50, 50, 50, 0.8)",
+        bordercolor="rgba(255, 255, 255, 0.3)",
+        borderwidth=1,
+        borderpad=8,
+        font=dict(size=11, color='#e0e0e0'),
+        align='left'
+    )
 
     # Update layout
     fig.update_layout(
@@ -698,12 +780,12 @@ def create_normal_distribution_histogram(df,
         paper_bgcolor="#1e1e1e",
         plot_bgcolor="#2d2d2d",
         title={
-            'text': f'{label} Distribution by Model<br><sub>Histograms with Normal Distribution Overlays</sub>',
+            'text': subtitle_text,
             'x': 0.5,
             'xanchor': 'center'
         },
         xaxis_title=label,
-        yaxis_title='Probability Density',
+        yaxis_title=y_axis_title,
         barmode='overlay',  # Allow histograms to overlap
         legend=dict(
             orientation="v",
@@ -716,9 +798,237 @@ def create_normal_distribution_histogram(df,
         margin=dict(r=250)  # Extra margin for legend
     )
 
-    # Update x and y axes
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor=f'rgba(128,128,128,{GRID_OPACITY})')
+    # Update x and y axes - cap x-axis appropriately based on metric type
+    fig.update_xaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor=f'rgba(128,128,128,{GRID_OPACITY})',
+        range=[x_range_min, x_range_max]  # Add padding for better visibility
+    )
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor=f'rgba(128,128,128,{GRID_OPACITY})')
+
+    return fig
+
+
+def create_outlier_boxplot(df, key='time_to_first_byte', label='Time to First Token (seconds)'):
+    """
+    Creates a percentile-based distribution chart showing granular breakdown of latency buckets.
+    Uses horizontal bars to show percentile ranges for better visual clarity.
+
+    Args:
+        df: DataFrame containing the benchmark data
+        key: data column to analyze
+        label: label for the plot
+    Returns:
+        Plotly figure or None if insufficient data
+    """
+    min_vals = MIN_RECORDS_FOR_ANALYSIS
+    # Check if we have enough data
+    value_counts = df['model_name'].value_counts()
+    frequent_values = value_counts[value_counts > min_vals].index
+    df_match = df[df['model_name'].isin(frequent_values)]
+
+    if df_match.empty:
+        logger.info(f"Insufficient data for {label} Outlier Analysis: {len(df)} records")
+        return None
+
+    # Filter out any null values
+    df_clean = df_match[df_match[key].notna()].copy()
+
+    if df_clean.empty:
+        return None
+
+    logger.info(f"Creating {label} Percentile Distribution Chart with {len(df_clean)} records")
+
+    # Determine if this is an accuracy metric (higher is better) or latency metric (lower is better)
+    is_accuracy_metric = 'accuracy' in label.lower() or 'score' in label.lower()
+
+    # Calculate global percentiles for reference
+    p99 = df_clean[key].quantile(0.99)
+    p1 = df_clean[key].quantile(0.01)
+
+    # Create figure
+    fig = go.Figure()
+
+    # Get unique models and assign colors
+    unique_models = df_clean['model_name'].unique()
+    colors = px.colors.qualitative.Set1[:len(unique_models)]
+
+    # Define percentile buckets (more granular)
+    percentiles = [0, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 1.0]
+    percentile_labels = ['0-25%', '25-50%', '50-75%', '75-90%', '90-95%', '95-99%', '99-100%']
+
+    # Color scheme for percentile ranges
+    # For accuracy: green (low/bad) to red (high/good) - REVERSED
+    # For latency: green (low/fast) to red (high/slow) - NORMAL
+    if is_accuracy_metric:
+        # Reverse colors for accuracy - worst performance is at bottom percentiles
+        bucket_colors = [
+            'rgba(192, 57, 43, 0.7)',    # Dark red - worst scores (0-25%)
+            'rgba(231, 76, 60, 0.7)',    # Red - poor scores
+            'rgba(230, 126, 34, 0.7)',   # Dark orange - below average
+            'rgba(243, 156, 18, 0.7)',   # Orange - average
+            'rgba(241, 196, 15, 0.7)',   # Yellow - above average
+            'rgba(82, 214, 138, 0.7)',   # Light green - good scores
+            'rgba(46, 204, 113, 0.7)'    # Green - best scores (99-100%)
+        ]
+    else:
+        # Normal colors for latency - worst performance is at top percentiles
+        bucket_colors = [
+            'rgba(46, 204, 113, 0.7)',   # Green - fastest quartile
+            'rgba(82, 214, 138, 0.7)',   # Light green
+            'rgba(241, 196, 15, 0.7)',   # Yellow - median
+            'rgba(243, 156, 18, 0.7)',   # Orange
+            'rgba(230, 126, 34, 0.7)',   # Dark orange
+            'rgba(231, 76, 60, 0.7)',    # Red - slow
+            'rgba(192, 57, 43, 0.7)'     # Dark red - outliers
+        ]
+
+    y_offset = 0
+    model_positions = {}
+
+    # Create stacked horizontal bars for each model
+    for i, model in enumerate(unique_models):
+        model_data = df_clean[df_clean['model_name'] == model][key]
+
+        if len(model_data) < 10:
+            continue
+
+        model_positions[model] = y_offset
+
+        # Calculate percentile values for this model
+        percentile_values = [model_data.quantile(p) for p in percentiles]
+
+        # Count outliers for this model
+        outlier_count = len(model_data[model_data > p99])
+        outlier_pct = (outlier_count / len(model_data)) * 100 if len(model_data) > 0 else 0
+
+        # Create bars for each percentile bucket
+        for j in range(len(percentiles) - 1):
+            start_val = percentile_values[j]
+            end_val = percentile_values[j + 1]
+            width = end_val - start_val
+
+            # Calculate percentage of data in this bucket
+            bucket_data = model_data[(model_data >= start_val) & (model_data < end_val)]
+            bucket_pct = (len(bucket_data) / len(model_data)) * 100
+
+            fig.add_trace(go.Bar(
+                x=[width],
+                y=[model],
+                base=[start_val],
+                orientation='h',
+                name=percentile_labels[j] if i == 0 else '',  # Only show legend for first model
+                marker_color=bucket_colors[j],
+                hovertemplate=f'<b>{model}</b><br>' +
+                             f'{percentile_labels[j]}<br>' +
+                             f'Range: {start_val:.3f} - {end_val:.3f}<br>' +
+                             f'Width: {width:.3f}<br>' +
+                             f'Data in bucket: {bucket_pct:.1f}%<br>' +
+                             '<extra></extra>',
+                showlegend=(i == 0),  # Only show in legend once
+                legendgroup=percentile_labels[j]
+            ))
+
+        y_offset += 1
+
+    # Add vertical line at appropriate percentile threshold
+    if is_accuracy_metric:
+        threshold_val = p1
+        threshold_label = "p1"
+        total_outliers = len(df_clean[df_clean[key] < p1])
+        outlier_desc = f"Outliers (<p1): {total_outliers}"
+        threshold_text = f"{threshold_label}: {threshold_val:.3f}<br>(Low Outlier Threshold)"
+    else:
+        threshold_val = p99
+        threshold_label = "p99"
+        total_outliers = len(df_clean[df_clean[key] > p99])
+        outlier_desc = f"Outliers (>p99): {total_outliers}"
+        threshold_text = f"{threshold_label}: {threshold_val:.3f}<br>(High Outlier Threshold)"
+
+    fig.add_vline(
+        x=threshold_val,
+        line_dash='solid',
+        line_color='rgba(255, 100, 100, 0.8)',
+        line_width=2,
+        annotation_text=threshold_text,
+        annotation_position="top right" if not is_accuracy_metric else "top left",
+        annotation=dict(
+            font=dict(size=11, color='rgba(255, 100, 100, 0.9)'),
+            showarrow=False,
+            bgcolor="rgba(50, 50, 50, 0.8)",
+            bordercolor="rgba(255, 100, 100, 0.5)",
+            borderwidth=1,
+            borderpad=4
+        )
+    )
+
+    # Add summary statistics annotation
+    total_records = len(df_clean)
+    outlier_pct_total = (total_outliers / total_records) * 100 if total_records > 0 else 0
+
+    annotation_text = (
+        f"<b>Distribution Summary</b><br>"
+        f"Total Records: {total_records}<br>"
+        f"{outlier_desc} ({outlier_pct_total:.1f}%)<br>"
+        f"{threshold_label} Threshold: {threshold_val:.3f}<br><br>"
+        f"<i>Each bar shows percentile ranges</i>"
+    )
+
+    fig.add_annotation(
+        text=annotation_text,
+        xref="paper",
+        yref="paper",
+        x=0.98,  # Move to right side
+        y=0.02,  # Position at bottom of chart area
+        xanchor="right",
+        yanchor="bottom",
+        showarrow=False,
+        bgcolor="rgba(50, 50, 50, 0.8)",
+        bordercolor="rgba(255, 255, 255, 0.3)",
+        borderwidth=1,
+        borderpad=8,
+        font=dict(size=11, color='#e0e0e0'),
+        align='left'
+    )
+
+    # Update layout
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="#1e1e1e",
+        plot_bgcolor="#2d2d2d",
+        title={
+            'text': f'{label} - Percentile Distribution Analysis<br><sub>Stacked Percentile Ranges Showing Distribution Spread</sub>',
+            'x': 0.5,
+            'xanchor': 'center'
+        },
+        xaxis_title=label,
+        yaxis_title='Model',
+        barmode='stack',
+        height=max(400, len(unique_models) * 60),  # Dynamic height based on number of models
+        margin=dict(l=300, r=150, t=100, b=150),  # Extra margin for model names and bottom annotation
+        showlegend=True,
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=1,
+            xanchor="left",
+            x=1.02,
+            title="Percentile Range"
+        )
+    )
+
+    # Update axes
+    fig.update_xaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor=f'rgba(128,128,128,{GRID_OPACITY})'
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor=f'rgba(128,128,128,{GRID_OPACITY})'
+    )
 
     return fig
 
@@ -1370,14 +1680,60 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
 
     visualizations['regional_performance'] = create_regional_performance_analysis(df)
 
-    # Add TTFB histogram with normal distribution (only if sufficient data)
-    ttfb_histogram = create_normal_distribution_histogram(df)
-    if ttfb_histogram is not None:
-        visualizations['ttfb_histogram'] = ttfb_histogram
+    # Create TTFT histograms and boxplots per task
+    ttfb_histograms_by_task = {}
+    ttfb_boxplots_by_task = {}
 
-    accuracy_histogram = create_normal_distribution_histogram(df, key='mean_scores', label='Accuracy Distribution by Model')
-    if accuracy_histogram is not None:
-        visualizations['accuracy_histogram'] = accuracy_histogram
+    # Loop through unique task_display_name for consistency with other charts
+    for task_display in model_task_metrics['task_display_name'].unique():
+        # Get original task_types for filtering the main df
+        task_data = model_task_metrics[model_task_metrics['task_display_name'] == task_display]
+        task_types = task_data['task_types'].iloc[0]
+        config_sig = task_data['config_signature'].iloc[0] if 'config_signature' in task_data.columns else None
+
+        # Filter df by task_types and config_signature
+        if config_sig:
+            task_df = df[(df['task_types'] == task_types) & (df['config_signature'] == config_sig)]
+        else:
+            task_df = df[df['task_types'] == task_types]
+
+        # Create TTFT histogram for this task
+        ttfb_histogram = create_normal_distribution_histogram(task_df, label=f'Time to First Token (seconds) - {task_display}')
+        if ttfb_histogram is not None:
+            ttfb_histograms_by_task[task_display] = ttfb_histogram
+
+        # Create TTFT boxplot for this task
+        ttfb_boxplot = create_outlier_boxplot(task_df, label=f'Time to First Token (seconds) - {task_display}')
+        if ttfb_boxplot is not None:
+            ttfb_boxplots_by_task[task_display] = ttfb_boxplot
+
+    visualizations['ttfb_histograms_by_task'] = ttfb_histograms_by_task
+    visualizations['ttfb_boxplots_by_task'] = ttfb_boxplots_by_task
+
+    # Create accuracy histograms and boxplots per task
+    accuracy_histograms_by_task = {}
+    accuracy_boxplots_by_task = {}
+
+    for task_display in model_task_metrics['task_display_name'].unique():
+        task_data = model_task_metrics[model_task_metrics['task_display_name'] == task_display]
+        task_types = task_data['task_types'].iloc[0]
+        config_sig = task_data['config_signature'].iloc[0] if 'config_signature' in task_data.columns else None
+
+        if config_sig:
+            task_df = df[(df['task_types'] == task_types) & (df['config_signature'] == config_sig)]
+        else:
+            task_df = df[df['task_types'] == task_types]
+
+        accuracy_histogram = create_normal_distribution_histogram(task_df, key='mean_scores', label=f'Accuracy Distribution - {task_display}')
+        if accuracy_histogram is not None:
+            accuracy_histograms_by_task[task_display] = accuracy_histogram
+
+        accuracy_boxplot = create_outlier_boxplot(task_df, key='mean_scores', label=f'Average Accuracy - {task_display}')
+        if accuracy_boxplot is not None:
+            accuracy_boxplots_by_task[task_display] = accuracy_boxplot
+
+    visualizations['accuracy_histograms_by_task'] = accuracy_histograms_by_task
+    visualizations['accuracy_boxplots_by_task'] = accuracy_boxplots_by_task
 
     return visualizations
 
@@ -1745,14 +2101,20 @@ def create_html_report(output_dir, timestamp, evaluation_names=None):
         unique_tasks=list(visualizations['integrated_analysis_tables'].keys()),
         regional_performance_div=visualizations['regional_performance'].to_html(full_html=False),
 
-        # TTFB histogram (only if sufficient data)
-        ttfb_histogram_div=visualizations['ttfb_histogram'].to_html(full_html=False) if 'ttfb_histogram' in visualizations else '',
+        # TTFB histograms and boxplots by task
+        ttfb_histograms_by_task={task: chart.to_html(full_html=False)
+                                  for task, chart in visualizations.get('ttfb_histograms_by_task', {}).items()},
+        ttfb_boxplots_by_task={task: chart.to_html(full_html=False)
+                               for task, chart in visualizations.get('ttfb_boxplots_by_task', {}).items()},
         ttfb_findings=time_to_first_token_findings,
 
-        # Accuracy histogram (only if sufficient data)
-        accuracy_histogram_div=visualizations['accuracy_histogram'].to_html(
-            full_html=False) if 'accuracy_histogram' in visualizations else '',
+        # Accuracy histograms and boxplots by task
+        accuracy_histograms_by_task={task: chart.to_html(full_html=False)
+                                      for task, chart in visualizations.get('accuracy_histograms_by_task', {}).items()},
+        accuracy_boxplots_by_task={task: chart.to_html(full_html=False)
+                                    for task, chart in visualizations.get('accuracy_boxplots_by_task', {}).items()},
         accuracy_findings=accuracy_findings,
+
         # Recommendations
         task_recommendations=task_recommendations,
     )
