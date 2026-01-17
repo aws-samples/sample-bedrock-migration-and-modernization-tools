@@ -7,8 +7,9 @@ import pandas as pd
 import ast
 from collections import Counter
 from .constants import (
-    MIN_RECORDS_FOR_ANALYSIS, NORMAL_DISTRIBUTION_RANGE_MULTIPLIER,
-    NORMAL_DISTRIBUTION_POINTS, COEFFICIENT_VARIATION_THRESHOLD
+    MIN_RECORDS_FOR_ANALYSIS, MIN_RECORDS_FOR_HISTOGRAM,
+    NORMAL_DISTRIBUTION_RANGE_MULTIPLIER, NORMAL_DISTRIBUTION_POINTS,
+    COEFFICIENT_VARIATION_THRESHOLD
 )
 from scipy import stats
 import numpy as np
@@ -250,7 +251,7 @@ def generate_histogram_findings(df, key='time_to_first_byte', label='Time to Fir
         # Overall statistics
         overall_mean = df_model[key].mean()
         overall_std = df_model[key].std()
-        findings.append(f"Model <b>{model}</b> {label}: μ={overall_mean:.3f}s, σ={overall_std:.3f}s across {len(df_model)} measurements")
+        findings.append(f"Model <b>{model}</b> {label}: Average={overall_mean:.3f}s, Standard Deviation={overall_std:.3f}s across {len(df_model)} measurements")
 
     # Model-specific analysis (optimized with method chaining)
     model_stats = (df_clean.groupby('model_name')[key]

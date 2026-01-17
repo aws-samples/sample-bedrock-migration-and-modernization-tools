@@ -139,7 +139,7 @@ def create_normal_distribution_histogram(df,
         # Include mean and std in legend for easy reference
         fig.add_trace(go.Histogram(
             x=model_data,
-            name=f'{model} (n={len(model_data)}, μ={mean:.3f}, σ={std:.3f})',
+            name=f'{model} (n={len(model_data)}, Average={mean:.3f}, Standard Deviation={std:.3f})',
             opacity=0.6,
             marker_color=colors[i % len(colors)],
             histnorm='percent',  # Y-axis shows percentage of observations
