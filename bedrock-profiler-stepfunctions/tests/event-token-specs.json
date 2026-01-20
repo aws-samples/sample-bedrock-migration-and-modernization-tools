@@ -1,0 +1,6 @@
+{
+  "s3Bucket": "test-bucket",
+  "executionId": "test-exec-123",
+  "modelsS3Key": "test/models.json",
+  "dryRun": true
+}

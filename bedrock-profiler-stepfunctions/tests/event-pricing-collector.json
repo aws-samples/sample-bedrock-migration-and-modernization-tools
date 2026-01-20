@@ -1,0 +1,6 @@
+{
+  "serviceCode": "AmazonBedrock",
+  "s3Bucket": "test-bucket",
+  "s3Key": "test/pricing/AmazonBedrock.json",
+  "dryRun": true
+}

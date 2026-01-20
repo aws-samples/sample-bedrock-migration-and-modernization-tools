@@ -1,0 +1,551 @@
+{
+  "Comment": "Bedrock Model Profiler - Parallel Data Collection Workflow",
+  "StartAt": "InitializeExecution",
+  "States": {
+    "InitializeExecution": {
+      "Type": "Pass",
+      "Comment": "Set up execution context with S3 paths and region lists",
+      "Parameters": {
+        "executionId.$": "$$.Execution.Id",
+        "timestamp.$": "$$.Execution.StartTime",
+        "config": {
+          "s3Bucket": "${S3Bucket}",
+          "pricingServiceCodes": [
+            "AmazonBedrock",
+            "AmazonBedrockService",
+            "AmazonBedrockFoundationModels"
+          ],
+          "modelRegions": [
+            "us-east-1",
+            "us-west-2"
+          ],
+          "quotaRegions": [
+            "us-east-1",
+            "us-west-2",
+            "us-east-2",
+            "eu-west-1",
+            "eu-west-2",
+            "eu-west-3",
+            "eu-central-1",
+            "eu-north-1",
+            "ap-southeast-1",
+            "ap-southeast-2",
+            "ap-southeast-3",
+            "ap-northeast-1",
+            "ap-northeast-2",
+            "ap-south-1",
+            "ca-central-1",
+            "sa-east-1"
+          ],
+          "featureRegions": [
+            "us-east-1",
+            "us-west-2",
+            "us-east-2",
+            "eu-west-1",
+            "eu-west-2",
+            "eu-west-3",
+            "eu-central-1",
+            "eu-north-1",
+            "ap-southeast-1",
+            "ap-southeast-2",
+            "ap-southeast-3",
+            "ap-northeast-1",
+            "ap-northeast-2",
+            "ap-south-1",
+            "ca-central-1",
+            "sa-east-1"
+          ]
+        }
+      },
+      "ResultPath": "$",
+      "Next": "Wave1_ParallelCollection"
+    },
+
+    "Wave1_ParallelCollection": {
+      "Type": "Parallel",
+      "Comment": "Wave 1: Collect pricing, models, and quotas in parallel",
+      "Branches": [
+        {
+          "StartAt": "CollectPricing",
+          "States": {
+            "CollectPricing": {
+              "Type": "Map",
+              "Comment": "Collect pricing for each service code in parallel",
+              "ItemsPath": "$.config.pricingServiceCodes",
+              "MaxConcurrency": 3,
+              "Parameters": {
+                "serviceCode.$": "$$.Map.Item.Value",
+                "s3Bucket.$": "$.config.s3Bucket",
+                "executionId.$": "$.executionId"
+              },
+              "Iterator": {
+                "StartAt": "InvokePricingCollector",
+                "States": {
+                  "InvokePricingCollector": {
+                    "Type": "Task",
+                    "Resource": "${PricingCollectorFunction}",
+                    "Parameters": {
+                      "serviceCode.$": "$.serviceCode",
+                      "s3Bucket.$": "$.s3Bucket",
+                      "s3Key.$": "States.Format('executions/{}/pricing/{}.json', $.executionId, $.serviceCode)"
+                    },
+                    "ResultPath": "$.result",
+                    "Retry": [
+                      {
+                        "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
+                        "IntervalSeconds": 5,
+                        "MaxAttempts": 3,
+                        "BackoffRate": 2
+                      },
+                      {
+                        "ErrorEquals": ["ThrottlingException", "ProvisionedThroughputExceededException"],
+                        "IntervalSeconds": 10,
+                        "MaxAttempts": 5,
+                        "BackoffRate": 2
+                      }
+                    ],
+                    "Catch": [
+                      {
+                        "ErrorEquals": ["States.ALL"],
+                        "ResultPath": "$.error",
+                        "Next": "PricingCollectorFailed"
+                      }
+                    ],
+                    "TimeoutSeconds": 300,
+                    "End": true
+                  },
+                  "PricingCollectorFailed": {
+                    "Type": "Pass",
+                    "Parameters": {
+                      "status": "FAILED",
+                      "serviceCode.$": "$.serviceCode",
+                      "error.$": "$.error"
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "ResultPath": "$.pricingResults",
+              "Next": "AggregatePricing"
+            },
+            "AggregatePricing": {
+              "Type": "Task",
+              "Resource": "${PricingAggregatorFunction}",
+              "Parameters": {
+                "s3Bucket.$": "$.config.s3Bucket",
+                "executionId.$": "$.executionId",
+                "pricingResults.$": "$.pricingResults"
+              },
+              "ResultPath": "$.pricingAggregated",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "IntervalSeconds": 3,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 120,
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "CollectModels",
+          "States": {
+            "CollectModels": {
+              "Type": "Map",
+              "Comment": "Extract models from optimal regions in parallel",
+              "ItemsPath": "$.config.modelRegions",
+              "MaxConcurrency": 2,
+              "Parameters": {
+                "region.$": "$$.Map.Item.Value",
+                "s3Bucket.$": "$.config.s3Bucket",
+                "executionId.$": "$.executionId"
+              },
+              "Iterator": {
+                "StartAt": "InvokeModelExtractor",
+                "States": {
+                  "InvokeModelExtractor": {
+                    "Type": "Task",
+                    "Resource": "${ModelExtractorFunction}",
+                    "Parameters": {
+                      "region.$": "$.region",
+                      "s3Bucket.$": "$.s3Bucket",
+                      "s3Key.$": "States.Format('executions/{}/models/{}.json', $.executionId, $.region)"
+                    },
+                    "ResultPath": "$.result",
+                    "Retry": [
+                      {
+                        "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
+                        "IntervalSeconds": 3,
+                        "MaxAttempts": 3,
+                        "BackoffRate": 2
+                      }
+                    ],
+                    "Catch": [
+                      {
+                        "ErrorEquals": ["States.ALL"],
+                        "ResultPath": "$.error",
+                        "Next": "ModelExtractorFailed"
+                      }
+                    ],
+                    "TimeoutSeconds": 60,
+                    "End": true
+                  },
+                  "ModelExtractorFailed": {
+                    "Type": "Pass",
+                    "Parameters": {
+                      "status": "FAILED",
+                      "region.$": "$.region",
+                      "error.$": "$.error"
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "ResultPath": "$.modelResults",
+              "Next": "MergeModels"
+            },
+            "MergeModels": {
+              "Type": "Task",
+              "Resource": "${ModelMergerFunction}",
+              "Parameters": {
+                "s3Bucket.$": "$.config.s3Bucket",
+                "executionId.$": "$.executionId",
+                "modelResults.$": "$.modelResults"
+              },
+              "ResultPath": "$.modelsMerged",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "IntervalSeconds": 3,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 60,
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "CollectQuotas",
+          "States": {
+            "CollectQuotas": {
+              "Type": "Map",
+              "Comment": "Collect service quotas from all regions in parallel",
+              "ItemsPath": "$.config.quotaRegions",
+              "MaxConcurrency": 10,
+              "Parameters": {
+                "region.$": "$$.Map.Item.Value",
+                "s3Bucket.$": "$.config.s3Bucket",
+                "executionId.$": "$.executionId"
+              },
+              "Iterator": {
+                "StartAt": "InvokeQuotaCollector",
+                "States": {
+                  "InvokeQuotaCollector": {
+                    "Type": "Task",
+                    "Resource": "${QuotaCollectorFunction}",
+                    "Parameters": {
+                      "region.$": "$.region",
+                      "s3Bucket.$": "$.s3Bucket",
+                      "s3Key.$": "States.Format('executions/{}/quotas/{}.json', $.executionId, $.region)"
+                    },
+                    "ResultPath": "$.result",
+                    "Retry": [
+                      {
+                        "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
+                        "IntervalSeconds": 3,
+                        "MaxAttempts": 3,
+                        "BackoffRate": 2
+                      }
+                    ],
+                    "Catch": [
+                      {
+                        "ErrorEquals": ["States.ALL"],
+                        "ResultPath": "$.error",
+                        "Next": "QuotaCollectorFailed"
+                      }
+                    ],
+                    "TimeoutSeconds": 60,
+                    "End": true
+                  },
+                  "QuotaCollectorFailed": {
+                    "Type": "Pass",
+                    "Parameters": {
+                      "status": "FAILED",
+                      "region.$": "$.region",
+                      "error.$": "$.error"
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "ResultPath": "$.quotaResults",
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.wave1Results",
+      "Next": "PrepareWave2"
+    },
+
+    "PrepareWave2": {
+      "Type": "Pass",
+      "Comment": "Restructure Wave 1 results for Wave 2 processing",
+      "Parameters": {
+        "executionId.$": "$.executionId",
+        "config.$": "$.config",
+        "pricingAggregated.$": "$.wave1Results[0].pricingAggregated",
+        "modelsMerged.$": "$.wave1Results[1].modelsMerged",
+        "quotaResults.$": "$.wave1Results[2].quotaResults"
+      },
+      "Next": "Wave2_EnrichmentProcessing"
+    },
+
+    "Wave2_EnrichmentProcessing": {
+      "Type": "Parallel",
+      "Comment": "Wave 2: Enrich models with pricing, availability, features, and token specs",
+      "Branches": [
+        {
+          "StartAt": "LinkPricing",
+          "States": {
+            "LinkPricing": {
+              "Type": "Task",
+              "Resource": "${PricingLinkerFunction}",
+              "Parameters": {
+                "s3Bucket.$": "$.config.s3Bucket",
+                "executionId.$": "$.executionId",
+                "pricingS3Key.$": "$.pricingAggregated.s3Key",
+                "modelsS3Key.$": "$.modelsMerged.s3Key"
+              },
+              "ResultPath": "$.result",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "IntervalSeconds": 3,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 120,
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "ComputeRegionalAvailability",
+          "States": {
+            "ComputeRegionalAvailability": {
+              "Type": "Task",
+              "Resource": "${RegionalAvailabilityFunction}",
+              "Parameters": {
+                "s3Bucket.$": "$.config.s3Bucket",
+                "executionId.$": "$.executionId",
+                "pricingS3Key.$": "$.pricingAggregated.s3Key"
+              },
+              "ResultPath": "$.result",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "IntervalSeconds": 3,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 60,
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "CollectFeatures",
+          "States": {
+            "CollectFeatures": {
+              "Type": "Map",
+              "Comment": "Collect inference profiles from all regions in parallel",
+              "ItemsPath": "$.config.featureRegions",
+              "MaxConcurrency": 10,
+              "Parameters": {
+                "region.$": "$$.Map.Item.Value",
+                "s3Bucket.$": "$.config.s3Bucket",
+                "executionId.$": "$.executionId"
+              },
+              "Iterator": {
+                "StartAt": "InvokeFeatureCollector",
+                "States": {
+                  "InvokeFeatureCollector": {
+                    "Type": "Task",
+                    "Resource": "${FeatureCollectorFunction}",
+                    "Parameters": {
+                      "region.$": "$.region",
+                      "s3Bucket.$": "$.s3Bucket",
+                      "s3Key.$": "States.Format('executions/{}/features/{}.json', $.executionId, $.region)"
+                    },
+                    "ResultPath": "$.result",
+                    "Retry": [
+                      {
+                        "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
+                        "IntervalSeconds": 3,
+                        "MaxAttempts": 3,
+                        "BackoffRate": 2
+                      }
+                    ],
+                    "Catch": [
+                      {
+                        "ErrorEquals": ["States.ALL"],
+                        "ResultPath": "$.error",
+                        "Next": "FeatureCollectorFailed"
+                      }
+                    ],
+                    "TimeoutSeconds": 60,
+                    "End": true
+                  },
+                  "FeatureCollectorFailed": {
+                    "Type": "Pass",
+                    "Parameters": {
+                      "status": "FAILED",
+                      "region.$": "$.region",
+                      "error.$": "$.error"
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "ResultPath": "$.featureResults",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "CollectTokenSpecs",
+          "States": {
+            "CollectTokenSpecs": {
+              "Type": "Task",
+              "Resource": "${TokenSpecsCollectorFunction}",
+              "Parameters": {
+                "s3Bucket.$": "$.config.s3Bucket",
+                "executionId.$": "$.executionId",
+                "modelsS3Key.$": "$.modelsMerged.s3Key"
+              },
+              "ResultPath": "$.result",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "IntervalSeconds": 5,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 120,
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "EnrichModels",
+          "States": {
+            "EnrichModels": {
+              "Type": "Task",
+              "Resource": "${ModelEnricherFunction}",
+              "Comment": "Enrich models with capabilities, use cases, and documentation links",
+              "Parameters": {
+                "s3Bucket.$": "$.config.s3Bucket",
+                "executionId.$": "$.executionId",
+                "modelsS3Key.$": "$.modelsMerged.s3Key"
+              },
+              "ResultPath": "$.result",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "IntervalSeconds": 5,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "TimeoutSeconds": 120,
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.wave2Results",
+      "Next": "PrepareAggregation"
+    },
+
+    "PrepareAggregation": {
+      "Type": "Pass",
+      "Comment": "Restructure all results for final aggregation",
+      "Parameters": {
+        "executionId.$": "$.executionId",
+        "config.$": "$.config",
+        "pricingAggregated.$": "$.pricingAggregated",
+        "modelsMerged.$": "$.modelsMerged",
+        "quotaResults.$": "$.quotaResults",
+        "pricingLinked.$": "$.wave2Results[0].result",
+        "regionalAvailability.$": "$.wave2Results[1].result",
+        "featureResults.$": "$.wave2Results[2].featureResults",
+        "tokenSpecs.$": "$.wave2Results[3].result",
+        "enrichedModels.$": "$.wave2Results[4].result"
+      },
+      "Next": "FinalAggregation"
+    },
+
+    "FinalAggregation": {
+      "Type": "Task",
+      "Resource": "${FinalAggregatorFunction}",
+      "Parameters": {
+        "s3Bucket.$": "$.config.s3Bucket",
+        "executionId.$": "$.executionId",
+        "pricingS3Key.$": "$.pricingAggregated.s3Key",
+        "modelsS3Key.$": "$.modelsMerged.s3Key",
+        "quotaResults.$": "$.quotaResults",
+        "pricingLinked.$": "$.pricingLinked",
+        "regionalAvailability.$": "$.regionalAvailability",
+        "featureResults.$": "$.featureResults",
+        "tokenSpecs.$": "$.tokenSpecs",
+        "enrichedModels.$": "$.enrichedModels"
+      },
+      "ResultPath": "$.finalResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "TimeoutSeconds": 180,
+      "Next": "CopyToLatest"
+    },
+
+    "CopyToLatest": {
+      "Type": "Task",
+      "Resource": "${CopyToLatestFunction}",
+      "Parameters": {
+        "s3Bucket.$": "$.config.s3Bucket",
+        "executionId.$": "$.executionId",
+        "finalResult.$": "$.finalResult"
+      },
+      "ResultPath": "$.copyResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 3,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "TimeoutSeconds": 60,
+      "Next": "ExecutionSucceeded"
+    },
+
+    "ExecutionSucceeded": {
+      "Type": "Succeed",
+      "Comment": "Workflow completed successfully"
+    }
+  }
+}

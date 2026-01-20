@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Bedrock Profiler Lambdas - Local Testing
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 300
+    MemorySize: 512
+    Environment:
+      Variables:
+        LOG_LEVEL: INFO
+
+Resources:
+  PricingCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: pricing-collector
+      CodeUri: ../lambdas/pricing-collector/
+      Handler: handler.lambda_handler
+      Environment:
+        Variables:
+          PRICING_API_REGION: us-east-1
+
+  ModelExtractorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: model-extractor
+      CodeUri: ../lambdas/model-extractor/
+      Handler: handler.lambda_handler
+      MemorySize: 256
+
+  QuotaCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: quota-collector
+      CodeUri: ../lambdas/quota-collector/
+      Handler: handler.lambda_handler
+      MemorySize: 256
+
+  FeatureCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: feature-collector
+      CodeUri: ../lambdas/feature-collector/
+      Handler: handler.lambda_handler
+      MemorySize: 256
+
+  TokenSpecsCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: token-specs-collector
+      CodeUri: ../lambdas/token-specs-collector/
+      Handler: handler.lambda_handler

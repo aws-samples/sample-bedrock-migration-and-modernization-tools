@@ -1,0 +1,514 @@
+@import "tailwindcss";
+
+/* Enable dark mode variant with class selector for Tailwind v4 */
+@variant dark (&:where(.dark, .dark *));
+
+/* Custom color palette */
+:root {
+  /* Dark theme colors (default) */
+  --color-bg-base: #161d26;
+  --color-bg-elevated: #1c2530;
+  --color-bg-surface: #232d3a;
+  --color-bg-hover: #2a3544;
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+  --color-border: #2a3544;
+  --color-border-hover: #3b4a5c;
+
+  /* Dark theme accent (Bedrock green) */
+  --color-accent: #1A9E7A;
+  --color-accent-hover: #158567;
+  --color-accent-muted: #127558;
+  --color-accent-bg: rgba(26, 158, 122, 0.15);
+}
+
+/* Light theme overrides */
+.light {
+  /* Warm cream background palette */
+  --color-bg-base: #faf9f5;
+  --color-bg-elevated: #ffffff;
+  --color-bg-surface: #f5f3ef;
+  --color-bg-hover: #ebe8e1;
+  --color-text-primary: #3d2914;
+  --color-text-secondary: #5c4a32;
+  --color-text-muted: #8b7355;
+  --color-border: #e0dcd4;
+  --color-border-hover: #cec8bc;
+
+  /* Light theme accent (chocolate/amber tones) */
+  --color-accent: #92400e;
+  --color-accent-hover: #78350f;
+  --color-accent-muted: #b45309;
+  --color-accent-bg: rgba(146, 64, 14, 0.1);
+}
+
+/* Apply base colors */
+body {
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+/* ============================================
+   DARK THEME STYLES
+   ============================================ */
+
+/* Dark mode backgrounds */
+.bg-slate-950 { background-color: var(--color-bg-base); }
+.bg-slate-900 { background-color: var(--color-bg-elevated); }
+.bg-slate-900\/50 { background-color: color-mix(in srgb, var(--color-bg-elevated) 50%, transparent); }
+.bg-slate-900\/30 { background-color: color-mix(in srgb, var(--color-bg-elevated) 30%, transparent); }
+.bg-slate-800 { background-color: var(--color-bg-surface); }
+.bg-slate-800\/50 { background-color: color-mix(in srgb, var(--color-bg-surface) 50%, transparent); }
+.bg-slate-800\/30 { background-color: color-mix(in srgb, var(--color-bg-surface) 30%, transparent); }
+.bg-slate-700 { background-color: var(--color-bg-hover); }
+.hover\:bg-slate-800:hover { background-color: var(--color-bg-surface); }
+.hover\:bg-slate-700:hover { background-color: var(--color-bg-hover); }
+.hover\:bg-slate-700\/50:hover { background-color: color-mix(in srgb, var(--color-bg-hover) 50%, transparent); }
+
+/* Dark mode text colors */
+.text-slate-50 { color: var(--color-text-primary); }
+.text-slate-100 { color: var(--color-text-primary); }
+.text-slate-200 { color: var(--color-text-secondary); }
+.text-slate-300 { color: var(--color-text-secondary); }
+.text-slate-400 { color: var(--color-text-muted); }
+.text-slate-500 { color: var(--color-text-muted); }
+.text-white { color: var(--color-text-primary); }
+
+/* Dark mode borders */
+.border-slate-800 { border-color: var(--color-border); }
+.border-slate-700 { border-color: var(--color-border-hover); }
+.border-slate-600 { border-color: var(--color-border-hover); }
+
+/* Dark theme accent colors (Bedrock green) */
+.bg-blue-600 { background-color: var(--color-accent-muted); }
+.bg-blue-500 { background-color: var(--color-accent); }
+.hover\:bg-blue-700:hover { background-color: var(--color-accent-hover); }
+.text-blue-600 { color: var(--color-accent); }
+.text-blue-500 { color: var(--color-accent); }
+.text-blue-400 { color: var(--color-accent); }
+.ring-blue-500 { --tw-ring-color: var(--color-accent); }
+.focus\:ring-blue-500:focus { --tw-ring-color: var(--color-accent); }
+.focus-visible\:ring-slate-400:focus-visible { --tw-ring-color: var(--color-accent); }
+
+/* ============================================
+   LIGHT THEME STYLES
+   ============================================ */
+
+/* Light mode backgrounds */
+.light .bg-slate-50 { background-color: var(--color-bg-base); }
+.light .bg-slate-100 { background-color: var(--color-bg-surface); }
+.light .bg-slate-200 { background-color: var(--color-bg-hover); }
+.light .bg-white { background-color: var(--color-bg-elevated); }
+.light .hover\:bg-slate-100:hover { background-color: var(--color-bg-surface); }
+.light .hover\:bg-slate-200:hover { background-color: var(--color-bg-hover); }
+.light .hover\:bg-slate-50:hover { background-color: var(--color-bg-surface); }
+
+/* Light mode text colors */
+.light .text-slate-950 { color: var(--color-text-primary); }
+.light .text-slate-900 { color: var(--color-text-primary); }
+.light .text-slate-800 { color: var(--color-text-primary); }
+.light .text-slate-700 { color: var(--color-text-secondary); }
+.light .text-slate-600 { color: var(--color-text-secondary); }
+.light .text-slate-500 { color: var(--color-text-muted); }
+.light .text-slate-400 { color: var(--color-text-muted); }
+
+/* Light mode borders */
+.light .border-slate-200 { border-color: var(--color-border); }
+.light .border-slate-300 { border-color: var(--color-border-hover); }
+.light .border-stone-300 { border-color: var(--color-border); }
+.light .border-stone-400 { border-color: var(--color-border-hover); }
+
+/* Light theme accent colors (chocolate/amber) */
+.light .bg-blue-600 { background-color: var(--color-accent); }
+.light .bg-blue-500 { background-color: var(--color-accent); }
+.light .hover\:bg-blue-700:hover { background-color: var(--color-accent-hover); }
+.light .text-blue-600 { color: var(--color-accent); }
+.light .text-blue-500 { color: var(--color-accent); }
+.light .text-blue-400 { color: var(--color-accent-muted); }
+.light .ring-blue-500 { --tw-ring-color: var(--color-accent); }
+.light .focus\:ring-blue-500:focus { --tw-ring-color: var(--color-accent); }
+
+/* ============================================
+   PROVIDER BADGE COLORS
+   ============================================ */
+
+/* Dark theme provider colors */
+.bg-purple-600 { background-color: #9333ea; }
+.bg-orange-500 { background-color: #f97316; }
+.bg-orange-600 { background-color: #ea580c; }
+.bg-cyan-500 { background-color: #06b6d4; }
+.bg-indigo-500 { background-color: #6366f1; }
+.bg-violet-500 { background-color: #8b5cf6; }
+
+/* Light theme provider colors - slightly darker for contrast */
+.light .bg-purple-600 { background-color: #7c3aed; }
+.light .bg-orange-500 { background-color: #c2410c; }
+.light .bg-orange-600 { background-color: #9a3412; }
+.light .bg-cyan-500 { background-color: #0891b2; }
+.light .bg-indigo-500 { background-color: #4f46e5; }
+.light .bg-violet-500 { background-color: #7c3aed; }
+
+/* ============================================
+   STATUS & INDICATOR COLORS
+   ============================================ */
+
+/* Success colors */
+.bg-emerald-500 { background-color: #10b981; }
+.bg-emerald-600 { background-color: #059669; }
+.text-emerald-500 { color: #10b981; }
+.text-emerald-600 { color: #059669; }
+.text-emerald-400 { color: #34d399; }
+
+.light .bg-emerald-500 { background-color: #059669; }
+.light .bg-emerald-600 { background-color: #047857; }
+.light .text-emerald-500 { color: #059669; }
+.light .text-emerald-600 { color: #047857; }
+.light .text-emerald-400 { color: #10b981; }
+
+/* Warning/Amber colors */
+.bg-amber-600 { background-color: #d97706; }
+.bg-amber-700 { background-color: #b45309; }
+.text-amber-500 { color: #f59e0b; }
+
+.light .bg-amber-600 { background-color: #b45309; }
+.light .bg-amber-700 { background-color: #92400e; }
+.light .text-amber-500 { color: #d97706; }
+
+/* Red/Error colors */
+.bg-red-400 { background-color: #f87171; }
+.text-red-400 { color: #f87171; }
+.text-red-500 { color: #ef4444; }
+
+.light .text-red-400 { color: #dc2626; }
+.light .text-red-500 { color: #b91c1c; }
+
+/* ============================================
+   SCROLLBAR STYLING
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: var(--color-bg-elevated);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-bg-hover);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-border-hover);
+}
+
+/* Custom scrollbar for select dropdowns */
+[data-radix-popper-content-wrapper] ::-webkit-scrollbar {
+  width: 6px;
+}
+
+[data-radix-popper-content-wrapper] ::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+[data-radix-popper-content-wrapper] ::-webkit-scrollbar-thumb {
+  background-color: var(--color-bg-hover);
+  border-radius: 9999px;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.2s ease-out;
+}
+
+/* ============================================
+   MISC UTILITIES
+   ============================================ */
+
+.filter-section {
+  transition: all 0.2s ease-out;
+}
+
+/* Card hover effects */
+.group:hover {
+  border-color: var(--color-border-hover);
+}
+
+/* Focus states */
+input:focus,
+button:focus,
+[role="combobox"]:focus {
+  --tw-ring-color: var(--color-accent);
+  outline-color: var(--color-accent);
+}
+
+/* Badge variant overrides */
+[data-variant="info"] {
+  background-color: var(--color-accent-bg);
+  color: var(--color-accent);
+}
+
+[data-variant="success"] {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.light [data-variant="success"] {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+[data-variant="warning"] {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.light [data-variant="warning"] {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+/* ============================================
+   HERO UI / GLASSMORPHISM (Dark Theme)
+   ============================================ */
+
+/* Glass card effect for dark theme */
+.glass-card {
+  background: linear-gradient(
+    135deg,
+    rgba(30, 41, 59, 0.8) 0%,
+    rgba(15, 23, 42, 0.9) 50%,
+    rgba(2, 6, 23, 0.8) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.2),
+    0 2px 4px -1px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Glass card hover glow effect */
+.glass-card-glow:hover {
+  border-color: rgba(26, 158, 122, 0.4);
+  box-shadow:
+    0 0 30px -5px rgba(26, 158, 122, 0.3),
+    0 4px 6px -1px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Frosted inner elements */
+.frosted-inner {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Subtle noise texture overlay (optional, applied via pseudo-element) */
+.noise-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.02;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+/* ============================================
+   HERO UI / GLASSMORPHISM (Light Theme)
+   ============================================ */
+
+/* Light theme glass card effect */
+.light .glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(214, 211, 209, 0.5);
+  box-shadow:
+    0 4px 6px -1px rgba(120, 113, 108, 0.1),
+    0 2px 4px -1px rgba(120, 113, 108, 0.06),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+}
+
+/* Light theme glass card hover glow effect */
+.light .glass-card-glow:hover {
+  border-color: rgba(180, 83, 9, 0.3);
+  box-shadow:
+    0 0 20px -5px rgba(180, 83, 9, 0.15),
+    0 4px 6px -1px rgba(120, 113, 108, 0.1),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+}
+
+/* Light theme frosted inner elements */
+.light .frosted-inner {
+  background: rgba(245, 243, 239, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(214, 211, 209, 0.4);
+}
+
+/* ============================================
+   LEAFLET MAP OVERRIDES
+   ============================================ */
+
+/* Remove default marker styling */
+.custom-marker,
+.custom-cluster {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Popup styling - Dark theme */
+.leaflet-popup-content-wrapper {
+  background: #1c2530;
+  color: #f1f5f9;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  border: 1px solid #2a3544;
+}
+
+.leaflet-popup-tip {
+  background: #1c2530;
+  border: 1px solid #2a3544;
+  border-top: none;
+  border-right: none;
+}
+
+.leaflet-popup-content {
+  margin: 12px;
+}
+
+.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #f1f5f9 !important;
+}
+
+/* Popup styling - Light theme */
+.light .leaflet-popup-content-wrapper {
+  background: #ffffff;
+  color: #3d2914;
+  border: 1px solid #e0dcd4;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.light .leaflet-popup-tip {
+  background: #ffffff;
+  border: 1px solid #e0dcd4;
+  border-top: none;
+  border-right: none;
+}
+
+.light .leaflet-popup-close-button {
+  color: #8b7355 !important;
+}
+
+.light .leaflet-popup-close-button:hover {
+  color: #3d2914 !important;
+}
+
+/* Map container z-index fix */
+.leaflet-container {
+  z-index: 0;
+}
+
+/* Cluster marker animation */
+.custom-cluster > div {
+  transition: transform 0.2s ease-out;
+}
+
+.custom-cluster:hover > div {
+  transform: scale(1.1);
+}
+
+/* Attribution styling */
+.leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.5) !important;
+  color: #94a3b8 !important;
+  font-size: 10px !important;
+}
+
+.leaflet-control-attribution a {
+  color: #1A9E7A !important;
+}
+
+.light .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.8) !important;
+  color: #8b7355 !important;
+}
+
+.light .leaflet-control-attribution a {
+  color: #92400e !important;
+}
+
+/* Zoom controls styling */
+.leaflet-control-zoom a {
+  background: #1c2530 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #2a3544 !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: #2a3544 !important;
+}
+
+.light .leaflet-control-zoom a {
+  background: #ffffff !important;
+  color: #3d2914 !important;
+  border: 1px solid #e0dcd4 !important;
+}
+
+.light .leaflet-control-zoom a:hover {
+  background: #f5f3ef !important;
+}

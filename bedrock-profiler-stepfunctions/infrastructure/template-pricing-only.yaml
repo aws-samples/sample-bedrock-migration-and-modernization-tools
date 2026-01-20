@@ -1,0 +1,21 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Pricing Collector Lambda - Local Testing
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 300
+    MemorySize: 512
+
+Resources:
+  PricingCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: pricing-collector-test
+      CodeUri: ../lambdas/pricing-collector/
+      Handler: handler.lambda_handler
+      Environment:
+        Variables:
+          PRICING_API_REGION: us-east-1
+          LOG_LEVEL: INFO

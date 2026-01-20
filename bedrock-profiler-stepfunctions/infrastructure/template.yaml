@@ -1,0 +1,465 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Bedrock Model Profiler - Step Functions Workflow
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+
+  ScheduleEnabled:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Enable daily scheduled execution
+
+  CloudFrontDistributionArn:
+    Type: String
+    Default: ''
+    Description: ARN of the CloudFront distribution that needs access to the data bucket (optional)
+
+Conditions:
+  HasCloudFrontAccess: !Not [!Equals [!Ref CloudFrontDistributionArn, '']]
+  ScheduleEnabledCondition: !Equals [!Ref ScheduleEnabled, 'true']
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 60
+    MemorySize: 256
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        DATA_BUCKET: !Ref DataBucket
+        LOG_LEVEL: INFO
+
+Resources:
+  #############################################
+  # S3 Bucket for Data Storage
+  #############################################
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'bedrock-profiler-data-${AWS::AccountId}-${Environment}'
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldExecutions
+            Status: Enabled
+            Prefix: executions/
+            ExpirationInDays: 30
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 7
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # Bucket policy to allow CloudFront OAC access (only if CloudFront ARN is provided)
+  DataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: HasCloudFrontAccess
+    Properties:
+      Bucket: !Ref DataBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${DataBucket.Arn}/latest/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Ref CloudFrontDistributionArn
+
+  #############################################
+  # Lambda Functions
+  #############################################
+
+  # Wave 1: Pricing Collection
+  PricingCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-pricing-collector-${Environment}'
+      CodeUri: ../lambdas/pricing-collector/
+      Handler: handler.lambda_handler
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          PRICING_API_REGION: us-east-1
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - pricing:GetProducts
+                - pricing:DescribeServices
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub '${DataBucket.Arn}/*'
+
+  PricingAggregatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-pricing-aggregator-${Environment}'
+      CodeUri: ../lambdas/pricing-aggregator/
+      Handler: handler.lambda_handler
+      Timeout: 120
+      MemorySize: 1024
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource: !Sub '${DataBucket.Arn}/*'
+
+  # Wave 1: Model Extraction
+  ModelExtractorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-model-extractor-${Environment}'
+      CodeUri: ../lambdas/model-extractor/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      MemorySize: 256
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:ListFoundationModels
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub '${DataBucket.Arn}/*'
+
+  ModelMergerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-model-merger-${Environment}'
+      CodeUri: ../lambdas/model-merger/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      MemorySize: 512
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource: !Sub '${DataBucket.Arn}/*'
+
+  # Wave 1: Quota Collection
+  QuotaCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-quota-collector-${Environment}'
+      CodeUri: ../lambdas/quota-collector/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      MemorySize: 256
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - service-quotas:ListServiceQuotas
+                - service-quotas:GetServiceQuota
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub '${DataBucket.Arn}/*'
+
+  # Wave 2: Enrichment
+  PricingLinkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-pricing-linker-${Environment}'
+      CodeUri: ../lambdas/pricing-linker/
+      Handler: handler.lambda_handler
+      Timeout: 120
+      MemorySize: 1024
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource: !Sub '${DataBucket.Arn}/*'
+
+  RegionalAvailabilityFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-regional-availability-${Environment}'
+      CodeUri: ../lambdas/regional-availability/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      MemorySize: 512
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource: !Sub '${DataBucket.Arn}/*'
+
+  FeatureCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-feature-collector-${Environment}'
+      CodeUri: ../lambdas/feature-collector/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      MemorySize: 256
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:ListInferenceProfiles
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub '${DataBucket.Arn}/*'
+
+  TokenSpecsCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-token-specs-collector-${Environment}'
+      CodeUri: ../lambdas/token-specs-collector/
+      Handler: handler.lambda_handler
+      Timeout: 120
+      MemorySize: 512
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource: !Sub '${DataBucket.Arn}/*'
+
+  # Model Enrichment
+  ModelEnricherFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-model-enricher-${Environment}'
+      CodeUri: ../lambdas/model-enricher/
+      Handler: handler.lambda_handler
+      Timeout: 120
+      MemorySize: 512
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource: !Sub '${DataBucket.Arn}/*'
+
+  # Final Aggregation
+  FinalAggregatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-final-aggregator-${Environment}'
+      CodeUri: ../lambdas/final-aggregator/
+      Handler: handler.lambda_handler
+      Timeout: 180
+      MemorySize: 2048
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource: !Sub '${DataBucket.Arn}/*'
+
+  CopyToLatestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-copy-to-latest-${Environment}'
+      CodeUri: ../lambdas/copy-to-latest/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      MemorySize: 256
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+                - s3:CopyObject
+              Resource: !Sub '${DataBucket.Arn}/*'
+
+  #############################################
+  # Step Functions State Machine
+  #############################################
+  StateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'bedrock-profiler-sfn-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeLambdaFunctions
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt PricingCollectorFunction.Arn
+                  - !GetAtt PricingAggregatorFunction.Arn
+                  - !GetAtt ModelExtractorFunction.Arn
+                  - !GetAtt ModelMergerFunction.Arn
+                  - !GetAtt QuotaCollectorFunction.Arn
+                  - !GetAtt PricingLinkerFunction.Arn
+                  - !GetAtt RegionalAvailabilityFunction.Arn
+                  - !GetAtt FeatureCollectorFunction.Arn
+                  - !GetAtt TokenSpecsCollectorFunction.Arn
+                  - !GetAtt ModelEnricherFunction.Arn
+                  - !GetAtt FinalAggregatorFunction.Arn
+                  - !GetAtt CopyToLatestFunction.Arn
+        - PolicyName: CloudWatchLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogDelivery
+                  - logs:GetLogDelivery
+                  - logs:UpdateLogDelivery
+                  - logs:DeleteLogDelivery
+                  - logs:ListLogDeliveries
+                  - logs:PutResourcePolicy
+                  - logs:DescribeResourcePolicies
+                  - logs:DescribeLogGroups
+                Resource: '*'
+
+  StateMachineLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/stepfunctions/bedrock-profiler-${Environment}'
+      RetentionInDays: 30
+
+  BedrockProfilerStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: !Sub 'bedrock-profiler-workflow-${Environment}'
+      DefinitionUri: ../statemachine/bedrock-profiler.asl.json
+      DefinitionSubstitutions:
+        S3Bucket: !Ref DataBucket
+        PricingCollectorFunction: !GetAtt PricingCollectorFunction.Arn
+        PricingAggregatorFunction: !GetAtt PricingAggregatorFunction.Arn
+        ModelExtractorFunction: !GetAtt ModelExtractorFunction.Arn
+        ModelMergerFunction: !GetAtt ModelMergerFunction.Arn
+        QuotaCollectorFunction: !GetAtt QuotaCollectorFunction.Arn
+        PricingLinkerFunction: !GetAtt PricingLinkerFunction.Arn
+        RegionalAvailabilityFunction: !GetAtt RegionalAvailabilityFunction.Arn
+        FeatureCollectorFunction: !GetAtt FeatureCollectorFunction.Arn
+        TokenSpecsCollectorFunction: !GetAtt TokenSpecsCollectorFunction.Arn
+        ModelEnricherFunction: !GetAtt ModelEnricherFunction.Arn
+        FinalAggregatorFunction: !GetAtt FinalAggregatorFunction.Arn
+        CopyToLatestFunction: !GetAtt CopyToLatestFunction.Arn
+      Role: !GetAtt StateMachineRole.Arn
+      Logging:
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt StateMachineLogGroup.Arn
+        Level: ALL
+        IncludeExecutionData: true
+      Tracing:
+        Enabled: true
+
+  #############################################
+  # EventBridge Schedule (Daily Trigger)
+  #############################################
+  DailyScheduleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'bedrock-profiler-schedule-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StartStateMachine
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource: !Ref BedrockProfilerStateMachine
+
+  DailySchedule:
+    Type: AWS::Scheduler::Schedule
+    Condition: ScheduleEnabledCondition
+    Properties:
+      Name: !Sub 'bedrock-profiler-daily-${Environment}'
+      Description: 'Daily execution of Bedrock Model Profiler workflow'
+      ScheduleExpression: 'cron(0 6 * * ? *)'  # 6 AM UTC daily
+      ScheduleExpressionTimezone: 'UTC'
+      FlexibleTimeWindow:
+        Mode: 'FLEXIBLE'
+        MaximumWindowInMinutes: 30
+      Target:
+        Arn: !Ref BedrockProfilerStateMachine
+        RoleArn: !GetAtt DailyScheduleRole.Arn
+        Input: '{}'
+      State: ENABLED
+
+Outputs:
+  StateMachineArn:
+    Description: ARN of the Step Functions state machine
+    Value: !Ref BedrockProfilerStateMachine
+    Export:
+      Name: !Sub '${AWS::StackName}-StateMachineArn'
+
+  DataBucketName:
+    Description: Name of the S3 data bucket
+    Value: !Ref DataBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-DataBucketName'
+
+  DataBucketArn:
+    Description: ARN of the S3 data bucket
+    Value: !GetAtt DataBucket.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DataBucketArn'
+
+  LatestModelsUrl:
+    Description: S3 URL for latest models JSON
+    Value: !Sub 's3://${DataBucket}/latest/bedrock_models.json'
+
+  LatestPricingUrl:
+    Description: S3 URL for latest pricing JSON
+    Value: !Sub 's3://${DataBucket}/latest/bedrock_pricing.json'

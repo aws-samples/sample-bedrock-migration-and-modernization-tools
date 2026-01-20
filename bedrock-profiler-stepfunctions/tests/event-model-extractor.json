@@ -1,0 +1,6 @@
+{
+  "region": "us-east-1",
+  "s3Bucket": "test-bucket",
+  "s3Key": "test/models/us-east-1.json",
+  "dryRun": true
+}
