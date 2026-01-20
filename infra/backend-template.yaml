@@ -87,7 +87,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub 'bedrock-profiler-pricing-collector-${Environment}'
-      CodeUri: ../lambdas/pricing-collector/
+      CodeUri: ../backend/lambdas/pricing-collector/
       Handler: handler.lambda_handler
       Timeout: 300
       MemorySize: 512
@@ -111,7 +111,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub 'bedrock-profiler-pricing-aggregator-${Environment}'
-      CodeUri: ../lambdas/pricing-aggregator/
+      CodeUri: ../backend/lambdas/pricing-aggregator/
       Handler: handler.lambda_handler
       Timeout: 120
       MemorySize: 1024
@@ -129,7 +129,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub 'bedrock-profiler-model-extractor-${Environment}'
-      CodeUri: ../lambdas/model-extractor/
+      CodeUri: ../backend/lambdas/model-extractor/
       Handler: handler.lambda_handler
       Timeout: 60
       MemorySize: 256
@@ -149,7 +149,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub 'bedrock-profiler-model-merger-${Environment}'
-      CodeUri: ../lambdas/model-merger/
+      CodeUri: ../backend/lambdas/model-merger/
       Handler: handler.lambda_handler
       Timeout: 60
       MemorySize: 512
@@ -167,7 +167,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub 'bedrock-profiler-quota-collector-${Environment}'
-      CodeUri: ../lambdas/quota-collector/
+      CodeUri: ../backend/lambdas/quota-collector/
       Handler: handler.lambda_handler
       Timeout: 60
       MemorySize: 256
@@ -189,7 +189,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub 'bedrock-profiler-pricing-linker-${Environment}'
-      CodeUri: ../lambdas/pricing-linker/
+      CodeUri: ../backend/lambdas/pricing-linker/
       Handler: handler.lambda_handler
       Timeout: 120
       MemorySize: 1024
@@ -206,7 +206,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub 'bedrock-profiler-regional-availability-${Environment}'
-      CodeUri: ../lambdas/regional-availability/
+      CodeUri: ../backend/lambdas/regional-availability/
       Handler: handler.lambda_handler
       Timeout: 60
       MemorySize: 512
@@ -223,7 +223,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub 'bedrock-profiler-feature-collector-${Environment}'
-      CodeUri: ../lambdas/feature-collector/
+      CodeUri: ../backend/lambdas/feature-collector/
       Handler: handler.lambda_handler
       Timeout: 60
       MemorySize: 256
@@ -243,7 +243,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub 'bedrock-profiler-token-specs-collector-${Environment}'
-      CodeUri: ../lambdas/token-specs-collector/
+      CodeUri: ../backend/lambdas/token-specs-collector/
       Handler: handler.lambda_handler
       Timeout: 120
       MemorySize: 512
@@ -261,7 +261,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub 'bedrock-profiler-model-enricher-${Environment}'
-      CodeUri: ../lambdas/model-enricher/
+      CodeUri: ../backend/lambdas/model-enricher/
       Handler: handler.lambda_handler
       Timeout: 120
       MemorySize: 512
@@ -279,7 +279,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub 'bedrock-profiler-final-aggregator-${Environment}'
-      CodeUri: ../lambdas/final-aggregator/
+      CodeUri: ../backend/lambdas/final-aggregator/
       Handler: handler.lambda_handler
       Timeout: 180
       MemorySize: 2048
@@ -296,7 +296,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub 'bedrock-profiler-copy-to-latest-${Environment}'
-      CodeUri: ../lambdas/copy-to-latest/
+      CodeUri: ../backend/lambdas/copy-to-latest/
       Handler: handler.lambda_handler
       Timeout: 60
       MemorySize: 256
@@ -371,7 +371,7 @@ Resources:
     Type: AWS::Serverless::StateMachine
     Properties:
       Name: !Sub 'bedrock-profiler-workflow-${Environment}'
-      DefinitionUri: ../statemachine/bedrock-profiler.asl.json
+      DefinitionUri: ../backend/statemachine/bedrock-profiler.asl.json
       DefinitionSubstitutions:
         S3Bucket: !Ref DataBucket
         PricingCollectorFunction: !GetAtt PricingCollectorFunction.Arn

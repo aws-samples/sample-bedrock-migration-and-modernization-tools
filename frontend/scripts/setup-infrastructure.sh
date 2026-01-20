@@ -31,8 +31,8 @@ BACKEND_EXISTS=$(aws cloudformation describe-stacks \
 if [ "$BACKEND_EXISTS" == "NOT_FOUND" ]; then
     echo "Backend stack not found. Please deploy the backend first:"
     echo ""
-    echo "  cd ../bedrock-profiler-stepfunctions"
-    echo "  sam build -t infrastructure/template.yaml"
+    echo "  cd infra"
+    echo "  sam build -t backend-template.yaml"
     echo "  sam deploy --guided"
     echo ""
     exit 1
@@ -51,9 +51,10 @@ echo "Data bucket: ${DATA_BUCKET}"
 # Step 2: Deploy frontend infrastructure
 echo ""
 echo "Step 2: Deploying frontend infrastructure..."
-cd "$(dirname "$0")/../infrastructure"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR/../../infra"
 
-sam build
+sam build -t frontend-template.yaml
 
 sam deploy \
     --stack-name "$FRONTEND_STACK" \
@@ -80,10 +81,9 @@ echo "CloudFront ARN: ${CLOUDFRONT_ARN}"
 # Step 3: Update backend stack with CloudFront ARN for bucket policy
 echo ""
 echo "Step 3: Updating backend stack with CloudFront access..."
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR/../../bedrock-profiler-stepfunctions"
+cd "$SCRIPT_DIR/../../infra"
 
-sam build -t infrastructure/template.yaml
+sam build -t backend-template.yaml
 
 sam deploy \
     --stack-name "$BACKEND_STACK" \
@@ -97,6 +97,7 @@ sam deploy \
 echo ""
 echo "Step 4: Building and deploying frontend..."
 cd "$SCRIPT_DIR/.."
+npm install
 npm run build
 ./scripts/deploy.sh
 
