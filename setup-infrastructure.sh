@@ -4,6 +4,7 @@ set -e
 # Bedrock Model Profiler - Full Infrastructure Setup
 # This script deploys both backend and frontend infrastructure
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENVIRONMENT="${ENVIRONMENT:-dev}"
 REGION="${AWS_REGION:-us-east-1}"
 BACKEND_STACK="bedrock-profiler-${ENVIRONMENT}"
@@ -51,8 +52,7 @@ echo "Data bucket: ${DATA_BUCKET}"
 # Step 2: Deploy frontend infrastructure
 echo ""
 echo "Step 2: Deploying frontend infrastructure..."
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR/../../infra"
+cd "$SCRIPT_DIR/infra"
 
 sam build -t frontend-template.yaml
 
@@ -81,14 +81,13 @@ echo "CloudFront ARN: ${CLOUDFRONT_ARN}"
 # Step 3: Update backend stack with CloudFront ARN for bucket policy
 echo ""
 echo "Step 3: Updating backend stack with CloudFront access..."
-cd "$SCRIPT_DIR/../../infra"
-
 sam build -t backend-template.yaml
 
 sam deploy \
     --stack-name "$BACKEND_STACK" \
     --region "$REGION" \
     --capabilities CAPABILITY_NAMED_IAM \
+    --resolve-s3 \
     --parameter-overrides "Environment=${ENVIRONMENT} CloudFrontDistributionArn=${CLOUDFRONT_ARN}" \
     --no-confirm-changeset \
     --no-fail-on-empty-changeset
@@ -96,7 +95,7 @@ sam deploy \
 # Step 4: Build and deploy frontend files
 echo ""
 echo "Step 4: Building and deploying frontend..."
-cd "$SCRIPT_DIR/.."
+cd "$SCRIPT_DIR/frontend"
 npm install
 npm run build
 ./scripts/deploy.sh

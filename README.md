@@ -38,44 +38,14 @@ A comprehensive web application for exploring, analyzing, and comparing Amazon B
 - Cross-region inference profile support
 - Service quota information by region
 
-## Architecture
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│                      CloudFront Distribution                    │
-├────────────────────────────────────────────────────────────────┤
-│   ┌─────────────────┐          ┌─────────────────────────┐    │
-│   │ Frontend Origin │          │     Data Origin         │    │
-│   │   (default)     │          │    (/latest/*)          │    │
-│   └────────┬────────┘          └───────────┬─────────────┘    │
-│            │                               │                   │
-│            ▼                               ▼                   │
-│   ┌─────────────────┐          ┌─────────────────────────┐    │
-│   │ Frontend S3     │          │ Data S3 Bucket          │    │
-│   │ (static files)  │          │ (models + pricing JSON) │    │
-│   └─────────────────┘          └─────────────────────────┘    │
-│                                           ▲                    │
-└───────────────────────────────────────────┼────────────────────┘
-                                            │
-                              Step Functions Workflow
-                              (daily @ 6 AM UTC)
-```
-
-### Data Collection Pipeline
-
-Parallel Step Functions workflow with 12 Lambda functions collecting data from:
-- AWS Bedrock APIs (models, inference profiles)
-- AWS Pricing APIs (3 service codes)
-- AWS Service Quotas (20 regions)
-- LiteLLM (token specifications)
-
 ## Project Structure
 
 ```
 bedrock-model-profiler/
-├── frontend/          # React + Vite web application
-├── backend/           # AWS Lambda functions + Step Functions state machine
-└── infra/             # SAM templates (CloudFormation)
+├── frontend/                  # React + Vite web application
+├── backend/                   # AWS Lambda functions + Step Functions
+├── infra/                     # SAM templates (CloudFormation)
+└── setup-infrastructure.sh    # Full deployment script
 ```
 
 ## Getting Started
@@ -99,10 +69,9 @@ Open http://localhost:5173 in your browser.
 
 ### Deployment
 
-**Full deployment** (infrastructure + code):
+**Full deployment** (infrastructure + frontend):
 ```bash
-cd frontend
-./scripts/setup-infrastructure.sh
+./setup-infrastructure.sh
 ```
 
 **Frontend only** (after infrastructure exists):
@@ -119,13 +88,6 @@ sam build -t backend-template.yaml
 sam deploy --stack-name bedrock-profiler-dev --capabilities CAPABILITY_NAMED_IAM --resolve-s3
 ```
 
-## AWS Requirements
-
-**Permissions needed for data collection:**
-- **Bedrock:** `bedrock:ListFoundationModels`, `bedrock:ListInferenceProfiles`
-- **Pricing API:** `pricing:GetProducts`, `pricing:DescribeServices`
-- **Service Quotas:** `servicequotas:ListServiceQuotas`, `servicequotas:GetServiceQuota`
-
 ## Tech Stack
 
 | Component | Technologies |
@@ -133,13 +95,6 @@ sam deploy --stack-name bedrock-profiler-dev --capabilities CAPABILITY_NAMED_IAM
 | **Frontend** | React 18, Vite, Tailwind CSS v4, Radix UI, Zustand |
 | **Backend** | Python 3.11, AWS Lambda, Step Functions, EventBridge |
 | **Infrastructure** | AWS SAM, CloudFront, S3, IAM |
-
-## AWS Stacks
-
-| Stack | Description |
-|-------|-------------|
-| `bedrock-profiler-dev` | Backend (Lambda, Step Functions, S3 data bucket) |
-| `bedrock-profiler-frontend-dev` | Frontend (CloudFront, S3 static files) |
 
 ---
 
