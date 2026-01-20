@@ -8,6 +8,7 @@ Works with the correct snake_case schema from upstream Lambdas.
 import json
 import logging
 import os
+import re
 import time
 from typing import Any
 
@@ -365,6 +366,51 @@ def transform_model_to_schema(
     }
 
 
+def find_matching_availability(model_id: str, model_availability: dict) -> list:
+    """
+    Find regional availability for a model, handling ID format differences.
+
+    Model IDs from Bedrock API: anthropic.claude-3-5-sonnet-20241022-v2:0
+    Model IDs from Pricing API: anthropic.claude-3-sonnet
+
+    Strategy: Try exact match first, then try prefix/substring matching.
+    """
+    # Try exact match first
+    if model_id in model_availability:
+        return model_availability[model_id]
+
+    # Normalize model_id for matching (remove version suffix like :0, :18k, etc.)
+    base_model_id = model_id.split(':')[0] if ':' in model_id else model_id
+
+    # Try matching without version suffix
+    if base_model_id in model_availability:
+        return model_availability[base_model_id]
+
+    # Try to find a pricing key that's a prefix of the model_id
+    # e.g., "anthropic.claude-3-sonnet" should match "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    model_id_lower = model_id.lower()
+    for pricing_key, regions in model_availability.items():
+        pricing_key_lower = pricing_key.lower()
+        # Check if pricing key is contained in model_id (handles claude-3-sonnet matching claude-3-5-sonnet)
+        # or if model_id starts with pricing key
+        if pricing_key_lower in model_id_lower or model_id_lower.startswith(pricing_key_lower):
+            return regions
+
+        # Also check by removing common prefixes/suffixes and comparing core name
+        # Extract core model name (e.g., "claude-3-sonnet" from "anthropic.claude-3-sonnet")
+        pricing_parts = pricing_key_lower.replace('anthropic.', '').replace('amazon.', '').replace('meta.', '').replace('mistral.', '').replace('cohere.', '').replace('ai21.', '').replace('stability.', '')
+        model_parts = model_id_lower.replace('anthropic.', '').replace('amazon.', '').replace('meta.', '').replace('mistral.', '').replace('cohere.', '').replace('ai21.', '').replace('stability.', '')
+
+        # Check if core names overlap significantly
+        if pricing_parts and model_parts:
+            # Remove date/version suffixes from model_parts for comparison
+            model_core = re.sub(r'-\d{8}-v\d+.*$', '', model_parts)
+            if pricing_parts == model_core or pricing_parts in model_core or model_core.startswith(pricing_parts):
+                return regions
+
+    return []
+
+
 def build_final_models(
     models_with_pricing: dict,
     regional_availability: dict,
@@ -389,8 +435,8 @@ def build_final_models(
         result_providers[provider] = {'models': {}}
 
         for model_id, model in provider_data.get('models', {}).items():
-            # Get regional availability for this model
-            regions = model_availability.get(model_id, [])
+            # Get regional availability for this model (with fuzzy matching)
+            regions = find_matching_availability(model_id, model_availability)
 
             # Get token specs for this model
             specs = token_specs_data.get(model_id, {})
