@@ -50,9 +50,8 @@ def compute_regional_availability(pricing_data: dict) -> dict:
     """
     Compute regional availability from pricing data.
 
-    Handles both old and new pricing structures:
-    - New: providers > {model_id} > regions > {region} > pricing_groups
-    - Old: providers > {provider} > models > {model_id} > regions
+    Handles pricing structure:
+    - providers > {provider_name} > {model_id} > { regions, model_provider, ... }
 
     Returns:
     {
@@ -79,35 +78,29 @@ def compute_regional_availability(pricing_data: dict) -> dict:
     model_availability = defaultdict(list)
 
     # Extract region information from pricing data
+    # Structure: providers > provider_name > model_id > { regions, ... }
     providers_data = pricing_data.get('providers', {})
 
-    for key, data in providers_data.items():
-        # Check if this is the new structure (model_id -> data with regions)
-        # or old structure (provider -> models -> model_id -> data)
-        if isinstance(data, dict):
-            if 'regions' in data and 'model_provider' in data:
-                # New structure: key is model_id, data contains regions directly
-                model_id = key
-                provider = data.get('model_provider', 'Unknown')
-                model_regions = data.get('regions', {})
+    for provider_name, provider_models in providers_data.items():
+        if not isinstance(provider_models, dict):
+            continue
 
-                for region in model_regions.keys():
-                    regions[region]['models_in_region'] += 1
-                    regions[region]['providers'].add(provider)
-                    regions[region]['models'].append(model_id)
-                    model_availability[model_id].append(region)
+        for model_id, model_data in provider_models.items():
+            if not isinstance(model_data, dict):
+                continue
 
-            elif 'models' in data:
-                # Old structure: key is provider, data contains models
-                provider = key
-                for model_id, model_data in data.get('models', {}).items():
-                    model_regions = model_data.get('regions', {})
+            # Get regions from model data
+            model_regions = model_data.get('regions', {})
+            if not model_regions:
+                continue
 
-                    for region in model_regions.keys():
-                        regions[region]['models_in_region'] += 1
-                        regions[region]['providers'].add(provider)
-                        regions[region]['models'].append(model_id)
-                        model_availability[model_id].append(region)
+            provider = model_data.get('model_provider', provider_name)
+
+            for region in model_regions.keys():
+                regions[region]['models_in_region'] += 1
+                regions[region]['providers'].add(provider)
+                regions[region]['models'].append(model_id)
+                model_availability[model_id].append(region)
 
     # Convert sets to lists for JSON serialization (snake_case output)
     result_regions = {}

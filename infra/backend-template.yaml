@@ -176,8 +176,8 @@ Resources:
           Statement:
             - Effect: Allow
               Action:
-                - service-quotas:ListServiceQuotas
-                - service-quotas:GetServiceQuota
+                - servicequotas:ListServiceQuotas
+                - servicequotas:GetServiceQuota
               Resource: '*'
             - Effect: Allow
               Action:
