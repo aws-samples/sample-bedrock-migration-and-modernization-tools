@@ -221,6 +221,7 @@ def benchmark(
     output_tokens = 0
     cost = 0
     resp_txt = ""
+    thinking_response = ""
     evaluation_cost_data = 0
     inference_request_count = 0
     params = {"max_tokens": max_tokens,
@@ -254,6 +255,7 @@ def benchmark(
                           vision_enabled=vision_enabled)
 
         resp_txt = r['model_response']
+        thinking_response = r['thinking_response']
         input_tokens = r['input_tokens']
         output_tokens = r['output_tokens']
         total_runtime = r['total_runtime']
@@ -353,7 +355,8 @@ def benchmark(
         "evaluation_cost": evaluation_cost_data,
         "inference_request_count": inference_request_count,
         "eval_type": "latency" if latency_only_mode else "360",
-        "stream": stream_evaluation
+        "stream": stream_evaluation,
+        "thinking_response": thinking_response
     }
 
 

@@ -11,7 +11,7 @@ import litellm
 import requests
 import requests.exceptions
 from tenacity import retry, stop_after_delay, wait_exponential, retry_if_exception_type
-from litellm import completion, RateLimitError, ServiceUnavailableError, APIError, APIConnectionError, BadRequestError, token_counter
+from litellm import completion, RateLimitError, ServiceUnavailableError, APIError, APIConnectionError, BadRequestError, token_counter, Timeout
 from botocore.exceptions import ClientError
 import litellm
 
@@ -498,7 +498,7 @@ def llm_judge_template(all_metrics,
 
 # Define which exceptions should trigger a retry
 RETRYABLE_EXCEPTIONS = (
-
+    Timeout,
     RateLimitError,
     ServiceUnavailableError,
     APIConnectionError,
@@ -553,8 +553,10 @@ def _call_llm_with_retry(model_name, messages, provider_params, retry_tracker, s
                 model=litellm_model,
                 messages=messages,
                 stream=stream,
+                timeout=30,  # 60 second timeout to prevent extreme outliers
+                stream_timeout=60,
                 **provider_params
-            )
+                )
             return completed, time_
         except BadRequestError as e:
             error_msg = str(e)
@@ -575,6 +577,11 @@ def _call_llm_with_retry(model_name, messages, provider_params, retry_tracker, s
                 # Other BadRequestErrors should not be retried either
                 logger.error(f"BadRequestError (non-retryable): {error_msg}")
                 raise
+        except Timeout as e:
+            error_msg = str(e)
+            logger.error(f"Model {model_name} Exceeded set up-time to generate the response: {error_msg}")
+            # Create a more informative error message and don't retry
+            raise
         except RETRYABLE_EXCEPTIONS as e:
             # Only log first retryable error at WARNING, rest at DEBUG to reduce noise
             if retry_tracker.attempts == 0:
@@ -764,6 +771,7 @@ def run_inference(model_name: str,
     else:
         messages = [{"content": prompt_text, "role": "user"}]
     response_chunks = []
+    thinking_chunks = []
     first = True
     # Create a retry tracker
     retry_tracker = RetryTracker()
@@ -781,21 +789,24 @@ def run_inference(model_name: str,
             stream=stream
         )
         if not stream:
-            response = dict()
-            response["text"] = payload.choices[0].message.content
-            response['outputTokens'] = payload.model_extra['usage']['completion_tokens']
-            response['inputTokens'] = payload.model_extra['usage']['prompt_tokens']
+            # response = dict()
+            response = payload.choices[0].message.content
+            thinking_response = payload.choices[0].message.get("reasoning_content", "")
+            output_tokens = payload.model_extra['usage']['completion_tokens']
+            input_tokens = payload.model_extra['usage']['prompt_tokens']
+
+            judge_payload = dict()
+            judge_payload["text"] = payload.choices[0].message.content
+            judge_payload['outputTokens'] = payload.model_extra['usage']['completion_tokens']
+            judge_payload['inputTokens'] = payload.model_extra['usage']['prompt_tokens']
 
             # If called from judge (judge_eval=True), return judge format
             if judge_eval:
-                return response
+                return judge_payload
 
             # Otherwise, return full evaluation structure (non-streaming evaluation mode)
             end_time = time.time()
             total_runtime = end_time - start_time
-
-            input_tokens = response['inputTokens']
-            output_tokens = response['outputTokens']
 
             throughput_tps = output_tokens / total_runtime if total_runtime > 0 else 0
             tot_input_cost = input_tokens * (input_cost / 1000)
@@ -805,7 +816,7 @@ def run_inference(model_name: str,
             finish_reason = payload.choices[0].finish_reason if hasattr(payload.choices[0], 'finish_reason') else None
 
             return {
-                "model_response": response["text"],
+                "model_response": response,
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
                 "total_runtime": total_runtime,
@@ -815,7 +826,8 @@ def run_inference(model_name: str,
                 "total_cost": tot_output_cost + tot_input_cost,
                 "retry_count": retry_tracker.attempts,
                 "finish_reason": finish_reason,
-                "stream_metrics": None  # N/A for non-streaming
+                "stream_metrics": None,  # N/A for non-streaming
+                "thinking_response": thinking_response
             }
         else:
             time_to_first_token = 0
@@ -828,7 +840,9 @@ def run_inference(model_name: str,
                 if not chunk or not hasattr(chunk, 'choices') or len(chunk.choices) == 0:
                     logger.warning("Received invalid chunk from API")
                     continue
-
+                thinking_delta = chunk.choices[0].delta.get("reasoning_content", "")
+                if thinking_delta:
+                    thinking_chunks.append(thinking_delta)
                 delta = chunk.choices[0].delta.get("content", "")
                 if delta:
                     response_chunks.append(delta)
@@ -836,12 +850,12 @@ def run_inference(model_name: str,
             end = time.time()
             time_to_last_byte = round(end - start_time, 4)
             total_runtime = end - start_time
-            full_response = "".join(response_chunks)
-
+            actual_response = "".join(response_chunks)
+            thinking_response = "".join(thinking_chunks)
             # Token counting with error handling
             try:
                 counter_id = model_name.replace('converse/', '')  # Converse is needed for inference only
-                output_tokens = token_counter(model=counter_id, messages=[{"user": "role", "content": full_response}])
+                output_tokens = token_counter(model=counter_id, messages=[{"user": "role", "content": thinking_response + actual_response}])
                 input_tokens = token_counter(model=counter_id, messages=[{"user": "role", "content": prompt_text}])
             except Exception as e:
                 logger.error(f"Error counting tokens: {str(e)}")
@@ -853,7 +867,7 @@ def run_inference(model_name: str,
             tot_output_cost = output_tokens * (output_cost / 1000)
 
             return {
-                "model_response": full_response,
+                "model_response": actual_response,
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
                 "total_runtime": total_runtime,
@@ -861,7 +875,8 @@ def run_inference(model_name: str,
                 "time_to_last_byte": time_to_last_byte,
                 "throughput_tps": tokens_per_sec,
                 "total_cost": tot_output_cost + tot_input_cost,
-                "retry_count": retry_tracker.attempts
+                "retry_count": retry_tracker.attempts,
+                "thinking_response": thinking_response,
             }
 
     except Exception as e:
@@ -940,6 +955,7 @@ def check_model_access(provider_params, model_id):
             model=litellm_model,
             messages=messages,
             stream=True,
+            timeout=60,  # 60 second timeout to prevent extreme outliers
             **provider_params
         )
 
