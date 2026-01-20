@@ -245,17 +245,17 @@ def build_model_quotas(model_id: str, model_name: str, quotas_by_region: dict) -
             # Check if quota is related to this model
             if quota_matches_model(quota_name, model_keywords, model_name):
                 region_quotas.append({
-                    'quota_code': quota.get('quota_code', quota.get('QuotaCode', '')),
-                    'quota_name': quota.get('quota_name', quota.get('QuotaName', '')),
-                    'quota_arn': quota.get('quota_arn', quota.get('QuotaArn', '')),
-                    'description': quota.get('description', quota.get('Description', '')),
-                    'quota_applied_at_level': quota.get('quota_applied_at_level', 'ACCOUNT'),
-                    'value': quota.get('value', quota.get('Value', 0)),
-                    'unit': quota.get('unit', quota.get('Unit', 'None')),
-                    'adjustable': quota.get('adjustable', quota.get('Adjustable', False)),
-                    'global_quota': quota.get('global_quota', quota.get('GlobalQuota', False)),
-                    'usage_metric': quota.get('usage_metric', quota.get('UsageMetric', {})),
-                    'period': quota.get('period', quota.get('Period', {}))
+                    'quota_code': quota.get('quotaCode', quota.get('quota_code', '')),
+                    'quota_name': quota.get('quotaName', quota.get('quota_name', '')),
+                    'quota_arn': quota.get('quotaArn', quota.get('quota_arn', '')),
+                    'description': quota.get('description', ''),
+                    'quota_applied_at_level': quota.get('quotaAppliedAtLevel', quota.get('quota_applied_at_level', 'ACCOUNT')),
+                    'value': quota.get('value', 0),
+                    'unit': quota.get('unit', 'None'),
+                    'adjustable': quota.get('adjustable', False),
+                    'global_quota': quota.get('globalQuota', quota.get('global_quota', False)),
+                    'usage_metric': quota.get('usageMetric', quota.get('usage_metric', {})),
+                    'period': quota.get('period', {})
                 })
         if region_quotas:
             model_quotas[region] = region_quotas
