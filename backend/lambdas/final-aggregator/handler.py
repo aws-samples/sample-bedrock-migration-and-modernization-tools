@@ -126,18 +126,124 @@ def build_cross_region_inference(model_id: str, features_by_region: dict) -> dic
     }
 
 
+def normalize_model_name(name: str) -> str:
+    """
+    Normalize model name for matching.
+    - Convert to lowercase
+    - Replace hyphens/underscores with spaces
+    - Normalize version numbers (3-5 -> 3.5, 3 5 -> 3.5)
+    - Remove extra whitespace
+    """
+    normalized = name.lower()
+    # Replace hyphens and underscores with spaces
+    normalized = normalized.replace('-', ' ').replace('_', ' ')
+    # Normalize version patterns like "3 5" or "3  5" to "3.5"
+    normalized = re.sub(r'(\d)\s+(\d)', r'\1.\2', normalized)
+    # Remove extra whitespace
+    normalized = ' '.join(normalized.split())
+    return normalized
+
+
+def extract_model_keywords(model_id: str, model_name: str) -> set:
+    """
+    Extract keywords from model ID and name for matching.
+    Returns a set of normalized keywords.
+    """
+    keywords = set()
+
+    # Normalize and add model name parts
+    if model_name:
+        normalized_name = normalize_model_name(model_name)
+        keywords.add(normalized_name)
+        # Add individual significant words
+        for word in normalized_name.split():
+            if len(word) > 2 and word not in ('for', 'the', 'and', 'per'):
+                keywords.add(word)
+
+    # Extract from model_id (e.g., "anthropic.claude-3-5-haiku-20241022-v1:0")
+    if model_id:
+        # Remove provider prefix and version suffix
+        clean_id = model_id.split(':')[0]  # Remove :0, :18k etc.
+        clean_id = re.sub(r'\.\w+\.', '.', clean_id)  # Keep provider.model format
+
+        # Extract model family name
+        parts = clean_id.replace('.', ' ').replace('-', ' ').split()
+        for part in parts:
+            # Skip date patterns and version numbers
+            if not re.match(r'^\d{8}$', part) and not re.match(r'^v\d+$', part):
+                if len(part) > 2:
+                    keywords.add(part.lower())
+
+        # Add normalized full model name from ID
+        normalized_id = normalize_model_name(clean_id)
+        keywords.add(normalized_id)
+
+    return keywords
+
+
+def quota_matches_model(quota_name: str, model_keywords: set, model_name: str) -> bool:
+    """
+    Check if a quota name matches a model based on keywords.
+    """
+    normalized_quota = normalize_model_name(quota_name)
+
+    # Direct substring match with normalized model name
+    normalized_model = normalize_model_name(model_name)
+    if normalized_model and normalized_model in normalized_quota:
+        return True
+
+    # Check if quota contains key model identifiers
+    # Must match the model family (claude, titan, nova, llama, etc.) AND a variant/version
+    model_families = {'claude', 'titan', 'nova', 'llama', 'mistral', 'command', 'embed', 'jamba', 'stable'}
+
+    quota_words = set(normalized_quota.split())
+
+    # Find which model family this model belongs to
+    model_family = None
+    for family in model_families:
+        if family in model_keywords:
+            model_family = family
+            break
+
+    if not model_family:
+        return False
+
+    # Check if quota is for this model family
+    if model_family not in quota_words:
+        return False
+
+    # Now check for variant match (haiku, sonnet, opus, lite, pro, etc.)
+    variants = {'haiku', 'sonnet', 'opus', 'lite', 'pro', 'micro', 'premier', 'express',
+                'large', 'small', 'medium', 'instant', 'chat', 'instruct', 'ultra', 'canvas', 'reel'}
+
+    model_variants = model_keywords & variants
+    quota_variants = quota_words & variants
+
+    # If model has a variant, quota must have the same variant
+    if model_variants:
+        if model_variants & quota_variants:
+            return True
+        # Special case: quota might not specify variant for general quotas
+        if not quota_variants:
+            return True
+    else:
+        # Model has no specific variant, match if quota is for same family
+        return True
+
+    return False
+
+
 def build_model_quotas(model_id: str, model_name: str, quotas_by_region: dict) -> dict:
     """Build model-specific quotas by region."""
     model_quotas = {}
-    model_id_lower = model_id.lower()
-    model_name_lower = model_name.lower()
+    model_keywords = extract_model_keywords(model_id, model_name)
 
     for region, quotas in quotas_by_region.items():
         region_quotas = []
         for quota in quotas:
-            quota_name = quota.get('quota_name', quota.get('QuotaName', '')).lower()
+            quota_name = quota.get('quotaName', quota.get('quota_name', ''))
             # Check if quota is related to this model
-            if model_id_lower in quota_name or model_name_lower in quota_name:
+            if quota_matches_model(quota_name, model_keywords, model_name):
                 region_quotas.append({
                     'quota_code': quota.get('quota_code', quota.get('QuotaCode', '')),
                     'quota_name': quota.get('quota_name', quota.get('QuotaName', '')),
