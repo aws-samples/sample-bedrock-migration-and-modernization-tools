@@ -11,16 +11,16 @@ import time
 from typing import Any
 
 import boto3
-from botocore.config import Config
+
+from shared import (
+    RETRY_CONFIG,
+    parse_execution_id,
+    validate_required_params,
+    ValidationError,
+)
 
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
-
-RETRY_CONFIG = Config(
-    retries={'max_attempts': 3, 'mode': 'adaptive'},
-    connect_timeout=10,
-    read_timeout=30
-)
 
 
 def get_s3_client():
@@ -63,8 +63,18 @@ def lambda_handler(event: dict, context: Any) -> dict:
     """
     start_time = time.time()
 
+    # Validate required parameters
+    try:
+        validate_required_params(event, ['s3Bucket', 'executionId'], 'CopyToLatest')
+    except ValidationError as e:
+        return {
+            'status': 'FAILED',
+            'errorType': 'ValidationError',
+            'errorMessage': str(e)
+        }
+
     s3_bucket = event['s3Bucket']
-    execution_id = event['executionId']
+    execution_id = parse_execution_id(event['executionId'])
     final_result = event.get('finalResult', {})
     dry_run = event.get('dryRun', False)
 

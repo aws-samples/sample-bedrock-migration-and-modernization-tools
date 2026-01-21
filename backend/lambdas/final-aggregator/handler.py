@@ -5,49 +5,24 @@ Merges all collected data into the final comprehensive JSON outputs.
 Works with the correct snake_case schema from upstream Lambdas.
 """
 
-import json
 import logging
 import os
 import re
 import time
 from typing import Any
 
-import boto3
-from botocore.config import Config
+from shared import (
+    get_s3_client,
+    read_from_s3,
+    write_to_s3,
+    parse_execution_id,
+    validate_required_params,
+    ValidationError,
+    S3ReadError,
+)
 
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
-
-RETRY_CONFIG = Config(
-    retries={'max_attempts': 3, 'mode': 'adaptive'},
-    connect_timeout=10,
-    read_timeout=30
-)
-
-
-def get_s3_client():
-    return boto3.client('s3', config=RETRY_CONFIG)
-
-
-def read_from_s3(s3_client: Any, bucket: str, key: str) -> dict:
-    """Read JSON data from S3."""
-    try:
-        response = s3_client.get_object(Bucket=bucket, Key=key)
-        return json.loads(response['Body'].read().decode('utf-8'))
-    except Exception as e:
-        logger.warning(f"Failed to read {key}: {e}")
-        return {}
-
-
-def write_to_s3(s3_client: Any, bucket: str, key: str, data: dict) -> None:
-    """Write JSON data to S3."""
-    s3_client.put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=json.dumps(data, indent=2, default=str),
-        ContentType='application/json'
-    )
-    logger.info(f"Written to s3://{bucket}/{key}")
 
 
 def aggregate_quotas(quota_results: list[dict], s3_client: Any, bucket: str) -> dict:
@@ -61,8 +36,12 @@ def aggregate_quotas(quota_results: list[dict], s3_client: Any, bucket: str) -> 
         region = item.get('region')
 
         if status == 'SUCCESS' and s3_key:
-            data = read_from_s3(s3_client, bucket, s3_key)
-            quotas_by_region[region] = data.get('quotas', [])
+            try:
+                data = read_from_s3(s3_client, bucket, s3_key, default_on_missing={})
+                quotas_by_region[region] = data.get('quotas', [])
+            except S3ReadError as e:
+                logger.warning(f"Failed to read quotas for {region}: {e}")
+                quotas_by_region[region] = []
 
     return quotas_by_region
 
@@ -78,9 +57,13 @@ def aggregate_features(feature_results: list[dict], s3_client: Any, bucket: str)
         region = item.get('region')
 
         if status == 'SUCCESS' and s3_key:
-            data = read_from_s3(s3_client, bucket, s3_key)
-            # Handle both snake_case and camelCase from feature extractor
-            profiles_by_region[region] = data.get('inference_profiles', data.get('inferenceProfiles', []))
+            try:
+                data = read_from_s3(s3_client, bucket, s3_key, default_on_missing={})
+                # Handle both snake_case and camelCase from feature extractor
+                profiles_by_region[region] = data.get('inference_profiles', data.get('inferenceProfiles', []))
+            except S3ReadError as e:
+                logger.warning(f"Failed to read features for {region}: {e}")
+                profiles_by_region[region] = []
 
     return profiles_by_region
 
@@ -374,22 +357,28 @@ def transform_model_to_schema(
     batch_inference = check_batch_inference(model_id, pricing_data)
 
     # Get model pricing from upstream (already in snake_case)
-    # Build flat structure with pricing_file_reference to match frontend schema
+    # Preserve pricing_file_reference from pricing-linker which has correct provider mapping
     model_pricing_data = model.get('model_pricing', {})
     has_pricing = model_pricing_data.get('is_pricing_available', model.get('has_pricing', False))
     pricing_ref_id = model_pricing_data.get('pricing_reference_id', '')
 
-    # Extract provider and model_key from pricing_reference_id
-    # Format: "provider.model-key" -> provider="Provider", model_key="provider.model-key"
-    provider_name = model.get('model_provider', '')
-    model_key = pricing_ref_id if pricing_ref_id else model_id
+    # Use upstream pricing_file_reference if available (from pricing-linker)
+    # This preserves the correct provider name from the pricing file
+    upstream_pricing_ref = model_pricing_data.get('pricing_file_reference')
+    if upstream_pricing_ref and isinstance(upstream_pricing_ref, dict):
+        pricing_provider = upstream_pricing_ref.get('provider', model.get('model_provider', ''))
+        pricing_model_key = upstream_pricing_ref.get('model_key', pricing_ref_id or model_id)
+    else:
+        # Fallback: use model's provider (may not match pricing file)
+        pricing_provider = model.get('model_provider', '')
+        pricing_model_key = pricing_ref_id if pricing_ref_id else model_id
 
     model_pricing = {
         'is_pricing_available': has_pricing,
-        'pricing_reference_id': f"{provider_name}.{model_key}" if provider_name else model_key,
+        'pricing_reference_id': pricing_ref_id or model_id,
         'pricing_file_reference': {
-            'provider': provider_name,
-            'model_key': model_key,
+            'provider': pricing_provider,
+            'model_key': pricing_model_key,
             'model_name': model.get('model_name', '')
         },
         'pricing_summary': {
@@ -598,8 +587,18 @@ def lambda_handler(event: dict, context: Any) -> dict:
     start_time = time.time()
     collection_timestamp = time.strftime('%Y-%m-%dT%H:%M:%S.000000+00:00', time.gmtime())
 
+    # Validate required parameters
+    try:
+        validate_required_params(event, ['s3Bucket', 'executionId'], 'FinalAggregator')
+    except ValidationError as e:
+        return {
+            'status': 'FAILED',
+            'errorType': 'ValidationError',
+            'errorMessage': str(e)
+        }
+
     s3_bucket = event['s3Bucket']
-    execution_id = event['executionId']
+    execution_id = parse_execution_id(event['executionId'])
     pricing_s3_key = event.get('pricingS3Key')
     quota_results = event.get('quotaResults', [])
     pricing_linked = event.get('pricingLinked', {})
@@ -608,9 +607,6 @@ def lambda_handler(event: dict, context: Any) -> dict:
     token_specs_result = event.get('tokenSpecs', {})
     enriched_models_result = event.get('enrichedModels', {})
     dry_run = event.get('dryRun', False)
-
-    if ':' in execution_id:
-        execution_id = execution_id.split(':')[-1]
 
     models_output_key = f"executions/{execution_id}/final/bedrock_models.json"
     pricing_output_key = f"executions/{execution_id}/final/bedrock_pricing.json"

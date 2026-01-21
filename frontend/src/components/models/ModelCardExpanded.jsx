@@ -1706,19 +1706,24 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
                                       </span>
                                     </div>
                                     <div className="space-y-1">
-                                      {items.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center text-xs">
-                                          <span className={cn(isLight ? 'text-stone-600' : 'text-slate-400')}>
-                                            {item.description || item.dimension || 'Price'}
-                                          </span>
-                                          <span className={cn('font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
-                                            ${typeof item.price_per_thousand === 'number' ? item.price_per_thousand.toFixed(6) : item.price_per_thousand}
-                                            <span className={cn('font-normal ml-1', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                                              /{item.unit || '1K'}
+                                      {items.map((item, idx) => {
+                                        // Use price_per_thousand for token pricing, price_per_unit for image/other pricing
+                                        const price = item.price_per_thousand ?? item.price_per_unit
+                                        const unitLabel = item.unit_label || (item.price_per_thousand != null ? '/1K tokens' : `/${item.unit || 'unit'}`)
+                                        return (
+                                          <div key={idx} className="flex justify-between items-center text-xs">
+                                            <span className={cn(isLight ? 'text-stone-600' : 'text-slate-400')}>
+                                              {item.description || item.dimension || 'Price'}
                                             </span>
-                                          </span>
-                                        </div>
-                                      ))}
+                                            <span className={cn('font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
+                                              ${typeof price === 'number' ? price.toFixed(6) : price ?? 'N/A'}
+                                              <span className={cn('font-normal ml-1', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                                                {unitLabel}
+                                              </span>
+                                            </span>
+                                          </div>
+                                        )
+                                      })}
                                     </div>
                                   </div>
                                 )

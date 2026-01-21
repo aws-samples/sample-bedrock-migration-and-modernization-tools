@@ -5,45 +5,24 @@ Computes regional availability map from pricing data.
 Works with the correct snake_case schema.
 """
 
-import json
 import logging
 import os
 import time
 from typing import Any
 from collections import defaultdict
 
-import boto3
-from botocore.config import Config
+from shared import (
+    get_s3_client,
+    read_from_s3,
+    write_to_s3,
+    parse_execution_id,
+    validate_required_params,
+    ValidationError,
+    S3ReadError,
+)
 
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
-
-RETRY_CONFIG = Config(
-    retries={'max_attempts': 3, 'mode': 'adaptive'},
-    connect_timeout=10,
-    read_timeout=30
-)
-
-
-def get_s3_client():
-    return boto3.client('s3', config=RETRY_CONFIG)
-
-
-def read_from_s3(s3_client: Any, bucket: str, key: str) -> dict:
-    """Read JSON data from S3."""
-    response = s3_client.get_object(Bucket=bucket, Key=key)
-    return json.loads(response['Body'].read().decode('utf-8'))
-
-
-def write_to_s3(s3_client: Any, bucket: str, key: str, data: dict) -> None:
-    """Write JSON data to S3."""
-    s3_client.put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=json.dumps(data, indent=2, default=str),
-        ContentType='application/json'
-    )
-    logger.info(f"Written to s3://{bucket}/{key}")
 
 
 def compute_regional_availability(pricing_data: dict) -> dict:
@@ -138,13 +117,20 @@ def lambda_handler(event: dict, context: Any) -> dict:
     """
     start_time = time.time()
 
+    # Validate required parameters
+    try:
+        validate_required_params(event, ['s3Bucket', 'executionId', 'pricingS3Key'], 'RegionalAvailability')
+    except ValidationError as e:
+        return {
+            'status': 'FAILED',
+            'errorType': 'ValidationError',
+            'errorMessage': str(e)
+        }
+
     s3_bucket = event['s3Bucket']
-    execution_id = event['executionId']
+    execution_id = parse_execution_id(event['executionId'])
     pricing_s3_key = event['pricingS3Key']
     dry_run = event.get('dryRun', False)
-
-    if ':' in execution_id:
-        execution_id = execution_id.split(':')[-1]
 
     output_key = f"executions/{execution_id}/intermediate/regional-availability.json"
 

@@ -141,24 +141,158 @@ function getModelPricing(model, pricingData) {
 }
 
 /**
- * Extract summary pricing (input/output per 1K) for a model in a given region
+ * Extract summary pricing for a model in a given region
+ * Handles different pricing types: token, image_generation, image, video, etc.
  * @param {Object} modelPricing - Pricing data for a model
  * @param {string} region - Preferred region
- * @returns {Object} { inputPrice, outputPrice }
+ * @returns {Object} Pricing summary with type information
  */
 function extractSummaryPricing(modelPricing, region = 'us-east-1') {
-  if (!modelPricing?.regions) return { inputPrice: null, outputPrice: null }
+  const nullResult = {
+    inputPrice: null,
+    outputPrice: null,
+    pricingType: null,
+    unitLabel: null,
+    imagePrice: null,
+    imagePrices: null,
+    videoPrice: null,
+    videoPrices: null,
+  }
+
+  if (!modelPricing?.regions) return nullResult
 
   const regionData = modelPricing.regions[region] ||
                      modelPricing.regions['us-east-1'] ||
                      modelPricing.regions['us-west-2'] ||
                      Object.values(modelPricing.regions)[0]
 
-  if (!regionData?.pricing_groups) return { inputPrice: null, outputPrice: null }
+  if (!regionData?.pricing_groups) return nullResult
+
+  // Get model-level pricing type info
+  const primaryPricingType = modelPricing.primary_pricing_type || 'token'
 
   // Look for On-Demand pricing first
   const onDemand = regionData.pricing_groups['On-Demand'] || []
 
+  // Handle image generation models (per-image pricing)
+  if (primaryPricingType === 'image_generation') {
+    const imagePrices = {}
+
+    for (const item of onDemand) {
+      // Check pricing_type or fallback to dimension/unit patterns (T2I, I2I, unit=image)
+      const dim = (item.dimension || '').toLowerCase()
+      const isImagePricing = item.pricing_type === 'image_generation' ||
+                             (item.unit === 'image' && (dim.includes('t2i') || dim.includes('i2i')))
+      if (isImagePricing) {
+        // Extract resolution and tier from dimension
+        // e.g., "NovaCanvas-T2I-1024-Standard" or "TitanImageGeneratorG1-I2I-512-Premium"
+        const desc = item.description || ''
+
+        // Try to extract resolution
+        const resMatch = dim.match(/(\d{3,4})/)
+        const resolution = resMatch ? resMatch[1] : 'standard'
+
+        // Try to extract tier (Standard/Premium)
+        const tier = dim.includes('premium') ? 'premium' : 'standard'
+
+        // Try to extract type (T2I = text-to-image, I2I = image-to-image)
+        const type = dim.includes('t2i') ? 'text_to_image' :
+                     dim.includes('i2i') ? 'image_to_image' : 'generation'
+
+        const key = `${type}_${resolution}_${tier}`
+        imagePrices[key] = {
+          price: item.price_per_unit,
+          resolution,
+          tier,
+          type,
+          description: desc,
+        }
+      }
+    }
+
+    // Get the most common/default price (standard resolution, standard tier, text-to-image)
+    const defaultPrice = imagePrices['text_to_image_1024_standard']?.price ||
+                        imagePrices['generation_1024_standard']?.price ||
+                        Object.values(imagePrices)[0]?.price ||
+                        null
+
+    return {
+      inputPrice: null,
+      outputPrice: null,
+      pricingType: 'image_generation',
+      unitLabel: 'per image',
+      imagePrice: defaultPrice,
+      imagePrices: Object.keys(imagePrices).length > 0 ? imagePrices : null,
+      videoPrice: null,
+      videoPrices: null,
+    }
+  }
+
+  // Handle video generation models (per-video pricing)
+  // Also detect video generation from dimensions as fallback (I2V = image-to-video, T2V = text-to-video)
+  const hasVideoGenerationDimensions = onDemand.some(item => {
+    const dim = (item.dimension || '').toLowerCase()
+    return dim.includes('i2v') || dim.includes('t2v') ||
+           (dim.includes('video') && item.unit?.toLowerCase() === 'video')
+  })
+
+  if (primaryPricingType === 'video_generation' || hasVideoGenerationDimensions) {
+    const videoPrices = {}
+
+    for (const item of onDemand) {
+      const dimLower = (item.dimension || '').toLowerCase()
+      const isVideoGen = item.pricing_type === 'video_generation' ||
+                         dimLower.includes('i2v') || dimLower.includes('t2v') ||
+                         (dimLower.includes('video') && item.unit?.toLowerCase() === 'video')
+      if (isVideoGen) {
+        // Extract resolution and fps from dimension
+        // e.g., "NovaReel-I2V-Medfps-HDRes", "NovaReel-T2V-Lowfps-SDRes"
+        const dim = item.dimension || ''
+        const desc = item.description || ''
+
+        // Try to extract type (I2V = image-to-video, T2V = text-to-video)
+        const type = dim.includes('I2V') ? 'image_to_video' :
+                     dim.includes('T2V') ? 'text_to_video' : 'generation'
+
+        // Try to extract fps tier (Lowfps, Medfps, Highfps)
+        const fpsMatch = dim.match(/(Low|Med|High)fps/i)
+        const fps = fpsMatch ? fpsMatch[1].toLowerCase() : 'standard'
+
+        // Try to extract resolution (SDRes, HDRes, FHDRes)
+        const resMatch = dim.match(/(SD|HD|FHD)Res/i)
+        const resolution = resMatch ? resMatch[1].toUpperCase() : 'standard'
+
+        const key = `${type}_${fps}_${resolution}`
+        videoPrices[key] = {
+          price: item.price_per_unit,
+          fps,
+          resolution,
+          type,
+          description: desc,
+        }
+      }
+    }
+
+    // Get the most common/default price (text-to-video, medium fps, HD resolution)
+    const defaultPrice = videoPrices['text_to_video_med_HD']?.price ||
+                        videoPrices['image_to_video_med_HD']?.price ||
+                        videoPrices['generation_standard_standard']?.price ||
+                        Object.values(videoPrices)[0]?.price ||
+                        null
+
+    return {
+      inputPrice: null,
+      outputPrice: null,
+      pricingType: 'video_generation',
+      unitLabel: 'per video',
+      imagePrice: null,
+      imagePrices: null,
+      videoPrice: defaultPrice,
+      videoPrices: Object.keys(videoPrices).length > 0 ? videoPrices : null,
+    }
+  }
+
+  // Handle token-based pricing (most common)
   let inputPrice = null
   let outputPrice = null
 
@@ -166,15 +300,45 @@ function extractSummaryPricing(modelPricing, region = 'us-east-1') {
     const dim = (item.dimension || '').toLowerCase()
     const desc = (item.description || '').toLowerCase()
 
-    if ((dim.includes('input') || desc.includes('input')) && !dim.includes('cache')) {
-      inputPrice = item.price_per_thousand
+    // Skip cache-related entries (cache-read, cache-write) - these are special pricing tiers
+    if (dim.includes('cache') || desc.includes('cache')) {
+      continue
     }
-    if (dim.includes('output') || desc.includes('output')) {
-      outputPrice = item.price_per_thousand
+
+    // Skip flex/priority tiers - use standard pricing
+    if (dim.includes('-flex') || dim.includes('-priority')) {
+      continue
+    }
+
+    const isInput = item.is_input || dim.includes('input') || desc.includes('input')
+    const isOutput = item.is_output || dim.includes('output') || desc.includes('output')
+
+    // Use price_per_thousand for tokens, price_per_unit for others
+    const price = item.price_per_thousand ?? item.price_per_unit
+
+    // Skip zero prices (usually promotional or placeholder)
+    if (price === 0 || price === null || price === undefined) {
+      continue
+    }
+
+    if (isInput && inputPrice === null) {
+      inputPrice = price
+    }
+    if (isOutput && outputPrice === null) {
+      outputPrice = price
     }
   }
 
-  return { inputPrice, outputPrice }
+  return {
+    inputPrice,
+    outputPrice,
+    pricingType: primaryPricingType,
+    unitLabel: primaryPricingType === 'token' ? 'per 1K tokens' : 'per unit',
+    imagePrice: null,
+    imagePrices: null,
+    videoPrice: null,
+    videoPrices: null,
+  }
 }
 
 /**

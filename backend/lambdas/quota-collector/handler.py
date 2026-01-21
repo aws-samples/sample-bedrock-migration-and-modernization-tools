@@ -4,24 +4,25 @@ Quota Collector Lambda
 Collects Bedrock service quotas from a single AWS region.
 """
 
-import json
 import logging
 import os
 import time
 from typing import Any
 
 import boto3
-from botocore.config import Config
 from botocore.exceptions import ClientError
+
+from shared import (
+    RETRY_CONFIG,
+    write_to_s3,
+    parse_execution_id,
+    validate_required_params,
+    ValidationError,
+    S3WriteError,
+)
 
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
-
-RETRY_CONFIG = Config(
-    retries={'max_attempts': 3, 'mode': 'adaptive'},
-    connect_timeout=10,
-    read_timeout=30
-)
 
 SERVICE_CODE = 'bedrock'
 
@@ -33,17 +34,6 @@ def get_quotas_client(region: str):
 
 def get_s3_client():
     return boto3.client('s3', config=RETRY_CONFIG)
-
-
-def write_to_s3(s3_client: Any, bucket: str, key: str, data: dict) -> None:
-    """Write JSON data to S3."""
-    s3_client.put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=json.dumps(data, indent=2, default=str),
-        ContentType='application/json'
-    )
-    logger.info(f"Written to s3://{bucket}/{key}")
 
 
 def collect_quotas(quotas_client: Any, region: str) -> list[dict]:
@@ -127,6 +117,16 @@ def lambda_handler(event: dict, context: Any) -> dict:
         }
     """
     start_time = time.time()
+
+    # Validate required parameters
+    try:
+        validate_required_params(event, ['region'], 'QuotaCollector')
+    except ValidationError as e:
+        return {
+            'status': 'FAILED',
+            'errorType': 'ValidationError',
+            'errorMessage': str(e)
+        }
 
     region = event['region']
     s3_bucket = event.get('s3Bucket')

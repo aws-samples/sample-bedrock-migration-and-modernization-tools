@@ -5,24 +5,25 @@ Extracts foundation models from a single AWS region using the Bedrock API.
 Outputs models in the correct snake_case schema matching the original collector.
 """
 
-import json
 import logging
 import os
 import time
 from typing import Any
 
 import boto3
-from botocore.config import Config
 from botocore.exceptions import ClientError
+
+from shared import (
+    RETRY_CONFIG,
+    write_to_s3,
+    parse_execution_id,
+    validate_required_params,
+    ValidationError,
+    S3WriteError,
+)
 
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
-
-RETRY_CONFIG = Config(
-    retries={'max_attempts': 3, 'mode': 'adaptive'},
-    connect_timeout=10,
-    read_timeout=30
-)
 
 # Documentation links per provider
 DOCUMENTATION_LINKS = {
@@ -68,17 +69,6 @@ def get_bedrock_client(region: str):
 
 def get_s3_client():
     return boto3.client('s3', config=RETRY_CONFIG)
-
-
-def write_to_s3(s3_client: Any, bucket: str, key: str, data: dict) -> None:
-    """Write JSON data to S3."""
-    s3_client.put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=json.dumps(data, indent=2, default=str),
-        ContentType='application/json'
-    )
-    logger.info(f"Written to s3://{bucket}/{key}")
 
 
 def get_documentation_links(model_id: str, provider: str) -> dict:
@@ -204,6 +194,16 @@ def lambda_handler(event: dict, context: Any) -> dict:
         }
     """
     start_time = time.time()
+
+    # Validate required parameters
+    try:
+        validate_required_params(event, ['region'], 'ModelExtractor')
+    except ValidationError as e:
+        return {
+            'status': 'FAILED',
+            'errorType': 'ValidationError',
+            'errorMessage': str(e)
+        }
 
     region = event['region']
     s3_bucket = event.get('s3Bucket')

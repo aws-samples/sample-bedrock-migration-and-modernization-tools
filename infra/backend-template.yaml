@@ -19,27 +19,49 @@ Parameters:
     Default: ''
     Description: ARN of the CloudFront distribution that needs access to the data bucket (optional)
 
+  ExistingDataBucket:
+    Type: String
+    Default: ''
+    Description: Name of existing S3 bucket to use (leave empty to create new bucket)
+
 Conditions:
   HasCloudFrontAccess: !Not [!Equals [!Ref CloudFrontDistributionArn, '']]
   ScheduleEnabledCondition: !Equals [!Ref ScheduleEnabled, 'true']
+  CreateNewBucket: !Equals [!Ref ExistingDataBucket, '']
 
 Globals:
   Function:
     Runtime: python3.11
     Timeout: 60
     MemorySize: 256
+    Layers:
+      - !Ref SharedUtilsLayer
     Environment:
       Variables:
         ENVIRONMENT: !Ref Environment
-        DATA_BUCKET: !Ref DataBucket
+        DATA_BUCKET: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
         LOG_LEVEL: INFO
 
 Resources:
+  #############################################
+  # Shared Lambda Layer
+  #############################################
+  SharedUtilsLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'bedrock-profiler-shared-utils-${Environment}'
+      Description: Shared utilities for Bedrock Model Profiler Lambda functions
+      ContentUri: ../backend/layers/common/
+      CompatibleRuntimes:
+        - python3.11
+      RetentionPolicy: Delete
+
   #############################################
   # S3 Bucket for Data Storage
   #############################################
   DataBucket:
     Type: AWS::S3::Bucket
+    Condition: CreateNewBucket
     Properties:
       BucketName: !Sub 'bedrock-profiler-data-${AWS::AccountId}-${Environment}'
       VersioningConfiguration:
@@ -59,12 +81,12 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  # Bucket policy to allow CloudFront OAC access (only if CloudFront ARN is provided)
+  # Bucket policy to allow CloudFront OAC access (only if CloudFront ARN is provided AND creating new bucket)
   DataBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Condition: HasCloudFrontAccess
     Properties:
-      Bucket: !Ref DataBucket
+      Bucket: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -73,7 +95,9 @@ Resources:
             Principal:
               Service: cloudfront.amazonaws.com
             Action: s3:GetObject
-            Resource: !Sub '${DataBucket.Arn}/latest/*'
+            Resource: !Sub
+              - '${BucketArn}/latest/*'
+              - BucketArn: !If [CreateNewBucket, !GetAtt DataBucket.Arn, !Sub 'arn:aws:s3:::${ExistingDataBucket}']
             Condition:
               StringEquals:
                 AWS:SourceArn: !Ref CloudFrontDistributionArn
@@ -105,7 +129,10 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:PutObject
-              Resource: !Sub '${DataBucket.Arn}/*'
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
   PricingAggregatorFunction:
     Type: AWS::Serverless::Function
@@ -122,7 +149,10 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !Sub '${DataBucket.Arn}/*'
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
   # Wave 1: Model Extraction
   ModelExtractorFunction:
@@ -143,7 +173,10 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:PutObject
-              Resource: !Sub '${DataBucket.Arn}/*'
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
   ModelMergerFunction:
     Type: AWS::Serverless::Function
@@ -160,7 +193,10 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !Sub '${DataBucket.Arn}/*'
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
   # Wave 1: Quota Collection
   QuotaCollectorFunction:
@@ -182,7 +218,10 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:PutObject
-              Resource: !Sub '${DataBucket.Arn}/*'
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
   # Wave 2: Enrichment
   PricingLinkerFunction:
@@ -200,7 +239,10 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !Sub '${DataBucket.Arn}/*'
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
   RegionalAvailabilityFunction:
     Type: AWS::Serverless::Function
@@ -217,7 +259,10 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !Sub '${DataBucket.Arn}/*'
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
   FeatureCollectorFunction:
     Type: AWS::Serverless::Function
@@ -237,7 +282,10 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:PutObject
-              Resource: !Sub '${DataBucket.Arn}/*'
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
   TokenSpecsCollectorFunction:
     Type: AWS::Serverless::Function
@@ -254,7 +302,10 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !Sub '${DataBucket.Arn}/*'
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
   # Model Enrichment
   ModelEnricherFunction:
@@ -272,7 +323,10 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !Sub '${DataBucket.Arn}/*'
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
   # Final Aggregation
   FinalAggregatorFunction:
@@ -290,7 +344,10 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !Sub '${DataBucket.Arn}/*'
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
   CopyToLatestFunction:
     Type: AWS::Serverless::Function
@@ -308,7 +365,10 @@ Resources:
                 - s3:GetObject
                 - s3:PutObject
                 - s3:CopyObject
-              Resource: !Sub '${DataBucket.Arn}/*'
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
   #############################################
   # Step Functions State Machine
@@ -373,7 +433,7 @@ Resources:
       Name: !Sub 'bedrock-profiler-workflow-${Environment}'
       DefinitionUri: ../backend/statemachine/bedrock-profiler.asl.json
       DefinitionSubstitutions:
-        S3Bucket: !Ref DataBucket
+        S3Bucket: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
         PricingCollectorFunction: !GetAtt PricingCollectorFunction.Arn
         PricingAggregatorFunction: !GetAtt PricingAggregatorFunction.Arn
         ModelExtractorFunction: !GetAtt ModelExtractorFunction.Arn
@@ -446,20 +506,27 @@ Outputs:
 
   DataBucketName:
     Description: Name of the S3 data bucket
-    Value: !Ref DataBucket
+    Value: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
     Export:
       Name: !Sub '${AWS::StackName}-DataBucketName'
 
   DataBucketArn:
     Description: ARN of the S3 data bucket
-    Value: !GetAtt DataBucket.Arn
+    Value: !If
+      - CreateNewBucket
+      - !GetAtt DataBucket.Arn
+      - !Sub 'arn:aws:s3:::${ExistingDataBucket}'
     Export:
       Name: !Sub '${AWS::StackName}-DataBucketArn'
 
   LatestModelsUrl:
     Description: S3 URL for latest models JSON
-    Value: !Sub 's3://${DataBucket}/latest/bedrock_models.json'
+    Value: !Sub
+      - 's3://${BucketName}/latest/bedrock_models.json'
+      - BucketName: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
 
   LatestPricingUrl:
     Description: S3 URL for latest pricing JSON
-    Value: !Sub 's3://${DataBucket}/latest/bedrock_pricing.json'
+    Value: !Sub
+      - 's3://${BucketName}/latest/bedrock_pricing.json'
+      - BucketName: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]

@@ -5,7 +5,6 @@ Merges pricing data from all three Bedrock service codes into a unified structur
 Transforms data to match the expected frontend schema with pricing_groups.
 """
 
-import json
 import logging
 import os
 import re
@@ -13,17 +12,18 @@ import time
 from typing import Any
 from collections import defaultdict
 
-import boto3
-from botocore.config import Config
+from shared import (
+    get_s3_client,
+    read_from_s3,
+    write_to_s3,
+    parse_execution_id,
+    validate_required_params,
+    ValidationError,
+    S3ReadError,
+)
 
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
-
-RETRY_CONFIG = Config(
-    retries={'max_attempts': 3, 'mode': 'adaptive'},
-    connect_timeout=10,
-    read_timeout=30
-)
 
 # Region code to location name mapping
 REGION_LOCATIONS = {
@@ -56,25 +56,105 @@ REGION_LOCATIONS = {
 }
 
 
-def get_s3_client():
-    return boto3.client('s3', config=RETRY_CONFIG)
+def determine_pricing_type(usage_type: str, unit: str, description: str) -> dict:
+    """
+    Determine the pricing type and unit from usage type, unit, and description.
 
+    Returns:
+        {
+            'pricing_type': 'token' | 'image' | 'video_second' | 'model_unit' | 'other',
+            'unit_label': 'per 1K tokens' | 'per image' | etc.,
+            'is_input': True/False/None,
+            'is_output': True/False/None,
+        }
+    """
+    usage_lower = usage_type.lower()
+    unit_lower = (unit or '').lower()
+    desc_lower = (description or '').lower()
 
-def read_from_s3(s3_client: Any, bucket: str, key: str) -> dict:
-    """Read JSON data from S3."""
-    response = s3_client.get_object(Bucket=bucket, Key=key)
-    return json.loads(response['Body'].read().decode('utf-8'))
+    # Determine if input/output
+    is_input = 'input' in usage_lower or 'input' in desc_lower
+    is_output = 'output' in usage_lower or 'output' in desc_lower
 
-
-def write_to_s3(s3_client: Any, bucket: str, key: str, data: dict) -> None:
-    """Write JSON data to S3."""
-    s3_client.put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=json.dumps(data, indent=2, default=str),
-        ContentType='application/json'
+    # Check for per-image pricing
+    # Patterns: 'per image', 'image', 'images', 'images processed', 'created_image', 'output image'
+    is_image_pricing = (
+        'per image' in desc_lower or
+        unit_lower == 'images' or
+        unit_lower == 'image' or  # Support singular form (e.g., Nova Canvas)
+        'images processed' in desc_lower or
+        'created_image' in usage_lower or
+        'output image' in desc_lower or
+        ('stable' in desc_lower and 'image' in desc_lower)  # Stability AI pattern
     )
-    logger.info(f"Written to s3://{bucket}/{key}")
+
+    if is_image_pricing:
+        # Image generation models (Canvas, Titan Image Generator, Stability AI, etc.)
+        if 't2i' in usage_lower or 'i2i' in usage_lower or 'created_image' in usage_lower or ('stable' in desc_lower and 'image' in desc_lower):
+            return {
+                'pricing_type': 'image_generation',
+                'unit_label': 'per image',
+                'is_input': None,
+                'is_output': None,
+            }
+        # Image embedding/processing
+        return {
+            'pricing_type': 'image',
+            'unit_label': 'per image',
+            'is_input': is_input or not is_output,
+            'is_output': is_output,
+        }
+
+    # Check for video generation (I2V = image-to-video, T2V = text-to-video)
+    # Patterns: NovaReel-I2V-Medfps-HDRes, NovaReel-T2V-Lowfps-SDRes
+    is_video_generation = (
+        'i2v' in usage_lower or  # image-to-video
+        't2v' in usage_lower or  # text-to-video
+        ('video' in usage_lower and ('generation' in desc_lower or 'generated' in desc_lower))
+    )
+
+    if is_video_generation:
+        return {
+            'pricing_type': 'video_generation',
+            'unit_label': 'per video',
+            'is_input': None,
+            'is_output': None,
+        }
+
+    # Check for video pricing (per second or per frame) - for video processing, not generation
+    if 'video' in usage_lower and ('second' in unit_lower or 'frame' in unit_lower):
+        return {
+            'pricing_type': 'video',
+            'unit_label': f'per {unit_lower}',
+            'is_input': is_input,
+            'is_output': is_output,
+        }
+
+    # Check for model units (provisioned throughput)
+    if 'modelunit' in usage_lower or 'model-unit' in usage_lower or 'modelunits' in unit_lower:
+        return {
+            'pricing_type': 'model_unit',
+            'unit_label': 'per hour',
+            'is_input': None,
+            'is_output': None,
+        }
+
+    # Check for token-based pricing (most common)
+    if 'token' in usage_lower or 'token' in desc_lower or '1k token' in desc_lower or '1m token' in desc_lower:
+        return {
+            'pricing_type': 'token',
+            'unit_label': 'per 1K tokens',
+            'is_input': is_input,
+            'is_output': is_output,
+        }
+
+    # Default to token-based for text models
+    return {
+        'pricing_type': 'token',
+        'unit_label': 'per 1K tokens',
+        'is_input': is_input,
+        'is_output': is_output,
+    }
 
 
 def determine_pricing_group(usage_type: str, inference_type: str) -> str:
@@ -120,6 +200,99 @@ def determine_pricing_group(usage_type: str, inference_type: str) -> str:
         return 'On-Demand'
 
 
+def clean_model_name(raw_name: str) -> str:
+    """Clean model name by removing AWS-specific suffixes.
+
+    Examples:
+        'Stable Diffusion 3 Large v1.0 (Amazon Bedrock Edition)' -> 'Stable Diffusion 3 Large v1.0'
+        'Claude 3.5 Sonnet (Amazon Bedrock Edition)' -> 'Claude 3.5 Sonnet'
+    """
+    if not raw_name or raw_name.lower() in ['unknown', 'unknown model']:
+        return raw_name
+
+    cleaned = raw_name.strip()
+
+    # Remove AWS-specific suffixes
+    suffixes_to_remove = [
+        '(Amazon Bedrock Edition)',
+        '(Amazon Bedrock)',
+        'Amazon Bedrock Edition',
+        'Amazon Bedrock'
+    ]
+
+    for suffix in suffixes_to_remove:
+        if suffix in cleaned:
+            cleaned = cleaned.replace(suffix, '').strip()
+
+    return cleaned if cleaned else raw_name
+
+
+def extract_from_usagetype(usagetype: str) -> str:
+    """Extract model name from usagetype as fallback.
+
+    Patterns like:
+    - "USE1-NovaLite-input-tokens" -> "Nova Lite"
+    - "APN1-Claude3Sonnet-output" -> "Claude 3 Sonnet"
+    """
+    if not usagetype:
+        return None
+
+    # Remove region prefix (e.g., "USE1-", "APN1-")
+    parts = usagetype.split('-')
+    if len(parts) < 2:
+        return None
+
+    # Skip common non-model parts
+    skip_parts = ['mp', 'input', 'output', 'tokens', 'count', 'units', 'cache', 'read', 'write']
+
+    for part in parts[1:]:
+        if part.lower() in skip_parts:
+            continue
+
+        # If part looks like a model name (contains letters and is substantial)
+        if len(part) > 3 and any(c.isalpha() for c in part):
+            # Try to format it nicely (camelCase -> Title Case)
+            formatted = re.sub(r'([a-z])([A-Z])', r'\1 \2', part)
+            if len(formatted) > 3:
+                return formatted
+
+    return None
+
+
+def extract_raw_model_name(attributes: dict) -> str:
+    """Extract raw model name using multi-strategy approach.
+
+    Priority order:
+    1. servicename (for AmazonBedrockFoundationModels)
+    2. model (for AmazonBedrock, AmazonBedrockService)
+    3. titanModel (special case for Titan models)
+    4. Fallback extraction from usagetype
+    """
+    # Strategy 1: servicename (most common in AmazonBedrockFoundationModels)
+    servicename = attributes.get('servicename', '').strip()
+    if servicename and servicename not in ['Amazon Bedrock', 'Amazon Bedrock Service']:
+        return servicename
+
+    # Strategy 2: model field (most common in AmazonBedrock, AmazonBedrockService)
+    model = attributes.get('model', '').strip()
+    if model and model.lower() != 'unknown':
+        return model
+
+    # Strategy 3: titanModel field (special case)
+    titan_model = attributes.get('titanModel', '').strip()
+    if titan_model:
+        return titan_model
+
+    # Strategy 4: Extract from usagetype (fallback)
+    usagetype = attributes.get('usagetype', '')
+    if usagetype:
+        extracted = extract_from_usagetype(usagetype)
+        if extracted:
+            return extracted
+
+    return 'Unknown Model'
+
+
 def extract_model_info(product: dict) -> dict:
     """Extract model information from a pricing product."""
     attributes = product.get('product', {}).get('attributes', {})
@@ -152,8 +325,12 @@ def extract_model_info(product: dict) -> dict:
     if price and 'per 1M' in description.lower():
         price = price / 1000  # Convert to per-thousand
 
+    # Get model name using multi-strategy extraction
+    raw_model_name = extract_raw_model_name(attributes)
+    model_name = clean_model_name(raw_model_name)
+
     return {
-        'model': attributes.get('model', 'Unknown'),
+        'model': model_name,
         'region': attributes.get('regionCode', 'Unknown'),
         'inferenceType': attributes.get('inferenceType', ''),
         'usageType': attributes.get('usagetype', ''),
@@ -164,31 +341,149 @@ def extract_model_info(product: dict) -> dict:
         'currency': currency,
         'sku': product.get('product', {}).get('sku', ''),
         'description': description,
-        'serviceCode': attributes.get('servicecode', 'AmazonBedrock')
+        'serviceCode': attributes.get('servicecode', 'AmazonBedrock'),
+        'attributes': attributes  # Pass all attributes for provider detection fallback
     }
 
 
-def infer_provider(model_name: str) -> str:
-    """Infer the provider from the model name."""
+def detect_custom_model_type(description: str, dimension: str) -> str:
+    """Detect if this is a Custom Model Import vs Custom Model Training.
+
+    Args:
+        description: Price description
+        dimension: Price dimension (usagetype)
+
+    Returns:
+        'Custom Model Import', 'Custom Model Training', or None
+    """
+    desc_lower = description.lower()
+    dim_lower = dimension.lower()
+
+    # Custom Model Import indicators
+    import_indicators = [
+        'flan architecture', 'llama architecture', 'inference for', 'storage for',
+        'custom model unit per min for inference', 'custom model unit/month storage',
+        'imported model', 'model import'
+    ]
+
+    # Custom Model Training/Customization indicators
+    training_indicators = [
+        'customization-training', 'customization-storage', 'fine', 'finetun',
+        'training', 'custom training', 'model customization'
+    ]
+
+    # Check for import patterns
+    if any(indicator in desc_lower or indicator in dim_lower for indicator in import_indicators):
+        return 'Custom Model Import'
+
+    # Check for training/customization patterns
+    if any(indicator in desc_lower or indicator in dim_lower for indicator in training_indicators):
+        return 'Custom Model Training'
+
+    return None
+
+
+# Provider keyword patterns - expanded to match old version's coverage
+PROVIDER_PATTERNS = {
+    'Amazon': ['titan', 'nova', 'amazon-bedrock', 'rerank'],
+    'Anthropic': ['claude', 'anthropic'],
+    'Meta': ['llama', 'mllama'],
+    'Mistral AI': ['mistral', 'mixtral', 'ministral', 'magistral', 'pixtral', 'voxtral'],
+    'Cohere': ['cohere', 'command', 'embed'],  # 'rerank' moved to Amazon per old version
+    'AI21 Labs': ['ai21', 'jamba', 'jurassic'],
+    'Stability AI': ['stable', 'stability', 'sdxl'],
+    'Luma AI': ['luma', 'ray'],  # Expanded: 'ray' not just 'ray-v'
+    'Writer': ['writer', 'palmyra'],
+    'NVIDIA': ['nvidia', 'nemotron'],
+    'Qwen': ['qwen'],
+    'OpenAI': ['gpt', 'openai'],  # Expanded: 'gpt' not just 'gpt-oss'
+    'DeepSeek': ['deepseek', 'r1'],
+    'Google': ['gemma', 'gemini'],
+    'TwelveLabs': ['twelve', 'twelvelabs', 'marengo', 'pegasus'],  # Expanded: 'twelve'
+    'MiniMax': ['minimax'],
+    'Moonshot AI': ['kimi', 'moonshot'],
+}
+
+# Explicit provider name mappings (high confidence matches)
+# Used both for extraction from model names AND for normalizing provider attributes
+EXPLICIT_PROVIDER_NAMES = {
+    'twelvelabs': 'TwelveLabs',
+    'twelve labs': 'TwelveLabs',
+    'cohere': 'Cohere',
+    'luma ai': 'Luma AI',
+    'luma': 'Luma AI',
+    'anthropic': 'Anthropic',
+    'stability ai': 'Stability AI',
+    'ai21 labs': 'AI21 Labs',
+    'ai21': 'AI21 Labs',
+    'mistral ai': 'Mistral AI',
+    'mistral': 'Mistral AI',
+    'deepseek': 'DeepSeek',
+    'writer': 'Writer',
+    'meta': 'Meta',
+    'amazon': 'Amazon',
+    'google': 'Google',
+    'nvidia': 'NVIDIA',
+    'openai': 'OpenAI',
+    'qwen': 'Qwen',
+    'minimax': 'MiniMax',
+}
+
+
+def normalize_provider_name(provider: str) -> str:
+    """Normalize provider name to match model data provider names.
+
+    E.g., 'Mistral' -> 'Mistral AI', 'mistral' -> 'Mistral AI'
+    """
+    if not provider:
+        return provider
+
+    provider_lower = provider.lower().strip()
+
+    # Check explicit mappings first
+    if provider_lower in EXPLICIT_PROVIDER_NAMES:
+        return EXPLICIT_PROVIDER_NAMES[provider_lower]
+
+    # Return as-is if no mapping found
+    return provider
+
+
+def infer_provider(model_name: str, attributes: dict = None) -> str:
+    """Infer the provider from the model name and attributes.
+
+    Uses multi-strategy approach:
+    1. Check explicit 'provider' attribute (normalized to match model data)
+    2. Check explicit provider names in model name
+    3. Check generic keywords in model name
+    4. Fallback: search ALL attributes for provider keywords
+    """
     model_lower = model_name.lower()
 
-    provider_patterns = {
-        'Amazon': ['titan', 'nova'],
-        'Anthropic': ['claude'],
-        'Meta': ['llama'],
-        'Mistral AI': ['mistral', 'mixtral'],
-        'Cohere': ['cohere', 'command', 'embed'],
-        'AI21 Labs': ['ai21', 'jamba', 'jurassic'],
-        'Stability AI': ['stable', 'stability', 'sdxl'],
-        'Luma': ['luma'],
-        'Writer': ['writer', 'palmyra'],
-        'NVIDIA': ['nvidia', 'nemotron'],
-    }
+    # Strategy 1: Check explicit 'provider' attribute (AmazonBedrockService has this)
+    if attributes:
+        explicit_provider = attributes.get('provider', '').strip()
+        if explicit_provider and explicit_provider.lower() != 'unknown':
+            # Normalize to match model data provider names (e.g., 'Mistral' -> 'Mistral AI')
+            return normalize_provider_name(explicit_provider)
 
-    for provider, patterns in provider_patterns.items():
+    # Strategy 2: Check for explicit provider names in model name (high confidence)
+    for explicit_name, provider in EXPLICIT_PROVIDER_NAMES.items():
+        if explicit_name in model_lower:
+            return provider
+
+    # Strategy 3: Check generic keywords in model name
+    for provider, patterns in PROVIDER_PATTERNS.items():
         for pattern in patterns:
             if pattern in model_lower:
                 return provider
+
+    # Strategy 4: Fallback - search ALL attributes for provider keywords
+    if attributes:
+        all_text = ' '.join(str(v) for v in attributes.values()).lower()
+        for provider, patterns in PROVIDER_PATTERNS.items():
+            for pattern in patterns:
+                if pattern in all_text:
+                    return provider
 
     return 'Unknown Models'
 
@@ -249,11 +544,17 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
         model_name = info['model']
         region = info['region']
 
-        if model_name == 'Unknown' or region == 'Unknown':
+        if model_name == 'Unknown' or model_name == 'Unknown Model' or region == 'Unknown':
             continue
 
-        # Infer provider
-        provider = infer_provider(model_name)
+        # Check for Custom Model Import/Training first
+        custom_model_type = detect_custom_model_type(info['description'], info['usageType'])
+
+        # Infer provider with all attributes for fallback detection
+        if custom_model_type == 'Custom Model Import':
+            provider = 'Custom Model Import'
+        else:
+            provider = infer_provider(model_name, info.get('attributes'))
 
         # Create model ID
         model_id = normalize_model_id(model_name, provider)
@@ -265,10 +566,18 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
         # Get location name
         location = REGION_LOCATIONS.get(region, region)
 
+        # Determine pricing type
+        pricing_type_info = determine_pricing_type(
+            info['usageType'],
+            info['unit'],
+            info['description']
+        )
+
         # Build pricing entry in expected schema
         pricing_entry = {
             'dimension': info['usageType'],
-            'price_per_thousand': info['price'],
+            'price_per_unit': info['price'],  # Generic price per unit
+            'price_per_thousand': info['price'] if pricing_type_info['pricing_type'] == 'token' else None,
             'original_price': info['original_price'],
             'unit': info['unit'] or 'tokens',
             'description': info['description'],
@@ -280,6 +589,10 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
             'location': location,
             'operation': info['operation'],
             'service_code': info['serviceCode'],
+            'pricing_type': pricing_type_info['pricing_type'],
+            'unit_label': pricing_type_info['unit_label'],
+            'is_input': pricing_type_info['is_input'],
+            'is_output': pricing_type_info['is_output'],
             'pricing_characteristics': {
                 'inference_type': 'on_demand' if 'on-demand' in pricing_group.lower() else (
                     'batch' if 'batch' in pricing_group.lower() else 'other'
@@ -292,6 +605,8 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
 
         models_data[model_id]['model_name'] = model_name
         models_data[model_id]['model_provider'] = provider
+        models_data[model_id]['pricing_types'] = models_data[model_id].get('pricing_types', set())
+        models_data[model_id]['pricing_types'].add(pricing_type_info['pricing_type'])
         models_data[model_id]['regions'][region]['pricing_groups'][pricing_group].append(pricing_entry)
         total_entries += 1
 
@@ -304,9 +619,23 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
     for model_id, model_data in models_data.items():
         provider = model_data['model_provider']
 
+        # Convert pricing_types set to list for JSON serialization
+        pricing_types_list = sorted(list(model_data.get('pricing_types', set())))
+
+        # Determine primary pricing type for the model
+        # Priority: video_generation > image_generation > video > image > model_unit > token
+        # Image/video generation models should show per-image/video pricing, not token pricing
+        primary_pricing_type = 'token'  # default
+        for pt in ['video_generation', 'image_generation', 'video', 'image', 'model_unit', 'token']:
+            if pt in pricing_types_list:
+                primary_pricing_type = pt
+                break
+
         model_entry = {
             'model_name': model_data['model_name'],
             'model_provider': provider,
+            'pricing_types': pricing_types_list,
+            'primary_pricing_type': primary_pricing_type,
             'regions': {}
         }
 
@@ -382,14 +711,20 @@ def lambda_handler(event: dict, context: Any) -> dict:
     start_time = time.time()
     collection_timestamp = time.strftime('%Y-%m-%dT%H:%M:%S.%fZ', time.gmtime())
 
+    # Validate required parameters
+    try:
+        validate_required_params(event, ['s3Bucket', 'executionId', 'pricingResults'], 'PricingAggregator')
+    except ValidationError as e:
+        return {
+            'status': 'FAILED',
+            'errorType': 'ValidationError',
+            'errorMessage': str(e)
+        }
+
     s3_bucket = event['s3Bucket']
-    execution_id = event['executionId']
+    execution_id = parse_execution_id(event['executionId'])
     pricing_results = event['pricingResults']
     dry_run = event.get('dryRun', False)
-
-    # Extract just the execution ID portion if full ARN provided
-    if ':' in execution_id:
-        execution_id = execution_id.split(':')[-1]
 
     output_key = f"executions/{execution_id}/merged/pricing.json"
 

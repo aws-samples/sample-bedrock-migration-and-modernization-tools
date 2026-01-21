@@ -129,7 +129,8 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
 
   // Get pricing from new pricing data source, fallback to old method
   const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
-  const { inputPrice, outputPrice } = pricingResult?.summary || extractPricing(model, preferredRegion)
+  const pricingSummary = pricingResult?.summary || extractPricing(model, preferredRegion)
+  const { inputPrice, outputPrice, pricingType, unitLabel, imagePrice, imagePrices, videoPrice, videoPrices } = pricingSummary
 
   const crisSupported = model.cross_region_inference?.supported || false
   const streamingSupported = model.streaming_supported || false
@@ -338,38 +339,111 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
 
           {/* ═══ PRICING & DEPLOYMENT ═══ */}
           <div className="space-y-2">
-            {/* Pricing */}
-            <InfoTooltip content="Cost per 1,000 tokens. Input = what you send, Output = what model generates" side="top">
-              <div className="cursor-help">
-                {inputPrice !== null ? (
-                  <div className={cn(
-                    'grid grid-cols-2 gap-2 text-xs rounded-md p-2',
-                    isLight ? 'bg-stone-100/60' : 'bg-white/5'
-                  )}>
-                    <div className="text-center">
-                      <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>Input</p>
-                      <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-white')}>
-                        ${inputPrice < 0.0001 ? inputPrice.toFixed(6) : inputPrice.toFixed(4)}
+            {/* Pricing - handles different pricing types */}
+            {pricingType === 'video_generation' ? (
+              /* Video Generation Pricing */
+              <InfoTooltip content="Cost per generated video. Varies by resolution, duration, and fps." side="top">
+                <div className="cursor-help">
+                  {videoPrice !== null ? (
+                    <div className={cn(
+                      'text-xs rounded-md p-2',
+                      isLight ? 'bg-stone-100/60' : 'bg-white/5'
+                    )}>
+                      <div className="text-center">
+                        <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                          <Video className="h-3 w-3 inline mr-1" />
+                          Per Video
+                        </p>
+                        <p className={cn('font-semibold text-lg', isLight ? 'text-stone-800' : 'text-white')}>
+                          ${videoPrice < 0.01 ? videoPrice.toFixed(4) : videoPrice.toFixed(2)}
+                        </p>
+                      </div>
+                      {videoPrices && Object.keys(videoPrices).length > 1 && (
+                        <p className={cn('text-center text-[10px] mt-1', isLight ? 'text-stone-400' : 'text-slate-600')}>
+                          {Object.keys(videoPrices).length} pricing tiers
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className={cn(
+                      'text-center text-xs py-2 rounded-md',
+                      isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-slate-500'
+                    )}>
+                      Pricing unavailable
+                    </div>
+                  )}
+                </div>
+              </InfoTooltip>
+            ) : pricingType === 'image_generation' ? (
+              /* Image Generation Pricing */
+              <InfoTooltip content="Cost per generated image. Varies by resolution and quality tier." side="top">
+                <div className="cursor-help">
+                  {imagePrice !== null ? (
+                    <div className={cn(
+                      'text-xs rounded-md p-2',
+                      isLight ? 'bg-stone-100/60' : 'bg-white/5'
+                    )}>
+                      <div className="text-center">
+                        <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                          <Image className="h-3 w-3 inline mr-1" />
+                          Per Image
+                        </p>
+                        <p className={cn('font-semibold text-lg', isLight ? 'text-stone-800' : 'text-white')}>
+                          ${imagePrice < 0.01 ? imagePrice.toFixed(4) : imagePrice.toFixed(2)}
+                        </p>
+                      </div>
+                      {imagePrices && Object.keys(imagePrices).length > 1 && (
+                        <p className={cn('text-center text-[10px] mt-1', isLight ? 'text-stone-400' : 'text-slate-600')}>
+                          {Object.keys(imagePrices).length} pricing tiers
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className={cn(
+                      'text-center text-xs py-2 rounded-md',
+                      isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-slate-500'
+                    )}>
+                      Pricing unavailable
+                    </div>
+                  )}
+                </div>
+              </InfoTooltip>
+            ) : (
+              /* Token-based Pricing (default) */
+              <InfoTooltip content="Cost per 1,000 tokens. Input = what you send, Output = what model generates" side="top">
+                <div className="cursor-help">
+                  {inputPrice !== null ? (
+                    <div className={cn(
+                      'grid grid-cols-2 gap-2 text-xs rounded-md p-2',
+                      isLight ? 'bg-stone-100/60' : 'bg-white/5'
+                    )}>
+                      <div className="text-center">
+                        <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>Input</p>
+                        <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-white')}>
+                          ${inputPrice < 0.0001 ? inputPrice.toFixed(6) : inputPrice.toFixed(4)}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>Output</p>
+                        <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-white')}>
+                          ${outputPrice !== null ? (outputPrice < 0.0001 ? outputPrice.toFixed(6) : outputPrice.toFixed(4)) : 'N/A'}
+                        </p>
+                      </div>
+                      <p className={cn('col-span-2 text-center text-[10px] -mt-1', isLight ? 'text-stone-400' : 'text-slate-600')}>
+                        {unitLabel || 'per 1K tokens'}
                       </p>
                     </div>
-                    <div className="text-center">
-                      <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>Output</p>
-                      <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-white')}>
-                        ${outputPrice !== null ? (outputPrice < 0.0001 ? outputPrice.toFixed(6) : outputPrice.toFixed(4)) : 'N/A'}
-                      </p>
+                  ) : (
+                    <div className={cn(
+                      'text-center text-xs py-2 rounded-md',
+                      isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-slate-500'
+                    )}>
+                      Pricing unavailable
                     </div>
-                    <p className={cn('col-span-2 text-center text-[10px] -mt-1', isLight ? 'text-stone-400' : 'text-slate-600')}>per 1K tokens</p>
-                  </div>
-                ) : (
-                  <div className={cn(
-                    'text-center text-xs py-2 rounded-md',
-                    isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-slate-500'
-                  )}>
-                    Pricing unavailable
-                  </div>
-                )}
-              </div>
-            </InfoTooltip>
+                  )}
+                </div>
+              </InfoTooltip>
+            )}
 
             {/* Deployment Options */}
             {consumptionOptions.length > 0 && (
