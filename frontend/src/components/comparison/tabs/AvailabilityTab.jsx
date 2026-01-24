@@ -3,21 +3,10 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { awsRegions } from '@/utils/filters'
 import { RegionMap } from '../RegionMap'
+import { providerColorClasses } from '@/config/constants'
 
-// Provider colors
-const providerColors = {
-  Amazon: 'bg-[#FF9900]',
-  Anthropic: 'bg-[#D4A27F]',
-  Meta: 'bg-[#0082FB]',
-  Mistral: 'bg-[#F54E42]',
-  Cohere: 'bg-[#39594D]',
-  'AI21 Labs': 'bg-[#6C5CE7]',
-  AI21: 'bg-[#6C5CE7]',
-  'Stability AI': 'bg-[#7C5CFF]',
-  Stability: 'bg-[#7C5CFF]',
-  Luma: 'bg-[#6366F1]',
-  default: 'bg-slate-500',
-}
+// Use providerColorClasses from constants
+const providerColors = providerColorClasses
 
 // Group regions by geography
 const geoGroups = {

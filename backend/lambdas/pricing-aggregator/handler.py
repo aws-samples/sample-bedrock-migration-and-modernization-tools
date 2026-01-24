@@ -20,40 +20,38 @@ from shared import (
     validate_required_params,
     ValidationError,
     S3ReadError,
+    get_config_loader,
 )
 
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
 
-# Region code to location name mapping
-REGION_LOCATIONS = {
-    'us-east-1': 'US East (N. Virginia)',
-    'us-east-2': 'US East (Ohio)',
-    'us-west-1': 'US West (N. California)',
-    'us-west-2': 'US West (Oregon)',
-    'eu-west-1': 'Europe (Ireland)',
-    'eu-west-2': 'Europe (London)',
-    'eu-west-3': 'Europe (Paris)',
-    'eu-central-1': 'Europe (Frankfurt)',
-    'eu-north-1': 'Europe (Stockholm)',
-    'eu-south-1': 'Europe (Milan)',
-    'eu-south-2': 'Europe (Spain)',
-    'ap-northeast-1': 'Asia Pacific (Tokyo)',
-    'ap-northeast-2': 'Asia Pacific (Seoul)',
-    'ap-northeast-3': 'Asia Pacific (Osaka)',
-    'ap-southeast-1': 'Asia Pacific (Singapore)',
-    'ap-southeast-2': 'Asia Pacific (Sydney)',
-    'ap-southeast-3': 'Asia Pacific (Jakarta)',
-    'ap-southeast-5': 'Asia Pacific (Malaysia)',
-    'ap-south-1': 'Asia Pacific (Mumbai)',
-    'sa-east-1': 'South America (Sao Paulo)',
-    'ca-central-1': 'Canada (Central)',
-    'ca-west-1': 'Canada West (Calgary)',
-    'me-south-1': 'Middle East (Bahrain)',
-    'me-central-1': 'Middle East (UAE)',
-    'il-central-1': 'Israel (Tel Aviv)',
-    'af-south-1': 'Africa (Cape Town)',
-}
+# Configuration loader - initialized on first use
+_config_loader = None
+
+
+def _get_config():
+    """Get the configuration loader (lazy initialization)."""
+    global _config_loader
+    if _config_loader is None:
+        _config_loader = get_config_loader()
+        _config_loader.load_config()
+    return _config_loader
+
+
+def get_region_locations() -> dict:
+    """Get region locations from configuration."""
+    return _get_config().get_region_locations()
+
+
+def get_provider_patterns() -> dict:
+    """Get provider patterns from configuration."""
+    return _get_config().get_provider_patterns()
+
+
+def get_explicit_provider_names() -> dict:
+    """Get explicit provider name mappings from configuration."""
+    return _get_config().get_explicit_provider_names()
 
 
 def determine_pricing_type(usage_type: str, unit: str, description: str) -> dict:
@@ -383,53 +381,6 @@ def detect_custom_model_type(description: str, dimension: str) -> str:
     return None
 
 
-# Provider keyword patterns - expanded to match old version's coverage
-PROVIDER_PATTERNS = {
-    'Amazon': ['titan', 'nova', 'amazon-bedrock', 'rerank'],
-    'Anthropic': ['claude', 'anthropic'],
-    'Meta': ['llama', 'mllama'],
-    'Mistral AI': ['mistral', 'mixtral', 'ministral', 'magistral', 'pixtral', 'voxtral'],
-    'Cohere': ['cohere', 'command', 'embed'],  # 'rerank' moved to Amazon per old version
-    'AI21 Labs': ['ai21', 'jamba', 'jurassic'],
-    'Stability AI': ['stable', 'stability', 'sdxl'],
-    'Luma AI': ['luma', 'ray'],  # Expanded: 'ray' not just 'ray-v'
-    'Writer': ['writer', 'palmyra'],
-    'NVIDIA': ['nvidia', 'nemotron'],
-    'Qwen': ['qwen'],
-    'OpenAI': ['gpt', 'openai'],  # Expanded: 'gpt' not just 'gpt-oss'
-    'DeepSeek': ['deepseek', 'r1'],
-    'Google': ['gemma', 'gemini'],
-    'TwelveLabs': ['twelve', 'twelvelabs', 'marengo', 'pegasus'],  # Expanded: 'twelve'
-    'MiniMax': ['minimax'],
-    'Moonshot AI': ['kimi', 'moonshot'],
-}
-
-# Explicit provider name mappings (high confidence matches)
-# Used both for extraction from model names AND for normalizing provider attributes
-EXPLICIT_PROVIDER_NAMES = {
-    'twelvelabs': 'TwelveLabs',
-    'twelve labs': 'TwelveLabs',
-    'cohere': 'Cohere',
-    'luma ai': 'Luma AI',
-    'luma': 'Luma AI',
-    'anthropic': 'Anthropic',
-    'stability ai': 'Stability AI',
-    'ai21 labs': 'AI21 Labs',
-    'ai21': 'AI21 Labs',
-    'mistral ai': 'Mistral AI',
-    'mistral': 'Mistral AI',
-    'deepseek': 'DeepSeek',
-    'writer': 'Writer',
-    'meta': 'Meta',
-    'amazon': 'Amazon',
-    'google': 'Google',
-    'nvidia': 'NVIDIA',
-    'openai': 'OpenAI',
-    'qwen': 'Qwen',
-    'minimax': 'MiniMax',
-}
-
-
 def normalize_provider_name(provider: str) -> str:
     """Normalize provider name to match model data provider names.
 
@@ -440,9 +391,10 @@ def normalize_provider_name(provider: str) -> str:
 
     provider_lower = provider.lower().strip()
 
-    # Check explicit mappings first
-    if provider_lower in EXPLICIT_PROVIDER_NAMES:
-        return EXPLICIT_PROVIDER_NAMES[provider_lower]
+    # Check explicit mappings first (from config)
+    explicit_names = get_explicit_provider_names()
+    if provider_lower in explicit_names:
+        return explicit_names[provider_lower]
 
     # Return as-is if no mapping found
     return provider
@@ -466,13 +418,17 @@ def infer_provider(model_name: str, attributes: dict = None) -> str:
             # Normalize to match model data provider names (e.g., 'Mistral' -> 'Mistral AI')
             return normalize_provider_name(explicit_provider)
 
+    # Get mappings from config
+    explicit_names = get_explicit_provider_names()
+    provider_patterns = get_provider_patterns()
+
     # Strategy 2: Check for explicit provider names in model name (high confidence)
-    for explicit_name, provider in EXPLICIT_PROVIDER_NAMES.items():
+    for explicit_name, provider in explicit_names.items():
         if explicit_name in model_lower:
             return provider
 
     # Strategy 3: Check generic keywords in model name
-    for provider, patterns in PROVIDER_PATTERNS.items():
+    for provider, patterns in provider_patterns.items():
         for pattern in patterns:
             if pattern in model_lower:
                 return provider
@@ -480,7 +436,7 @@ def infer_provider(model_name: str, attributes: dict = None) -> str:
     # Strategy 4: Fallback - search ALL attributes for provider keywords
     if attributes:
         all_text = ' '.join(str(v) for v in attributes.values()).lower()
-        for provider, patterns in PROVIDER_PATTERNS.items():
+        for provider, patterns in provider_patterns.items():
             for pattern in patterns:
                 if pattern in all_text:
                     return provider
@@ -563,8 +519,9 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
         pricing_group = determine_pricing_group(info['usageType'], info['inferenceType'])
         group_types_seen.add(pricing_group)
 
-        # Get location name
-        location = REGION_LOCATIONS.get(region, region)
+        # Get location name from config
+        region_locations = get_region_locations()
+        location = region_locations.get(region, region)
 
         # Determine pricing type
         pricing_type_info = determine_pricing_type(

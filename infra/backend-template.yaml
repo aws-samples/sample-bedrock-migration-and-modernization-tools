@@ -370,6 +370,54 @@ Resources:
                 - !Sub '${DataBucket.Arn}/*'
                 - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
+  # Gap Detection - Analyzes pipeline output for data gaps
+  GapDetectionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-gap-detection-${Environment}'
+      CodeUri: ../backend/lambdas/gap-detection/
+      Handler: handler.lambda_handler
+      Timeout: 120
+      MemorySize: 512
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+
+  # Self-Healing Agent - Uses Bedrock Claude to suggest config updates
+  SelfHealingAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-self-healing-agent-${Environment}'
+      CodeUri: ../backend/lambdas/self-healing-agent/
+      Handler: handler.lambda_handler
+      Timeout: 300
+      MemorySize: 1024
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource:
+                - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-*'
+                - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/us.anthropic.claude-*'
+
   #############################################
   # Step Functions State Machine
   #############################################
@@ -405,6 +453,8 @@ Resources:
                   - !GetAtt ModelEnricherFunction.Arn
                   - !GetAtt FinalAggregatorFunction.Arn
                   - !GetAtt CopyToLatestFunction.Arn
+                  - !GetAtt GapDetectionFunction.Arn
+                  - !GetAtt SelfHealingAgentFunction.Arn
         - PolicyName: CloudWatchLogs
           PolicyDocument:
             Version: '2012-10-17'
@@ -446,6 +496,8 @@ Resources:
         ModelEnricherFunction: !GetAtt ModelEnricherFunction.Arn
         FinalAggregatorFunction: !GetAtt FinalAggregatorFunction.Arn
         CopyToLatestFunction: !GetAtt CopyToLatestFunction.Arn
+        GapDetectionFunction: !GetAtt GapDetectionFunction.Arn
+        SelfHealingAgentFunction: !GetAtt SelfHealingAgentFunction.Arn
       Role: !GetAtt StateMachineRole.Arn
       Logging:
         Destinations:

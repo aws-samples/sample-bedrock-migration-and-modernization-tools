@@ -1,6 +1,7 @@
 import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { providerColorClasses } from '@/config/constants'
 
 const modalityIcons = {
   TEXT: MessageSquare,
@@ -23,20 +24,8 @@ function formatPrice(price) {
   return `$${price < 0.0001 ? price.toFixed(6) : price.toFixed(4)}`
 }
 
-// Provider colors
-const providerColors = {
-  Amazon: 'bg-[#FF9900]',
-  Anthropic: 'bg-[#D4A27F]',
-  Meta: 'bg-[#0082FB]',
-  Mistral: 'bg-[#F54E42]',
-  Cohere: 'bg-[#39594D]',
-  'AI21 Labs': 'bg-[#6C5CE7]',
-  AI21: 'bg-[#6C5CE7]',
-  'Stability AI': 'bg-[#7C5CFF]',
-  Stability: 'bg-[#7C5CFF]',
-  Luma: 'bg-[#6366F1]',
-  default: 'bg-slate-500',
-}
+// Use providerColorClasses from constants
+const providerColors = providerColorClasses
 
 function MetricRow({ label, values, isLight, bestIndex = null, lowerIsBetter = false }) {
   return (

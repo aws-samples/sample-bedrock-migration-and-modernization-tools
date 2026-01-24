@@ -19,52 +19,23 @@ from shared import (
     validate_required_params,
     ValidationError,
     S3ReadError,
+    get_config_loader,
 )
 
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
 
-# Documentation links per provider (matching expected schema)
-DOCUMENTATION_LINKS = {
-    'Anthropic': {
-        'aws_bedrock_guide': 'https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-claude.html',
-        'pricing_guide': 'https://aws.amazon.com/bedrock/pricing/'
-    },
-    'Amazon': {
-        'aws_bedrock_guide': 'https://docs.aws.amazon.com/bedrock/latest/userguide/titan-models.html',
-        'pricing_guide': 'https://aws.amazon.com/bedrock/pricing/'
-    },
-    'Meta': {
-        'aws_bedrock_guide': 'https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-meta.html',
-        'pricing_guide': 'https://aws.amazon.com/bedrock/pricing/'
-    },
-    'Mistral AI': {
-        'aws_bedrock_guide': 'https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-mistral.html',
-        'pricing_guide': 'https://aws.amazon.com/bedrock/pricing/'
-    },
-    'Cohere': {
-        'aws_bedrock_guide': 'https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-cohere.html',
-        'pricing_guide': 'https://aws.amazon.com/bedrock/pricing/'
-    },
-    'AI21 Labs': {
-        'aws_bedrock_guide': 'https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-ai21.html',
-        'pricing_guide': 'https://aws.amazon.com/bedrock/pricing/'
-    },
-    'Stability AI': {
-        'aws_bedrock_guide': 'https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-stability-diffusion.html',
-        'pricing_guide': 'https://aws.amazon.com/bedrock/pricing/'
-    },
-    'default': {
-        'aws_bedrock_guide': 'https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html',
-        'pricing_guide': 'https://aws.amazon.com/bedrock/pricing/'
-    }
-}
+# Configuration loader - initialized on first use
+_config_loader = None
 
-# Nova-specific documentation
-NOVA_DOCS = {
-    'aws_bedrock_guide': 'https://docs.aws.amazon.com/nova/latest/userguide/what-is-nova.html',
-    'pricing_guide': 'https://aws.amazon.com/bedrock/pricing/'
-}
+
+def _get_config():
+    """Get the configuration loader (lazy initialization)."""
+    global _config_loader
+    if _config_loader is None:
+        _config_loader = get_config_loader()
+        _config_loader.load_config()
+    return _config_loader
 
 
 
@@ -159,12 +130,17 @@ def get_documentation_links(model_data: dict) -> dict:
     provider = model_data.get('model_provider', '')
     model_id = model_data.get('model_id', '').lower()
 
+    # Get documentation links from config
+    config = _get_config()
+    all_docs = config.get_documentation_links()
+
     # Check for Nova models (Amazon's newer models)
     if 'nova' in model_id:
-        return NOVA_DOCS.copy()
+        nova_docs = all_docs.get('nova', all_docs.get('default', {}))
+        return nova_docs.copy()
 
     # Get provider-specific docs or default
-    return DOCUMENTATION_LINKS.get(provider, DOCUMENTATION_LINKS['default']).copy()
+    return all_docs.get(provider, all_docs.get('default', {})).copy()
 
 
 def enrich_model(model_data: dict) -> dict:

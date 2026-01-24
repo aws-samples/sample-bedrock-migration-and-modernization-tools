@@ -1,0 +1,344 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2024-01-24T00:00:00Z",
+
+  "provider_configuration": {
+    "provider_aliases": {
+      "amazon": ["amazon", "aws"],
+      "anthropic": ["anthropic"],
+      "meta": ["meta", "facebook"],
+      "mistral ai": ["mistral", "mistralai", "mistral ai"],
+      "stability ai": ["stability", "stabilityai", "stability ai"],
+      "cohere": ["cohere"],
+      "ai21 labs": ["ai21", "ai21labs", "ai21 labs"],
+      "luma ai": ["luma", "lumaai", "luma ai"],
+      "twelvelabs": ["twelvelabs", "twelve labs", "twelverlabs"],
+      "minimax": ["minimax", "minimax ai", "minimax-ai"],
+      "moonshot ai": ["moonshot", "moonshot ai", "kimi", "kimi ai"],
+      "deepseek": ["deepseek"],
+      "qwen": ["qwen", "qwen2", "alibaba"],
+      "google": ["google"],
+      "nvidia": ["nvidia"],
+      "openai": ["openai"],
+      "writer": ["writer"]
+    },
+
+    "provider_patterns": {
+      "Amazon": ["titan", "nova", "amazon-bedrock", "rerank"],
+      "Anthropic": ["claude", "anthropic"],
+      "Meta": ["llama", "mllama"],
+      "Mistral AI": ["mistral", "mixtral", "ministral", "magistral", "pixtral", "voxtral"],
+      "Cohere": ["cohere", "command", "embed"],
+      "AI21 Labs": ["ai21", "jamba", "jurassic"],
+      "Stability AI": ["stable", "stability", "sdxl"],
+      "Luma AI": ["luma", "ray"],
+      "Writer": ["writer", "palmyra"],
+      "NVIDIA": ["nvidia", "nemotron"],
+      "Qwen": ["qwen"],
+      "OpenAI": ["gpt", "openai"],
+      "DeepSeek": ["deepseek", "r1"],
+      "Google": ["gemma", "gemini"],
+      "TwelveLabs": ["twelve", "twelvelabs", "marengo", "pegasus"],
+      "MiniMax": ["minimax"],
+      "Moonshot AI": ["kimi", "moonshot"]
+    },
+
+    "explicit_provider_names": {
+      "twelvelabs": "TwelveLabs",
+      "twelve labs": "TwelveLabs",
+      "cohere": "Cohere",
+      "luma ai": "Luma AI",
+      "luma": "Luma AI",
+      "anthropic": "Anthropic",
+      "stability ai": "Stability AI",
+      "ai21 labs": "AI21 Labs",
+      "ai21": "AI21 Labs",
+      "mistral ai": "Mistral AI",
+      "mistral": "Mistral AI",
+      "deepseek": "DeepSeek",
+      "writer": "Writer",
+      "meta": "Meta",
+      "amazon": "Amazon",
+      "google": "Google",
+      "nvidia": "NVIDIA",
+      "openai": "OpenAI",
+      "qwen": "Qwen",
+      "minimax": "MiniMax"
+    },
+
+    "provider_colors": {
+      "Amazon": "#FF9900",
+      "Anthropic": "#D4A27F",
+      "Meta": "#0082FB",
+      "Mistral AI": "#F54E42",
+      "Mistral": "#F54E42",
+      "Cohere": "#39594D",
+      "AI21 Labs": "#6C5CE7",
+      "AI21": "#6C5CE7",
+      "Stability AI": "#7C5CFF",
+      "Stability": "#7C5CFF",
+      "Luma AI": "#6366F1",
+      "Luma": "#6366F1",
+      "Writer": "#4A90D9",
+      "NVIDIA": "#76B900",
+      "DeepSeek": "#4A90D9",
+      "Qwen": "#6366F1",
+      "Google": "#4285F4",
+      "OpenAI": "#10A37F",
+      "TwelveLabs": "#6366F1",
+      "MiniMax": "#6366F1",
+      "Moonshot AI": "#6366F1",
+      "default": "#64748b"
+    },
+
+    "documentation_links": {
+      "Anthropic": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-claude.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/"
+      },
+      "Amazon": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/titan-models.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/"
+      },
+      "Meta": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-meta.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/"
+      },
+      "Mistral AI": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-mistral.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/"
+      },
+      "Cohere": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-cohere.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/"
+      },
+      "AI21 Labs": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-ai21.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/"
+      },
+      "Stability AI": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-stability-diffusion.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/"
+      },
+      "nova": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/nova/latest/userguide/what-is-nova.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/"
+      },
+      "default": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/"
+      }
+    }
+  },
+
+  "region_configuration": {
+    "model_regions": ["us-east-1", "us-west-2"],
+
+    "quota_regions": [
+      "us-east-1", "us-west-2", "us-east-2",
+      "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1", "eu-north-1",
+      "ap-southeast-1", "ap-southeast-2", "ap-southeast-3",
+      "ap-northeast-1", "ap-northeast-2", "ap-south-1",
+      "ca-central-1", "sa-east-1"
+    ],
+
+    "feature_regions": [
+      "us-east-1", "us-west-2", "us-east-2",
+      "eu-west-1", "eu-west-2", "eu-west-3", "eu-central-1", "eu-north-1",
+      "ap-southeast-1", "ap-southeast-2", "ap-southeast-3",
+      "ap-northeast-1", "ap-northeast-2", "ap-south-1",
+      "ca-central-1", "sa-east-1"
+    ],
+
+    "region_locations": {
+      "us-east-1": "US East (N. Virginia)",
+      "us-east-2": "US East (Ohio)",
+      "us-west-1": "US West (N. California)",
+      "us-west-2": "US West (Oregon)",
+      "eu-west-1": "Europe (Ireland)",
+      "eu-west-2": "Europe (London)",
+      "eu-west-3": "Europe (Paris)",
+      "eu-central-1": "Europe (Frankfurt)",
+      "eu-central-2": "Europe (Zurich)",
+      "eu-north-1": "Europe (Stockholm)",
+      "eu-south-1": "Europe (Milan)",
+      "eu-south-2": "Europe (Spain)",
+      "ap-northeast-1": "Asia Pacific (Tokyo)",
+      "ap-northeast-2": "Asia Pacific (Seoul)",
+      "ap-northeast-3": "Asia Pacific (Osaka)",
+      "ap-southeast-1": "Asia Pacific (Singapore)",
+      "ap-southeast-2": "Asia Pacific (Sydney)",
+      "ap-southeast-3": "Asia Pacific (Jakarta)",
+      "ap-southeast-4": "Asia Pacific (Melbourne)",
+      "ap-southeast-5": "Asia Pacific (Malaysia)",
+      "ap-south-1": "Asia Pacific (Mumbai)",
+      "ap-south-2": "Asia Pacific (Hyderabad)",
+      "ap-east-1": "Asia Pacific (Hong Kong)",
+      "sa-east-1": "South America (Sao Paulo)",
+      "ca-central-1": "Canada (Central)",
+      "ca-west-1": "Canada West (Calgary)",
+      "me-south-1": "Middle East (Bahrain)",
+      "me-central-1": "Middle East (UAE)",
+      "il-central-1": "Israel (Tel Aviv)",
+      "af-south-1": "Africa (Cape Town)"
+    },
+
+    "region_coordinates": {
+      "us-east-1": { "lat": 38.9519, "lng": -77.4480, "name": "N. Virginia", "geo": "US" },
+      "us-east-2": { "lat": 39.9612, "lng": -82.9988, "name": "Ohio", "geo": "US" },
+      "us-west-1": { "lat": 37.3541, "lng": -121.9552, "name": "N. California", "geo": "US" },
+      "us-west-2": { "lat": 45.8696, "lng": -119.6880, "name": "Oregon", "geo": "US" },
+      "eu-west-1": { "lat": 53.3498, "lng": -6.2603, "name": "Ireland", "geo": "EU" },
+      "eu-west-2": { "lat": 51.5074, "lng": -0.1278, "name": "London", "geo": "EU" },
+      "eu-west-3": { "lat": 48.8566, "lng": 2.3522, "name": "Paris", "geo": "EU" },
+      "eu-central-1": { "lat": 50.1109, "lng": 8.6821, "name": "Frankfurt", "geo": "EU" },
+      "eu-central-2": { "lat": 47.3769, "lng": 8.5417, "name": "Zurich", "geo": "EU" },
+      "eu-north-1": { "lat": 59.3293, "lng": 18.0686, "name": "Stockholm", "geo": "EU" },
+      "eu-south-1": { "lat": 45.4642, "lng": 9.1900, "name": "Milan", "geo": "EU" },
+      "eu-south-2": { "lat": 40.4168, "lng": -3.7038, "name": "Spain", "geo": "EU" },
+      "ap-south-1": { "lat": 19.0760, "lng": 72.8777, "name": "Mumbai", "geo": "AP" },
+      "ap-south-2": { "lat": 17.3850, "lng": 78.4867, "name": "Hyderabad", "geo": "AP" },
+      "ap-northeast-1": { "lat": 35.6762, "lng": 139.6503, "name": "Tokyo", "geo": "AP" },
+      "ap-northeast-2": { "lat": 37.5665, "lng": 126.9780, "name": "Seoul", "geo": "AP" },
+      "ap-northeast-3": { "lat": 34.6937, "lng": 135.5023, "name": "Osaka", "geo": "AP" },
+      "ap-southeast-1": { "lat": 1.3521, "lng": 103.8198, "name": "Singapore", "geo": "AP" },
+      "ap-southeast-2": { "lat": -33.8688, "lng": 151.2093, "name": "Sydney", "geo": "AP" },
+      "ap-southeast-3": { "lat": -6.2088, "lng": 106.8456, "name": "Jakarta", "geo": "AP" },
+      "ap-southeast-4": { "lat": -37.8136, "lng": 144.9631, "name": "Melbourne", "geo": "AP" },
+      "ap-southeast-5": { "lat": 3.1390, "lng": 101.6869, "name": "Malaysia", "geo": "AP" },
+      "ap-east-1": { "lat": 22.3193, "lng": 114.1694, "name": "Hong Kong", "geo": "AP" },
+      "ca-central-1": { "lat": 45.5017, "lng": -73.5673, "name": "Montreal", "geo": "CA" },
+      "ca-west-1": { "lat": 51.0447, "lng": -114.0719, "name": "Calgary", "geo": "CA" },
+      "sa-east-1": { "lat": -23.5505, "lng": -46.6333, "name": "São Paulo", "geo": "SA" },
+      "me-south-1": { "lat": 26.0667, "lng": 50.5577, "name": "Bahrain", "geo": "ME" },
+      "me-central-1": { "lat": 24.4539, "lng": 54.3773, "name": "UAE", "geo": "ME" },
+      "il-central-1": { "lat": 32.0853, "lng": 34.7818, "name": "Tel Aviv", "geo": "ME" },
+      "af-south-1": { "lat": -33.9249, "lng": 18.4241, "name": "Cape Town", "geo": "AF" }
+    },
+
+    "aws_regions": [
+      { "value": "us-east-1", "label": "N. Virginia (us-east-1)", "geo": "US" },
+      { "value": "us-east-2", "label": "Ohio (us-east-2)", "geo": "US" },
+      { "value": "us-west-1", "label": "N. California (us-west-1)", "geo": "US" },
+      { "value": "us-west-2", "label": "Oregon (us-west-2)", "geo": "US" },
+      { "value": "eu-west-1", "label": "Ireland (eu-west-1)", "geo": "EU" },
+      { "value": "eu-west-2", "label": "London (eu-west-2)", "geo": "EU" },
+      { "value": "eu-west-3", "label": "Paris (eu-west-3)", "geo": "EU" },
+      { "value": "eu-central-1", "label": "Frankfurt (eu-central-1)", "geo": "EU" },
+      { "value": "eu-central-2", "label": "Zurich (eu-central-2)", "geo": "EU" },
+      { "value": "eu-north-1", "label": "Stockholm (eu-north-1)", "geo": "EU" },
+      { "value": "eu-south-1", "label": "Milan (eu-south-1)", "geo": "EU" },
+      { "value": "eu-south-2", "label": "Spain (eu-south-2)", "geo": "EU" },
+      { "value": "ap-northeast-1", "label": "Tokyo (ap-northeast-1)", "geo": "AP" },
+      { "value": "ap-northeast-2", "label": "Seoul (ap-northeast-2)", "geo": "AP" },
+      { "value": "ap-northeast-3", "label": "Osaka (ap-northeast-3)", "geo": "AP" },
+      { "value": "ap-southeast-1", "label": "Singapore (ap-southeast-1)", "geo": "AP" },
+      { "value": "ap-southeast-2", "label": "Sydney (ap-southeast-2)", "geo": "AP" },
+      { "value": "ap-southeast-3", "label": "Jakarta (ap-southeast-3)", "geo": "AP" },
+      { "value": "ap-southeast-4", "label": "Melbourne (ap-southeast-4)", "geo": "AP" },
+      { "value": "ap-southeast-5", "label": "Malaysia (ap-southeast-5)", "geo": "AP" },
+      { "value": "ap-south-1", "label": "Mumbai (ap-south-1)", "geo": "AP" },
+      { "value": "ap-south-2", "label": "Hyderabad (ap-south-2)", "geo": "AP" },
+      { "value": "ap-east-1", "label": "Hong Kong (ap-east-1)", "geo": "AP" },
+      { "value": "ca-central-1", "label": "Montreal (ca-central-1)", "geo": "CA" },
+      { "value": "ca-west-1", "label": "Calgary (ca-west-1)", "geo": "CA" },
+      { "value": "sa-east-1", "label": "Sao Paulo (sa-east-1)", "geo": "SA" },
+      { "value": "me-south-1", "label": "Bahrain (me-south-1)", "geo": "ME" },
+      { "value": "me-central-1", "label": "UAE (me-central-1)", "geo": "ME" },
+      { "value": "il-central-1", "label": "Tel Aviv (il-central-1)", "geo": "ME" },
+      { "value": "af-south-1", "label": "Cape Town (af-south-1)", "geo": "AF" }
+    ],
+
+    "geo_region_options": [
+      { "value": "All Regions", "label": "All Regions" },
+      { "value": "US", "label": "US Regions" },
+      { "value": "EU", "label": "EU Regions" },
+      { "value": "AP", "label": "Asia Pacific" },
+      { "value": "CA", "label": "Canada" },
+      { "value": "SA", "label": "South America" },
+      { "value": "ME", "label": "Middle East" },
+      { "value": "AF", "label": "Africa" }
+    ],
+
+    "geo_prefix_map": {
+      "US": "us-",
+      "EU": "eu-",
+      "AP": "ap-",
+      "CA": "ca-",
+      "SA": "sa-",
+      "ME": "me-",
+      "AF": "af-"
+    }
+  },
+
+  "model_configuration": {
+    "model_families": ["claude", "titan", "nova", "llama", "mistral", "command", "embed", "jamba", "stable"],
+
+    "model_variants": [
+      "haiku", "sonnet", "opus", "lite", "pro", "micro", "premier", "express",
+      "large", "small", "medium", "instant", "chat", "instruct", "ultra", "canvas", "reel"
+    ],
+
+    "claude_variants": ["haiku", "sonnet", "opus"],
+    "nova_variants": ["micro", "lite", "pro", "premier", "canvas", "reel", "sonic"],
+    "llama_sizes": ["8b", "70b", "405b", "11b", "90b", "1b", "3b"],
+
+    "capability_keywords": ["code", "codestral", "devstral"],
+    "reasoning_models": ["claude", "sonnet", "opus", "nova", "llama", "mistral", "command"],
+    "function_calling_models": ["claude", "nova", "llama-3", "mistral", "command-r"],
+
+    "context_window_thresholds": {
+      "small": 32000,
+      "medium": 128000,
+      "large": 500000
+    }
+  },
+
+  "matching_configuration": {
+    "min_confidence_threshold": 0.7,
+    "size_variance_threshold": 0.3,
+
+    "suffixes_to_remove": ["-it", "-instruct", "-chat", "-v1", "-v2", "-v3", ":0", ":1", ":2"],
+
+    "type_conflicts": [
+      { "group1": ["embed", "embedding"], "group2": ["generator", "generation", "chat", "instruct"] },
+      { "group1": ["rerank"], "group2": ["embed", "embedding", "chat"] },
+      { "group1": ["image-generator", "imagegenerator"], "group2": ["text", "chat", "embed"] }
+    ]
+  },
+
+  "agent_configuration": {
+    "bedrock_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
+    "max_tokens": 4096,
+
+    "thresholds": {
+      "unmatched_models_trigger": 5,
+      "low_confidence_threshold": 0.6,
+      "new_provider_trigger": true,
+      "max_low_confidence_matches": 3
+    },
+
+    "auto_apply_rules": {
+      "safe_changes": [
+        "provider_pattern_addition",
+        "provider_alias_addition",
+        "region_addition",
+        "documentation_link_addition"
+      ],
+      "requires_review": [
+        "provider_pattern_removal",
+        "provider_pattern_modification",
+        "threshold_change",
+        "model_family_change",
+        "model_variant_change"
+      ],
+      "max_models_affected_for_auto_apply": 0.2
+    }
+  },
+
+  "pricing_service_codes": [
+    "AmazonBedrock",
+    "AmazonBedrockService",
+    "AmazonBedrockFoundationModels"
+  ]
+}

@@ -19,10 +19,23 @@ from shared import (
     validate_required_params,
     ValidationError,
     S3ReadError,
+    get_config_loader,
 )
 
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
+
+# Configuration loader - initialized on first use
+_config_loader = None
+
+
+def _get_config():
+    """Get the configuration loader (lazy initialization)."""
+    global _config_loader
+    if _config_loader is None:
+        _config_loader = get_config_loader()
+        _config_loader.load_config()
+    return _config_loader
 
 
 def aggregate_quotas(quota_results: list[dict], s3_client: Any, bucket: str) -> dict:
@@ -175,9 +188,10 @@ def quota_matches_model(quota_name: str, model_keywords: set, model_name: str) -
     if normalized_model and normalized_model in normalized_quota:
         return True
 
-    # Check if quota contains key model identifiers
-    # Must match the model family (claude, titan, nova, llama, etc.) AND a variant/version
-    model_families = {'claude', 'titan', 'nova', 'llama', 'mistral', 'command', 'embed', 'jamba', 'stable'}
+    # Get model families and variants from config
+    config = _get_config()
+    model_families = set(config.get_model_families())
+    variants = set(config.get_model_variants())
 
     quota_words = set(normalized_quota.split())
 
@@ -195,10 +209,7 @@ def quota_matches_model(quota_name: str, model_keywords: set, model_name: str) -
     if model_family not in quota_words:
         return False
 
-    # Now check for variant match (haiku, sonnet, opus, lite, pro, etc.)
-    variants = {'haiku', 'sonnet', 'opus', 'lite', 'pro', 'micro', 'premier', 'express',
-                'large', 'small', 'medium', 'instant', 'chat', 'instruct', 'ultra', 'canvas', 'reel'}
-
+    # Check for variant match
     model_variants = model_keywords & variants
     quota_variants = quota_words & variants
 

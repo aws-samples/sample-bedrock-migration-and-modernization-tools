@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import { useComparisonStore } from '@/stores/comparisonStore'
+import { providerColorClasses, consumptionLabels, getContextSizeCategory } from '@/config/constants'
 
 // Tooltip wrapper for consistent styling
 function InfoTooltip({ children, content, side = "bottom", sideOffset = 4 }) {
@@ -19,21 +20,6 @@ function InfoTooltip({ children, content, side = "bottom", sideOffset = 4 }) {
       </TooltipContent>
     </Tooltip>
   )
-}
-
-// Provider color mapping - using actual brand colors
-const providerColors = {
-  Amazon: 'bg-[#FF9900]',        // Amazon Orange
-  Anthropic: 'bg-[#D4A27F]',     // Anthropic Tan/Clay
-  Meta: 'bg-[#0082FB]',          // Meta Blue
-  Mistral: 'bg-[#F54E42]',       // Mistral Orange-Red
-  Cohere: 'bg-[#39594D]',        // Cohere Dark Green
-  'AI21 Labs': 'bg-[#6C5CE7]',   // AI21 Purple
-  AI21: 'bg-[#6C5CE7]',          // AI21 Purple (alternate name)
-  'Stability AI': 'bg-[#7C5CFF]', // Stability Purple
-  Stability: 'bg-[#7C5CFF]',     // Stability Purple (alternate name)
-  Luma: 'bg-[#6366F1]',          // Luma Indigo
-  default: 'bg-slate-500',
 }
 
 // Modality icons
@@ -54,7 +40,7 @@ function formatNumber(num) {
 }
 
 function getProviderColor(provider) {
-  return providerColors[provider] || providerColors.default
+  return providerColorClasses[provider] || providerColorClasses.default
 }
 
 function extractPricing(model, preferredRegion = 'us-east-1') {
@@ -84,22 +70,8 @@ function extractPricing(model, preferredRegion = 'us-east-1') {
   return { inputPrice, outputPrice }
 }
 
-// Consumption option display mapping
-const consumptionLabels = {
-  on_demand: 'On-Demand',
-  provisioned: 'Provisioned',
-  batch: 'Batch',
-  cross_region_inference: 'CRIS'
-}
-
-// Model size categories based on context window
-function getModelSize(contextWindow) {
-  if (!contextWindow || typeof contextWindow !== 'number') return { label: 'Unknown', color: 'bg-slate-500' }
-  if (contextWindow < 32000) return { label: 'Small', color: 'bg-slate-500' }
-  if (contextWindow < 128000) return { label: 'Medium', color: 'bg-blue-500' }
-  if (contextWindow < 500000) return { label: 'Large', color: 'bg-emerald-500' }
-  return { label: 'XL', color: 'bg-purple-500' }
-}
+// Use getContextSizeCategory from constants as getModelSize
+const getModelSize = getContextSizeCategory
 
 // Section divider component
 function SectionDivider({ isLight }) {

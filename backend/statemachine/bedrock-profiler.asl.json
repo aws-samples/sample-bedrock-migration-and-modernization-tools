@@ -519,6 +519,79 @@
         }
       ],
       "TimeoutSeconds": 180,
+      "Next": "GapDetection"
+    },
+
+    "GapDetection": {
+      "Type": "Task",
+      "Resource": "${GapDetectionFunction}",
+      "Comment": "Analyze pipeline output for gaps and determine if self-healing is needed",
+      "Parameters": {
+        "s3Bucket.$": "$.config.s3Bucket",
+        "executionId.$": "$.executionId",
+        "modelsS3Key.$": "$.finalResult.modelsS3Key",
+        "pricingS3Key.$": "$.finalResult.pricingS3Key",
+        "previousModelsKey": "latest/bedrock_models.json"
+      },
+      "ResultPath": "$.gapDetection",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 3,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "TimeoutSeconds": 120,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.gapDetectionError",
+          "Next": "CopyToLatest"
+        }
+      ],
+      "Next": "CheckShouldTriggerAgent"
+    },
+
+    "CheckShouldTriggerAgent": {
+      "Type": "Choice",
+      "Comment": "Check if self-healing agent should be triggered based on gap analysis",
+      "Choices": [
+        {
+          "Variable": "$.gapDetection.shouldTriggerAgent",
+          "BooleanEquals": true,
+          "Next": "InvokeSelfHealingAgent"
+        }
+      ],
+      "Default": "CopyToLatest"
+    },
+
+    "InvokeSelfHealingAgent": {
+      "Type": "Task",
+      "Resource": "${SelfHealingAgentFunction}",
+      "Comment": "Use Bedrock Claude to analyze gaps and suggest config updates",
+      "Parameters": {
+        "s3Bucket.$": "$.config.s3Bucket",
+        "executionId.$": "$.executionId",
+        "gapReportS3Key.$": "$.gapDetection.s3Key"
+      },
+      "ResultPath": "$.agentSuggestions",
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
+          "IntervalSeconds": 10,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.agentError",
+          "Next": "CopyToLatest"
+        }
+      ],
+      "TimeoutSeconds": 300,
       "Next": "CopyToLatest"
     },
 

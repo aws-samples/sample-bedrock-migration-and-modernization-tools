@@ -25,34 +25,36 @@ from shared import (
     validate_required_params,
     ValidationError,
     S3ReadError,
+    get_config_loader,
 )
 
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
 
-# Minimum confidence threshold for accepting a pricing match
-MIN_CONFIDENCE_THRESHOLD = 0.7
+# Configuration loader - initialized on first use
+_config_loader = None
 
-# Provider name aliases for matching variations
-PROVIDER_ALIASES = {
-    'amazon': {'amazon', 'aws'},
-    'anthropic': {'anthropic'},
-    'meta': {'meta', 'facebook'},
-    'mistral ai': {'mistral', 'mistralai', 'mistral ai'},
-    'stability ai': {'stability', 'stabilityai', 'stability ai'},
-    'cohere': {'cohere'},
-    'ai21 labs': {'ai21', 'ai21labs', 'ai21 labs'},
-    'luma ai': {'luma', 'lumaai', 'luma ai'},
-    'twelvelabs': {'twelvelabs', 'twelve labs', 'twelverlabs'},
-    'minimax': {'minimax', 'minimax ai', 'minimax-ai'},
-    'moonshot ai': {'moonshot', 'moonshot ai', 'kimi', 'kimi ai'},
-    'deepseek': {'deepseek'},
-    'qwen': {'qwen', 'qwen2', 'alibaba'},
-    'google': {'google'},
-    'nvidia': {'nvidia'},
-    'openai': {'openai'},
-    'writer': {'writer'},
-}
+
+def _get_config():
+    """Get the configuration loader (lazy initialization)."""
+    global _config_loader
+    if _config_loader is None:
+        _config_loader = get_config_loader()
+        _config_loader.load_config()
+    return _config_loader
+
+
+def get_provider_aliases() -> dict:
+    """Get provider aliases from configuration."""
+    config = _get_config()
+    # Convert list values to sets for efficient lookup
+    aliases = config.get_provider_aliases()
+    return {k: set(v) for k, v in aliases.items()}
+
+
+def get_min_confidence_threshold() -> float:
+    """Get minimum confidence threshold from configuration."""
+    return _get_config().get_min_confidence_threshold()
 
 
 def similarity_score(a: str, b: str) -> float:
@@ -116,8 +118,9 @@ def providers_match(model_provider: str, pricing_provider: str) -> bool:
     if model_provider_lower == pricing_provider_lower:
         return True
 
-    # Check alias mappings
-    for canonical, aliases in PROVIDER_ALIASES.items():
+    # Check alias mappings from config
+    provider_aliases = get_provider_aliases()
+    for canonical, aliases in provider_aliases.items():
         model_in_aliases = model_provider_lower in aliases or any(
             alias in model_provider_lower or model_provider_lower in alias
             for alias in aliases
@@ -149,8 +152,13 @@ def has_semantic_conflict(model_name: str, pricing_name: str, model_id: str = ''
     model_lower = (model_name + ' ' + model_id).lower()
     pricing_lower = (pricing_name + ' ' + pricing_key).lower()
 
+    # Get variant lists from config
+    config = _get_config()
+    claude_variants = config.get_claude_variants()
+    nova_variants = config.get_nova_variants()
+    llama_sizes = config.get_llama_sizes()
+
     # Claude model variant conflicts - these are distinct models
-    claude_variants = ['haiku', 'sonnet', 'opus']
     model_claude_variant = None
     pricing_claude_variant = None
 
@@ -164,7 +172,6 @@ def has_semantic_conflict(model_name: str, pricing_name: str, model_id: str = ''
         return True
 
     # Nova model variant conflicts
-    nova_variants = ['micro', 'lite', 'pro', 'premier', 'canvas', 'reel', 'sonic']
     model_nova_variant = None
     pricing_nova_variant = None
 
@@ -178,7 +185,6 @@ def has_semantic_conflict(model_name: str, pricing_name: str, model_id: str = ''
         return True
 
     # Llama size conflicts
-    llama_sizes = ['8b', '70b', '405b', '11b', '90b', '1b', '3b']
     if 'llama' in model_lower and 'llama' in pricing_lower:
         model_llama_size = None
         pricing_llama_size = None
@@ -347,7 +353,7 @@ def find_best_pricing_match(
                 best_other_match = pricing_key
 
     # Prefer On-Demand matches if score is reasonable
-    if best_on_demand_match and best_on_demand_score >= MIN_CONFIDENCE_THRESHOLD:
+    if best_on_demand_match and best_on_demand_score >= get_min_confidence_threshold():
         return best_on_demand_match, best_on_demand_score
 
     # Fall back to other matches if no good On-Demand match
@@ -399,7 +405,7 @@ def link_pricing_to_models(models_data: dict, pricing_data: dict) -> dict:
                 model_id, model_name, model_provider, all_pricing_models
             )
 
-            if matched_key and confidence >= MIN_CONFIDENCE_THRESHOLD:
+            if matched_key and confidence >= get_min_confidence_threshold():
                 pricing_entry = all_pricing_models[matched_key]
                 pricing_info = pricing_entry['data']
                 pricing_provider = pricing_entry['provider']
