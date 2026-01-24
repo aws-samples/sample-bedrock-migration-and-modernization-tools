@@ -3,4 +3,4 @@
 
 haystack-ai==2.14.3
 amazon-bedrock-haystack==3.7.0
-mlflow==2.16.2
+mlflow==3.5.0
