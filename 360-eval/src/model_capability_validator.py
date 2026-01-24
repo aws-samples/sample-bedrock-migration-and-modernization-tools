@@ -117,7 +117,6 @@ def test_service_tier(
     """
     try:
         # Prepare minimal test request - only essential parameters
-        # Don't include temperature/top_p as some models don't allow both
         provider_params = {
             "max_tokens": 5,
             "aws_region_name": region
