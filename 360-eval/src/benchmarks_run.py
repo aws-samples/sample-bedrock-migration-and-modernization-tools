@@ -53,10 +53,6 @@ def evaluate_with_llm_judge(judge_model_id,
                                        golden_answer)
 
     cfg = {"maxTokens": 1500, "aws_region_name": judge_region}
-    # Anthropic models via Bedrock don't allow both temperature and top_p
-    is_anthropic_bedrock = "bedrock" in judge_model_id.lower() and "anthropic" in judge_model_id.lower()
-    if not is_anthropic_bedrock:
-        cfg["topP"] = 0.9
     try:
         resp = run_inference(model_name=judge_model_id,
                              prompt_text=eval_template,
@@ -203,7 +199,7 @@ def benchmark(
         prompt, task_types, task_criteria, golden_answer,
         max_tokens, model_id,
         in_cost, out_cost,
-        temperature, top_p,
+        temperature,
         judge_models,
         user_defined_metrics,
         yard_stick=3,
@@ -231,13 +227,6 @@ def benchmark(
     params = {"max_tokens": max_tokens,
               "temperature": temperature,
               }
-    # Anthropic models via Bedrock don't allow both temperature and top_p
-    # Only include top_p for non-Anthropic models
-    is_anthropic_bedrock = "bedrock" in model_id.lower() and "anthropic" in model_id.lower()
-    if not is_anthropic_bedrock:
-        params["top_p"] = top_p
-    else:
-        logging.debug(f"Skipping top_p for Anthropic model {model_id} (not compatible with temperature)")
 
     try:
         if "gemini" in model_id:
@@ -457,7 +446,6 @@ def execute_benchmark(scenarios, cfg, unprocessed_dir, yard_stick=3, latency_onl
                     scn["input_token_cost"],
                     scn["output_token_cost"],
                     scn["TEMPERATURE"],
-                    cfg["TOP_P"],
                     cfg["judge_models"],
                     user_metrics,
                     yard_stick=yard_stick,
@@ -833,7 +821,6 @@ def main(
         "sleep_between_invocations": sleep_between_invocations,
         "TEMPERATURE": 1.0,
         "TEMPERATURE_VARIATIONS": int(temp_variants),
-        "TOP_P": 1.0,
         "EXPERIMENT_NAME": experiment_name,
         "judge_models": judges_list,
         "user_defined_metrics": user_defined_metrics_list,
