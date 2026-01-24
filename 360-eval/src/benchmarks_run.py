@@ -52,7 +52,11 @@ def evaluate_with_llm_judge(judge_model_id,
                                        model_response,
                                        golden_answer)
 
-    cfg = {"maxTokens": 1500, "topP": 0.9, "aws_region_name": judge_region}
+    cfg = {"maxTokens": 1500, "aws_region_name": judge_region}
+    # Anthropic models via Bedrock don't allow both temperature and top_p
+    is_anthropic_bedrock = "bedrock" in judge_model_id.lower() and "anthropic" in judge_model_id.lower()
+    if not is_anthropic_bedrock:
+        cfg["topP"] = 0.9
     try:
         resp = run_inference(model_name=judge_model_id,
                              prompt_text=eval_template,
@@ -226,8 +230,15 @@ def benchmark(
     inference_request_count = 0
     params = {"max_tokens": max_tokens,
               "temperature": temperature,
-              "top_p": top_p
               }
+    # Anthropic models via Bedrock don't allow both temperature and top_p
+    # Only include top_p for non-Anthropic models
+    is_anthropic_bedrock = "bedrock" in model_id.lower() and "anthropic" in model_id.lower()
+    if not is_anthropic_bedrock:
+        params["top_p"] = top_p
+    else:
+        logging.debug(f"Skipping top_p for Anthropic model {model_id} (not compatible with temperature)")
+
     try:
         if "gemini" in model_id:
             params['api_key'] = os.getenv('GOOGLE_API')
