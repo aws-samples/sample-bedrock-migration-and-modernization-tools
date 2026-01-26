@@ -28,12 +28,23 @@ cd frontend
 npm install
 ```
 
-### 3. Launch it
+### 3. Configure authentication (required for internal use)
+```bash
+cp template.env .env
+```
+
+Edit `.env` and set your Cognito credentials:
+```
+VITE_COGNITO_AUTHORITY_URL=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_xxxxx
+VITE_COGNITO_CLIENT_ID=your-client-id
+```
+
+### 4. Launch it
 ```bash
 npm run dev
 ```
 
-### 4. Start exploring!
+### 5. Start exploring!
 1. Open `http://localhost:5173` in your browser
 2. Browse models using filters (provider, capabilities, regions)
 3. Click models for detailed specs and pricing

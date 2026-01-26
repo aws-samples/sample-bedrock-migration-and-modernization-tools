@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme } from './ThemeProvider'
 import { BedrockIcon } from '@/components/icons/BedrockIcon'
+import { UserProfile } from './UserProfile'
 
 const navigationItems = [
   {
@@ -133,6 +134,9 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
       </nav>
 
       <Separator className={isLight ? 'bg-stone-200' : 'bg-slate-800'} />
+
+      {/* User Profile */}
+      <UserProfile collapsed={collapsed} mobileMenuOpen={mobileMenuOpen} />
 
       {/* Footer */}
       <div className={cn(
