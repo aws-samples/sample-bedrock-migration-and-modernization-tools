@@ -54,3 +54,9 @@ temp/
 *.pem
 *.key
 credentials.json
+
+# CDK
+cdk/cdk.json
+cdk/cdk.out/
+cdk/*.js
+cdk/*.d.ts

@@ -41,6 +41,10 @@ export const getOidcConfig = () => {
     redirect_uri: authConfig.redirectUri,
     response_type: authConfig.responseType,
     scope: authConfig.scope,
+    // Clean up URL after successful sign-in by removing OAuth params (?code=...&state=...)
+    onSigninCallback: () => {
+      window.history.replaceState({}, document.title, window.location.pathname + window.location.hash)
+    },
   }
 }
 
