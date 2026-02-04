@@ -292,9 +292,53 @@ function extractSummaryPricing(modelPricing, region = 'us-east-1') {
     }
   }
 
+  // Handle search unit pricing (rerank models like Cohere Rerank, Amazon Rerank)
+  if (primaryPricingType === 'search_unit') {
+    // Find first search unit pricing entry
+    for (const item of onDemand) {
+      const price = item.price_per_thousand ?? item.price_per_unit
+      if (price !== null && price !== undefined && price !== 0) {
+        return {
+          inputPrice: price,
+          outputPrice: null,
+          pricingType: 'search_unit',
+          unitLabel: item.unit_label || 'per 1K search units',
+          imagePrice: null,
+          imagePrices: null,
+          videoPrice: null,
+          videoPrices: null,
+        }
+      }
+    }
+  }
+
+  // Handle video per-second pricing (Luma AI Ray)
+  if (primaryPricingType === 'video_second') {
+    // Find first per-second pricing entry
+    for (const item of onDemand) {
+      const price = item.price_per_unit
+      if (price !== null && price !== undefined && price !== 0) {
+        return {
+          inputPrice: null,
+          outputPrice: null,
+          pricingType: 'video_second',
+          unitLabel: 'per second',
+          imagePrice: null,
+          imagePrices: null,
+          videoPrice: price,
+          videoPrices: null,
+        }
+      }
+    }
+  }
+
   // Handle token-based pricing (most common)
+  // First pass: look for standard pricing (no flex/priority suffix)
+  // Second pass: fall back to flex pricing if no standard found
   let inputPrice = null
   let outputPrice = null
+  let flexInputPrice = null
+  let flexOutputPrice = null
 
   for (const item of onDemand) {
     const dim = (item.dimension || '').toLowerCase()
@@ -305,8 +349,25 @@ function extractSummaryPricing(modelPricing, region = 'us-east-1') {
       continue
     }
 
-    // Skip flex/priority tiers - use standard pricing
-    if (dim.includes('-flex') || dim.includes('-priority')) {
+    // Skip long context entries - these have different pricing
+    if (dim.includes('lctx') || dim.includes('long-context') || dim.includes('longcontext') ||
+        desc.includes('long context') || desc.includes('long-context')) {
+      continue
+    }
+
+    // Skip reserved/committed capacity entries - these are commitment-based pricing
+    if (dim.includes('reserved') || dim.includes('_tpm_') ||
+        desc.includes('reserved') || desc.includes('per minute')) {
+      continue
+    }
+
+    // Skip latency optimized entries - these have premium pricing
+    if (dim.includes('latency') || desc.includes('latency')) {
+      continue
+    }
+
+    // Skip priority tier (most expensive)
+    if (dim.includes('-priority')) {
       continue
     }
 
@@ -321,13 +382,31 @@ function extractSummaryPricing(modelPricing, region = 'us-east-1') {
       continue
     }
 
-    if (isInput && inputPrice === null) {
-      inputPrice = price
-    }
-    if (isOutput && outputPrice === null) {
-      outputPrice = price
+    // Check if this is flex pricing
+    const isFlex = dim.includes('-flex')
+
+    if (isFlex) {
+      // Store flex prices as fallback
+      if (isInput && flexInputPrice === null) {
+        flexInputPrice = price
+      }
+      if (isOutput && flexOutputPrice === null) {
+        flexOutputPrice = price
+      }
+    } else {
+      // Standard pricing (preferred)
+      if (isInput && inputPrice === null) {
+        inputPrice = price
+      }
+      if (isOutput && outputPrice === null) {
+        outputPrice = price
+      }
     }
   }
+
+  // Fall back to flex pricing if no standard pricing found
+  if (inputPrice === null) inputPrice = flexInputPrice
+  if (outputPrice === null) outputPrice = flexOutputPrice
 
   return {
     inputPrice,

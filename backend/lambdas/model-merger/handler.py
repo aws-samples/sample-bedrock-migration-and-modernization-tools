@@ -24,9 +24,28 @@ logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
 
 
+def get_base_model_id(model_id: str) -> str:
+    """
+    Extract the base model ID by removing context window suffixes.
+
+    Examples:
+        'anthropic.claude-3-5-sonnet-20240620-v1:0:18k' -> 'anthropic.claude-3-5-sonnet-20240620-v1:0'
+        'anthropic.claude-3-5-sonnet-20240620-v1:0:200k' -> 'anthropic.claude-3-5-sonnet-20240620-v1:0'
+        'anthropic.claude-3-5-sonnet-20240620-v1:0' -> 'anthropic.claude-3-5-sonnet-20240620-v1:0'
+    """
+    # Check for context window suffixes like :18k, :200k, :51k, :28k
+    import re
+    # Pattern matches :NNNk at the end (where N is a digit)
+    pattern = r':\d+k$'
+    return re.sub(pattern, '', model_id)
+
+
 def merge_models(all_models: list[dict]) -> dict:
     """
     Merge models from multiple regions, deduplicating by model_id.
+
+    Also deduplicates context window variants (e.g., :18k, :200k, :51k)
+    by keeping only the base model.
 
     Preserves the snake_case schema and merges regions_available.
 
@@ -47,6 +66,14 @@ def merge_models(all_models: list[dict]) -> dict:
     for model in all_models:
         model_id = model.get('model_id')
         if not model_id:
+            continue
+
+        # Get base model ID (remove context window suffixes like :18k, :200k)
+        base_model_id = get_base_model_id(model_id)
+
+        # Skip context window variants - only keep base models
+        if model_id != base_model_id:
+            logger.debug(f"Skipping context variant: {model_id} (base: {base_model_id})")
             continue
 
         # Keep first occurrence or merge regions_available

@@ -137,6 +137,24 @@ def determine_pricing_type(usage_type: str, unit: str, description: str) -> dict
             'is_output': None,
         }
 
+    # Check for search units (rerank models like Cohere Rerank, Amazon Rerank)
+    if 'search' in unit_lower or 'search' in desc_lower or 'rerank' in usage_lower or 'rerank' in desc_lower:
+        return {
+            'pricing_type': 'search_unit',
+            'unit_label': 'per 1K search units',
+            'is_input': None,
+            'is_output': None,
+        }
+
+    # Check for video per-second pricing (Luma AI Ray)
+    if ('second' in unit_lower or 'per second' in desc_lower) and ('video' in desc_lower or 'ray' in usage_lower):
+        return {
+            'pricing_type': 'video_second',
+            'unit_label': 'per second',
+            'is_input': None,
+            'is_output': None,
+        }
+
     # Check for token-based pricing (most common)
     if 'token' in usage_lower or 'token' in desc_lower or '1k token' in desc_lower or '1m token' in desc_lower:
         return {
@@ -166,11 +184,22 @@ def determine_pricing_group(usage_type: str, inference_type: str) -> str:
     # Check for batch
     is_batch = 'batch' in usage_lower
 
-    # Check for long context
-    is_long_context = 'long-context' in usage_lower or 'long context' in inference_lower
+    # Check for long context - includes _lctx suffix used in newer AWS format
+    is_long_context = (
+        'long-context' in usage_lower or
+        'long context' in inference_lower or
+        '_lctx' in usage_lower or  # New AWS format: USE1_InputTokenCount_LCtx
+        'longcontext' in usage_lower
+    )
 
-    # Check for provisioned
-    is_provisioned = 'provisioned' in usage_lower or 'provisioned' in inference_lower
+    # Check for provisioned/reserved capacity
+    # Includes Reserved_1Month, Reserved_3Month patterns and _tpm_ (tokens per minute)
+    is_provisioned = (
+        'provisioned' in usage_lower or
+        'provisioned' in inference_lower or
+        'reserved' in usage_lower or
+        '_tpm_' in usage_lower  # Reserved TPM pricing
+    )
 
     # Check for custom model
     is_custom = 'custom' in usage_lower or 'fine-tun' in usage_lower
@@ -320,7 +349,18 @@ def extract_model_info(product: dict) -> dict:
 
     # Normalize price to per-thousand if needed (some prices are per-million)
     original_price = price
-    if price and 'per 1M' in description.lower():
+    desc_lower = description.lower()
+    # Check for various per-million patterns:
+    # - "per 1M" (standard format)
+    # - "Million Input Tokens", "Million Response Tokens" (AWS Marketplace format)
+    # - "per 1,000,000" or "per million"
+    is_per_million = (
+        'per 1m' in desc_lower or
+        'million' in desc_lower or
+        'per 1,000,000' in desc_lower or
+        '1000000' in desc_lower
+    )
+    if price and is_per_million:
         price = price / 1000  # Convert to per-thousand
 
     # Get model name using multi-strategy extraction
@@ -580,10 +620,11 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
         pricing_types_list = sorted(list(model_data.get('pricing_types', set())))
 
         # Determine primary pricing type for the model
-        # Priority: video_generation > image_generation > video > image > model_unit > token
+        # Priority: video_generation > image_generation > video_second > video > image > search_unit > token > model_unit
         # Image/video generation models should show per-image/video pricing, not token pricing
+        # Token pricing is prioritized over model_unit (provisioned throughput) for card display
         primary_pricing_type = 'token'  # default
-        for pt in ['video_generation', 'image_generation', 'video', 'image', 'model_unit', 'token']:
+        for pt in ['video_generation', 'image_generation', 'video_second', 'video', 'image', 'search_unit', 'token', 'model_unit']:
             if pt in pricing_types_list:
                 primary_pricing_type = pt
                 break

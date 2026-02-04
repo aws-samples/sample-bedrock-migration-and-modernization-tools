@@ -94,25 +94,45 @@ def get_size_category(context_window: int) -> dict:
 
 
 def build_cross_region_inference(model_id: str, features_by_region: dict) -> dict:
-    """Build cross-region inference data for a model."""
+    """Build cross-region inference data for a model.
+
+    Deduplicates profiles by (profile_id, source_region) to avoid duplicates
+    when a profile contains multiple model variants.
+    """
     profiles = []
     source_regions = set()
+    seen_profile_regions = set()  # Track (profile_id, region) pairs to avoid duplicates
 
     for region, region_profiles in features_by_region.items():
         for profile in region_profiles:
+            profile_id = profile.get('inference_profile_id', profile.get('inferenceProfileId'))
+
+            # Skip if we've already added this profile for this region
+            profile_region_key = (profile_id, region)
+            if profile_region_key in seen_profile_regions:
+                continue
+
+            # Check if any model in this profile matches
             profile_models = profile.get('models', [])
+            matches = False
             for pm in profile_models:
                 # Handle both snake_case and camelCase model ARN
                 model_arn = pm.get('model_arn', pm.get('modelArn', ''))
                 if model_id in model_arn:
-                    profiles.append({
-                        'inference_profile_id': profile.get('inference_profile_id', profile.get('inferenceProfileId')),
-                        'inference_profile_name': profile.get('inference_profile_name', profile.get('inferenceProfileName')),
-                        'region': region,
-                        'type': profile.get('type'),
-                        'status': profile.get('status', 'ACTIVE')
-                    })
-                    source_regions.add(region)
+                    matches = True
+                    break  # Found a match, no need to check other models
+
+            if matches:
+                profiles.append({
+                    'profile_id': profile_id,
+                    'profile_name': profile.get('inference_profile_name', profile.get('inferenceProfileName')),
+                    'source_region': region,
+                    'type': profile.get('type'),
+                    'status': profile.get('status', 'ACTIVE'),
+                    'description': profile.get('description', '')
+                })
+                source_regions.add(region)
+                seen_profile_regions.add(profile_region_key)
 
     return {
         'supported': len(profiles) > 0,
@@ -257,9 +277,15 @@ def build_model_quotas(model_id: str, model_name: str, quotas_by_region: dict) -
     return model_quotas
 
 
-def get_consumption_options(inference_types: list) -> list:
-    """Convert inference types to consumption options."""
-    options = []
+def get_consumption_options(inference_types: list, pricing_data: dict = None, pricing_ref: dict = None) -> list:
+    """Determine consumption options from inference types and pricing data.
+
+    Always includes 'on_demand' if there's On-Demand pricing available.
+    Adds 'batch' if there's Batch pricing available.
+    """
+    options = set()
+
+    # Map inference types to consumption options
     type_mapping = {
         'ON_DEMAND': 'on_demand',
         'PROVISIONED': 'provisioned_throughput',
@@ -267,40 +293,117 @@ def get_consumption_options(inference_types: list) -> list:
     }
     for inf_type in inference_types:
         if inf_type in type_mapping:
-            options.append(type_mapping[inf_type])
-    return options if options else ['on_demand']
+            options.add(type_mapping[inf_type])
+
+    # Check pricing data for additional consumption options
+    if pricing_data and pricing_ref:
+        provider = pricing_ref.get('provider', '')
+        model_key = pricing_ref.get('model_key', '')
+
+        if provider and model_key:
+            providers = pricing_data.get('providers', {})
+            prov_data = providers.get(provider, {})
+            model_pricing = prov_data.get(model_key, {})
+
+            if isinstance(model_pricing, dict) and 'regions' in model_pricing:
+                # Check first available region for pricing groups
+                for region_data in model_pricing.get('regions', {}).values():
+                    pricing_groups = region_data.get('pricing_groups', {})
+
+                    # Check for On-Demand pricing
+                    if any(g.startswith('On-Demand') for g in pricing_groups.keys()):
+                        options.add('on_demand')
+
+                    # Check for Batch pricing
+                    if any(g.startswith('Batch') for g in pricing_groups.keys()):
+                        options.add('batch')
+
+                    # Check for Provisioned Throughput pricing
+                    if 'Provisioned Throughput' in pricing_groups:
+                        options.add('provisioned_throughput')
+
+                    break  # Only need to check one region
+
+    # Always include on_demand as a default if no other options found
+    if not options:
+        options.add('on_demand')
+
+    # Sort for consistent ordering: on_demand, batch, cross_region_inference, provisioned_throughput
+    order = ['on_demand', 'batch', 'cross_region_inference', 'provisioned_throughput']
+    return sorted(list(options), key=lambda x: order.index(x) if x in order else len(order))
 
 
-def check_batch_inference(model_id: str, pricing_data: dict) -> dict:
-    """Check if batch inference is supported based on pricing data."""
+def check_batch_inference(model_id: str, pricing_data: dict, pricing_ref: dict = None, regional_availability: list = None) -> dict:
+    """Check if batch inference is supported based on pricing data.
+
+    Uses pricing_file_reference.model_key for accurate matching when available.
+    Calculates coverage_percentage based on regional_availability.
+    """
     supported_regions = []
 
-    # Look through pricing data for batch entries
-    # Handle both nested provider structure and flat model structure
+    # Use pricing reference model_key if available, otherwise fall back to model_id
+    lookup_keys = []
+    if pricing_ref:
+        provider = pricing_ref.get('provider', '')
+        model_key = pricing_ref.get('model_key', '')
+        if provider and model_key:
+            lookup_keys.append((provider, model_key))
+
+    # Also try with the original model_id
+    lookup_keys.append((None, model_id))
+
     providers = pricing_data.get('providers', {})
-    for key, data in providers.items():
-        # Check for model_id -> regions structure (new schema)
-        if isinstance(data, dict) and 'regions' in data:
-            if model_id.lower() in key.lower():
-                for region, region_data in data.get('regions', {}).items():
-                    pricing_groups = region_data.get('pricing_groups', {})
-                    if 'Batch' in pricing_groups:
-                        if region not in supported_regions:
-                            supported_regions.append(region)
-        # Check for provider -> models structure (old schema)
-        elif isinstance(data, dict) and 'models' in data:
-            for mid, model_data in data.get('models', {}).items():
-                if model_id.lower() in mid.lower():
-                    for region, region_data in model_data.get('regions', {}).items():
-                        pricing_groups = region_data.get('pricing_groups', {})
-                        if 'Batch' in pricing_groups:
-                            if region not in supported_regions:
-                                supported_regions.append(region)
+
+    for provider_hint, lookup_key in lookup_keys:
+        if supported_regions:
+            break  # Already found, no need to continue
+
+        for prov_name, prov_data in providers.items():
+            if supported_regions:
+                break
+
+            # Skip if provider hint doesn't match
+            if provider_hint and prov_name.lower() != provider_hint.lower():
+                continue
+
+            # Check for provider -> model structure (new schema)
+            if isinstance(prov_data, dict):
+                # Direct model lookup
+                if lookup_key in prov_data:
+                    model_data = prov_data[lookup_key]
+                    if isinstance(model_data, dict) and 'regions' in model_data:
+                        for region, region_data in model_data.get('regions', {}).items():
+                            pricing_groups = region_data.get('pricing_groups', {})
+                            # Check for any Batch pricing group
+                            if any(g.startswith('Batch') for g in pricing_groups.keys()):
+                                if region not in supported_regions:
+                                    supported_regions.append(region)
+
+                # Fuzzy matching as fallback
+                if not supported_regions:
+                    lookup_lower = lookup_key.lower()
+                    for mid, model_data in prov_data.items():
+                        if isinstance(model_data, dict) and 'regions' in model_data:
+                            # Check if lookup_key is contained in mid or vice versa
+                            mid_lower = mid.lower()
+                            if lookup_lower in mid_lower or mid_lower in lookup_lower:
+                                for region, region_data in model_data.get('regions', {}).items():
+                                    pricing_groups = region_data.get('pricing_groups', {})
+                                    if any(g.startswith('Batch') for g in pricing_groups.keys()):
+                                        if region not in supported_regions:
+                                            supported_regions.append(region)
+
+    # Calculate coverage percentage based on model's regional availability
+    total_regions = len(regional_availability) if regional_availability else 0
+    batch_region_count = len(supported_regions)
+    coverage = (batch_region_count / total_regions * 100) if total_regions > 0 else 0.0
+    # Cap at 100% - values > 100% indicate batch pricing in more regions than model availability
+    coverage = min(coverage, 100.0)
 
     return {
         'supported': len(supported_regions) > 0,
         'supported_regions': sorted(supported_regions),
-        'coverage_percentage': 0.0,
+        'coverage_percentage': round(coverage, 1),
         'detection_method': 'pricing_data' if supported_regions else 'no_pricing_data'
     }
 
@@ -364,9 +467,6 @@ def transform_model_to_schema(
         quotas_by_region
     )
 
-    # Check batch inference support
-    batch_inference = check_batch_inference(model_id, pricing_data)
-
     # Get model pricing from upstream (already in snake_case)
     # Preserve pricing_file_reference from pricing-linker which has correct provider mapping
     model_pricing_data = model.get('model_pricing', {})
@@ -376,6 +476,11 @@ def transform_model_to_schema(
     # Use upstream pricing_file_reference if available (from pricing-linker)
     # This preserves the correct provider name from the pricing file
     upstream_pricing_ref = model_pricing_data.get('pricing_file_reference')
+
+    # Check batch inference support - pass pricing reference and regional availability for accurate lookup
+    # Use fallback to model.regions_available if regional_availability is empty (same logic as total_regions_available)
+    regions_for_coverage = regional_availability if regional_availability else model.get('regions_available', [])
+    batch_inference = check_batch_inference(model_id, pricing_data, upstream_pricing_ref, regions_for_coverage)
     if upstream_pricing_ref and isinstance(upstream_pricing_ref, dict):
         pricing_provider = upstream_pricing_ref.get('provider', model.get('model_provider', ''))
         pricing_model_key = upstream_pricing_ref.get('model_key', pricing_ref_id or model_id)
@@ -400,11 +505,13 @@ def transform_model_to_schema(
         }
     }
 
-    # Build documentation links (already in snake_case from enricher)
-    documentation_links = {
-        'aws_bedrock_guide': doc_links.get('aws_bedrock_guide', 'https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids-arns.html'),
-        'pricing_guide': doc_links.get('pricing_guide', 'https://aws.amazon.com/bedrock/pricing/')
-    }
+    # Build documentation links (pass through all from enricher, with defaults)
+    documentation_links = doc_links.copy() if doc_links else {}
+    # Ensure minimum required links
+    if 'aws_bedrock_guide' not in documentation_links:
+        documentation_links['aws_bedrock_guide'] = 'https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids-arns.html'
+    if 'pricing_guide' not in documentation_links:
+        documentation_links['pricing_guide'] = 'https://aws.amazon.com/bedrock/pricing/'
 
     # Get modalities (already in snake_case nested structure)
     model_modalities = model.get('model_modalities', {})
@@ -457,7 +564,7 @@ def transform_model_to_schema(
         'model_capabilities': capabilities,
         'model_use_cases': use_cases,
         'languages_supported': model.get('languages_supported', ['English']),
-        'consumption_options': get_consumption_options(model.get('inference_types_supported', [])),
+        'consumption_options': get_consumption_options(model.get('inference_types_supported', []), pricing_data, upstream_pricing_ref),
         'cross_region_inference': cross_region,
         'documentation_links': documentation_links,
         'model_pricing': model_pricing,
@@ -479,7 +586,7 @@ def find_matching_availability(model_id: str, model_availability: dict) -> list:
     Model IDs from Bedrock API: anthropic.claude-3-5-sonnet-20241022-v2:0
     Model IDs from Pricing API: anthropic.claude-3-sonnet
 
-    Strategy: Try exact match first, then try prefix/substring matching.
+    Strategy: Try exact match first, then find the best (longest) match.
     """
     # Try exact match first
     if model_id in model_availability:
@@ -492,27 +599,37 @@ def find_matching_availability(model_id: str, model_availability: dict) -> list:
     if base_model_id in model_availability:
         return model_availability[base_model_id]
 
-    # Try to find a pricing key that's a prefix of the model_id
-    # e.g., "anthropic.claude-3-sonnet" should match "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    # Find the best (longest) matching pricing key
+    # This prevents "claude-3-sonnet" from incorrectly matching "claude-3-5-sonnet-xxx"
     model_id_lower = model_id.lower()
-    for pricing_key, regions in model_availability.items():
+    best_match_key = None
+    best_match_length = 0
+
+    for pricing_key in model_availability.keys():
         pricing_key_lower = pricing_key.lower()
-        # Check if pricing key is contained in model_id (handles claude-3-sonnet matching claude-3-5-sonnet)
-        # or if model_id starts with pricing key
+
+        # Check if pricing key is contained in model_id or model_id starts with pricing key
         if pricing_key_lower in model_id_lower or model_id_lower.startswith(pricing_key_lower):
-            return regions
+            if len(pricing_key) > best_match_length:
+                best_match_key = pricing_key
+                best_match_length = len(pricing_key)
+            continue
 
         # Also check by removing common prefixes/suffixes and comparing core name
-        # Extract core model name (e.g., "claude-3-sonnet" from "anthropic.claude-3-sonnet")
-        pricing_parts = pricing_key_lower.replace('anthropic.', '').replace('amazon.', '').replace('meta.', '').replace('mistral.', '').replace('cohere.', '').replace('ai21.', '').replace('stability.', '')
-        model_parts = model_id_lower.replace('anthropic.', '').replace('amazon.', '').replace('meta.', '').replace('mistral.', '').replace('cohere.', '').replace('ai21.', '').replace('stability.', '')
+        pricing_parts = pricing_key_lower.replace('anthropic.', '').replace('amazon.', '').replace('meta.', '').replace('mistral.', '').replace('cohere.', '').replace('ai21.', '').replace('stability.', '').replace('nvidia.', '').replace('luma.', '')
+        model_parts = model_id_lower.replace('anthropic.', '').replace('amazon.', '').replace('meta.', '').replace('mistral.', '').replace('cohere.', '').replace('ai21.', '').replace('stability.', '').replace('nvidia.', '').replace('luma.', '')
 
         # Check if core names overlap significantly
         if pricing_parts and model_parts:
             # Remove date/version suffixes from model_parts for comparison
             model_core = re.sub(r'-\d{8}-v\d+.*$', '', model_parts)
             if pricing_parts == model_core or pricing_parts in model_core or model_core.startswith(pricing_parts):
-                return regions
+                if len(pricing_key) > best_match_length:
+                    best_match_key = pricing_key
+                    best_match_length = len(pricing_key)
+
+    if best_match_key:
+        return model_availability[best_match_key]
 
     return []
 

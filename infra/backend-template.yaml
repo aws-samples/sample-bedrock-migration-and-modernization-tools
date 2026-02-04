@@ -287,6 +287,26 @@ Resources:
                 - !Sub '${DataBucket.Arn}/*'
                 - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
+  RegionDiscoveryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-region-discovery-${Environment}'
+      CodeUri: ../backend/lambdas/region-discovery/
+      Handler: handler.lambda_handler
+      Timeout: 120
+      MemorySize: 256
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - ec2:DescribeRegions
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - bedrock:ListInferenceProfiles
+              Resource: '*'
+
   TokenSpecsCollectorFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -415,8 +435,10 @@ Resources:
               Action:
                 - bedrock:InvokeModel
               Resource:
-                - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-*'
-                - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/us.anthropic.claude-*'
+                # Cross-region inference profiles can route to any US region
+                - !Sub 'arn:aws:bedrock:*::foundation-model/anthropic.claude-*'
+                - !Sub 'arn:aws:bedrock:*::foundation-model/us.anthropic.claude-*'
+                - !Sub 'arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/us.anthropic.claude-*'
 
   #############################################
   # Step Functions State Machine
@@ -449,6 +471,7 @@ Resources:
                   - !GetAtt PricingLinkerFunction.Arn
                   - !GetAtt RegionalAvailabilityFunction.Arn
                   - !GetAtt FeatureCollectorFunction.Arn
+                  - !GetAtt RegionDiscoveryFunction.Arn
                   - !GetAtt TokenSpecsCollectorFunction.Arn
                   - !GetAtt ModelEnricherFunction.Arn
                   - !GetAtt FinalAggregatorFunction.Arn
@@ -492,6 +515,7 @@ Resources:
         PricingLinkerFunction: !GetAtt PricingLinkerFunction.Arn
         RegionalAvailabilityFunction: !GetAtt RegionalAvailabilityFunction.Arn
         FeatureCollectorFunction: !GetAtt FeatureCollectorFunction.Arn
+        RegionDiscoveryFunction: !GetAtt RegionDiscoveryFunction.Arn
         TokenSpecsCollectorFunction: !GetAtt TokenSpecsCollectorFunction.Arn
         ModelEnricherFunction: !GetAtt ModelEnricherFunction.Arn
         FinalAggregatorFunction: !GetAtt FinalAggregatorFunction.Arn

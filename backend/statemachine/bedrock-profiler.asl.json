@@ -1,13 +1,30 @@
 {
   "Comment": "Bedrock Model Profiler - Parallel Data Collection Workflow",
-  "StartAt": "InitializeExecution",
+  "StartAt": "DiscoverRegions",
   "States": {
+    "DiscoverRegions": {
+      "Type": "Task",
+      "Comment": "Dynamically discover AWS regions with Bedrock inference profiles",
+      "Resource": "${RegionDiscoveryFunction}",
+      "Parameters": {},
+      "ResultPath": "$.regionDiscovery",
+      "Next": "InitializeExecution",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.regionDiscovery",
+          "Next": "InitializeExecution"
+        }
+      ]
+    },
+
     "InitializeExecution": {
       "Type": "Pass",
       "Comment": "Set up execution context with S3 paths and region lists",
       "Parameters": {
         "executionId.$": "$$.Execution.Id",
         "timestamp.$": "$$.Execution.StartTime",
+        "regionDiscovery.$": "$.regionDiscovery",
         "config": {
           "s3Bucket": "${S3Bucket}",
           "pricingServiceCodes": [
@@ -37,24 +54,7 @@
             "ca-central-1",
             "sa-east-1"
           ],
-          "featureRegions": [
-            "us-east-1",
-            "us-west-2",
-            "us-east-2",
-            "eu-west-1",
-            "eu-west-2",
-            "eu-west-3",
-            "eu-central-1",
-            "eu-north-1",
-            "ap-southeast-1",
-            "ap-southeast-2",
-            "ap-southeast-3",
-            "ap-northeast-1",
-            "ap-northeast-2",
-            "ap-south-1",
-            "ca-central-1",
-            "sa-east-1"
-          ]
+          "featureRegions.$": "$.regionDiscovery.featureRegions"
         }
       },
       "ResultPath": "$",

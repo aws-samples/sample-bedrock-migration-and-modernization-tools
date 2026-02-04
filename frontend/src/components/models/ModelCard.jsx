@@ -1,4 +1,4 @@
-import { Star, GitCompare, ExternalLink, Zap, Globe, MessageSquare, Image, FileText, Video, Mic, Check, X, MapPin, Radio, ArrowRight, DollarSign, Gauge, CheckCircle2 } from 'lucide-react'
+import { Star, GitCompare, ExternalLink, Zap, Globe, MessageSquare, Image, FileText, Video, Mic, Check, X, MapPin, Radio, ArrowRight, DollarSign, Gauge, CheckCircle2, Search, Clock } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -380,6 +380,64 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   )}
                 </div>
               </InfoTooltip>
+            ) : pricingType === 'search_unit' ? (
+              /* Search Unit Pricing (Rerank models) */
+              <InfoTooltip content="Cost per 1,000 search units. Used for reranking search results." side="top">
+                <div className="cursor-help">
+                  {inputPrice !== null ? (
+                    <div className={cn(
+                      'text-xs rounded-md p-2',
+                      isLight ? 'bg-stone-100/60' : 'bg-white/5'
+                    )}>
+                      <div className="text-center">
+                        <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                          <Search className="h-3 w-3 inline mr-1" />
+                          Per 1K Search Units
+                        </p>
+                        <p className={cn('font-semibold text-lg', isLight ? 'text-stone-800' : 'text-white')}>
+                          ${inputPrice < 0.01 ? inputPrice.toFixed(4) : inputPrice.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={cn(
+                      'text-center text-xs py-2 rounded-md',
+                      isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-slate-500'
+                    )}>
+                      Pricing unavailable
+                    </div>
+                  )}
+                </div>
+              </InfoTooltip>
+            ) : pricingType === 'video_second' ? (
+              /* Video Per-Second Pricing (Luma AI) */
+              <InfoTooltip content="Cost per second of generated video." side="top">
+                <div className="cursor-help">
+                  {videoPrice !== null ? (
+                    <div className={cn(
+                      'text-xs rounded-md p-2',
+                      isLight ? 'bg-stone-100/60' : 'bg-white/5'
+                    )}>
+                      <div className="text-center">
+                        <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                          <Clock className="h-3 w-3 inline mr-1" />
+                          Per Second
+                        </p>
+                        <p className={cn('font-semibold text-lg', isLight ? 'text-stone-800' : 'text-white')}>
+                          ${videoPrice < 0.01 ? videoPrice.toFixed(4) : videoPrice.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={cn(
+                      'text-center text-xs py-2 rounded-md',
+                      isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-slate-500'
+                    )}>
+                      Pricing unavailable
+                    </div>
+                  )}
+                </div>
+              </InfoTooltip>
             ) : (
               /* Token-based Pricing (default) */
               <InfoTooltip content="Cost per 1,000 tokens. Input = what you send, Output = what model generates" side="top">
@@ -392,13 +450,13 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                       <div className="text-center">
                         <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>Input</p>
                         <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-white')}>
-                          ${inputPrice < 0.0001 ? inputPrice.toFixed(6) : inputPrice.toFixed(4)}
+                          ${inputPrice < 0.00001 ? inputPrice.toFixed(7) : inputPrice < 0.001 ? inputPrice.toFixed(6) : inputPrice.toFixed(4)}
                         </p>
                       </div>
                       <div className="text-center">
                         <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>Output</p>
                         <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-white')}>
-                          ${outputPrice !== null ? (outputPrice < 0.0001 ? outputPrice.toFixed(6) : outputPrice.toFixed(4)) : 'N/A'}
+                          ${outputPrice !== null ? (outputPrice < 0.00001 ? outputPrice.toFixed(7) : outputPrice < 0.001 ? outputPrice.toFixed(6) : outputPrice.toFixed(4)) : 'N/A'}
                         </p>
                       </div>
                       <p className={cn('col-span-2 text-center text-[10px] -mt-1', isLight ? 'text-stone-400' : 'text-slate-600')}>
@@ -417,8 +475,8 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               </InfoTooltip>
             )}
 
-            {/* Deployment Options */}
-            {consumptionOptions.length > 0 && (
+            {/* Deployment Options - show all consumption options except cross_region_inference */}
+            {consumptionOptions.filter(opt => opt !== 'cross_region_inference').length > 0 && (
               <div className="flex items-center gap-1.5 flex-wrap">
                 {consumptionOptions.filter(opt => opt !== 'cross_region_inference').map(opt => (
                   <InfoTooltip key={opt} content={consumptionDescriptions[opt] || opt} side="top">

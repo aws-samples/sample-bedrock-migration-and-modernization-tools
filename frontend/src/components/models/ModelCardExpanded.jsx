@@ -311,7 +311,7 @@ function CrossRegionInferenceSection({ crisData }) {
         </div>
         <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
           <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Source Regions</p>
-          <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{Object.keys(profilesByRegion).length}</p>
+          <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{sourceRegions.length || Object.keys(profilesByRegion).length}</p>
         </div>
         <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
           <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Unique Endpoints</p>
@@ -371,14 +371,11 @@ function CrossRegionInferenceSection({ crisData }) {
                       )}
                       {regions.length > 0 && (
                         <div className="mt-2">
-                          <p className={cn('text-[10px] mb-1', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                            Available in {regions.length} regions:
-                          </p>
                           <div className="flex flex-wrap gap-1">
                             {regions.sort().map(region => (
                               <Tooltip key={region} delayDuration={200}>
                                 <TooltipTrigger asChild>
-                                  <Badge variant="outline" className="text-[10px] cursor-default">
+                                  <Badge variant="secondary" className="text-[10px] cursor-default">
                                     {regionDisplayNames[region] || region}
                                   </Badge>
                                 </TooltipTrigger>
@@ -470,14 +467,11 @@ function CrossRegionInferenceSection({ crisData }) {
                         )}
                         {regions.length > 0 && (
                           <div className="mt-2">
-                            <p className={cn('text-[10px] mb-1', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                              Available in {regions.length} regions:
-                            </p>
                             <div className="flex flex-wrap gap-1">
                               {regions.sort().map(region => (
                                 <Tooltip key={region} delayDuration={200}>
                                   <TooltipTrigger asChild>
-                                    <Badge variant="outline" className="text-[10px] cursor-default">
+                                    <Badge variant="secondary" className="text-[10px] cursor-default">
                                       {regionDisplayNames[region] || region}
                                     </Badge>
                                   </TooltipTrigger>
@@ -513,7 +507,7 @@ function BatchInferenceSection({ batchData }) {
   return (
     <div className="space-y-3">
       {/* Status metrics */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
           <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Status</p>
           <div className="flex items-center gap-1 mt-1">
@@ -527,10 +521,6 @@ function BatchInferenceSection({ batchData }) {
         <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
           <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Regions</p>
           <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{regions.length}</p>
-        </div>
-        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Coverage</p>
-          <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{batchData.coverage_percentage?.toFixed(0) || 0}%</p>
         </div>
       </div>
 
@@ -657,7 +647,7 @@ function SpecsTab({ model }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Model ID</p>
-              <p className={cn('text-sm font-mono truncate', isLight ? 'text-stone-900' : 'text-white')}>{model.model_id}</p>
+              <p className={cn('text-sm font-mono truncate', isLight ? 'text-stone-900' : 'text-white')}>{model.model_id.split(':')[0]}</p>
             </div>
             <div>
               <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Provider</p>
@@ -753,32 +743,25 @@ function SpecsTab({ model }) {
           <div className="space-y-2">
             {Object.keys(documentationLinks).length > 0 ? (
               <div className="flex flex-col gap-2">
-                {documentationLinks.model_docs && (
-                  <a href={documentationLinks.model_docs} target="_blank" rel="noopener noreferrer"
+                {documentationLinks.aws_bedrock_guide && (
+                  <a href={documentationLinks.aws_bedrock_guide} target="_blank" rel="noopener noreferrer"
                      className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
                     <ExternalLink className="h-3.5 w-3.5" />
-                    Model Documentation
+                    AWS Bedrock Guide
                   </a>
                 )}
-                {documentationLinks.languages && (
-                  <a href={documentationLinks.languages} target="_blank" rel="noopener noreferrer"
+                {documentationLinks.pricing_guide && (
+                  <a href={documentationLinks.pricing_guide} target="_blank" rel="noopener noreferrer"
                      className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
                     <ExternalLink className="h-3.5 w-3.5" />
-                    Supported Languages
+                    Pricing Guide
                   </a>
                 )}
-                {documentationLinks.api_reference && (
-                  <a href={documentationLinks.api_reference} target="_blank" rel="noopener noreferrer"
+                {documentationLinks.provider_guide && (
+                  <a href={documentationLinks.provider_guide} target="_blank" rel="noopener noreferrer"
                      className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
                     <ExternalLink className="h-3.5 w-3.5" />
-                    API Reference
-                  </a>
-                )}
-                {documentationLinks.bedrock_console && (
-                  <a href={documentationLinks.bedrock_console} target="_blank" rel="noopener noreferrer"
-                     className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Bedrock Console
+                    Provider Documentation
                   </a>
                 )}
               </div>
@@ -799,11 +782,20 @@ function SpecsTab({ model }) {
             <div>
               <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>Consumption Options</p>
               <div className="flex flex-wrap gap-1.5">
-                {consumptionOptions.length > 0 ? consumptionOptions.map(opt => (
-                  <Badge key={opt} variant="info" className="text-xs">
-                    {opt === 'on_demand' ? 'On-Demand' : opt === 'provisioned' ? 'Provisioned' : opt === 'batch' ? 'Batch' : opt}
-                  </Badge>
-                )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-500')}>Not specified</span>}
+                {consumptionOptions.length > 0 ? consumptionOptions.map(opt => {
+                  const labels = {
+                    'on_demand': 'On-Demand',
+                    'batch': 'Batch',
+                    'provisioned': 'Provisioned',
+                    'provisioned_throughput': 'Provisioned Throughput',
+                    'cross_region_inference': 'Cross-Region Inference'
+                  }
+                  return (
+                    <Badge key={opt} variant="info" className="text-xs">
+                      {labels[opt] || opt}
+                    </Badge>
+                  )
+                }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-500')}>Not specified</span>}
               </div>
             </div>
             <div>
@@ -1519,7 +1511,32 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
     }
   }
 
-  const pricingGroups = Object.keys(pricingByGroup)
+  // Sort pricing groups in logical order: On-Demand first, then Batch, then others
+  const pricingGroupOrder = [
+    'On-Demand',
+    'On-Demand Long Context',
+    'On-Demand Global',
+    'On-Demand Long Context Global',
+    'Batch',
+    'Batch Long Context',
+    'Batch Global',
+    'Batch Long Context Global',
+    'Provisioned Throughput',
+    'Custom Model'
+  ]
+
+  const pricingGroups = Object.keys(pricingByGroup).sort((a, b) => {
+    const indexA = pricingGroupOrder.indexOf(a)
+    const indexB = pricingGroupOrder.indexOf(b)
+    // If both are in the order list, sort by their position
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB
+    // If only one is in the list, it comes first
+    if (indexA !== -1) return -1
+    if (indexB !== -1) return 1
+    // Otherwise alphabetical
+    return a.localeCompare(b)
+  })
+
   const consumptionOptions = model.consumption_options || []
 
   const getGeoForRegion = (region) => {
@@ -1792,7 +1809,7 @@ export function ModelCardExpanded({
               </Button>
             </div>
             <DialogDescription className="font-mono">
-              {model.model_id}
+              {model.model_id.split(':')[0]}
             </DialogDescription>
           </DialogHeader>
 
