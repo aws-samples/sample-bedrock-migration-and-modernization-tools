@@ -5,22 +5,22 @@
 
 /* Custom color palette */
 :root {
-  /* Dark theme colors (default) */
-  --color-bg-base: #161d26;
-  --color-bg-elevated: #1c2530;
-  --color-bg-surface: #232d3a;
-  --color-bg-hover: #2a3544;
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-border: #2a3544;
-  --color-border-hover: #3b4a5c;
+  /* Dark theme colors (default) - Discord/Notion-inspired soft dark */
+  --color-bg-base: #1a1b1e;
+  --color-bg-elevated: #25262b;
+  --color-bg-surface: #2c2d32;
+  --color-bg-hover: #373a40;
+  --color-text-primary: #f0f1f3;
+  --color-text-secondary: #c0c1c5;
+  --color-text-muted: #9a9b9f;
+  --color-border: #373a40;
+  --color-border-hover: #4a4d54;
 
   /* Dark theme accent (Bedrock green) */
   --color-accent: #1A9E7A;
-  --color-accent-hover: #158567;
-  --color-accent-muted: #127558;
-  --color-accent-bg: rgba(26, 158, 122, 0.15);
+  --color-accent-hover: #22b38d;
+  --color-accent-muted: #158567;
+  --color-accent-bg: rgba(26, 158, 122, 0.12);
 }
 
 /* Light theme overrides */
@@ -322,34 +322,42 @@ button:focus,
 .glass-card {
   background: linear-gradient(
     135deg,
-    rgba(30, 41, 59, 0.8) 0%,
-    rgba(15, 23, 42, 0.9) 50%,
-    rgba(2, 6, 23, 0.8) 100%
+    rgba(37, 38, 43, 0.9) 0%,
+    rgba(26, 27, 30, 0.95) 50%,
+    rgba(37, 38, 43, 0.9) 100%
   );
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.2),
-    0 2px 4px -1px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+    0 4px 6px -1px rgba(0, 0, 0, 0.15),
+    0 2px 4px -1px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
 }
 
 /* Glass card hover glow effect */
 .glass-card-glow:hover {
-  border-color: rgba(26, 158, 122, 0.4);
+  border-color: rgba(26, 158, 122, 0.35);
   box-shadow:
-    0 0 30px -5px rgba(26, 158, 122, 0.3),
-    0 4px 6px -1px rgba(0, 0, 0, 0.2),
+    0 0 25px -5px rgba(26, 158, 122, 0.25),
+    0 8px 20px -5px rgba(0, 0, 0, 0.2),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
 }
 
 /* Frosted inner elements */
 .frosted-inner {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Card hover lift effect */
+.card-hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-hover-lift:hover {
+  transform: translateY(-2px);
 }
 
 /* Subtle noise texture overlay (optional, applied via pseudo-element) */
@@ -409,16 +417,16 @@ button:focus,
 
 /* Popup styling - Dark theme */
 .leaflet-popup-content-wrapper {
-  background: #1c2530;
-  color: #f1f5f9;
+  background: #25262b;
+  color: #e4e5e7;
   border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-  border: 1px solid #2a3544;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+  border: 1px solid #373a40;
 }
 
 .leaflet-popup-tip {
-  background: #1c2530;
-  border: 1px solid #2a3544;
+  background: #25262b;
+  border: 1px solid #373a40;
   border-top: none;
   border-right: none;
 }
@@ -428,11 +436,11 @@ button:focus,
 }
 
 .leaflet-popup-close-button {
-  color: #94a3b8 !important;
+  color: #a0a1a5 !important;
 }
 
 .leaflet-popup-close-button:hover {
-  color: #f1f5f9 !important;
+  color: #e4e5e7 !important;
 }
 
 /* Popup styling - Light theme */
@@ -474,13 +482,40 @@ button:focus,
 
 /* Attribution styling */
 .leaflet-control-attribution {
-  background: rgba(0, 0, 0, 0.5) !important;
-  color: #94a3b8 !important;
+  background: rgba(26, 27, 30, 0.8) !important;
+  color: #a0a1a5 !important;
   font-size: 10px !important;
 }
 
 .leaflet-control-attribution a {
   color: #1A9E7A !important;
+}
+
+/* ============================================
+   THEME TRANSITION
+   ============================================ */
+
+/* Smooth theme transition */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .light .leaflet-control-attribution {
@@ -494,13 +529,13 @@ button:focus,
 
 /* Zoom controls styling */
 .leaflet-control-zoom a {
-  background: #1c2530 !important;
-  color: #f1f5f9 !important;
-  border: 1px solid #2a3544 !important;
+  background: #25262b !important;
+  color: #e4e5e7 !important;
+  border: 1px solid #373a40 !important;
 }
 
 .leaflet-control-zoom a:hover {
-  background: #2a3544 !important;
+  background: #373a40 !important;
 }
 
 .light .leaflet-control-zoom a {

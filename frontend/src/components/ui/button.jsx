@@ -12,12 +12,12 @@ const lightVariants = {
 }
 
 const darkVariants = {
-  default: 'bg-[#1A9E7A] text-white shadow hover:bg-[#158567]',
+  default: 'bg-[#1A9E7A] text-white shadow hover:bg-[#22b38d]',
   destructive: 'bg-red-600 text-white shadow-sm hover:bg-red-700',
-  outline: 'border border-slate-700 bg-transparent text-slate-200 shadow-sm hover:bg-slate-800 hover:text-white',
-  secondary: 'bg-slate-800 text-slate-200 shadow-sm hover:bg-slate-700',
-  ghost: 'text-slate-300 hover:bg-slate-800 hover:text-white',
-  link: 'text-[#1A9E7A] underline-offset-4 hover:underline',
+  outline: 'border border-[#4a4d54] bg-transparent text-[#e4e5e7] shadow-sm hover:bg-[#373a40] hover:border-[#5a5d64]',
+  secondary: 'bg-[#2c2d32] text-[#a0a1a5] shadow-sm hover:bg-[#373a40] hover:text-[#e4e5e7]',
+  ghost: 'text-[#a0a1a5] hover:bg-[#2c2d32] hover:text-[#e4e5e7]',
+  link: 'text-[#1A9E7A] underline-offset-4 hover:underline hover:text-[#22b38d]',
 }
 
 const sizes = {

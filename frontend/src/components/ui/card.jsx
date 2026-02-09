@@ -10,10 +10,10 @@ const Card = React.forwardRef(({ className, ...props }, ref) => {
     <div
       ref={ref}
       className={cn(
-        'rounded-xl border',
+        'rounded-xl border card-hover-lift',
         isLight
-          ? 'border-stone-200/80 bg-white/80 text-stone-900 backdrop-blur-xl shadow-lg shadow-stone-900/5 ring-1 ring-stone-100'
-          : 'border-slate-700/50 bg-gradient-to-br from-slate-800/80 via-slate-900/90 to-slate-950/80 text-slate-50 backdrop-blur-xl shadow-lg shadow-black/20 ring-1 ring-white/5',
+          ? 'border-stone-200/80 bg-white/90 text-stone-900 backdrop-blur-xl shadow-md shadow-stone-900/5 ring-1 ring-stone-100/50'
+          : 'border-[#373a40] bg-[#25262b] text-[#e4e5e7] shadow-lg shadow-black/15 ring-1 ring-white/[0.03]',
         className
       )}
       {...props}
@@ -47,7 +47,7 @@ const CardDescription = React.forwardRef(({ className, ...props }, ref) => {
   return (
     <p
       ref={ref}
-      className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400', className)}
+      className={cn('text-sm', isLight ? 'text-stone-600' : 'text-[#a0a1a5]', className)}
       {...props}
     />
   )

@@ -49,7 +49,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
       <div className={cn(
         'flex items-center p-4 border-b',
         collapsed && !mobileMenuOpen ? 'flex-col gap-2' : 'justify-between',
-        isLight ? 'border-stone-200' : 'border-slate-800'
+        isLight ? 'border-stone-200' : 'border-[#373a40]'
       )}>
         {(!collapsed || mobileMenuOpen) ? (
           <div className="flex items-center gap-2">
@@ -80,12 +80,12 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
           {collapsed ? (
             <ChevronRight className={cn(
               'h-4 w-4',
-              isLight ? 'text-stone-500' : 'text-slate-400'
+              isLight ? 'text-stone-500' : 'text-[#9a9b9f]'
             )} />
           ) : (
             <ChevronLeft className={cn(
               'h-4 w-4',
-              isLight ? 'text-stone-500' : 'text-slate-400'
+              isLight ? 'text-stone-500' : 'text-[#9a9b9f]'
             )} />
           )}
         </Button>
@@ -98,7 +98,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
         >
           <X className={cn(
             'h-5 w-5',
-            isLight ? 'text-stone-500' : 'text-slate-400'
+            isLight ? 'text-stone-500' : 'text-[#9a9b9f]'
           )} />
         </Button>
       </div>
@@ -121,7 +121,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
                     : 'bg-[#1A9E7A] text-white'
                   : isLight
                     ? 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    : 'text-[#c0c1c5] hover:bg-[#2c2d32] hover:text-white'
               )}
             >
               <Icon className={cn('h-5 w-5 flex-shrink-0', isActive && (isLight ? 'text-[#faf9f5]' : 'text-white'))} />
@@ -133,7 +133,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
         })}
       </nav>
 
-      <Separator className={isLight ? 'bg-stone-200' : 'bg-slate-800'} />
+      <Separator className={isLight ? 'bg-stone-200' : 'bg-[#373a40]'} />
 
       {/* User Profile */}
       <UserProfile collapsed={collapsed} mobileMenuOpen={mobileMenuOpen} />
@@ -146,7 +146,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
         {(!collapsed || mobileMenuOpen) && (
           <span className={cn(
             'text-xs',
-            isLight ? 'text-stone-500' : 'text-slate-500'
+            isLight ? 'text-stone-500' : 'text-[#6d6e72]'
           )}>
             v1.0.0
           </span>
@@ -165,7 +165,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
           collapsed ? 'w-16' : 'w-64',
           isLight
             ? 'bg-white/80 border-stone-200/80 backdrop-blur-xl'
-            : 'bg-slate-900/80 border-slate-800/50 backdrop-blur-xl'
+            : 'bg-[#1a1b1e]/95 border-[#373a40]/50 backdrop-blur-xl'
         )}
       >
         {sidebarContent}
@@ -185,7 +185,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
               'absolute left-0 top-0 bottom-0 w-72 flex flex-col border-r transition-transform duration-300',
               isLight
                 ? 'bg-white border-stone-200'
-                : 'bg-slate-900 border-slate-800'
+                : 'bg-[#1a1b1e] border-[#373a40]'
             )}
           >
             {sidebarContent}

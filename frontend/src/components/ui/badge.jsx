@@ -13,13 +13,13 @@ const lightVariants = {
 }
 
 const darkVariants = {
-  default: 'border-transparent bg-slate-700 text-slate-100 shadow',
-  secondary: 'border-transparent bg-slate-800 text-slate-200',
+  default: 'border-transparent bg-[#373a40] text-[#e4e5e7] shadow',
+  secondary: 'border-transparent bg-[#2c2d32] text-[#a0a1a5]',
   destructive: 'border-transparent bg-red-600 text-white shadow',
-  outline: 'border-slate-600 bg-transparent text-slate-200',
-  success: 'border-transparent bg-emerald-600 text-white shadow',
-  warning: 'border-transparent bg-amber-600 text-white shadow',
-  info: 'border-transparent bg-[#1A9E7A] text-white shadow',
+  outline: 'border-[#4a4d54] bg-transparent text-[#a0a1a5]',
+  success: 'border-transparent bg-emerald-600/90 text-white shadow',
+  warning: 'border-transparent bg-amber-600/90 text-white shadow',
+  info: 'border-transparent bg-[#1A9E7A]/90 text-white shadow',
 }
 
 const Badge = React.forwardRef(({ className, variant = 'default', ...props }, ref) => {

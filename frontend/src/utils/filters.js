@@ -1,4 +1,20 @@
 /**
+ * Check if a value is a GEO-level selection
+ */
+export function isGeoSelection(value) {
+  return value?.startsWith('geo:')
+}
+
+/**
+ * Get regions for a GEO selection
+ */
+export function getRegionsForGeo(geoValue, awsRegionsList) {
+  if (!isGeoSelection(geoValue)) return []
+  const geo = geoValue.replace('geo:', '')
+  return awsRegionsList.filter(r => r.geo === geo).map(r => r.value)
+}
+
+/**
  * AWS Regions configuration
  */
 export const awsRegions = [
@@ -271,9 +287,18 @@ export function applyFilters(models, filters) {
 
   // Primary region availability filter
   if (filters.primaryRegion) {
-    filtered = filtered.filter(m =>
-      m.regions_available?.includes(filters.primaryRegion)
-    )
+    if (isGeoSelection(filters.primaryRegion)) {
+      // GEO selection - filter models available in ANY region within that geo
+      const geoRegions = getRegionsForGeo(filters.primaryRegion, awsRegions)
+      filtered = filtered.filter(m =>
+        geoRegions.some(region => m.regions_available?.includes(region))
+      )
+    } else {
+      // Single region selection
+      filtered = filtered.filter(m =>
+        m.regions_available?.includes(filters.primaryRegion)
+      )
+    }
   }
 
   return filtered

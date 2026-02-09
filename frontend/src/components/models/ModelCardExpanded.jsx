@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink } from 'lucide-react'
+import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows } from 'lucide-react'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import {
   Dialog,
@@ -29,7 +29,7 @@ const providerColors = {
   'Stability AI': 'bg-[#7C5CFF]', // Stability Purple
   Stability: 'bg-[#7C5CFF]',     // Stability Purple (alternate name)
   Luma: 'bg-[#6366F1]',          // Luma Indigo
-  default: 'bg-slate-500',
+  default: 'bg-[#6d6e72]',
 }
 
 // Modality icons
@@ -47,6 +47,47 @@ function formatNumber(num) {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
   if (num >= 1000) return `${(num / 1000).toFixed(0)}K`
   return num.toString()
+}
+
+// Copyable model ID for expanded view
+function CopyableModelIdExpanded({ modelId, isLight }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async (e) => {
+    e.stopPropagation()
+    await navigator.clipboard.writeText(modelId)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={handleCopy}
+          className={cn(
+            'flex items-center gap-1.5 text-xs font-mono transition-colors group',
+            isLight
+              ? 'text-stone-500 hover:text-stone-700'
+              : 'text-[#9a9b9f] hover:text-[#c0c1c5]'
+          )}
+        >
+          <span>{modelId}</span>
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-emerald-500" />
+          ) : (
+            <Copy className={cn(
+              'h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity',
+              isLight ? 'text-stone-400' : 'text-[#6d6e72]'
+            )} />
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{copied ? 'Copied!' : 'Click to copy model ID'}</p>
+      </TooltipContent>
+    </Tooltip>
+  )
 }
 
 function getProviderColor(provider) {
@@ -78,9 +119,9 @@ function CollapsibleSection({ title, icon: Icon, children, defaultExpanded = fal
           <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{title}</span>
         </div>
         {isExpanded ? (
-          <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+          <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
         ) : (
-          <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+          <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
         )}
       </button>
       {isExpanded && (
@@ -88,7 +129,7 @@ function CollapsibleSection({ title, icon: Icon, children, defaultExpanded = fal
           'px-3 pb-3 pt-3 border-t',
           isLight
             ? 'border-stone-200/80 bg-white/60 backdrop-blur-sm'
-            : 'border-white/10 bg-slate-900/30 backdrop-blur-sm'
+            : 'border-[#373a40] bg-[#25262b]/50 backdrop-blur-sm'
         )}>
           {children}
         </div>
@@ -176,7 +217,7 @@ function RegionalAvailabilityGrouped({ regions }) {
 
   return (
     <div className="space-y-2">
-      <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>
+      <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>
         Available in {regions.length} regions across {Object.keys(grouped).length} geographic areas
       </p>
       {Object.entries(grouped).map(([groupKey, groupRegions]) => {
@@ -186,12 +227,12 @@ function RegionalAvailabilityGrouped({ regions }) {
         return (
           <div key={groupKey} className={cn(
             'rounded-lg border overflow-hidden',
-            isLight ? 'bg-white border-stone-200' : 'bg-[#1a2330] border-slate-600/40'
+            isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]'
           )}>
             <button
               className={cn(
                 'w-full flex items-center justify-between p-2 transition-colors',
-                isLight ? 'hover:bg-stone-50' : 'hover:bg-slate-800/50'
+                isLight ? 'hover:bg-stone-50' : 'hover:bg-[#2c2d32]'
               )}
               onClick={() => toggleGroup(groupKey)}
             >
@@ -201,17 +242,17 @@ function RegionalAvailabilityGrouped({ regions }) {
                 <Badge variant="secondary" className="text-xs">{groupRegions.length} regions</Badge>
               </div>
               {isExpanded ? (
-                <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+                <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
               ) : (
-                <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+                <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
               )}
             </button>
             {isExpanded && (
-              <div className={cn('px-2 pb-2 border-t', isLight ? 'border-stone-200' : 'border-slate-700')}>
+              <div className={cn('px-2 pb-2 border-t', isLight ? 'border-stone-200' : 'border-[#373a40]')}>
                 <div className="flex flex-wrap gap-1.5 pt-2">
                   {groupRegions.sort().map(region => (
                     <Badge key={region} variant="outline" className="text-xs">
-                      {regionDisplayNames[region] || region} <span className={cn('font-mono ml-1', isLight ? 'text-stone-500' : 'text-slate-400')}>({region})</span>
+                      {regionDisplayNames[region] || region} <span className={cn('font-mono ml-1', isLight ? 'text-stone-500' : 'text-[#c0c1c5]')}>({region})</span>
                     </Badge>
                   ))}
                 </div>
@@ -295,26 +336,26 @@ function CrossRegionInferenceSection({ crisData }) {
     <div className="space-y-3">
       {/* Status metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Status</p>
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Status</p>
           <div className="flex items-center gap-1 mt-1">
             {crisData.supported ? (
               <><Check className="h-4 w-4 text-emerald-500" /><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Supported</span></>
             ) : (
-              <><X className="h-4 w-4 text-red-400" /><span className={cn('text-sm font-medium', isLight ? 'text-stone-600' : 'text-slate-500')}>Not Supported</span></>
+              <><X className="h-4 w-4 text-red-400" /><span className={cn('text-sm font-medium', isLight ? 'text-stone-600' : 'text-[#b0b1b5]')}>Not Supported</span></>
             )}
           </div>
         </div>
-        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Total Profiles</p>
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Total Profiles</p>
           <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{crisData.profiles_count || profiles.length}</p>
         </div>
-        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Source Regions</p>
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Source Regions</p>
           <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{sourceRegions.length || Object.keys(profilesByRegion).length}</p>
         </div>
-        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Unique Endpoints</p>
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Unique Endpoints</p>
           <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{uniqueProfileIds.size}</p>
         </div>
       </div>
@@ -322,18 +363,18 @@ function CrossRegionInferenceSection({ crisData }) {
       {/* CRIS Endpoints grouped by source region */}
       {crisData.supported && profiles.length > 0 && (
         <div className="space-y-3">
-          <p className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>CRIS Endpoints by Source Region</p>
+          <p className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>CRIS Endpoints by Source Region</p>
 
           {/* Global Endpoints Group */}
           {globalProfiles.length > 0 && (
             <div className={cn(
               'rounded-lg border overflow-hidden',
-              isLight ? 'bg-white border-stone-200' : 'bg-[#1a2330] border-slate-600/40'
+              isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]'
             )}>
               <button
                 className={cn(
                   'w-full flex items-center justify-between p-3 transition-colors',
-                  isLight ? 'hover:bg-stone-50' : 'hover:bg-slate-800/50'
+                  isLight ? 'hover:bg-stone-50' : 'hover:bg-[#2c2d32]'
                 )}
                 onClick={() => toggleRegion('geo_Global')}
               >
@@ -343,29 +384,29 @@ function CrossRegionInferenceSection({ crisData }) {
                   <Badge variant="info" className="text-xs">{globalProfiles.length} endpoints</Badge>
                 </div>
                 {expandedRegions['geo_Global'] ? (
-                  <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+                  <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
                 ) : (
-                  <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+                  <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
                 )}
               </button>
               {expandedRegions['geo_Global'] && (
-                <div className={cn('px-3 pb-3 pt-3 border-t space-y-2', isLight ? 'border-stone-200' : 'border-slate-700')}>
+                <div className={cn('px-3 pb-3 pt-3 border-t space-y-2', isLight ? 'border-stone-200' : 'border-[#373a40]')}>
                   {globalProfiles.map(({ profile, regions }, idx) => (
                     <div key={`${profile.profile_id}-${idx}`} className={cn(
                       'rounded p-2',
-                      isLight ? 'bg-stone-50 border border-stone-200' : 'bg-[#161d26] border border-slate-600/40'
+                      isLight ? 'bg-stone-50 border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]'
                     )}>
                       <p className={cn('text-sm font-medium', isLight ? 'text-stone-900' : 'text-white')}>
                         {profile.profile_name}
                       </p>
-                      <p className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                      <p className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500' : 'text-[#c0c1c5]')}>
                         {profile.profile_id}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="secondary" className="text-[10px]">{profile.type || 'inference'}</Badge>
                       </div>
                       {profile.description && (
-                        <p className={cn('text-xs mt-1.5', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                        <p className={cn('text-xs mt-1.5', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>
                           {profile.description}
                         </p>
                       )}
@@ -423,12 +464,12 @@ function CrossRegionInferenceSection({ crisData }) {
             return (
               <div key={geoKey} className={cn(
                 'rounded-lg border overflow-hidden',
-                isLight ? 'bg-white border-stone-200' : 'bg-[#1a2330] border-slate-600/40'
+                isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]'
               )}>
                 <button
                   className={cn(
                     'w-full flex items-center justify-between p-3 transition-colors',
-                    isLight ? 'hover:bg-stone-50' : 'hover:bg-slate-800/50'
+                    isLight ? 'hover:bg-stone-50' : 'hover:bg-[#2c2d32]'
                   )}
                   onClick={() => toggleRegion(`geo_${geoKey}`)}
                 >
@@ -439,29 +480,29 @@ function CrossRegionInferenceSection({ crisData }) {
                     <Badge variant="info" className="text-xs">{geoEndpoints.length} endpoints</Badge>
                   </div>
                   {isGeoExpanded ? (
-                    <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+                    <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
                   ) : (
-                    <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+                    <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
                   )}
                 </button>
                 {isGeoExpanded && (
-                  <div className={cn('px-3 pb-3 pt-3 border-t space-y-2', isLight ? 'border-stone-200' : 'border-slate-700')}>
+                  <div className={cn('px-3 pb-3 pt-3 border-t space-y-2', isLight ? 'border-stone-200' : 'border-[#373a40]')}>
                     {geoEndpoints.map(({ profile, regions }, idx) => (
                       <div key={`${profile.profile_id}-${idx}`} className={cn(
                         'rounded p-2',
-                        isLight ? 'bg-stone-50 border border-stone-200' : 'bg-[#161d26] border border-slate-600/40'
+                        isLight ? 'bg-stone-50 border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]'
                       )}>
                         <p className={cn('text-sm font-medium', isLight ? 'text-stone-900' : 'text-white')}>
                           {profile.profile_name}
                         </p>
-                        <p className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                        <p className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500' : 'text-[#c0c1c5]')}>
                           {profile.profile_id}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="secondary" className="text-[10px]">{profile.type || 'inference'}</Badge>
                         </div>
                         {profile.description && (
-                          <p className={cn('text-xs mt-1.5', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                          <p className={cn('text-xs mt-1.5', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>
                             {profile.description}
                           </p>
                         )}
@@ -508,18 +549,18 @@ function BatchInferenceSection({ batchData }) {
     <div className="space-y-3">
       {/* Status metrics */}
       <div className="grid grid-cols-2 gap-2">
-        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Status</p>
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Status</p>
           <div className="flex items-center gap-1 mt-1">
             {batchData.supported ? (
               <><Check className="h-4 w-4 text-emerald-500" /><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Supported</span></>
             ) : (
-              <><X className="h-4 w-4 text-red-400" /><span className={cn('text-sm font-medium', isLight ? 'text-stone-600' : 'text-slate-500')}>Not Supported</span></>
+              <><X className="h-4 w-4 text-red-400" /><span className={cn('text-sm font-medium', isLight ? 'text-stone-600' : 'text-[#b0b1b5]')}>Not Supported</span></>
             )}
           </div>
         </div>
-        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Regions</p>
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Regions</p>
           <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{regions.length}</p>
         </div>
       </div>
@@ -528,12 +569,12 @@ function BatchInferenceSection({ batchData }) {
       {batchData.supported && regions.length > 0 && (
         <div className={cn(
           'rounded-lg border overflow-hidden',
-          isLight ? 'bg-white border-stone-200' : 'bg-[#1a2330] border-slate-600/40'
+          isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]'
         )}>
           <button
             className={cn(
               'w-full flex items-center justify-between p-2 transition-colors',
-              isLight ? 'hover:bg-stone-50' : 'hover:bg-slate-800/50'
+              isLight ? 'hover:bg-stone-50' : 'hover:bg-[#2c2d32]'
             )}
             onClick={() => setIsExpanded(!isExpanded)}
           >
@@ -543,18 +584,18 @@ function BatchInferenceSection({ batchData }) {
               <Badge variant="info" className="text-xs">{regions.length} regions</Badge>
             </div>
             {isExpanded ? (
-              <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+              <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
             ) : (
-              <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+              <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
             )}
           </button>
           {isExpanded && (
-            <div className={cn('px-2 pb-2 pt-2 space-y-2 border-t', isLight ? 'border-stone-200' : 'border-slate-700')}>
+            <div className={cn('px-2 pb-2 pt-2 space-y-2 border-t', isLight ? 'border-stone-200' : 'border-[#373a40]')}>
               {Object.entries(grouped).map(([geoKey, geoRegions]) => {
                 const geoInfo = geoGroups[geoKey] || { name: geoKey, icon: '🌐' }
                 return (
                   <div key={geoKey}>
-                    <p className={cn('text-xs mb-1', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                    <p className={cn('text-xs mb-1', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>
                       {geoInfo.icon} {geoInfo.name} ({geoRegions.length})
                     </p>
                     <div className="flex flex-wrap gap-1">
@@ -595,239 +636,163 @@ function SpecsTab({ model }) {
   const lifecycleStatus = model.model_lifecycle?.status || model.model_status || 'Unknown'
 
   return (
-    <ScrollArea className="h-[500px]">
-      <div className="space-y-4 pr-4">
-        {/* Metrics Banner */}
-        <div className="grid grid-cols-4 gap-3 items-stretch">
-          <div className={cn(
-            'rounded-lg p-3 text-center border flex flex-col justify-center min-h-[80px]',
-            isLight
-              ? 'bg-amber-50/80 border-amber-100/50 backdrop-blur-sm'
-              : 'bg-white/5 border-white/10 backdrop-blur-sm'
-          )}>
-            <Globe className={cn('h-5 w-5 mx-auto mb-1', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-            <p className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-white')}>{regions.length}</p>
-            <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Regions</p>
-          </div>
-          <div className={cn(
-            'rounded-lg p-3 text-center border flex flex-col justify-center min-h-[80px]',
-            isLight
-              ? 'bg-purple-50/80 border-purple-100/50 backdrop-blur-sm'
-              : 'bg-white/5 border-white/10 backdrop-blur-sm'
-          )}>
-            <FileText className="h-5 w-5 text-purple-500 mx-auto mb-1" />
-            <p className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-white')}>{Object.keys(documentationLinks).length}</p>
-            <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Doc Links</p>
-          </div>
-          <div className={cn(
-            'rounded-lg p-3 text-center border flex flex-col justify-center min-h-[80px]',
-            isLight
-              ? 'bg-emerald-50/80 border-emerald-100/50 backdrop-blur-sm'
-              : 'bg-white/5 border-white/10 backdrop-blur-sm'
-          )}>
-            <Cpu className="h-5 w-5 text-emerald-500 mx-auto mb-1" />
-            <p className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-white')}>{capabilities.length}</p>
-            <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Capabilities</p>
-          </div>
-          <div className={cn(
-            'rounded-lg p-3 text-center border flex flex-col justify-center items-center min-h-[80px]',
-            isLight
-              ? 'bg-stone-50/80 border-stone-100/50 backdrop-blur-sm'
-              : 'bg-white/5 border-white/10 backdrop-blur-sm'
-          )}>
-            <Badge variant={lifecycleStatus === 'ACTIVE' ? 'success' : 'warning'} className="text-xs mb-1">
-              {lifecycleStatus}
-            </Badge>
-            <p className={cn('text-xs mt-1', isLight ? 'text-stone-600' : 'text-slate-400')}>Status</p>
-          </div>
-        </div>
-
-        {/* 1. Core Model Information */}
-        <CollapsibleSection title="Core Model Information" icon={Database} defaultExpanded={true}>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Model ID</p>
-              <p className={cn('text-sm font-mono truncate', isLight ? 'text-stone-900' : 'text-white')}>{model.model_id.split(':')[0]}</p>
-            </div>
-            <div>
-              <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Provider</p>
-              <p className={cn('text-sm font-medium', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{model.model_provider}</p>
-            </div>
-            <div>
-              <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Context Window</p>
-              <p className={cn('text-sm font-semibold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
-                {contextWindow ? contextWindow.toLocaleString() : 'N/A'} tokens
-              </p>
-            </div>
-            <div>
-              <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Max Output</p>
-              <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">
-                {maxOutput ? maxOutput.toLocaleString() : 'N/A'} tokens
-              </p>
-            </div>
-            <div>
-              <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Streaming Support</p>
-              <div className="flex items-center gap-1">
-                {streamingSupported ? (
-                  <><Check className="h-4 w-4 text-emerald-500" /><span className="text-sm text-emerald-600 dark:text-emerald-400">Supported</span></>
-                ) : (
-                  <><X className="h-4 w-4 text-red-400" /><span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-500')}>Not Supported</span></>
-                )}
-              </div>
-            </div>
-            <div>
-              <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Lifecycle Status</p>
-              <Badge variant={lifecycleStatus === 'ACTIVE' ? 'success' : 'warning'} className="text-xs">
-                {lifecycleStatus}
-              </Badge>
-            </div>
-          </div>
-        </CollapsibleSection>
-
-        {/* 2. Input & Output Modalities */}
-        <CollapsibleSection title="Input & Output Modalities" icon={Layers}>
-          <div className="space-y-3">
-            <div>
-              <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>Input Modalities</p>
-              <div className="flex flex-wrap gap-2">
-                {inputModalities.length > 0 ? inputModalities.map(mod => {
-                  const Icon = modalityIcons[mod] || MessageSquare
-                  return (
-                    <Badge key={mod} className={cn(isLight ? 'text-[#faf9f5] bg-amber-700' : 'text-white bg-[#1A9E7A]')}>
-                      <Icon className="h-3 w-3 mr-1" />{mod}
-                    </Badge>
-                  )
-                }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-500')}>None specified</span>}
-              </div>
-            </div>
-            <div>
-              <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>Output Modalities</p>
-              <div className="flex flex-wrap gap-2">
-                {outputModalities.length > 0 ? outputModalities.map(mod => {
-                  const Icon = modalityIcons[mod] || MessageSquare
-                  return (
-                    <Badge key={mod} className={cn('bg-emerald-600', isLight ? 'text-[#faf9f5]' : 'text-white')}>
-                      <Icon className="h-3 w-3 mr-1" />{mod}
-                    </Badge>
-                  )
-                }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-500')}>None specified</span>}
-              </div>
-            </div>
-          </div>
-        </CollapsibleSection>
-
-        {/* 3. Capabilities & Use Cases */}
-        <CollapsibleSection title="Capabilities & Use Cases" icon={Cpu}>
-          <div className="space-y-3">
-            <div>
-              <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>Capabilities</p>
-              <div className="flex flex-wrap gap-1.5">
-                {capabilities.length > 0 ? capabilities.map(cap => (
-                  <Badge key={cap} variant="secondary" className="text-xs">{cap}</Badge>
-                )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-500')}>None specified</span>}
-              </div>
-            </div>
-            <div>
-              <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>Use Cases</p>
-              <div className="flex flex-wrap gap-1.5">
-                {useCases.length > 0 ? useCases.map(uc => (
-                  <Badge key={uc} variant="outline" className="text-xs">{uc}</Badge>
-                )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-500')}>None specified</span>}
-              </div>
-            </div>
-          </div>
-        </CollapsibleSection>
-
-        {/* 4. Documentation & Resources */}
-        <CollapsibleSection title="Documentation & Resources" icon={FileText}>
-          <div className="space-y-2">
-            {Object.keys(documentationLinks).length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {documentationLinks.aws_bedrock_guide && (
-                  <a href={documentationLinks.aws_bedrock_guide} target="_blank" rel="noopener noreferrer"
-                     className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    AWS Bedrock Guide
-                  </a>
-                )}
-                {documentationLinks.pricing_guide && (
-                  <a href={documentationLinks.pricing_guide} target="_blank" rel="noopener noreferrer"
-                     className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Pricing Guide
-                  </a>
-                )}
-                {documentationLinks.provider_guide && (
-                  <a href={documentationLinks.provider_guide} target="_blank" rel="noopener noreferrer"
-                     className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Provider Documentation
-                  </a>
-                )}
-              </div>
-            ) : (
-              <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-500')}>No documentation links available</span>
-            )}
-          </div>
-        </CollapsibleSection>
-
-        {/* 5. Regional Availability - Grouped by Geography */}
-        <CollapsibleSection title="Regional Availability" icon={Globe}>
-          <RegionalAvailabilityGrouped regions={regions} />
-        </CollapsibleSection>
-
-        {/* 6. Consumption & Deployment Options */}
-        <CollapsibleSection title="Consumption & Deployment Options" icon={Server}>
-          <div className="space-y-3">
-            <div>
-              <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>Consumption Options</p>
-              <div className="flex flex-wrap gap-1.5">
-                {consumptionOptions.length > 0 ? consumptionOptions.map(opt => {
-                  const labels = {
-                    'on_demand': 'On-Demand',
-                    'batch': 'Batch',
-                    'provisioned': 'Provisioned',
-                    'provisioned_throughput': 'Provisioned Throughput',
-                    'cross_region_inference': 'Cross-Region Inference'
-                  }
-                  return (
-                    <Badge key={opt} variant="info" className="text-xs">
-                      {labels[opt] || opt}
-                    </Badge>
-                  )
-                }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-500')}>Not specified</span>}
-              </div>
-            </div>
-            <div>
-              <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>Inference Types</p>
-              <div className="flex flex-wrap gap-1.5">
-                {inferenceTypes.length > 0 ? inferenceTypes.map(type => (
-                  <Badge key={type} variant="secondary" className="text-xs">{type}</Badge>
-                )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-500')}>Not specified</span>}
-              </div>
-            </div>
-            {customizations.length > 0 && (
-              <div>
-                <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>Customizations Supported</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {customizations.map(custom => (
-                    <Badge key={custom} variant="outline" className="text-xs">{custom}</Badge>
-                  ))}
+    <ScrollArea className="h-full">
+      <div className="p-6">
+        {/* Two-column grid layout for better use of space */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* Left Column */}
+          <div className="space-y-4">
+            {/* Input & Output Modalities */}
+            <CollapsibleSection title="Input & Output Modalities" icon={Layers} defaultExpanded={true}>
+              <div className="space-y-3">
+                <div>
+                  <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Input Modalities</p>
+                  <div className="flex flex-wrap gap-2">
+                    {inputModalities.length > 0 ? inputModalities.map(mod => {
+                      const Icon = modalityIcons[mod] || MessageSquare
+                      return (
+                        <Badge key={mod} className={cn(isLight ? 'text-[#faf9f5] bg-amber-700' : 'text-white bg-[#1A9E7A]')}>
+                          <Icon className="h-3 w-3 mr-1" />{mod}
+                        </Badge>
+                      )
+                    }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-[#b0b1b5]')}>None specified</span>}
+                  </div>
+                </div>
+                <div>
+                  <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Output Modalities</p>
+                  <div className="flex flex-wrap gap-2">
+                    {outputModalities.length > 0 ? outputModalities.map(mod => {
+                      const Icon = modalityIcons[mod] || MessageSquare
+                      return (
+                        <Badge key={mod} className={cn('bg-emerald-600', isLight ? 'text-[#faf9f5]' : 'text-white')}>
+                          <Icon className="h-3 w-3 mr-1" />{mod}
+                        </Badge>
+                      )
+                    }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-[#b0b1b5]')}>None specified</span>}
+                  </div>
                 </div>
               </div>
-            )}
+            </CollapsibleSection>
+
+            {/* Capabilities & Use Cases */}
+            <CollapsibleSection title="Capabilities & Use Cases" icon={Cpu} defaultExpanded={true}>
+              <div className="space-y-3">
+                <div>
+                  <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Capabilities</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {capabilities.length > 0 ? capabilities.map(cap => (
+                      <Badge key={cap} variant="secondary" className="text-xs">{cap}</Badge>
+                    )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-[#b0b1b5]')}>None specified</span>}
+                  </div>
+                </div>
+                <div>
+                  <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Use Cases</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {useCases.length > 0 ? useCases.map(uc => (
+                      <Badge key={uc} variant="outline" className="text-xs">{uc}</Badge>
+                    )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-[#b0b1b5]')}>None specified</span>}
+                  </div>
+                </div>
+              </div>
+            </CollapsibleSection>
+
+            {/* Documentation & Resources */}
+            <CollapsibleSection title="Documentation & Resources" icon={FileText} defaultExpanded={true}>
+              <div className="space-y-2">
+                {Object.keys(documentationLinks).length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {documentationLinks.aws_bedrock_guide && (
+                      <a href={documentationLinks.aws_bedrock_guide} target="_blank" rel="noopener noreferrer"
+                         className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        AWS Bedrock Guide
+                      </a>
+                    )}
+                    {documentationLinks.pricing_guide && (
+                      <a href={documentationLinks.pricing_guide} target="_blank" rel="noopener noreferrer"
+                         className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Pricing Guide
+                      </a>
+                    )}
+                    {documentationLinks.provider_guide && (
+                      <a href={documentationLinks.provider_guide} target="_blank" rel="noopener noreferrer"
+                         className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Provider Documentation
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-[#b0b1b5]')}>No documentation links available</span>
+                )}
+              </div>
+            </CollapsibleSection>
+
+            {/* Consumption & Deployment Options */}
+            <CollapsibleSection title="Consumption & Deployment" icon={Server} defaultExpanded={true}>
+              <div className="space-y-3">
+                <div>
+                  <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Consumption Options</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {consumptionOptions.length > 0 ? consumptionOptions.map(opt => {
+                      const labels = {
+                        'on_demand': 'On-Demand',
+                        'batch': 'Batch',
+                        'provisioned': 'Provisioned',
+                        'provisioned_throughput': 'Provisioned Throughput',
+                        'cross_region_inference': 'Cross-Region Inference'
+                      }
+                      return (
+                        <Badge key={opt} variant="info" className="text-xs">
+                          {labels[opt] || opt}
+                        </Badge>
+                      )
+                    }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-[#b0b1b5]')}>Not specified</span>}
+                  </div>
+                </div>
+                {inferenceTypes.length > 0 && (
+                  <div>
+                    <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Inference Types</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {inferenceTypes.map(type => (
+                        <Badge key={type} variant="secondary" className="text-xs">{type}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {customizations.length > 0 && (
+                  <div>
+                    <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Customizations</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {customizations.map(custom => (
+                        <Badge key={custom} variant="outline" className="text-xs">{custom}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CollapsibleSection>
           </div>
-        </CollapsibleSection>
 
-        {/* 7. Cross-Region Inference */}
-        <CollapsibleSection title="Cross-Region Inference" icon={Globe}>
-          <CrossRegionInferenceSection crisData={crisData} />
-        </CollapsibleSection>
+          {/* Right Column */}
+          <div className="space-y-4">
+            {/* Regional Availability */}
+            <CollapsibleSection title="Regional Availability" icon={Globe} defaultExpanded={true}>
+              <RegionalAvailabilityGrouped regions={regions} />
+            </CollapsibleSection>
 
-        {/* 8. Batch Inference Support */}
-        <CollapsibleSection title="Batch Inference Support" icon={Package}>
-          <BatchInferenceSection batchData={batchData} />
-        </CollapsibleSection>
+            {/* Cross-Region Inference */}
+            <CollapsibleSection title="Cross-Region Inference" icon={Globe} defaultExpanded={true}>
+              <CrossRegionInferenceSection crisData={crisData} />
+            </CollapsibleSection>
+
+            {/* Batch Inference Support */}
+            <CollapsibleSection title="Batch Inference Support" icon={Package} defaultExpanded={true}>
+              <BatchInferenceSection batchData={batchData} />
+            </CollapsibleSection>
+          </div>
+        </div>
       </div>
     </ScrollArea>
   )
@@ -842,39 +807,39 @@ function CollapsibleRegion({ region, quotas, defaultExpanded = false, showAdjust
   return (
     <div className={cn(
       'rounded-lg overflow-hidden border',
-      isLight ? 'bg-white border-stone-200' : 'bg-[#1a2330] border-slate-600/40'
+      isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]'
     )}>
       <button
         className={cn(
           'w-full flex items-center justify-between p-2 transition-colors',
-          isLight ? 'hover:bg-stone-50' : 'hover:bg-slate-800/50'
+          isLight ? 'hover:bg-stone-50' : 'hover:bg-[#2c2d32]'
         )}
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-2">
           <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
           <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{regionDisplayNames[region] || region}</span>
-          <span className={cn('text-xs font-mono', isLight ? 'text-stone-600' : 'text-slate-400')}>({region})</span>
-          <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>- {Array.isArray(regionQuotas) ? regionQuotas.length : 0} quotas</span>
+          <span className={cn('text-xs font-mono', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>({region})</span>
+          <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#c0c1c5]')}>- {Array.isArray(regionQuotas) ? regionQuotas.length : 0} quotas</span>
         </div>
         {isExpanded ? (
-          <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+          <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
         ) : (
-          <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+          <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
         )}
       </button>
       {isExpanded && (
-        <div className={cn('px-2 pb-2 border-t', isLight ? 'border-stone-200' : 'border-slate-700')}>
+        <div className={cn('px-2 pb-2 border-t', isLight ? 'border-stone-200' : 'border-[#373a40]')}>
           {Array.isArray(regionQuotas) && regionQuotas.length > 0 ? (
             <div className="space-y-1.5 pt-2">
               {regionQuotas.map((quota, idx) => (
-                <div key={idx} className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
+                <div key={idx} className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
                   <div className="flex justify-between items-start gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className={cn('text-xs leading-relaxed', isLight ? 'text-stone-800' : 'text-slate-200')}>
+                      <p className={cn('text-xs leading-relaxed', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>
                         {quota.quota_name || 'Unknown quota'}
                       </p>
-                      <p className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                      <p className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500' : 'text-[#c0c1c5]')}>
                         {quota.quota_code || ''}
                       </p>
                     </div>
@@ -883,7 +848,7 @@ function CollapsibleRegion({ region, quotas, defaultExpanded = false, showAdjust
                         {formatNumber(quota.value)}
                       </p>
                       {showAdjustable && (
-                        <p className={cn('text-[10px] mt-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                        <p className={cn('text-[10px] mt-0.5', isLight ? 'text-stone-500' : 'text-[#c0c1c5]')}>
                           {quota.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
                         </p>
                       )}
@@ -893,7 +858,7 @@ function CollapsibleRegion({ region, quotas, defaultExpanded = false, showAdjust
               ))}
             </div>
           ) : (
-            <p className={cn('text-sm pt-2', isLight ? 'text-stone-600' : 'text-slate-400')}>No quotas defined</p>
+            <p className={cn('text-sm pt-2', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>No quotas defined</p>
           )}
         </div>
       )}
@@ -908,7 +873,7 @@ const quotaCategories = {
   batch: { name: 'Batch Inference', icon: '📦', color: 'text-purple-500' },
   provisioned: { name: 'Provisioned Throughput', icon: '⚡', color: 'text-amber-500' },
   customization: { name: 'Model Customization', icon: '🎯', color: 'text-red-500' },
-  general: { name: 'General Limits', icon: '⚙️', color: 'text-slate-500' },
+  general: { name: 'General Limits', icon: '⚙️', color: 'text-[#b0b1b5]' },
 }
 
 function categorizeQuota(quotaName) {
@@ -923,26 +888,18 @@ function categorizeQuota(quotaName) {
 
 function QuotasTab({ model }) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [expandedCategories, setExpandedCategories] = useState({})
-  const [expandedGeos, setExpandedGeos] = useState({})
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const quotas = model.model_service_quotas || {}
   const allRegions = Object.keys(quotas)
 
-  const toggleGeo = (key) => {
-    setExpandedGeos(prev => ({ ...prev, [key]: !prev[key] }))
-  }
-
   const geoInfo = {
-    'Global': { icon: '🌐', name: 'Global (Same across all regions)' },
     'US': { icon: '🇺🇸', name: 'United States' },
     'EU': { icon: '🇪🇺', name: 'Europe' },
     'APAC': { icon: '🌏', name: 'Asia Pacific' },
     'CA': { icon: '🇨🇦', name: 'Canada' },
     'SA': { icon: '🌎', name: 'South America' },
     'ME': { icon: '🏜️', name: 'Middle East' },
-    'AF': { icon: '🌍', name: 'Africa' },
     'Other': { icon: '📍', name: 'Other' }
   }
 
@@ -953,343 +910,349 @@ function QuotasTab({ model }) {
     if (region.startsWith('ca-')) return 'CA'
     if (region.startsWith('sa-')) return 'SA'
     if (region.startsWith('me-') || region.startsWith('il-')) return 'ME'
-    if (region.startsWith('af-')) return 'AF'
     return 'Other'
   }
 
-  // Calculate statistics
-  let totalQuotas = 0
-  let adjustableCount = 0
+  // Calculate statistics and categorize quotas
   const categorizedQuotas = {}
 
-  // Process all quotas
   for (const region of allRegions) {
     const regionQuotas = quotas[region] || []
     for (const quota of regionQuotas) {
-      totalQuotas++
-      if (quota.adjustable) adjustableCount++
-
       const category = categorizeQuota(quota.quota_name || '')
-      if (!categorizedQuotas[category]) {
-        categorizedQuotas[category] = {}
-      }
-      if (!categorizedQuotas[category][region]) {
-        categorizedQuotas[category][region] = []
-      }
+      if (!categorizedQuotas[category]) categorizedQuotas[category] = {}
+      if (!categorizedQuotas[category][region]) categorizedQuotas[category][region] = []
       categorizedQuotas[category][region].push(quota)
     }
   }
 
-  const categoriesWithData = Object.keys(categorizedQuotas).filter(cat => Object.keys(categorizedQuotas[cat]).length > 0)
-
-  // Filter by search (region name, region code, geo, quota name)
-  const filterQuotasBySearch = (categoryQuotas) => {
-    if (!searchQuery) return categoryQuotas
-    const query = searchQuery.toLowerCase()
-    const filtered = {}
-
-    for (const [region, regionQuotas] of Object.entries(categoryQuotas)) {
-      const regionName = (regionDisplayNames[region] || '').toLowerCase()
-      const regionCode = region.toLowerCase()
-      const geo = getGeoForRegion(region)
-      const geoName = geoInfo[geo]?.name?.toLowerCase() || ''
-
-      // Check if region code, region name, or geo matches
-      const regionMatches = regionCode.includes(query) ||
-                           regionName.includes(query) ||
-                           geo.toLowerCase().includes(query) ||
-                           geoName.includes(query)
-
-      if (regionMatches) {
-        // Include all quotas for matching region/geo
-        filtered[region] = regionQuotas
-      } else {
-        // Check individual quota names
-        const matchingQuotas = regionQuotas.filter(q =>
-          q.quota_name?.toLowerCase().includes(query) ||
-          q.quota_code?.toLowerCase().includes(query)
-        )
-        if (matchingQuotas.length > 0) {
-          filtered[region] = matchingQuotas
-        }
-      }
-    }
-    return filtered
-  }
-
-  const toggleCategory = (category) => {
-    setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }))
-  }
-
   if (allRegions.length === 0) {
     return (
-      <div className={cn('text-center py-8', isLight ? 'text-stone-600' : 'text-slate-400')}>
+      <div className={cn('text-center py-8', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>
         <p>No quota information available</p>
       </div>
     )
   }
 
+  // Get unique quota types for a category (across all regions), with search filter
+  const getUniqueQuotaTypes = (categoryData) => {
+    const quotaTypes = new Map()
+    const query = searchQuery.toLowerCase()
+    for (const [region, regionQuotas] of Object.entries(categoryData)) {
+      for (const quota of regionQuotas) {
+        // Apply search filter
+        if (query) {
+          const regionName = (regionDisplayNames[region] || '').toLowerCase()
+          const geo = getGeoForRegion(region).toLowerCase()
+          const geoName = (geoInfo[getGeoForRegion(region)]?.name || '').toLowerCase()
+          const quotaName = (quota.quota_name || '').toLowerCase()
+          const quotaCode = (quota.quota_code || '').toLowerCase()
+          const matches = region.toLowerCase().includes(query) ||
+                         regionName.includes(query) ||
+                         geo.includes(query) ||
+                         geoName.includes(query) ||
+                         quotaName.includes(query) ||
+                         quotaCode.includes(query)
+          if (!matches) continue
+        }
+        const key = quota.quota_name
+        if (!quotaTypes.has(key)) {
+          quotaTypes.set(key, {
+            name: quota.quota_name,
+            code: quota.quota_code,
+            adjustable: quota.adjustable,
+            regions: []
+          })
+        }
+        quotaTypes.get(key).regions.push({ region, value: quota.value })
+      }
+    }
+    return Array.from(quotaTypes.values())
+  }
+
+  // Group regions by geo
+  const groupRegionsByGeo = (regions) => {
+    const byGeo = {}
+    for (const r of regions) {
+      const geo = getGeoForRegion(r.region)
+      if (!byGeo[geo]) byGeo[geo] = []
+      byGeo[geo].push(r)
+    }
+    return byGeo
+  }
+
   return (
-    <div className="space-y-3">
-      {/* Metrics Banner */}
-      <div className="grid grid-cols-4 gap-2 items-stretch">
-        <div className={cn(
-          'rounded-lg p-3 text-center border flex flex-col justify-center min-h-[60px]',
-          isLight
-            ? 'bg-amber-50/80 border-amber-100/50 backdrop-blur-sm'
-            : 'bg-white/5 border-white/10 backdrop-blur-sm'
-        )}>
-          <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>{totalQuotas}</p>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Total Quotas</p>
+    <ScrollArea className="h-full">
+      <div className="p-6">
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative max-w-md">
+            <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4', isLight ? 'text-stone-400' : 'text-[#6d6e72]')} />
+            <Input
+              placeholder="Search by region, geo (US, Europe...), or quota code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
         </div>
-        <div className={cn(
-          'rounded-lg p-3 text-center border flex flex-col justify-center min-h-[60px]',
-          isLight
-            ? 'bg-emerald-50/80 border-emerald-100/50 backdrop-blur-sm'
-            : 'bg-white/5 border-white/10 backdrop-blur-sm'
-        )}>
-          <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>{adjustableCount}/{totalQuotas}</p>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Adjustable</p>
-        </div>
-        <div className={cn(
-          'rounded-lg p-3 text-center border flex flex-col justify-center min-h-[60px]',
-          isLight
-            ? 'bg-blue-50/80 border-blue-100/50 backdrop-blur-sm'
-            : 'bg-white/5 border-white/10 backdrop-blur-sm'
-        )}>
-          <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>{allRegions.length}</p>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Regions</p>
-        </div>
-        <div className={cn(
-          'rounded-lg p-3 text-center border flex flex-col justify-center min-h-[60px]',
-          isLight
-            ? 'bg-purple-50/80 border-purple-100/50 backdrop-blur-sm'
-            : 'bg-white/5 border-white/10 backdrop-blur-sm'
-        )}>
-          <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>{categoriesWithData.length}</p>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Categories</p>
-        </div>
-      </div>
 
-      {/* Search bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <Input
-          placeholder="Search by region, geo (US, Europe...), or quota name..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
-      {/* Scrollable category list */}
-      <ScrollArea className="h-[400px]">
-        <div className="space-y-3 pr-4">
-          {['on_demand', 'cross_region', 'batch', 'provisioned', 'customization', 'general'].map(categoryKey => {
-            const categoryData = categorizedQuotas[categoryKey]
-            if (!categoryData || Object.keys(categoryData).length === 0) return null
-
-            const filteredData = filterQuotasBySearch(categoryData)
-            if (Object.keys(filteredData).length === 0) return null
-
-            const catInfo = quotaCategories[categoryKey]
-            const regionCount = Object.keys(filteredData).length
-            const isExpanded = expandedCategories[categoryKey]
-
-            return (
-              <div key={categoryKey} className={cn('rounded-lg overflow-hidden', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
-                <button
-                  className={cn(
-                    'w-full flex items-center justify-between p-3 transition-colors',
-                    isLight ? 'hover:bg-stone-200' : 'hover:bg-slate-700/50'
-                  )}
-                  onClick={() => toggleCategory(categoryKey)}
-                >
-                  <div className="flex items-center gap-2">
-                    <span>{catInfo.icon}</span>
-                    <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{catInfo.name}</span>
-                    <span className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>({regionCount} regions)</span>
-                  </div>
-                  {isExpanded ? (
-                    <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
-                  ) : (
-                    <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
-                  )}
-                </button>
-                {isExpanded && (
-                  <div className={cn('px-3 pb-3 pt-3 border-t space-y-3', isLight ? 'border-stone-200' : 'border-slate-700')}>
-                    {(() => {
-                      // Identify global quotas (quota name contains "global")
-                      const globalQuotasMap = new Map()
-                      const regionalQuotasByRegion = {}
-
-                      // Process all quotas - separate global from regional
-                      for (const [region, regionQuotas] of Object.entries(filteredData)) {
-                        for (const quota of regionQuotas) {
-                          const quotaName = (quota.quota_name || '').toLowerCase()
-                          const isGlobalQuota = quotaName.includes('global')
-
-                          if (isGlobalQuota) {
-                            // Group global quotas by name, collecting regions
-                            const key = quota.quota_name
-                            const existing = globalQuotasMap.get(key)
-                            if (existing) {
-                              if (!existing.availableRegions.includes(region)) {
-                                existing.availableRegions.push(region)
-                              }
-                            } else {
-                              globalQuotasMap.set(key, {
-                                ...quota,
-                                availableRegions: [region]
-                              })
-                            }
-                          } else {
-                            // Keep as regional
-                            if (!regionalQuotasByRegion[region]) regionalQuotasByRegion[region] = []
-                            regionalQuotasByRegion[region].push(quota)
-                          }
-                        }
-                      }
-
-                      const globalQuotas = Array.from(globalQuotasMap.values())
-
-                      // Group remaining regional quotas by geo
-                      const regionsByGeo = {}
-                      for (const [region, regionQuotas] of Object.entries(regionalQuotasByRegion)) {
-                        const geo = getGeoForRegion(region)
-                        if (!regionsByGeo[geo]) regionsByGeo[geo] = {}
-                        regionsByGeo[geo][region] = regionQuotas
-                      }
-
-                      return (
-                        <>
-                          {/* Global quotas group */}
-                          {globalQuotas.length > 0 && (
-                            <div className={cn(
-                              'rounded-lg border overflow-hidden',
-                              isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#1a2330] border-slate-600/40'
-                            )}>
-                              <button
-                                className={cn(
-                                  'w-full flex items-center justify-between p-2 transition-colors',
-                                  isLight ? 'hover:bg-stone-100' : 'hover:bg-slate-700/50'
-                                )}
-                                onClick={() => toggleGeo(`${categoryKey}_Global`)}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span>🌐</span>
-                                  <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>Global</span>
-                                  <Badge variant="info" className="text-xs">{globalQuotas.length} quotas</Badge>
-                                </div>
-                                {expandedGeos[`${categoryKey}_Global`] ? (
-                                  <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
-                                ) : (
-                                  <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
-                                )}
-                              </button>
-                              {expandedGeos[`${categoryKey}_Global`] && (
-                                <div className={cn('px-2 pb-2 pt-2 border-t space-y-1.5', isLight ? 'border-stone-200' : 'border-slate-700')}>
-                                  {globalQuotas.map((quota, idx) => (
-                                    <div key={idx} className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
-                                      <div className="flex justify-between items-start gap-3">
-                                        <div className="flex-1 min-w-0">
-                                          <p className={cn('text-xs leading-relaxed', isLight ? 'text-stone-800' : 'text-slate-200')}>
-                                            {quota.quota_name || 'Unknown quota'}
-                                          </p>
-                                          <p className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                                            {quota.quota_code || ''}
-                                          </p>
-                                          <div className="flex flex-wrap gap-1 mt-1.5">
-                                            {quota.availableRegions.sort().map(region => (
-                                              <Tooltip key={region} delayDuration={200}>
-                                                <TooltipTrigger asChild>
-                                                  <Badge variant="outline" className="text-[10px] cursor-default">
-                                                    {regionDisplayNames[region] || region}
-                                                  </Badge>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="bottom" sideOffset={4}>
-                                                  <p className="font-mono text-xs">{region}</p>
-                                                </TooltipContent>
-                                              </Tooltip>
-                                            ))}
-                                          </div>
-                                        </div>
-                                        <div className="text-right flex-shrink-0 min-w-[80px]">
-                                          <p className={cn('text-sm font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
-                                            {formatNumber(quota.value)}
-                                          </p>
-                                          <p className={cn('text-[10px] mt-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                                            {quota.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Regional quotas by geo */}
-                          {['US', 'EU', 'APAC', 'CA', 'SA', 'ME', 'AF', 'Other'].map(geoKey => {
-                            const geoRegions = regionsByGeo[geoKey]
-                            if (!geoRegions || Object.keys(geoRegions).length === 0) return null
-
-                            const geo = geoInfo[geoKey]
-                            const geoExpandKey = `${categoryKey}_${geoKey}`
-                            const isGeoExpanded = expandedGeos[geoExpandKey]
-                            const regionCount = Object.keys(geoRegions).length
-
-                            return (
-                              <div key={geoKey} className={cn(
-                                'rounded-lg border overflow-hidden',
-                                isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#1a2330] border-slate-600/40'
-                              )}>
-                                <button
-                                  className={cn(
-                                    'w-full flex items-center justify-between p-2 transition-colors',
-                                    isLight ? 'hover:bg-stone-100' : 'hover:bg-slate-700/50'
-                                  )}
-                                  onClick={() => toggleGeo(geoExpandKey)}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span>{geo.icon}</span>
-                                    <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{geo.name}</span>
-                                    <Badge variant="secondary" className="text-xs">{regionCount} regions</Badge>
-                                  </div>
-                                  {isGeoExpanded ? (
-                                    <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
-                                  ) : (
-                                    <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
-                                  )}
-                                </button>
-                                {isGeoExpanded && (
-                                  <div className={cn('px-2 pb-2 pt-2 border-t space-y-2', isLight ? 'border-stone-200' : 'border-slate-700')}>
-                                    {Object.entries(geoRegions).sort().map(([region, regionQuotas]) => (
-                                      <CollapsibleRegion
-                                        key={region}
-                                        region={region}
-                                        quotas={regionQuotas}
-                                        defaultExpanded={false}
-                                        showAdjustable={true}
-                                      />
-                                    ))}
-                                  </div>
-                                )}
+        {/* Two-column grid layout matching Technical Specs */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* Left Column */}
+          <div className="space-y-4">
+            {/* On-Demand Quotas */}
+            {categorizedQuotas['on_demand'] && Object.keys(categorizedQuotas['on_demand']).length > 0 && (
+              <CollapsibleSection title="On-Demand Inference" icon={Zap} defaultExpanded={true}>
+                <div className="space-y-2">
+                  {getUniqueQuotaTypes(categorizedQuotas['on_demand']).map((quotaType, idx) => (
+                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{quotaType.name}</p>
+                          <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{quotaType.code}</p>
+                        </div>
+                        <Badge variant={quotaType.adjustable ? 'success' : 'secondary'} className="text-[10px]">
+                          {quotaType.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(groupRegionsByGeo(quotaType.regions)).map(([geo, regions]) => (
+                          <Tooltip key={geo} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] cursor-default">
+                                {geoInfo[geo]?.icon} {regions.length} regions
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <div className="space-y-1">
+                                {regions.map(r => (
+                                  <p key={r.region} className="text-xs">
+                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">{formatNumber(r.value)}</span>
+                                  </p>
+                                ))}
                               </div>
-                            )
-                          })}
-                        </>
-                      )
-                    })()}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            )}
+
+            {/* Batch Quotas */}
+            {categorizedQuotas['batch'] && Object.keys(categorizedQuotas['batch']).length > 0 && (
+              <CollapsibleSection title="Batch Inference" icon={Layers} defaultExpanded={true}>
+                <div className="space-y-2">
+                  {getUniqueQuotaTypes(categorizedQuotas['batch']).map((quotaType, idx) => (
+                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{quotaType.name}</p>
+                          <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{quotaType.code}</p>
+                        </div>
+                        <Badge variant={quotaType.adjustable ? 'success' : 'secondary'} className="text-[10px]">
+                          {quotaType.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(groupRegionsByGeo(quotaType.regions)).map(([geo, regions]) => (
+                          <Tooltip key={geo} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] cursor-default">
+                                {geoInfo[geo]?.icon} {regions.length} regions
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <div className="space-y-1">
+                                {regions.map(r => (
+                                  <p key={r.region} className="text-xs">
+                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">{formatNumber(r.value)}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            )}
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-4">
+            {/* Cross-Region Quotas */}
+            {categorizedQuotas['cross_region'] && Object.keys(categorizedQuotas['cross_region']).length > 0 && (
+              <CollapsibleSection title="Cross-Region Inference" icon={Globe} defaultExpanded={true}>
+                <div className="space-y-2">
+                  {getUniqueQuotaTypes(categorizedQuotas['cross_region']).map((quotaType, idx) => (
+                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{quotaType.name}</p>
+                          <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{quotaType.code}</p>
+                        </div>
+                        <Badge variant={quotaType.adjustable ? 'success' : 'secondary'} className="text-[10px]">
+                          {quotaType.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(groupRegionsByGeo(quotaType.regions)).map(([geo, regions]) => (
+                          <Tooltip key={geo} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] cursor-default">
+                                {geoInfo[geo]?.icon} {regions.length} regions
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <div className="space-y-1">
+                                {regions.map(r => (
+                                  <p key={r.region} className="text-xs">
+                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">{formatNumber(r.value)}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            )}
+
+            {/* Provisioned Quotas */}
+            {categorizedQuotas['provisioned'] && Object.keys(categorizedQuotas['provisioned']).length > 0 && (
+              <CollapsibleSection title="Provisioned Throughput" icon={Server} defaultExpanded={true}>
+                <div className="space-y-2">
+                  {getUniqueQuotaTypes(categorizedQuotas['provisioned']).map((quotaType, idx) => (
+                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{quotaType.name}</p>
+                          <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{quotaType.code}</p>
+                        </div>
+                        <Badge variant={quotaType.adjustable ? 'success' : 'secondary'} className="text-[10px]">
+                          {quotaType.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(groupRegionsByGeo(quotaType.regions)).map(([geo, regions]) => (
+                          <Tooltip key={geo} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] cursor-default">
+                                {geoInfo[geo]?.icon} {regions.length} regions
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <div className="space-y-1">
+                                {regions.map(r => (
+                                  <p key={r.region} className="text-xs">
+                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">{formatNumber(r.value)}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            )}
+
+            {/* Customization Quotas */}
+            {categorizedQuotas['customization'] && Object.keys(categorizedQuotas['customization']).length > 0 && (
+              <CollapsibleSection title="Customization" icon={Cpu} defaultExpanded={true}>
+                <div className="space-y-2">
+                  {getUniqueQuotaTypes(categorizedQuotas['customization']).map((quotaType, idx) => (
+                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{quotaType.name}</p>
+                          <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{quotaType.code}</p>
+                        </div>
+                        <Badge variant={quotaType.adjustable ? 'success' : 'secondary'} className="text-[10px]">
+                          {quotaType.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(groupRegionsByGeo(quotaType.regions)).map(([geo, regions]) => (
+                          <Tooltip key={geo} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] cursor-default">
+                                {geoInfo[geo]?.icon} {regions.length} regions
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <div className="space-y-1">
+                                {regions.map(r => (
+                                  <p key={r.region} className="text-xs">
+                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">{formatNumber(r.value)}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            )}
+
+            {/* General Quotas */}
+            {categorizedQuotas['general'] && Object.keys(categorizedQuotas['general']).length > 0 && (
+              <CollapsibleSection title="General" icon={FileText} defaultExpanded={true}>
+                <div className="space-y-2">
+                  {getUniqueQuotaTypes(categorizedQuotas['general']).map((quotaType, idx) => (
+                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{quotaType.name}</p>
+                          <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{quotaType.code}</p>
+                        </div>
+                        <Badge variant={quotaType.adjustable ? 'success' : 'secondary'} className="text-[10px]">
+                          {quotaType.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(groupRegionsByGeo(quotaType.regions)).map(([geo, regions]) => (
+                          <Tooltip key={geo} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] cursor-default">
+                                {geoInfo[geo]?.icon} {regions.length} regions
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <div className="space-y-1">
+                                {regions.map(r => (
+                                  <p key={r.region} className="text-xs">
+                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">{formatNumber(r.value)}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            )}
+          </div>
         </div>
-      </ScrollArea>
-    </div>
+      </div>
+    </ScrollArea>
   )
 }
 
@@ -1391,19 +1354,19 @@ function CollapsiblePricingRegion({ region, pricing, category, defaultExpanded =
   return (
     <div className={cn(
       'rounded-lg overflow-hidden border',
-      isLight ? 'bg-white border-stone-200' : 'bg-[#1a2330] border-slate-600/40'
+      isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]'
     )}>
       <button
         className={cn(
           'w-full flex items-center justify-between p-2 transition-colors',
-          isLight ? 'hover:bg-stone-50' : 'hover:bg-slate-800/50'
+          isLight ? 'hover:bg-stone-50' : 'hover:bg-[#2c2d32]'
         )}
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-2">
           <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
           <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{regionDisplayNames[region] || region}</span>
-          <span className={cn('text-xs font-mono', isLight ? 'text-stone-600' : 'text-slate-400')}>({region})</span>
+          <span className={cn('text-xs font-mono', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>({region})</span>
         </div>
         <div className="flex items-center gap-3">
           {inputItem && outputItem && (
@@ -1412,27 +1375,27 @@ function CollapsiblePricingRegion({ region, pricing, category, defaultExpanded =
             </span>
           )}
           {isExpanded ? (
-            <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+            <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
           ) : (
-            <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
+            <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')} />
           )}
         </div>
       </button>
       {isExpanded && (
-        <div className={cn('px-2 pb-2 border-t', isLight ? 'border-stone-200' : 'border-slate-700')}>
+        <div className={cn('px-2 pb-2 border-t', isLight ? 'border-stone-200' : 'border-[#373a40]')}>
           <div className="space-y-1.5 pt-2">
             {pricingItems.length > 0 ? pricingItems.map((item, idx) => (
-              <div key={idx} className={cn('rounded p-2 flex justify-between items-center', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
+              <div key={idx} className={cn('rounded p-2 flex justify-between items-center', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
                 <div>
-                  <p className={cn('text-xs', isLight ? 'text-stone-800' : 'text-slate-200')}>{item.description}</p>
-                  <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>{item.unit}</p>
+                  <p className={cn('text-xs', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{item.description}</p>
+                  <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#c0c1c5]')}>{item.unit}</p>
                 </div>
                 <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                   ${typeof item.price === 'number' ? item.price.toFixed(6) : item.price}
                 </p>
               </div>
             )) : (
-              <p className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>No pricing available</p>
+              <p className={cn('text-sm', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>No pricing available</p>
             )}
           </div>
         </div>
@@ -1456,38 +1419,31 @@ const pricingGroupInfo = {
 
 function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [expandedCategories, setExpandedCategories] = useState({ 'On-Demand': true })
-  const [expandedGeos, setExpandedGeos] = useState({})
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
-  // Get pricing from new source (pass full model object for pricing_file_reference matching)
+  // Get pricing from new source
   const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
   const fullPricing = pricingResult?.fullPricing
 
-  // Fallback to model's embedded pricing if no external pricing
+  // Fallback to model's embedded pricing
   const legacyPricing = model.model_pricing || model.comprehensive_pricing || {}
   const legacyByRegion = legacyPricing.by_region || {}
 
-  // Process new pricing structure
+  // Process pricing structure
   const pricingByGroup = {}
   let allRegions = []
 
   if (fullPricing?.regions) {
     allRegions = Object.keys(fullPricing.regions)
-
     for (const [region, regionData] of Object.entries(fullPricing.regions)) {
       if (!regionData?.pricing_groups) continue
-
       for (const [groupName, items] of Object.entries(regionData.pricing_groups)) {
-        if (!pricingByGroup[groupName]) {
-          pricingByGroup[groupName] = {}
-        }
+        if (!pricingByGroup[groupName]) pricingByGroup[groupName] = {}
         pricingByGroup[groupName][region] = items
       }
     }
   } else if (Object.keys(legacyByRegion).length > 0) {
-    // Use legacy pricing
     allRegions = Object.keys(legacyByRegion)
     for (const region of allRegions) {
       const regionData = legacyByRegion[region]
@@ -1511,44 +1467,15 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
     }
   }
 
-  // Sort pricing groups in logical order: On-Demand first, then Batch, then others
-  const pricingGroupOrder = [
-    'On-Demand',
-    'On-Demand Long Context',
-    'On-Demand Global',
-    'On-Demand Long Context Global',
-    'Batch',
-    'Batch Long Context',
-    'Batch Global',
-    'Batch Long Context Global',
-    'Provisioned Throughput',
-    'Custom Model'
-  ]
-
+  const pricingGroupOrder = ['On-Demand', 'On-Demand Long Context', 'On-Demand Global', 'Batch', 'Batch Long Context', 'Batch Global', 'Provisioned Throughput', 'Custom Model']
   const pricingGroups = Object.keys(pricingByGroup).sort((a, b) => {
     const indexA = pricingGroupOrder.indexOf(a)
     const indexB = pricingGroupOrder.indexOf(b)
-    // If both are in the order list, sort by their position
     if (indexA !== -1 && indexB !== -1) return indexA - indexB
-    // If only one is in the list, it comes first
     if (indexA !== -1) return -1
     if (indexB !== -1) return 1
-    // Otherwise alphabetical
     return a.localeCompare(b)
   })
-
-  const consumptionOptions = model.consumption_options || []
-
-  const getGeoForRegion = (region) => {
-    if (region.startsWith('us-')) return 'US'
-    if (region.startsWith('eu-')) return 'EU'
-    if (region.startsWith('ap-')) return 'APAC'
-    if (region.startsWith('ca-')) return 'CA'
-    if (region.startsWith('sa-')) return 'SA'
-    if (region.startsWith('me-') || region.startsWith('il-')) return 'ME'
-    if (region.startsWith('af-')) return 'AF'
-    return 'Other'
-  }
 
   const geoInfo = {
     'US': { icon: '🇺🇸', name: 'United States' },
@@ -1557,207 +1484,219 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
     'CA': { icon: '🇨🇦', name: 'Canada' },
     'SA': { icon: '🌎', name: 'South America' },
     'ME': { icon: '🏜️', name: 'Middle East' },
-    'AF': { icon: '🌍', name: 'Africa' },
     'Other': { icon: '📍', name: 'Other' }
   }
 
-  // Filter regions by search
-  const filterRegions = (regions) => {
-    if (!searchQuery) return regions
+  const getGeoForRegion = (region) => {
+    if (region.startsWith('us-')) return 'US'
+    if (region.startsWith('eu-')) return 'EU'
+    if (region.startsWith('ap-')) return 'APAC'
+    if (region.startsWith('ca-')) return 'CA'
+    if (region.startsWith('sa-')) return 'SA'
+    if (region.startsWith('me-') || region.startsWith('il-')) return 'ME'
+    return 'Other'
+  }
+
+  // Group pricing items by description across regions, with search filter
+  const getPricingItems = (groupData) => {
+    const items = new Map()
     const query = searchQuery.toLowerCase()
-    return regions.filter(region =>
-      region.toLowerCase().includes(query) ||
-      (regionDisplayNames[region] || '').toLowerCase().includes(query) ||
-      getGeoForRegion(region).toLowerCase().includes(query) ||
-      (geoInfo[getGeoForRegion(region)]?.name || '').toLowerCase().includes(query)
-    )
+    for (const [region, regionItems] of Object.entries(groupData)) {
+      for (const item of regionItems) {
+        // Apply search filter
+        if (query) {
+          const regionName = (regionDisplayNames[region] || '').toLowerCase()
+          const geo = getGeoForRegion(region).toLowerCase()
+          const geoName = (geoInfo[getGeoForRegion(region)]?.name || '').toLowerCase()
+          const description = (item.description || item.dimension || '').toLowerCase()
+          const matches = region.toLowerCase().includes(query) ||
+                         regionName.includes(query) ||
+                         geo.includes(query) ||
+                         geoName.includes(query) ||
+                         description.includes(query)
+          if (!matches) continue
+        }
+        const key = item.description || item.dimension || 'Price'
+        if (!items.has(key)) {
+          items.set(key, { description: key, regions: [] })
+        }
+        items.get(key).regions.push({
+          region,
+          price: item.price_per_thousand ?? item.price_per_unit,
+          unit: item.unit_label || (item.price_per_thousand != null ? '/1K tokens' : `/${item.unit || 'unit'}`)
+        })
+      }
+    }
+    return Array.from(items.values())
   }
 
-  const toggleCategory = (category) => {
-    setExpandedCategories(prev => ({ ...prev, [category]: !prev[category] }))
-  }
-
-  const toggleGeo = (key) => {
-    setExpandedGeos(prev => ({ ...prev, [key]: !prev[key] }))
+  // Group regions by geo
+  const groupRegionsByGeo = (regions) => {
+    const byGeo = {}
+    for (const r of regions) {
+      const geo = getGeoForRegion(r.region)
+      if (!byGeo[geo]) byGeo[geo] = []
+      byGeo[geo].push(r)
+    }
+    return byGeo
   }
 
   if (allRegions.length === 0) {
     return (
-      <div className={cn('text-center py-8', isLight ? 'text-stone-600' : 'text-slate-400')}>
+      <div className={cn('text-center py-8', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>
         <p>No pricing information available</p>
       </div>
     )
   }
 
+  // Categorize pricing groups
+  const onDemandGroups = pricingGroups.filter(g => g.toLowerCase().includes('on-demand'))
+  const batchGroups = pricingGroups.filter(g => g.toLowerCase().includes('batch'))
+  const otherGroups = pricingGroups.filter(g => !g.toLowerCase().includes('on-demand') && !g.toLowerCase().includes('batch'))
+
   return (
-    <div className="space-y-3">
-      {/* Metrics Banner */}
-      <div className="grid grid-cols-3 gap-3 items-stretch">
-        <div className={cn(
-          'rounded-lg p-3 text-center border flex flex-col justify-center min-h-[60px]',
-          isLight
-            ? 'bg-amber-50/80 border-amber-100/50 backdrop-blur-sm'
-            : 'bg-white/5 border-white/10 backdrop-blur-sm'
-        )}>
-          <p className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-white')}>{pricingGroups.length}</p>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Pricing Types</p>
+    <ScrollArea className="h-full">
+      <div className="p-6">
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative max-w-md">
+            <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4', isLight ? 'text-stone-400' : 'text-[#6d6e72]')} />
+            <Input
+              placeholder="Search by region, geo (US, Europe...), or pricing type..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
         </div>
-        <div className={cn(
-          'rounded-lg p-3 text-center border flex flex-col justify-center min-h-[60px]',
-          isLight
-            ? 'bg-emerald-50/80 border-emerald-100/50 backdrop-blur-sm'
-            : 'bg-white/5 border-white/10 backdrop-blur-sm'
-        )}>
-          <p className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-white')}>{allRegions.length}</p>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Regions</p>
-        </div>
-        <div className={cn(
-          'rounded-lg p-3 text-center border flex flex-col justify-center min-h-[60px]',
-          isLight
-            ? 'bg-purple-50/80 border-purple-100/50 backdrop-blur-sm'
-            : 'bg-white/5 border-white/10 backdrop-blur-sm'
-        )}>
-          <p className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-white')}>{consumptionOptions.length || pricingGroups.length}</p>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Options</p>
+
+        {/* Two-column grid layout matching Technical Specs */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* Left Column */}
+          <div className="space-y-4">
+            {/* On-Demand Pricing */}
+            {onDemandGroups.map(groupName => (
+              <CollapsibleSection key={groupName} title={pricingGroupInfo[groupName]?.label || groupName} icon={Zap} defaultExpanded={groupName === 'On-Demand'}>
+                <div className="space-y-2">
+                  {getPricingItems(pricingByGroup[groupName]).map((item, idx) => (
+                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{item.description}</p>
+                        <p className={cn('text-xs font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
+                          ${item.regions[0]?.price?.toFixed(6) || 'N/A'}
+                          <span className={cn('font-normal ml-1', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>{item.regions[0]?.unit}</span>
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(groupRegionsByGeo(item.regions)).map(([geo, regions]) => (
+                          <Tooltip key={geo} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] cursor-default">
+                                {geoInfo[geo]?.icon} {regions.length} regions
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <div className="space-y-1">
+                                {regions.map(r => (
+                                  <p key={r.region} className="text-xs">
+                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">${r.price?.toFixed(6)}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            ))}
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-4">
+            {/* Batch Pricing */}
+            {batchGroups.map(groupName => (
+              <CollapsibleSection key={groupName} title={pricingGroupInfo[groupName]?.label || groupName} icon={Layers} defaultExpanded={true}>
+                <div className="space-y-2">
+                  {getPricingItems(pricingByGroup[groupName]).map((item, idx) => (
+                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{item.description}</p>
+                        <p className={cn('text-xs font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
+                          ${item.regions[0]?.price?.toFixed(6) || 'N/A'}
+                          <span className={cn('font-normal ml-1', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>{item.regions[0]?.unit}</span>
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(groupRegionsByGeo(item.regions)).map(([geo, regions]) => (
+                          <Tooltip key={geo} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] cursor-default">
+                                {geoInfo[geo]?.icon} {regions.length} regions
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <div className="space-y-1">
+                                {regions.map(r => (
+                                  <p key={r.region} className="text-xs">
+                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">${r.price?.toFixed(6)}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            ))}
+
+            {/* Other Pricing (Provisioned, Custom, etc.) */}
+            {otherGroups.map(groupName => (
+              <CollapsibleSection key={groupName} title={pricingGroupInfo[groupName]?.label || groupName} icon={Server} defaultExpanded={true}>
+                <div className="space-y-2">
+                  {getPricingItems(pricingByGroup[groupName]).map((item, idx) => (
+                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{item.description}</p>
+                        <p className={cn('text-xs font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
+                          ${item.regions[0]?.price?.toFixed(6) || 'N/A'}
+                          <span className={cn('font-normal ml-1', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>{item.regions[0]?.unit}</span>
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(groupRegionsByGeo(item.regions)).map(([geo, regions]) => (
+                          <Tooltip key={geo} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="text-[10px] cursor-default">
+                                {geoInfo[geo]?.icon} {regions.length} regions
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <div className="space-y-1">
+                                {regions.map(r => (
+                                  <p key={r.region} className="text-xs">
+                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">${r.price?.toFixed(6)}</span>
+                                  </p>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            ))}
+          </div>
         </div>
       </div>
-
-      {/* Search bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <Input
-          placeholder="Search by region, geo, or pricing type..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
-      {/* Scrollable pricing groups */}
-      <ScrollArea className="h-[400px]">
-        <div className="space-y-3 pr-4">
-          {pricingGroups.map(groupName => {
-            const groupRegions = Object.keys(pricingByGroup[groupName])
-            const filteredRegions = filterRegions(groupRegions)
-            if (filteredRegions.length === 0) return null
-
-            const info = pricingGroupInfo[groupName] || { icon: '💰', label: groupName }
-            const isExpanded = expandedCategories[groupName]
-
-            // Group regions by geo
-            const regionsByGeo = {}
-            for (const region of filteredRegions) {
-              const geo = getGeoForRegion(region)
-              if (!regionsByGeo[geo]) regionsByGeo[geo] = []
-              regionsByGeo[geo].push(region)
-            }
-
-            return (
-              <div key={groupName} className={cn('rounded-lg overflow-hidden', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
-                <button
-                  className={cn(
-                    'w-full flex items-center justify-between p-3 transition-colors',
-                    isLight ? 'hover:bg-stone-200' : 'hover:bg-slate-700/50'
-                  )}
-                  onClick={() => toggleCategory(groupName)}
-                >
-                  <div className="flex items-center gap-2">
-                    <span>{info.icon}</span>
-                    <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{info.label}</span>
-                    <span className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>
-                      ({filteredRegions.length} regions)
-                    </span>
-                  </div>
-                  {isExpanded ? (
-                    <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
-                  ) : (
-                    <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
-                  )}
-                </button>
-                {isExpanded && (
-                  <div className={cn('px-3 pb-3 pt-3 border-t space-y-3', isLight ? 'border-stone-200' : 'border-slate-700')}>
-                    {['US', 'EU', 'APAC', 'CA', 'SA', 'ME', 'AF', 'Other'].map(geoKey => {
-                      const geoRegions = regionsByGeo[geoKey]
-                      if (!geoRegions || geoRegions.length === 0) return null
-
-                      const geo = geoInfo[geoKey]
-                      const geoExpandKey = `${groupName}_${geoKey}`
-                      const isGeoExpanded = expandedGeos[geoExpandKey]
-
-                      return (
-                        <div key={geoKey} className={cn(
-                          'rounded-lg border overflow-hidden',
-                          isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#1a2330] border-slate-600/40'
-                        )}>
-                          <button
-                            className={cn(
-                              'w-full flex items-center justify-between p-2 transition-colors',
-                              isLight ? 'hover:bg-stone-100' : 'hover:bg-slate-700/50'
-                            )}
-                            onClick={() => toggleGeo(geoExpandKey)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span>{geo.icon}</span>
-                              <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{geo.name}</span>
-                              <Badge variant="secondary" className="text-xs">{geoRegions.length} regions</Badge>
-                            </div>
-                            {isGeoExpanded ? (
-                              <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
-                            ) : (
-                              <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-400')} />
-                            )}
-                          </button>
-                          {isGeoExpanded && (
-                            <div className={cn('px-2 pb-2 pt-2 border-t space-y-2', isLight ? 'border-stone-200' : 'border-slate-700')}>
-                              {geoRegions.sort().map(region => {
-                                const items = pricingByGroup[groupName][region] || []
-                                return (
-                                  <div key={region} className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#161d26] border border-slate-600/40')}>
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-                                      <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
-                                        {regionDisplayNames[region] || region}
-                                      </span>
-                                      <span className={cn('text-xs font-mono', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                                        ({region})
-                                      </span>
-                                    </div>
-                                    <div className="space-y-1">
-                                      {items.map((item, idx) => {
-                                        // Use price_per_thousand for token pricing, price_per_unit for image/other pricing
-                                        const price = item.price_per_thousand ?? item.price_per_unit
-                                        const unitLabel = item.unit_label || (item.price_per_thousand != null ? '/1K tokens' : `/${item.unit || 'unit'}`)
-                                        return (
-                                          <div key={idx} className="flex justify-between items-center text-xs">
-                                            <span className={cn(isLight ? 'text-stone-600' : 'text-slate-400')}>
-                                              {item.description || item.dimension || 'Price'}
-                                            </span>
-                                            <span className={cn('font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
-                                              ${typeof price === 'number' ? price.toFixed(6) : price ?? 'N/A'}
-                                              <span className={cn('font-normal ml-1', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                                                {unitLabel}
-                                              </span>
-                                            </span>
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </ScrollArea>
-    </div>
+    </ScrollArea>
   )
 }
 
@@ -1767,9 +1706,12 @@ export function ModelCardExpanded({
   onOpenChange,
   onToggleFavorite,
   isFavorite = false,
+  onToggleCompare,
+  isInComparison = false,
   getPricingForModel,
   preferredRegion = 'us-east-1',
 }) {
+  const [activeTab, setActiveTab] = useState('specs')
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
@@ -1777,63 +1719,296 @@ export function ModelCardExpanded({
 
   const isActive = model.model_status === 'ACTIVE'
 
+  const contextWindow = model.converse_data?.context_window
+  const maxOutput = model.converse_data?.max_output_tokens
+  const regions = model.regions_available || []
+  const capabilities = model.model_capabilities || []
+  const streamingSupported = model.streaming_supported
+  const crisSupported = model.cross_region_inference?.supported
+  const inputModalities = model.model_modalities?.input_modalities || []
+  const outputModalities = model.model_modalities?.output_modalities || []
+
+  // Compute quota stats
+  const quotas = model.model_service_quotas || {}
+  const quotaRegions = Object.keys(quotas)
+  let totalQuotas = 0
+  let adjustableQuotas = 0
+  const quotaCategories = new Set()
+  for (const region of quotaRegions) {
+    const regionQuotas = quotas[region] || []
+    for (const quota of regionQuotas) {
+      totalQuotas++
+      if (quota.adjustable) adjustableQuotas++
+      quotaCategories.add(categorizeQuota(quota.quota_name || ''))
+    }
+  }
+
+  // Compute pricing stats
+  const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
+  const fullPricing = pricingResult?.fullPricing
+  const legacyPricing = model.model_pricing || model.comprehensive_pricing || {}
+  const legacyByRegion = legacyPricing.by_region || {}
+  let pricingRegions = []
+  let pricingTypes = 0
+  const consumptionOptions = model.consumption_options || []
+
+  if (fullPricing?.regions) {
+    pricingRegions = Object.keys(fullPricing.regions)
+    const pricingGroups = new Set()
+    for (const regionData of Object.values(fullPricing.regions)) {
+      if (regionData?.pricing_groups) {
+        for (const groupName of Object.keys(regionData.pricing_groups)) {
+          pricingGroups.add(groupName)
+        }
+      }
+    }
+    pricingTypes = pricingGroups.size
+  } else if (Object.keys(legacyByRegion).length > 0) {
+    pricingRegions = Object.keys(legacyByRegion)
+    pricingTypes = 2 // On-Demand and Provisioned
+  }
+
   return (
     <TooltipProvider>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-6xl max-h-[90vh]">
-          <DialogHeader>
+        <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-[95vh] p-0 gap-0 flex flex-col">
+          {/* Compact Header */}
+          <div className={cn(
+            'flex items-center justify-between px-6 py-4 border-b flex-shrink-0',
+            isLight ? 'border-stone-200' : 'border-[#373a40]'
+          )}>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Badge className={cn('text-xs font-medium px-2 py-0.5', isLight ? 'text-[#faf9f5]' : 'text-white', getProviderColor(model.model_provider))}>
+                  {model.model_provider}
+                </Badge>
+                <Badge variant={isActive ? 'success' : 'warning'} className="text-xs px-2 py-0.5">
+                  {isActive ? 'Active' : 'Legacy'}
+                </Badge>
+              </div>
+              <div>
+                <h2 className={cn('text-lg font-semibold', isLight ? 'text-stone-900' : 'text-white')}>
+                  {model.model_name || model.model_id}
+                </h2>
+                <CopyableModelIdExpanded modelId={model.model_id.split(':')[0]} isLight={isLight} />
+              </div>
+            </div>
             <div className="flex items-center gap-2">
-              <Badge className={cn('text-xs font-medium px-2 py-0.5', isLight ? 'text-[#faf9f5]' : 'text-white', getProviderColor(model.model_provider))}>
-                {model.model_provider}
-              </Badge>
-              <Badge variant={isActive ? 'success' : 'warning'} className="text-xs px-2 py-0.5">
-                {isActive ? 'Active' : 'Legacy'}
-              </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onToggleCompare?.(model)}
+                  >
+                    <GitCompareArrows className={cn('h-5 w-5', isInComparison ? 'text-[#1A9E7A]' : 'text-[#c0c1c5]')} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isInComparison ? 'Remove from comparison' : 'Add to comparison'}</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onToggleFavorite?.(model.model_id)}
+                  >
+                    <Star className={cn('h-5 w-5', isFavorite ? 'fill-yellow-500 text-yellow-500' : 'text-[#c0c1c5]')} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isFavorite ? 'Remove from favorites' : 'Add to favorites'}</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
-            <div className="flex items-center gap-2 mt-2">
-              <DialogTitle className="text-xl flex-1">
-                {model.model_name || model.model_id}
-              </DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                onClick={() => onToggleFavorite?.(model.model_id)}
-              >
-                <Star
-                  className={cn(
-                    'h-5 w-5',
-                    isFavorite ? 'fill-yellow-500 text-yellow-500' : 'text-slate-400'
+          </div>
+
+          {/* Main Content - Two Column Layout */}
+          <div className="flex flex-1 min-h-0">
+            {/* Left Sidebar - Key Stats */}
+            <div className={cn(
+              'w-64 flex-shrink-0 border-r p-4 flex flex-col gap-4 overflow-y-auto',
+              isLight ? 'bg-stone-50 border-stone-200' : 'bg-[#1a1b1e] border-[#373a40]'
+            )}>
+              {/* Token Limits - Always shown */}
+              <div className="space-y-3">
+                <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>
+                  Token Limits
+                </h3>
+                <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]')}>
+                  <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Context Window</p>
+                  <p className={cn('text-xl font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
+                    {contextWindow ? (contextWindow >= 1000000 ? `${(contextWindow/1000000).toFixed(1)}M` : contextWindow >= 1000 ? `${(contextWindow/1000).toFixed(0)}K` : contextWindow) : 'N/A'}
+                  </p>
+                </div>
+                <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]')}>
+                  <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Max Output</p>
+                  <p className={cn('text-xl font-bold', isLight ? 'text-purple-700' : 'text-purple-400')}>
+                    {maxOutput ? (maxOutput >= 1000 ? `${(maxOutput/1000).toFixed(0)}K` : maxOutput) : 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Tab-specific stats */}
+              {activeTab === 'specs' && (
+                <>
+                  {/* Availability */}
+                  <div className="space-y-3">
+                    <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>
+                      Availability
+                    </h3>
+                    <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]')}>
+                      <div className="flex items-center justify-between">
+                        <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Regions</p>
+                        <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>{regions.length}</p>
+                      </div>
+                    </div>
+                    <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]')}>
+                      <div className="flex items-center justify-between">
+                        <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Capabilities</p>
+                        <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>{capabilities.length}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Features */}
+                  <div className="space-y-3">
+                    <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>
+                      Features
+                    </h3>
+                    <div className="space-y-2">
+                      <div className={cn('flex items-center gap-2 text-sm', streamingSupported ? 'text-emerald-500' : isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
+                        {streamingSupported ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                        <span>Streaming</span>
+                      </div>
+                      <div className={cn('flex items-center gap-2 text-sm', crisSupported ? 'text-emerald-500' : isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
+                        {crisSupported ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                        <span>Cross-Region</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Modalities */}
+                  <div className="space-y-3">
+                    <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>
+                      Modalities
+                    </h3>
+                    <div className="space-y-2">
+                      <div>
+                        <p className={cn('text-xs mb-1', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Input</p>
+                        <div className="flex flex-wrap gap-1">
+                          {inputModalities.map(mod => (
+                            <Badge key={mod} variant="secondary" className="text-[10px] px-1.5 py-0">{mod}</Badge>
+                          ))}
+                          {inputModalities.length === 0 && <span className={cn('text-xs', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>None</span>}
+                        </div>
+                      </div>
+                      <div>
+                        <p className={cn('text-xs mb-1', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Output</p>
+                        <div className="flex flex-wrap gap-1">
+                          {outputModalities.map(mod => (
+                            <Badge key={mod} variant="secondary" className="text-[10px] px-1.5 py-0">{mod}</Badge>
+                          ))}
+                          {outputModalities.length === 0 && <span className={cn('text-xs', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>None</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'quotas' && (
+                <div className="space-y-3">
+                  <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>
+                    Quota Summary
+                  </h3>
+                  <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]')}>
+                    <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Total Quotas</p>
+                    <p className={cn('text-xl font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{totalQuotas}</p>
+                  </div>
+                  <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]')}>
+                    <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Adjustable</p>
+                    <p className={cn('text-xl font-bold', isLight ? 'text-emerald-700' : 'text-emerald-400')}>{adjustableQuotas}</p>
+                  </div>
+                  <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]')}>
+                    <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Regions</p>
+                    <p className={cn('text-xl font-bold', isLight ? 'text-blue-700' : 'text-blue-400')}>{quotaRegions.length}</p>
+                  </div>
+                  <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]')}>
+                    <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Categories</p>
+                    <p className={cn('text-xl font-bold', isLight ? 'text-purple-700' : 'text-purple-400')}>{quotaCategories.size}</p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'pricing' && (
+                <div className="space-y-3">
+                  <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>
+                    Pricing Summary
+                  </h3>
+                  <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]')}>
+                    <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Pricing Types</p>
+                    <p className={cn('text-xl font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{pricingTypes}</p>
+                  </div>
+                  <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]')}>
+                    <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Regions</p>
+                    <p className={cn('text-xl font-bold', isLight ? 'text-emerald-700' : 'text-emerald-400')}>{pricingRegions.length}</p>
+                  </div>
+                  <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]')}>
+                    <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Options</p>
+                    <p className={cn('text-xl font-bold', isLight ? 'text-purple-700' : 'text-purple-400')}>{consumptionOptions.length || pricingTypes}</p>
+                  </div>
+                  {consumptionOptions.length > 0 && (
+                    <div className="pt-2">
+                      <p className={cn('text-xs mb-2', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Consumption</p>
+                      <div className="flex flex-wrap gap-1">
+                        {consumptionOptions.map(opt => {
+                          const labels = { 'on_demand': 'On-Demand', 'batch': 'Batch', 'provisioned': 'Provisioned', 'cross_region_inference': 'Cross-Region' }
+                          return <Badge key={opt} variant="info" className="text-[10px]">{labels[opt] || opt}</Badge>
+                        })}
+                      </div>
+                    </div>
                   )}
-                />
-              </Button>
+                </div>
+              )}
             </div>
-            <DialogDescription className="font-mono">
-              {model.model_id.split(':')[0]}
-            </DialogDescription>
-          </DialogHeader>
 
-          <Separator />
+            {/* Right Content - Tabs */}
+            <div className="flex-1 flex flex-col min-w-0 min-h-0">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+                <TabsList className={cn(
+                  'w-full justify-start rounded-none border-b flex-shrink-0 h-auto p-0',
+                  isLight ? 'bg-transparent border-stone-200' : 'bg-transparent border-[#373a40]'
+                )}>
+                  <TabsTrigger value="specs" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
+                    Technical Specs
+                  </TabsTrigger>
+                  <TabsTrigger value="quotas" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
+                    Service Quotas
+                  </TabsTrigger>
+                  <TabsTrigger value="pricing" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
+                    Pricing
+                  </TabsTrigger>
+                </TabsList>
 
-          <Tabs defaultValue="specs" className="mt-2">
-            <TabsList className="w-full justify-start">
-              <TabsTrigger value="specs" className="flex-1">Technical Specs</TabsTrigger>
-              <TabsTrigger value="quotas" className="flex-1">Service Quotas</TabsTrigger>
-              <TabsTrigger value="pricing" className="flex-1">Pricing</TabsTrigger>
-            </TabsList>
+                <TabsContent value="specs" className="flex-1 mt-0 min-h-0 overflow-hidden">
+                  <SpecsTab model={model} />
+                </TabsContent>
 
-            <TabsContent value="specs" className="mt-4">
-              <SpecsTab model={model} />
-            </TabsContent>
+                <TabsContent value="quotas" className="flex-1 mt-0 min-h-0 overflow-hidden">
+                  <QuotasTab model={model} />
+                </TabsContent>
 
-            <TabsContent value="quotas" className="mt-4">
-              <QuotasTab model={model} />
-            </TabsContent>
-
-            <TabsContent value="pricing" className="mt-4">
-              <PricingTab model={model} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} />
-            </TabsContent>
-          </Tabs>
+                <TabsContent value="pricing" className="flex-1 mt-0 min-h-0 overflow-hidden">
+                  <PricingTab model={model} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} />
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </TooltipProvider>

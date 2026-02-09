@@ -1,12 +1,13 @@
-import { Star, GitCompare, ExternalLink, Zap, Globe, MessageSquare, Image, FileText, Video, Mic, Check, X, MapPin, Radio, ArrowRight, DollarSign, Gauge, CheckCircle2, Search, Clock } from 'lucide-react'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { useState } from 'react'
+import { Star, GitCompare, ExternalLink, Globe, MessageSquare, Image, FileText, Video, Mic, Check, X, MapPin, Radio, ArrowRight, CheckCircle2, Copy, Search, Clock } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import { useComparisonStore } from '@/stores/comparisonStore'
-import { providerColorClasses, consumptionLabels, getContextSizeCategory } from '@/config/constants'
+import { providerColors, consumptionLabels, getContextSizeCategory } from '@/config/constants'
 
 // Tooltip wrapper for consistent styling
 function InfoTooltip({ children, content, side = "bottom", sideOffset = 4 }) {
@@ -40,7 +41,7 @@ function formatNumber(num) {
 }
 
 function getProviderColor(provider) {
-  return providerColorClasses[provider] || providerColorClasses.default
+  return providerColors[provider] || providerColors.default
 }
 
 function extractPricing(model, preferredRegion = 'us-east-1') {
@@ -70,17 +71,141 @@ function extractPricing(model, preferredRegion = 'us-east-1') {
   return { inputPrice, outputPrice }
 }
 
-// Use getContextSizeCategory from constants as getModelSize
-const getModelSize = getContextSizeCategory
+// Visual progress bar for specs
+function SpecBar({ label, value, maxValue, isLight }) {
+  const percentage = value && maxValue ? Math.min((value / maxValue) * 100, 100) : 0
+  const displayValue = formatNumber(value)
 
-// Section divider component
-function SectionDivider({ isLight }) {
   return (
-    <div className={cn(
-      'h-px w-full',
-      isLight ? 'bg-stone-200/60' : 'bg-white/5'
-    )} />
+    <div className="mb-2 last:mb-0">
+      <div className="flex justify-between items-center text-xs mb-1">
+        <span className={cn(isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>{label}</span>
+        <span className={cn('font-semibold', isLight ? 'text-stone-700' : 'text-[#e4e5e7]')}>
+          {displayValue}
+        </span>
+      </div>
+      <div className={cn(
+        'h-1.5 rounded-full overflow-hidden',
+        isLight ? 'bg-stone-200' : 'bg-[#373a40]'
+      )}>
+        <div
+          className={cn(
+            'h-full rounded-full transition-all duration-500 ease-out',
+            isLight ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-gradient-to-r from-[#158567] to-[#1A9E7A]'
+          )}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
   )
+}
+
+// Helper to get display model ID (strips version suffix like :0)
+function getDisplayModelId(modelId) {
+  if (!modelId) return ''
+  const colonIndex = modelId.lastIndexOf(':')
+  // Only strip if what's after the colon looks like a version number
+  if (colonIndex > 0) {
+    const suffix = modelId.slice(colonIndex + 1)
+    if (/^\d+$/.test(suffix)) {
+      return modelId.slice(0, colonIndex)
+    }
+  }
+  return modelId
+}
+
+// Copyable model ID
+function CopyableModelId({ modelId, isLight }) {
+  const [copied, setCopied] = useState(false)
+  const displayId = getDisplayModelId(modelId)
+
+  const handleCopy = async (e) => {
+    e.stopPropagation()
+    // Copy the display ID (without version suffix)
+    await navigator.clipboard.writeText(displayId)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <InfoTooltip content={copied ? "Copied!" : "Click to copy model ID"}>
+      <button
+        onClick={handleCopy}
+        className={cn(
+          'flex items-center gap-1 text-[11px] font-mono truncate max-w-full transition-colors group/copy',
+          isLight
+            ? 'text-stone-400 hover:text-stone-600'
+            : 'text-[#9a9b9f] hover:text-[#c0c1c5]'
+        )}
+      >
+        <span className="truncate">{displayId}</span>
+        {copied ? (
+          <Check className="h-3 w-3 flex-shrink-0 text-emerald-500" />
+        ) : (
+          <Copy className="h-3 w-3 flex-shrink-0 opacity-0 group-hover/copy:opacity-100 transition-opacity" />
+        )}
+      </button>
+    </InfoTooltip>
+  )
+}
+
+// Status pill component
+function StatusPill({ isActive, isLight }) {
+  return (
+    <InfoTooltip content={isActive ? "Model is actively supported" : "Legacy model - consider newer alternatives"}>
+      <div className={cn(
+        'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide cursor-help',
+        isActive
+          ? isLight
+            ? 'bg-emerald-100 text-emerald-700'
+            : 'bg-emerald-500/15 text-emerald-400'
+          : isLight
+            ? 'bg-amber-100 text-amber-700'
+            : 'bg-amber-500/15 text-amber-400'
+      )}>
+        {isActive ? 'Active' : 'Legacy'}
+      </div>
+    </InfoTooltip>
+  )
+}
+
+// Feature indicator
+function FeatureIndicator({ supported, icon: Icon, label, isLight }) {
+  return (
+    <InfoTooltip content={label}>
+      <div className={cn(
+        'flex items-center gap-0.5 cursor-help',
+        supported
+          ? isLight ? 'text-emerald-600' : 'text-emerald-400'
+          : isLight ? 'text-stone-300' : 'text-[#4a4d54]'
+      )}>
+        <Icon className="h-3.5 w-3.5" />
+        {supported ? (
+          <Check className="h-2.5 w-2.5" />
+        ) : (
+          <X className="h-2.5 w-2.5" />
+        )}
+      </div>
+    </InfoTooltip>
+  )
+}
+
+// Modality descriptions for tooltips
+const modalityDescriptions = {
+  TEXT: 'Text content',
+  IMAGE: 'Image content',
+  DOCUMENT: 'Document files',
+  VIDEO: 'Video content',
+  AUDIO: 'Audio content',
+  SPEECH: 'Speech/voice',
+}
+
+// Consumption option descriptions
+const consumptionDescriptions = {
+  on_demand: 'Pay per use',
+  provisioned: 'Reserved capacity',
+  batch: 'Batch processing',
+  cross_region_inference: 'Cross-region routing',
 }
 
 export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, isFavorite = false, preferredRegion = 'us-east-1', getPricingForModel }) {
@@ -107,102 +232,67 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   const crisSupported = model.cross_region_inference?.supported || false
   const streamingSupported = model.streaming_supported || false
   const consumptionOptions = model.consumption_options || []
-  const modelSize = getModelSize(contextWindow)
-
-  // Get unique modalities for compact display
-  const allModalities = [...new Set([...inputModalities, ...outputModalities])]
-
-  // Modality descriptions for tooltips
-  const modalityDescriptions = {
-    TEXT: 'Text content - written language input/output',
-    IMAGE: 'Image content - visual media processing',
-    DOCUMENT: 'Document files - PDFs, Word docs, etc.',
-    VIDEO: 'Video content - moving visual media',
-    AUDIO: 'Audio content - sound files and music',
-    SPEECH: 'Speech content - voice and spoken language',
-  }
-
-  // Consumption option descriptions
-  const consumptionDescriptions = {
-    on_demand: 'Pay per use with no commitments',
-    provisioned: 'Reserved capacity for consistent performance',
-    batch: 'Process large volumes at lower cost',
-    cross_region_inference: 'Route requests across regions',
-  }
+  const providerColor = getProviderColor(model.model_provider)
 
   return (
     <TooltipProvider>
       <Card className={cn(
-        'group relative flex flex-col h-full transition-all duration-300',
+        'group relative flex flex-col h-full overflow-hidden',
         isSelectedForComparison
           ? isLight
-            ? 'ring-2 ring-amber-500 border-amber-400 shadow-lg shadow-amber-500/20'
-            : 'ring-2 ring-[#1A9E7A] border-[#1A9E7A]/50 shadow-lg shadow-[#1A9E7A]/20'
+            ? 'ring-2 ring-amber-500 border-amber-400'
+            : 'ring-2 ring-[#1A9E7A] border-[#1A9E7A]/50'
           : isLight
-            ? 'hover:border-amber-300/80 hover:shadow-xl hover:shadow-amber-900/10 hover:ring-1 hover:ring-amber-200/50'
-            : 'hover:border-[#1A9E7A]/50 hover:shadow-[0_0_30px_-5px_rgba(26,158,122,0.3)] hover:ring-1 hover:ring-[#1A9E7A]/20'
+            ? 'hover:border-stone-300 hover:shadow-lg'
+            : 'hover:border-[#4a4d54] hover:shadow-xl hover:shadow-black/20'
       )}>
-        <CardHeader className="pb-2">
-          {/* Top row: Provider badge, Size badge, Status, Favorite */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <InfoTooltip content="The company that created and maintains this model" side="right" sideOffset={8}>
-                <Badge className={cn('text-xs font-medium cursor-help', isLight ? 'text-[#faf9f5]' : 'text-white', getProviderColor(model.model_provider))}>
-                  {model.model_provider}
-                </Badge>
-              </InfoTooltip>
-              <InfoTooltip content={`Model size based on context window: Small (<32K), Medium (<128K), Large (<500K), XL (500K+)`} side="right" sideOffset={8}>
-                <Badge className={cn('text-xs font-medium cursor-help', isLight ? 'text-[#faf9f5]' : 'text-white', modelSize.color)}>
-                  {modelSize.label}
-                </Badge>
-              </InfoTooltip>
-            </div>
-            <div className="flex items-center gap-1">
-              <InfoTooltip content={isActive ? "Model is actively supported and recommended" : "Legacy model - consider newer alternatives"} side="left" sideOffset={8}>
-                <Badge variant={isActive ? 'success' : 'warning'} className="text-xs px-2 py-0.5 cursor-help">
-                  {isActive ? 'Active' : 'Legacy'}
-                </Badge>
-              </InfoTooltip>
-              <InfoTooltip content="Add to favorites for quick access" side="left" sideOffset={8}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => onToggleFavorite?.(model.model_id)}
-                >
-                  <Star
-                    className={cn(
-                      'h-4 w-4',
-                      isFavorite ? 'fill-yellow-500 text-yellow-500' : 'text-slate-400'
-                    )}
-                  />
-                </Button>
-              </InfoTooltip>
-            </div>
-          </div>
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 pb-2">
+          <InfoTooltip content={`Created by ${model.model_provider}`}>
+            <Badge
+              className="text-[10px] font-semibold cursor-help text-white"
+              style={{ backgroundColor: providerColor }}
+            >
+              {model.model_provider}
+            </Badge>
+          </InfoTooltip>
 
-          {/* Model name and ID */}
-          <div className="mt-2">
-            <h3 className={cn(
-              'font-semibold text-base leading-tight line-clamp-2',
-              isLight ? 'text-stone-900' : 'text-white'
-            )}>
-              {model.model_name || model.model_id}
-            </h3>
-            <InfoTooltip content="Unique identifier used in API calls">
-              <p className={cn(
-                'text-xs mt-1 truncate font-mono cursor-help',
-                isLight ? 'text-stone-500' : 'text-slate-500'
-              )}>
-                {model.model_id}
-              </p>
+          <div className="flex items-center gap-2">
+            <StatusPill isActive={isActive} isLight={isLight} />
+            <InfoTooltip content={isFavorite ? "Remove from favorites" : "Add to favorites"}>
+              <button
+                className={cn(
+                  'p-1 rounded transition-colors',
+                  isLight ? 'hover:bg-stone-100' : 'hover:bg-[#2c2d32]'
+                )}
+                onClick={() => onToggleFavorite?.(model.model_id)}
+              >
+                <Star
+                  className={cn(
+                    'h-4 w-4 transition-colors',
+                    isFavorite
+                      ? 'fill-amber-400 text-amber-400'
+                      : isLight ? 'text-stone-300 hover:text-stone-400' : 'text-[#6d6e72] hover:text-[#9a9b9f]'
+                  )}
+                />
+              </button>
             </InfoTooltip>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="flex-1 flex flex-col gap-2.5 pt-0">
+        {/* Title */}
+        <div className="px-4 pb-3">
+          <h3 className={cn(
+            'font-semibold text-[15px] leading-tight line-clamp-2 mb-1',
+            isLight ? 'text-stone-900' : 'text-[#e4e5e7]'
+          )}>
+            {model.model_name || model.model_id}
+          </h3>
+          <CopyableModelId modelId={model.model_id} isLight={isLight} />
+        </div>
 
-          {/* ═══ CAPACITY SECTION ═══ */}
+        <CardContent className="flex-1 flex flex-col gap-3 pt-0">
+          {/* Context/Output boxed display */}
           <InfoTooltip content="Token capacity: Context is max input size, Output is max response length">
             <div className={cn(
               'rounded-lg p-2.5 cursor-help',
@@ -212,13 +302,13 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
             )}>
               <div className="flex items-center justify-between">
                 <div className="flex-1 text-center border-r border-current/10">
-                  <p className={cn('text-[10px] uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-slate-500')}>Context</p>
+                  <p className={cn('text-[10px] uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>Context</p>
                   <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
                     {formatNumber(contextWindow)}
                   </p>
                 </div>
                 <div className="flex-1 text-center">
-                  <p className={cn('text-[10px] uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-slate-500')}>Output</p>
+                  <p className={cn('text-[10px] uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>Output</p>
                   <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
                     {formatNumber(maxOutput)}
                   </p>
@@ -227,34 +317,33 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
             </div>
           </InfoTooltip>
 
-          {/* ═══ MODALITIES ═══ */}
-          <div className="flex items-center gap-1.5">
+          {/* Modalities & Features Row */}
+          <div className="flex items-center justify-between">
+            {/* Modalities */}
             <div className="flex items-center gap-1">
-              {inputModalities.map(mod => {
+              {inputModalities.slice(0, 3).map(mod => {
                 const Icon = modalityIcons[mod] || MessageSquare
                 return (
-                  <InfoTooltip key={`in-${mod}`} content={`Input: ${modalityDescriptions[mod] || mod}`}>
+                  <InfoTooltip key={`in-${mod}`} content={`Input: ${modalityDescriptions[mod]}`}>
                     <div className={cn(
-                      'p-1 rounded cursor-help',
-                      isLight ? 'bg-stone-100' : 'bg-white/5'
+                      'p-1.5 rounded cursor-help',
+                      isLight ? 'bg-stone-100' : 'bg-[#2c2d32]'
                     )}>
-                      <Icon className={cn('h-3.5 w-3.5', isLight ? 'text-stone-600' : 'text-slate-400')} />
+                      <Icon className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-[#c0c1c5]')} />
                     </div>
                   </InfoTooltip>
                 )
               })}
-            </div>
-            <InfoTooltip content="Input types → Output types">
-              <ArrowRight className={cn('h-3 w-3 flex-shrink-0 cursor-help', isLight ? 'text-stone-400' : 'text-slate-600')} />
-            </InfoTooltip>
-            <div className="flex items-center gap-1">
-              {outputModalities.map(mod => {
+              {inputModalities.length > 0 && outputModalities.length > 0 && (
+                <ArrowRight className={cn('h-3 w-3 mx-0.5', isLight ? 'text-stone-300' : 'text-[#4a4d54]')} />
+              )}
+              {outputModalities.slice(0, 2).map(mod => {
                 const Icon = modalityIcons[mod] || MessageSquare
                 return (
-                  <InfoTooltip key={`out-${mod}`} content={`Output: ${modalityDescriptions[mod] || mod}`}>
+                  <InfoTooltip key={`out-${mod}`} content={`Output: ${modalityDescriptions[mod]}`}>
                     <div className={cn(
-                      'p-1 rounded cursor-help',
-                      isLight ? 'bg-emerald-100' : 'bg-emerald-500/10'
+                      'p-1.5 rounded cursor-help',
+                      isLight ? 'bg-emerald-50' : 'bg-emerald-500/10'
                     )}>
                       <Icon className={cn('h-3.5 w-3.5', isLight ? 'text-emerald-600' : 'text-emerald-400')} />
                     </div>
@@ -262,261 +351,165 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 )
               })}
             </div>
-          </div>
 
-          <SectionDivider isLight={isLight} />
-
-          {/* ═══ FEATURES ROW ═══ */}
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-3">
-              {/* Streaming */}
-              <InfoTooltip content={streamingSupported
-                ? "Streaming supported - receive responses in real-time as they're generated"
-                : "Streaming not supported - full response delivered at once"}>
-                <div className="flex items-center gap-1 cursor-help">
-                  <Radio className={cn('h-3.5 w-3.5', streamingSupported ? 'text-emerald-500' : 'text-slate-400')} />
-                  {streamingSupported ? (
-                    <Check className="h-3 w-3 text-emerald-500" />
-                  ) : (
-                    <X className="h-3 w-3 text-red-400/60" />
-                  )}
-                </div>
-              </InfoTooltip>
-              {/* CRIS */}
-              <InfoTooltip content={crisSupported
-                ? "Cross-Region Inference - route requests to other regions for better availability"
-                : "Cross-Region Inference not available for this model"}>
-                <div className="flex items-center gap-1 cursor-help">
-                  <Globe className={cn('h-3.5 w-3.5', crisSupported ? 'text-blue-500' : 'text-slate-400')} />
-                  {crisSupported ? (
-                    <Check className="h-3 w-3 text-emerald-500" />
-                  ) : (
-                    <X className="h-3 w-3 text-red-400/60" />
-                  )}
+            {/* Features */}
+            <div className="flex items-center gap-2">
+              <FeatureIndicator
+                supported={streamingSupported}
+                icon={Radio}
+                label={streamingSupported ? "Streaming supported" : "No streaming"}
+                isLight={isLight}
+              />
+              <FeatureIndicator
+                supported={crisSupported}
+                icon={Globe}
+                label={crisSupported ? "Cross-region inference" : "No cross-region"}
+                isLight={isLight}
+              />
+              <InfoTooltip content={`Available in ${regions.length} AWS regions`}>
+                <div className={cn(
+                  'flex items-center gap-1 text-xs cursor-help',
+                  isLight ? 'text-stone-500' : 'text-[#c0c1c5]'
+                )}>
+                  <MapPin className="h-3 w-3" />
+                  <span className="font-medium">{regions.length}</span>
                 </div>
               </InfoTooltip>
             </div>
-            {/* Regions count */}
-            <InfoTooltip content={`Available in ${regions.length} AWS regions worldwide. Click Details for full list.`}>
-              <div className="flex items-center gap-1 cursor-help">
-                <MapPin className={cn('h-3.5 w-3.5', isLight ? 'text-blue-600' : 'text-blue-400')} />
-                <span className={cn('font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
-                  {regions.length} regions
-                </span>
-              </div>
-            </InfoTooltip>
           </div>
 
-          <SectionDivider isLight={isLight} />
+          {/* Pricing - boxed style */}
+          <InfoTooltip content="Cost per 1,000 tokens. Input = what you send, Output = what model generates">
+            <div className="cursor-help">
+              {pricingType === 'video_generation' || pricingType === 'video_second' ? (
+                <div className={cn(
+                  'text-xs rounded-md p-2',
+                  isLight ? 'bg-stone-100/60' : 'bg-white/5'
+                )}>
+                  <div className="text-center">
+                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>
+                      <Video className="h-3 w-3 inline mr-1" />
+                      Per {pricingType === 'video_second' ? 'Second' : 'Video'}
+                    </p>
+                    <p className={cn('font-semibold text-lg', isLight ? 'text-stone-800' : 'text-[#f0f1f3]')}>
+                      ${videoPrice !== null ? (videoPrice < 0.01 ? videoPrice.toFixed(4) : videoPrice.toFixed(2)) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              ) : pricingType === 'image_generation' ? (
+                <div className={cn(
+                  'text-xs rounded-md p-2',
+                  isLight ? 'bg-stone-100/60' : 'bg-white/5'
+                )}>
+                  <div className="text-center">
+                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>
+                      <Image className="h-3 w-3 inline mr-1" />
+                      Per Image
+                    </p>
+                    <p className={cn('font-semibold text-lg', isLight ? 'text-stone-800' : 'text-[#f0f1f3]')}>
+                      ${imagePrice !== null ? (imagePrice < 0.01 ? imagePrice.toFixed(4) : imagePrice.toFixed(2)) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              ) : pricingType === 'search_unit' ? (
+                <div className={cn(
+                  'text-xs rounded-md p-2',
+                  isLight ? 'bg-stone-100/60' : 'bg-white/5'
+                )}>
+                  <div className="text-center">
+                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>
+                      <Search className="h-3 w-3 inline mr-1" />
+                      Per 1K Units
+                    </p>
+                    <p className={cn('font-semibold text-lg', isLight ? 'text-stone-800' : 'text-[#f0f1f3]')}>
+                      ${inputPrice !== null ? (inputPrice < 0.01 ? inputPrice.toFixed(4) : inputPrice.toFixed(2)) : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              ) : inputPrice !== null ? (
+                <div className={cn(
+                  'grid grid-cols-2 gap-2 text-xs rounded-md p-2',
+                  isLight ? 'bg-stone-100/60' : 'bg-white/5'
+                )}>
+                  <div className="text-center">
+                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>Input</p>
+                    <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-[#f0f1f3]')}>
+                      ${inputPrice < 0.0001 ? inputPrice.toFixed(6) : inputPrice.toFixed(4)}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>Output</p>
+                    <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-[#f0f1f3]')}>
+                      ${outputPrice !== null ? (outputPrice < 0.0001 ? outputPrice.toFixed(6) : outputPrice.toFixed(4)) : 'N/A'}
+                    </p>
+                  </div>
+                  <p className={cn('col-span-2 text-center text-[10px] -mt-1', isLight ? 'text-stone-400' : 'text-[#b0b1b5]')}>
+                    {unitLabel || 'per 1K tokens'}
+                  </p>
+                </div>
+              ) : (
+                <div className={cn(
+                  'text-center text-xs py-2 rounded-md',
+                  isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-[#b0b1b5]'
+                )}>
+                  Pricing unavailable
+                </div>
+              )}
+            </div>
+          </InfoTooltip>
 
-          {/* ═══ PRICING & DEPLOYMENT ═══ */}
-          <div className="space-y-2">
-            {/* Pricing - handles different pricing types */}
-            {pricingType === 'video_generation' ? (
-              /* Video Generation Pricing */
-              <InfoTooltip content="Cost per generated video. Varies by resolution, duration, and fps." side="top">
-                <div className="cursor-help">
-                  {videoPrice !== null ? (
-                    <div className={cn(
-                      'text-xs rounded-md p-2',
-                      isLight ? 'bg-stone-100/60' : 'bg-white/5'
-                    )}>
-                      <div className="text-center">
-                        <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                          <Video className="h-3 w-3 inline mr-1" />
-                          Per Video
-                        </p>
-                        <p className={cn('font-semibold text-lg', isLight ? 'text-stone-800' : 'text-white')}>
-                          ${videoPrice < 0.01 ? videoPrice.toFixed(4) : videoPrice.toFixed(2)}
-                        </p>
-                      </div>
-                      {videoPrices && Object.keys(videoPrices).length > 1 && (
-                        <p className={cn('text-center text-[10px] mt-1', isLight ? 'text-stone-400' : 'text-slate-600')}>
-                          {Object.keys(videoPrices).length} pricing tiers
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className={cn(
-                      'text-center text-xs py-2 rounded-md',
-                      isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-slate-500'
-                    )}>
-                      Pricing unavailable
-                    </div>
-                  )}
-                </div>
-              </InfoTooltip>
-            ) : pricingType === 'image_generation' ? (
-              /* Image Generation Pricing */
-              <InfoTooltip content="Cost per generated image. Varies by resolution and quality tier." side="top">
-                <div className="cursor-help">
-                  {imagePrice !== null ? (
-                    <div className={cn(
-                      'text-xs rounded-md p-2',
-                      isLight ? 'bg-stone-100/60' : 'bg-white/5'
-                    )}>
-                      <div className="text-center">
-                        <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                          <Image className="h-3 w-3 inline mr-1" />
-                          Per Image
-                        </p>
-                        <p className={cn('font-semibold text-lg', isLight ? 'text-stone-800' : 'text-white')}>
-                          ${imagePrice < 0.01 ? imagePrice.toFixed(4) : imagePrice.toFixed(2)}
-                        </p>
-                      </div>
-                      {imagePrices && Object.keys(imagePrices).length > 1 && (
-                        <p className={cn('text-center text-[10px] mt-1', isLight ? 'text-stone-400' : 'text-slate-600')}>
-                          {Object.keys(imagePrices).length} pricing tiers
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className={cn(
-                      'text-center text-xs py-2 rounded-md',
-                      isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-slate-500'
-                    )}>
-                      Pricing unavailable
-                    </div>
-                  )}
-                </div>
-              </InfoTooltip>
-            ) : pricingType === 'search_unit' ? (
-              /* Search Unit Pricing (Rerank models) */
-              <InfoTooltip content="Cost per 1,000 search units. Used for reranking search results." side="top">
-                <div className="cursor-help">
-                  {inputPrice !== null ? (
-                    <div className={cn(
-                      'text-xs rounded-md p-2',
-                      isLight ? 'bg-stone-100/60' : 'bg-white/5'
-                    )}>
-                      <div className="text-center">
-                        <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                          <Search className="h-3 w-3 inline mr-1" />
-                          Per 1K Search Units
-                        </p>
-                        <p className={cn('font-semibold text-lg', isLight ? 'text-stone-800' : 'text-white')}>
-                          ${inputPrice < 0.01 ? inputPrice.toFixed(4) : inputPrice.toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={cn(
-                      'text-center text-xs py-2 rounded-md',
-                      isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-slate-500'
-                    )}>
-                      Pricing unavailable
-                    </div>
-                  )}
-                </div>
-              </InfoTooltip>
-            ) : pricingType === 'video_second' ? (
-              /* Video Per-Second Pricing (Luma AI) */
-              <InfoTooltip content="Cost per second of generated video." side="top">
-                <div className="cursor-help">
-                  {videoPrice !== null ? (
-                    <div className={cn(
-                      'text-xs rounded-md p-2',
-                      isLight ? 'bg-stone-100/60' : 'bg-white/5'
-                    )}>
-                      <div className="text-center">
-                        <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                          <Clock className="h-3 w-3 inline mr-1" />
-                          Per Second
-                        </p>
-                        <p className={cn('font-semibold text-lg', isLight ? 'text-stone-800' : 'text-white')}>
-                          ${videoPrice < 0.01 ? videoPrice.toFixed(4) : videoPrice.toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={cn(
-                      'text-center text-xs py-2 rounded-md',
-                      isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-slate-500'
-                    )}>
-                      Pricing unavailable
-                    </div>
-                  )}
-                </div>
-              </InfoTooltip>
-            ) : (
-              /* Token-based Pricing (default) */
-              <InfoTooltip content="Cost per 1,000 tokens. Input = what you send, Output = what model generates" side="top">
-                <div className="cursor-help">
-                  {inputPrice !== null ? (
-                    <div className={cn(
-                      'grid grid-cols-2 gap-2 text-xs rounded-md p-2',
-                      isLight ? 'bg-stone-100/60' : 'bg-white/5'
-                    )}>
-                      <div className="text-center">
-                        <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>Input</p>
-                        <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-white')}>
-                          ${inputPrice < 0.00001 ? inputPrice.toFixed(7) : inputPrice < 0.001 ? inputPrice.toFixed(6) : inputPrice.toFixed(4)}
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-500')}>Output</p>
-                        <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-white')}>
-                          ${outputPrice !== null ? (outputPrice < 0.00001 ? outputPrice.toFixed(7) : outputPrice < 0.001 ? outputPrice.toFixed(6) : outputPrice.toFixed(4)) : 'N/A'}
-                        </p>
-                      </div>
-                      <p className={cn('col-span-2 text-center text-[10px] -mt-1', isLight ? 'text-stone-400' : 'text-slate-600')}>
-                        {unitLabel || 'per 1K tokens'}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className={cn(
-                      'text-center text-xs py-2 rounded-md',
-                      isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-slate-500'
-                    )}>
-                      Pricing unavailable
-                    </div>
-                  )}
-                </div>
-              </InfoTooltip>
-            )}
-
-            {/* Deployment Options - show all consumption options except cross_region_inference */}
-            {consumptionOptions.filter(opt => opt !== 'cross_region_inference').length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {consumptionOptions.filter(opt => opt !== 'cross_region_inference').map(opt => (
-                  <InfoTooltip key={opt} content={consumptionDescriptions[opt] || opt} side="top">
-                    <Badge variant="info" className="text-[10px] py-0 px-1.5 font-medium cursor-help">
-                      {consumptionLabels[opt] || opt}
-                    </Badge>
-                  </InfoTooltip>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ═══ CAPABILITIES ═══ */}
-          {capabilities.length > 0 && (
-            <>
-              <SectionDivider isLight={isLight} />
-              <InfoTooltip content="Tasks and features this model excels at" side="top">
-                <div className="flex flex-wrap gap-1 cursor-help">
-                  {capabilities.slice(0, 4).map(cap => (
-                    <Badge key={cap} variant="secondary" className="text-[10px] py-0 px-1.5">
-                      {cap}
-                    </Badge>
-                  ))}
-                  {capabilities.length > 4 && (
-                    <Badge variant="secondary" className="text-[10px] py-0 px-1.5">
-                      +{capabilities.length - 4}
-                    </Badge>
-                  )}
-                </div>
-              </InfoTooltip>
-            </>
+          {/* Consumption options */}
+          {consumptionOptions.filter(opt => opt !== 'cross_region_inference').length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {consumptionOptions.filter(opt => opt !== 'cross_region_inference').map(opt => (
+                <InfoTooltip key={opt} content={consumptionDescriptions[opt] || opt}>
+                  <span className={cn(
+                    'text-[10px] px-2 py-0.5 rounded-full font-medium cursor-help',
+                    isLight
+                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                      : 'bg-[#1A9E7A]/10 text-[#1A9E7A] border border-[#1A9E7A]/20'
+                  )}>
+                    {consumptionLabels[opt] || opt}
+                  </span>
+                </InfoTooltip>
+              ))}
+            </div>
           )}
 
-          {/* Spacer to push buttons to bottom */}
-          <div className="flex-1 min-h-2" />
+          {/* Capabilities */}
+          {capabilities.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {capabilities.slice(0, 3).map(cap => (
+                <span
+                  key={cap}
+                  className={cn(
+                    'text-[10px] px-1.5 py-0.5 rounded',
+                    isLight ? 'bg-stone-100 text-stone-500' : 'bg-[#2c2d32] text-[#b0b1b5]'
+                  )}
+                >
+                  {cap}
+                </span>
+              ))}
+              {capabilities.length > 3 && (
+                <InfoTooltip content={capabilities.slice(3).join(', ')}>
+                  <span className={cn(
+                    'text-[10px] px-1.5 py-0.5 rounded cursor-help',
+                    isLight ? 'bg-stone-100 text-stone-500' : 'bg-[#2c2d32] text-[#b0b1b5]'
+                  )}>
+                    +{capabilities.length - 3}
+                  </span>
+                </InfoTooltip>
+              )}
+            </div>
+          )}
 
-          {/* ═══ ACTION BUTTONS ═══ */}
+          {/* Spacer */}
+          <div className="flex-1 min-h-1" />
+
+          {/* Action Buttons */}
           <div className={cn(
-            'flex gap-2 pt-2 border-t',
-            isLight ? 'border-stone-200/60' : 'border-white/5'
+            'flex gap-2 pt-3 border-t',
+            isLight ? 'border-stone-200' : 'border-[#373a40]'
           )}>
             <Button
               variant="outline"
@@ -524,29 +517,29 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               className="flex-1 text-xs"
               onClick={() => onViewDetails?.(model)}
             >
-              <ExternalLink className="h-3.5 w-3.5 mr-1" />
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
               Details
             </Button>
             <Button
               variant={isSelectedForComparison ? "default" : "outline"}
               size="sm"
               className={cn(
-                "text-xs",
+                "flex-1 text-xs",
                 isSelectedForComparison && (isLight
                   ? "bg-amber-600 hover:bg-amber-700 text-white"
-                  : "bg-[#1A9E7A] hover:bg-[#158567] text-white")
+                  : "bg-[#1A9E7A] hover:bg-[#22b38d] text-white")
               )}
               onClick={() => toggleModel(model, preferredRegion)}
               disabled={!isSelectedForComparison && !canAddMore()}
             >
               {isSelectedForComparison ? (
                 <>
-                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
                   Selected
                 </>
               ) : (
                 <>
-                  <GitCompare className="h-3.5 w-3.5 mr-1" />
+                  <GitCompare className="h-3.5 w-3.5 mr-1.5" />
                   Compare
                 </>
               )}

@@ -15,6 +15,7 @@ import { ModelFilters } from './ModelFilters'
 import { Pagination } from './Pagination'
 import { useModels } from '@/hooks/useModels'
 import { useTheme } from '@/components/layout/ThemeProvider'
+import { useComparisonStore } from '@/stores/comparisonStore'
 import { applyFilters, initialFilterState } from '@/utils/filters'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +30,7 @@ export function ModelExplorer() {
   const { models, providers, capabilities, useCases, customizations, languages, consumptionOptionsList, stats, loading, error, getPricingForModel } = useModels()
   const { theme } = useTheme()
   const isLight = theme === 'light'
+  const { toggleModel, isModelSelected } = useComparisonStore()
 
   // Local state
   const [filters, setFilters] = useState(initialFilterState)
@@ -194,6 +196,8 @@ export function ModelExplorer() {
         onOpenChange={(open) => !open && setSelectedModel(null)}
         onToggleFavorite={handleToggleFavorite}
         isFavorite={selectedModel ? favorites.includes(selectedModel.model_id) : false}
+        onToggleCompare={toggleModel}
+        isInComparison={selectedModel ? isModelSelected(selectedModel.model_id) : false}
         getPricingForModel={getPricingForModel}
         preferredRegion={filters.primaryRegion}
       />

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronUp, Filter, X, Search, Check, Building2, Zap, Target, Cpu } from 'lucide-react'
+import { ChevronDown, ChevronUp, Filter, X, Search, Check, Building2, Zap, Target, Cpu, MessageSquare, Image, FileText, Video, Mic } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -24,8 +24,54 @@ import {
 } from '@/utils/filters'
 import { cn } from '@/lib/utils'
 
+// Quick filter pill component
+function QuickFilterPill({ label, isActive, onClick, icon: Icon, isLight }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150',
+        isActive
+          ? isLight
+            ? 'bg-amber-600 text-white shadow-sm'
+            : 'bg-[#1A9E7A] text-white shadow-sm'
+          : isLight
+            ? 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+            : 'bg-[#2c2d32] text-[#a0a1a5] hover:bg-[#373a40]'
+      )}
+    >
+      {Icon && <Icon className="h-3.5 w-3.5" />}
+      {label}
+    </button>
+  )
+}
+
+// Active filter chip component
+function ActiveFilterChip({ label, onRemove, isLight }) {
+  return (
+    <span className={cn(
+      'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium',
+      isLight
+        ? 'bg-amber-100 text-amber-800'
+        : 'bg-[#1A9E7A]/15 text-[#1A9E7A]'
+    )}>
+      {label}
+      <button
+        onClick={onRemove}
+        className={cn(
+          'ml-0.5 rounded-full p-0.5 transition-colors',
+          isLight ? 'hover:bg-amber-200' : 'hover:bg-[#1A9E7A]/25'
+        )}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
+  )
+}
+
 // Multi-select dropdown component
-function MultiSelectDropdown({ label, options, selected, onChange, placeholder, isLight }) {
+function MultiSelectDropdown({ label, options, selected, onChange, placeholder, isLight, compact = false }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const dropdownRef = useRef(null)
@@ -60,46 +106,50 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <p className={cn('text-xs mb-1.5', isLight ? 'text-stone-600' : 'text-slate-400')}>{label}</p>
+      {!compact && <p className={cn('text-xs mb-1.5 font-medium', isLight ? 'text-stone-600' : 'text-[#a0a1a5]')}>{label}</p>}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'flex h-9 w-full items-center justify-between rounded-md border px-3 py-2 text-sm',
+          'flex items-center justify-between rounded-md border transition-colors',
+          compact
+            ? 'h-8 w-auto min-w-[100px] px-2 py-1 text-xs'
+            : 'h-9 w-full px-3 py-2 text-sm',
           isLight
-            ? 'bg-white border-stone-300 text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-600 focus:ring-offset-2'
-            : 'bg-slate-950 border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#1A9E7A] focus:ring-offset-2'
+            ? 'bg-white border-stone-300 text-stone-900 hover:border-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-600 focus:ring-offset-2'
+            : 'bg-[#1a1b1e] border-[#373a40] text-[#e4e5e7] hover:border-[#4a4d54] focus:outline-none focus:ring-2 focus:ring-[#1A9E7A] focus:ring-offset-2 focus:ring-offset-[#1a1b1e]'
         )}
       >
+        {compact && <span className={cn('mr-1', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{label}:</span>}
         <span className={cn(
           'truncate',
-          selected.length === 0 && (isLight ? 'text-stone-500' : 'text-slate-500')
+          selected.length === 0 && (isLight ? 'text-stone-500' : 'text-[#6d6e72]')
         )}>
           {displayValue}
         </span>
         <ChevronDown className={cn(
-          'h-4 w-4 transition-transform',
-          isLight ? 'text-stone-500' : 'text-slate-400',
+          'h-4 w-4 ml-1 transition-transform flex-shrink-0',
+          isLight ? 'text-stone-500' : 'text-[#6d6e72]',
           isOpen && 'rotate-180'
         )} />
       </button>
 
       {isOpen && (
         <div className={cn(
-          'absolute z-50 mt-1 w-full rounded-md border shadow-lg',
+          'absolute z-50 mt-1 w-full rounded-md border shadow-lg animate-slide-down',
           isLight
-            ? 'bg-white/95 border-stone-200/80 backdrop-blur-xl shadow-stone-900/10'
-            : 'bg-slate-900/95 border-slate-700/50 backdrop-blur-xl'
+            ? 'bg-white border-stone-200 shadow-stone-900/10'
+            : 'bg-[#25262b] border-[#373a40] shadow-black/20'
         )}>
           {options.length > 5 && (
             <div className={cn(
               'p-2 border-b',
-              isLight ? 'border-stone-200' : 'border-slate-700'
+              isLight ? 'border-stone-200' : 'border-[#373a40]'
             )}>
               <div className="relative">
                 <Search className={cn(
                   'absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5',
-                  isLight ? 'text-stone-500' : 'text-slate-400'
+                  isLight ? 'text-stone-500' : 'text-[#6d6e72]'
                 )} />
                 <Input
                   placeholder="Search..."
@@ -115,7 +165,7 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
             {filteredOptions.length === 0 ? (
               <p className={cn(
                 'px-3 py-2 text-sm',
-                isLight ? 'text-stone-600' : 'text-slate-400'
+                isLight ? 'text-stone-600' : 'text-[#6d6e72]'
               )}>
                 No options found
               </p>
@@ -129,18 +179,18 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
                     'flex w-full items-center gap-2 rounded px-3 py-1.5 text-sm transition-colors',
                     isLight
                       ? 'hover:bg-stone-100 text-stone-700'
-                      : 'hover:bg-slate-800 text-slate-200'
+                      : 'hover:bg-[#373a40] text-[#e4e5e7]'
                   )}
                 >
                   <div className={cn(
-                    'flex h-4 w-4 items-center justify-center rounded border',
+                    'flex h-4 w-4 items-center justify-center rounded border transition-colors',
                     selected.includes(option)
                       ? isLight
                         ? 'bg-amber-700 border-amber-700'
                         : 'bg-[#1A9E7A] border-[#1A9E7A]'
                       : isLight
                         ? 'border-stone-300'
-                        : 'border-slate-600'
+                        : 'border-[#4a4d54]'
                   )}>
                     {selected.includes(option) && (
                       <Check className="h-3 w-3 text-white" />
@@ -155,7 +205,7 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
           {selected.length > 0 && (
             <div className={cn(
               'p-2 border-t',
-              isLight ? 'border-stone-200' : 'border-slate-700'
+              isLight ? 'border-stone-200' : 'border-[#373a40]'
             )}>
               <button
                 type="button"
@@ -164,7 +214,7 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
                   'w-full text-xs py-1 rounded transition-colors',
                   isLight
                     ? 'text-stone-600 hover:bg-stone-100'
-                    : 'text-slate-400 hover:bg-slate-800'
+                    : 'text-[#a0a1a5] hover:bg-[#373a40]'
                 )}
               >
                 Clear all ({selected.length})
@@ -177,10 +227,31 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
   )
 }
 
-function FilterSelect({ label, value, onChange, options, className, isLight }) {
+function FilterSelect({ label, value, onChange, options, className, isLight, compact = false }) {
+  const selectedOption = options.find(opt => opt.value === value)
+  const displayText = selectedOption?.label || value
+
+  if (compact) {
+    return (
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className={cn('h-8 text-xs w-auto min-w-[100px]', className)}>
+          <span className={cn('mr-1', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{label}:</span>
+          <SelectValue>{displayText}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {options.map(opt => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    )
+  }
+
   return (
     <div className={className}>
-      <p className={cn('text-xs mb-1.5', isLight ? 'text-stone-600' : 'text-slate-400')}>{label}</p>
+      <p className={cn('text-xs mb-1.5 font-medium', isLight ? 'text-stone-600' : 'text-[#a0a1a5]')}>{label}</p>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="h-9">
           <SelectValue />
@@ -203,8 +274,8 @@ function FilterGroup({ title, icon: Icon, children, isLight }) {
     <div className={cn(
       'rounded-lg border p-4',
       isLight
-        ? 'bg-white/60 border-stone-200/80 backdrop-blur-sm'
-        : 'bg-white/5 border-white/10 backdrop-blur-sm'
+        ? 'bg-white border-stone-200'
+        : 'bg-[#25262b] border-[#373a40]'
     )}>
       <div className="flex items-center gap-2 mb-3">
         <Icon className={cn(
@@ -213,7 +284,7 @@ function FilterGroup({ title, icon: Icon, children, isLight }) {
         )} />
         <h3 className={cn(
           'text-sm font-semibold',
-          isLight ? 'text-stone-900' : 'text-white'
+          isLight ? 'text-stone-900' : 'text-[#e4e5e7]'
         )}>
           {title}
         </h3>
@@ -223,6 +294,24 @@ function FilterGroup({ title, icon: Icon, children, isLight }) {
       </div>
     </div>
   )
+}
+
+// Modality icons mapping
+const modalityIconMap = {
+  TEXT: MessageSquare,
+  IMAGE: Image,
+  DOCUMENT: FileText,
+  VIDEO: Video,
+  AUDIO: Mic,
+  SPEECH: Mic,
+}
+
+// Context size labels
+const contextSizeLabels = {
+  'Small': 'Small (<32K)',
+  'Medium': 'Med (32-128K)',
+  'Large': 'Large (128K-500K)',
+  'XL': 'XL (>500K)',
 }
 
 export function ModelFilters({
@@ -248,228 +337,319 @@ export function ModelFilters({
     onFiltersChange(initialFilterState)
   }
 
-  // Format consumption option labels
-  const formatConsumptionOption = (opt) => {
-    const labels = {
-      'on_demand': 'On-Demand',
-      'provisioned': 'Provisioned',
-      'batch': 'Batch',
-      'cross_region_inference': 'Cross-Region'
+  // Generate active filter chips
+  const getActiveFilterChips = () => {
+    const chips = []
+
+    if (filters.providers.length > 0) {
+      filters.providers.forEach(p => {
+        chips.push({
+          key: `provider-${p}`,
+          label: p,
+          onRemove: () => updateFilter('providers', filters.providers.filter(x => x !== p))
+        })
+      })
     }
-    return labels[opt] || opt
+
+    if (filters.modality !== 'All Modalities') {
+      chips.push({
+        key: 'modality',
+        label: filters.modality,
+        onRemove: () => updateFilter('modality', 'All Modalities')
+      })
+    }
+
+    if (filters.modelStatus !== 'All Status') {
+      chips.push({
+        key: 'status',
+        label: filters.modelStatus,
+        onRemove: () => updateFilter('modelStatus', 'All Status')
+      })
+    }
+
+    if (filters.contextFilter !== 'All Models') {
+      chips.push({
+        key: 'context',
+        label: filters.contextFilter,
+        onRemove: () => updateFilter('contextFilter', 'All Models')
+      })
+    }
+
+    if (filters.capabilities.length > 0) {
+      filters.capabilities.forEach(c => {
+        chips.push({
+          key: `cap-${c}`,
+          label: c,
+          onRemove: () => updateFilter('capabilities', filters.capabilities.filter(x => x !== c))
+        })
+      })
+    }
+
+    if (filters.crisSupport !== 'All Models') {
+      chips.push({
+        key: 'cris',
+        label: `CRIS: ${filters.crisSupport}`,
+        onRemove: () => updateFilter('crisSupport', 'All Models')
+      })
+    }
+
+    if (filters.streamingSupport !== 'All Models') {
+      chips.push({
+        key: 'streaming',
+        label: `Streaming: ${filters.streamingSupport}`,
+        onRemove: () => updateFilter('streamingSupport', 'All Models')
+      })
+    }
+
+    return chips
+  }
+
+  const activeChips = getActiveFilterChips()
+
+  // Quick filter toggles
+  const toggleModality = (modality) => {
+    updateFilter('modality', filters.modality === modality ? 'All Modalities' : modality)
+  }
+
+  const toggleStatus = (status) => {
+    updateFilter('modelStatus', filters.modelStatus === status ? 'All Status' : status)
+  }
+
+  const toggleContextSize = (size) => {
+    updateFilter('contextFilter', filters.contextFilter === size ? 'All Models' : size)
   }
 
   return (
-    <div className="space-y-4">
-      {/* Primary filters row */}
-      <div className="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
-        {/* Search */}
-        <div className="w-full sm:flex-1 sm:min-w-[200px]">
-          <p className={cn('text-xs mb-1.5', isLight ? 'text-stone-600' : 'text-slate-400')}>Search</p>
-          <div className="relative">
-            <Search className={cn(
-              'absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4',
-              isLight ? 'text-stone-500' : 'text-slate-400'
-            )} />
-            <Input
-              placeholder="Search models..."
-              value={filters.searchQuery}
-              onChange={(e) => updateFilter('searchQuery', e.target.value)}
-              className="pl-9 h-9"
-            />
-          </div>
-        </div>
-
-        {/* Region */}
-        <div className="w-full sm:w-[220px]">
-          <p className={cn('text-xs mb-1.5', isLight ? 'text-stone-600' : 'text-slate-400')}>Primary Region</p>
-          <RegionSelector
-            value={filters.primaryRegion}
-            onChange={(v) => updateFilter('primaryRegion', v)}
-            className="h-9"
-          />
-        </div>
-
-        {/* Status */}
-        <FilterSelect
-          label="Status"
-          value={filters.modelStatus}
-          onChange={(v) => updateFilter('modelStatus', v)}
-          options={modelStatusOptions}
-          className="w-full sm:w-[140px]"
-          isLight={isLight}
-        />
-
-        {/* Buttons row */}
-        <div className="flex gap-2 w-full sm:w-auto">
-          {/* Advanced toggle */}
-          <Button
-            variant="outline"
-            size="sm"
+    <div className="space-y-3">
+      {/* Main filter row: Search + Region + More - all together */}
+      <div className="flex items-center gap-2">
+        {/* Search bar - grows to fill available space */}
+        <div className="relative flex-1">
+          <Search className={cn(
+            'absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4',
+            isLight ? 'text-stone-400' : 'text-[#6d6e72]'
+          )} />
+          <Input
+            placeholder="Search models..."
+            value={filters.searchQuery}
+            onChange={(e) => updateFilter('searchQuery', e.target.value)}
             className={cn(
-              'h-9 flex-1 sm:flex-initial',
-              showAdvanced && (isLight ? 'bg-stone-100' : 'bg-slate-800')
+              'h-9 pl-9 pr-8 text-sm',
+              isLight
+                ? 'bg-white border-stone-200 focus:border-amber-500'
+                : 'bg-[#25262b] border-[#373a40] focus:border-[#1A9E7A]'
             )}
-            onClick={() => setShowAdvanced(!showAdvanced)}
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            <span className="sm:inline">Advanced</span>
-            {activeCount > 0 && (
-              <Badge className={cn(
-                'ml-2 text-xs px-1.5 border-0',
-                isLight ? 'bg-amber-700 !text-[#faf9f5]' : 'bg-[#1A9E7A] !text-white'
-              )}>
-                {activeCount}
-              </Badge>
-            )}
-            {showAdvanced ? (
-              <ChevronUp className="h-4 w-4 ml-2" />
-            ) : (
-              <ChevronDown className="h-4 w-4 ml-2" />
-            )}
-          </Button>
-
-          {/* Reset */}
-          {activeCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9"
-              onClick={resetFilters}
+          />
+          {filters.searchQuery && (
+            <button
+              onClick={() => updateFilter('searchQuery', '')}
+              className={cn(
+                'absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full transition-colors',
+                isLight ? 'hover:bg-stone-100' : 'hover:bg-[#373a40]'
+              )}
             >
-              <X className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Clear</span>
-            </Button>
+              <X className={cn('h-3.5 w-3.5', isLight ? 'text-stone-400' : 'text-[#6d6e72]')} />
+            </button>
           )}
         </div>
+
+        {/* Region selector */}
+        <RegionSelector
+          value={filters.primaryRegion}
+          onChange={(v) => updateFilter('primaryRegion', v)}
+          className="h-9 w-[200px] flex-shrink-0"
+        />
+
+        {/* More filters toggle */}
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn(
+            'h-9 flex-shrink-0',
+            showAdvanced && (isLight ? 'bg-stone-100' : 'bg-[#2c2d32]')
+          )}
+          onClick={() => setShowAdvanced(!showAdvanced)}
+        >
+          <Filter className="h-4 w-4 mr-1.5" />
+          More
+          {activeCount > 0 && (
+            <Badge className={cn(
+              'ml-1.5 text-[10px] px-1.5 border-0',
+              isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+            )}>
+              {activeCount}
+            </Badge>
+          )}
+          {showAdvanced ? (
+            <ChevronUp className="h-4 w-4 ml-1" />
+          ) : (
+            <ChevronDown className="h-4 w-4 ml-1" />
+          )}
+        </Button>
       </div>
 
-      {/* Advanced filters - 4 groups */}
+      {/* Active filter chips */}
+      {activeChips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#6d6e72]')}>Filters:</span>
+          {activeChips.map(chip => (
+            <ActiveFilterChip
+              key={chip.key}
+              label={chip.label}
+              onRemove={chip.onRemove}
+              isLight={isLight}
+            />
+          ))}
+          <button
+            onClick={resetFilters}
+            className={cn(
+              'text-xs font-medium transition-colors',
+              isLight
+                ? 'text-amber-700 hover:text-amber-800'
+                : 'text-[#1A9E7A] hover:text-[#22b38d]'
+            )}
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {/* Advanced filters - compact row */}
       {showAdvanced && (
         <div className={cn(
-          'border rounded-lg p-4 animate-slide-down',
+          'border rounded-lg p-2 animate-slide-down',
           isLight
-            ? 'bg-stone-50/80 border-stone-200/80 backdrop-blur-xl'
-            : 'bg-slate-900/30 border-slate-700/50 backdrop-blur-xl'
+            ? 'bg-stone-50 border-stone-200'
+            : 'bg-[#1a1b1e] border-[#373a40]'
         )}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Group 1: Provider & Location */}
-            <FilterGroup title="Provider & Location" icon={Building2} isLight={isLight}>
-              {availableProviders.length > 0 && (
-                <MultiSelectDropdown
-                  label="Providers"
-                  options={availableProviders}
-                  selected={filters.providers}
-                  onChange={(v) => updateFilter('providers', v)}
-                  placeholder="Choose options"
-                  isLight={isLight}
-                />
-              )}
-              <FilterSelect
-                label="Geographic Regions"
-                value={filters.geoRegion}
-                onChange={(v) => updateFilter('geoRegion', v)}
-                options={geoRegionOptions}
+          <div className="flex flex-wrap gap-2">
+            {/* Provider */}
+            {availableProviders.length > 0 && (
+              <MultiSelectDropdown
+                label="Provider"
+                options={availableProviders}
+                selected={filters.providers}
+                onChange={(v) => updateFilter('providers', v)}
+                placeholder="All"
                 isLight={isLight}
+                compact
               />
-              <FilterSelect
-                label="Model Status"
-                value={filters.modelStatus}
-                onChange={(v) => updateFilter('modelStatus', v)}
-                options={modelStatusOptions}
-                isLight={isLight}
-              />
-            </FilterGroup>
+            )}
 
-            {/* Group 2: Consumption & Features */}
-            <FilterGroup title="Consumption & Features" icon={Zap} isLight={isLight}>
-              {availableConsumptionOptions.length > 0 && (
-                <MultiSelectDropdown
-                  label="Consumption Options"
-                  options={availableConsumptionOptions}
-                  selected={filters.consumptionOptions}
-                  onChange={(v) => updateFilter('consumptionOptions', v)}
-                  placeholder="All Models"
-                  isLight={isLight}
-                />
-              )}
-              <FilterSelect
-                label="Cross-Region Inference"
-                value={filters.crisSupport}
-                onChange={(v) => updateFilter('crisSupport', v)}
-                options={crisSupportOptions}
-                isLight={isLight}
-              />
-              <FilterSelect
-                label="Streaming Support"
-                value={filters.streamingSupport}
-                onChange={(v) => updateFilter('streamingSupport', v)}
-                options={streamingSupportOptions}
-                isLight={isLight}
-              />
-            </FilterGroup>
+            {/* Modality */}
+            <FilterSelect
+              label="Modality"
+              value={filters.modality}
+              onChange={(v) => updateFilter('modality', v)}
+              options={modalityOptions}
+              isLight={isLight}
+              compact
+            />
 
-            {/* Group 3: Use Cases & Content */}
-            <FilterGroup title="Use Cases & Content" icon={Target} isLight={isLight}>
-              {availableUseCases.length > 0 && (
-                <MultiSelectDropdown
-                  label="Use Cases"
-                  options={availableUseCases}
-                  selected={filters.useCases}
-                  onChange={(v) => updateFilter('useCases', v)}
-                  placeholder="Choose options"
-                  isLight={isLight}
-                />
-              )}
-              <FilterSelect
-                label="Modalities"
-                value={filters.modality}
-                onChange={(v) => updateFilter('modality', v)}
-                options={modalityOptions}
-                isLight={isLight}
-              />
-              {availableCapabilities.length > 0 && (
-                <MultiSelectDropdown
-                  label="Capabilities"
-                  options={availableCapabilities}
-                  selected={filters.capabilities}
-                  onChange={(v) => updateFilter('capabilities', v)}
-                  placeholder="Choose options"
-                  isLight={isLight}
-                />
-              )}
-            </FilterGroup>
+            {/* Status */}
+            <FilterSelect
+              label="Status"
+              value={filters.modelStatus}
+              onChange={(v) => updateFilter('modelStatus', v)}
+              options={modelStatusOptions}
+              isLight={isLight}
+              compact
+            />
 
-            {/* Group 4: Model Capabilities */}
-            <FilterGroup title="Model Capabilities" icon={Cpu} isLight={isLight}>
-              {availableCustomizations.length > 0 && (
-                <MultiSelectDropdown
-                  label="Customization Options"
-                  options={availableCustomizations}
-                  selected={filters.customizations}
-                  onChange={(v) => updateFilter('customizations', v)}
-                  placeholder="All Models"
-                  isLight={isLight}
-                />
-              )}
-              {availableLanguages.length > 0 && (
-                <MultiSelectDropdown
-                  label="Languages"
-                  options={availableLanguages}
-                  selected={filters.languages}
-                  onChange={(v) => updateFilter('languages', v)}
-                  placeholder="Choose options"
-                  isLight={isLight}
-                />
-              )}
-              <FilterSelect
-                label="Context Window"
-                value={filters.contextFilter}
-                onChange={(v) => updateFilter('contextFilter', v)}
-                options={contextFilterOptions}
+            {/* Context Size */}
+            <FilterSelect
+              label="Context"
+              value={filters.contextFilter}
+              onChange={(v) => updateFilter('contextFilter', v)}
+              options={contextFilterOptions}
+              isLight={isLight}
+              compact
+            />
+
+            {/* CRIS */}
+            <FilterSelect
+              label="CRIS"
+              value={filters.crisSupport}
+              onChange={(v) => updateFilter('crisSupport', v)}
+              options={crisSupportOptions}
+              isLight={isLight}
+              compact
+            />
+
+            {/* Streaming */}
+            <FilterSelect
+              label="Stream"
+              value={filters.streamingSupport}
+              onChange={(v) => updateFilter('streamingSupport', v)}
+              options={streamingSupportOptions}
+              isLight={isLight}
+              compact
+            />
+
+            {/* Consumption Options */}
+            {availableConsumptionOptions.length > 0 && (
+              <MultiSelectDropdown
+                label="Consumption"
+                options={availableConsumptionOptions}
+                selected={filters.consumptionOptions}
+                onChange={(v) => updateFilter('consumptionOptions', v)}
+                placeholder="All"
                 isLight={isLight}
+                compact
               />
-            </FilterGroup>
+            )}
+
+            {/* Capabilities */}
+            {availableCapabilities.length > 0 && (
+              <MultiSelectDropdown
+                label="Capabilities"
+                options={availableCapabilities}
+                selected={filters.capabilities}
+                onChange={(v) => updateFilter('capabilities', v)}
+                placeholder="All"
+                isLight={isLight}
+                compact
+              />
+            )}
+
+            {/* Use Cases */}
+            {availableUseCases.length > 0 && (
+              <MultiSelectDropdown
+                label="Use Cases"
+                options={availableUseCases}
+                selected={filters.useCases}
+                onChange={(v) => updateFilter('useCases', v)}
+                placeholder="All"
+                isLight={isLight}
+                compact
+              />
+            )}
+
+            {/* Customizations */}
+            {availableCustomizations.length > 0 && (
+              <MultiSelectDropdown
+                label="Custom"
+                options={availableCustomizations}
+                selected={filters.customizations}
+                onChange={(v) => updateFilter('customizations', v)}
+                placeholder="All"
+                isLight={isLight}
+                compact
+              />
+            )}
+
+            {/* Languages */}
+            {availableLanguages.length > 0 && (
+              <MultiSelectDropdown
+                label="Lang"
+                options={availableLanguages}
+                selected={filters.languages}
+                onChange={(v) => updateFilter('languages', v)}
+                placeholder="All"
+                isLight={isLight}
+                compact
+              />
+            )}
           </div>
         </div>
       )}
