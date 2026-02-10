@@ -1,45 +1,48 @@
-import { Check, X, Globe, MapPin, Trophy, Map } from 'lucide-react'
+import { useState } from 'react'
+import { Check, Globe, MapPin, Trophy, Map, ChevronDown, ChevronRight, Filter, Maximize2, Minimize2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { awsRegions } from '@/utils/filters'
 import { RegionMap } from '../RegionMap'
 import { providerColorClasses } from '@/config/constants'
 
-// Use providerColorClasses from constants
 const providerColors = providerColorClasses
 
 // Group regions by geography
-const geoGroups = {
-  US: { label: 'United States', regions: [] },
-  EU: { label: 'Europe', regions: [] },
-  AP: { label: 'Asia Pacific', regions: [] },
-  CA: { label: 'Canada', regions: [] },
-  SA: { label: 'South America', regions: [] },
-  ME: { label: 'Middle East', regions: [] },
-  AF: { label: 'Africa', regions: [] },
-}
+const geoGroups = [
+  { key: 'US', label: 'United States' },
+  { key: 'EU', label: 'Europe' },
+  { key: 'AP', label: 'Asia Pacific' },
+  { key: 'CA', label: 'Canada' },
+  { key: 'SA', label: 'South America' },
+  { key: 'ME', label: 'Middle East' },
+  { key: 'AF', label: 'Africa' },
+]
 
-// Populate geo groups
+const regionsByGeo = {}
+geoGroups.forEach(g => { regionsByGeo[g.key] = [] })
 awsRegions.forEach(r => {
-  if (geoGroups[r.geo]) {
-    geoGroups[r.geo].regions.push(r)
+  if (regionsByGeo[r.geo]) {
+    regionsByGeo[r.geo].push(r)
   }
 })
 
-// Create region lookup map
-const regionLookup = {}
-awsRegions.forEach(r => {
-  regionLookup[r.value] = r
-})
+// Extract friendly name from label like "N. Virginia (us-east-1)" -> "N. Virginia"
+function friendlyName(label) {
+  return label.replace(/\s*\(.*\)$/, '')
+}
 
 export function AvailabilityTab({ selectedModels, isLight }) {
-  // Get all unique regions across selected models
+  const [collapsedGeos, setCollapsedGeos] = useState(new Set())
+  const [filterMode, setFilterMode] = useState('all')
+  const [mapFullscreen, setMapFullscreen] = useState(false)
+
   const allRegions = new Set()
   selectedModels.forEach(({ model }) => {
     (model.regions_available || []).forEach(r => allRegions.add(r))
   })
 
-  // Calculate coverage for each model
   const modelCoverage = selectedModels.map(({ model }) => {
     const regions = model.regions_available || []
     return {
@@ -50,262 +53,679 @@ export function AvailabilityTab({ selectedModels, isLight }) {
     }
   })
 
-  // Find max coverage
   const maxCount = Math.max(...modelCoverage.map(m => m.count))
+  const bestModels = modelCoverage.filter(m => m.count === maxCount)
 
-  // Find common regions (available in all selected models)
   const commonRegions = [...allRegions].filter(region =>
     selectedModels.every(({ model }) => (model.regions_available || []).includes(region))
   )
 
+  const diffRegions = [...allRegions].filter(region => {
+    const available = selectedModels.filter(({ model }) => (model.regions_available || []).includes(region))
+    return available.length > 0 && available.length < selectedModels.length
+  })
+
+  const exclusiveCount = [...allRegions].filter(region => {
+    const available = selectedModels.filter(({ model }) => (model.regions_available || []).includes(region))
+    return available.length === 1
+  }).length
+
+  const toggleGeo = (key) => {
+    setCollapsedGeos(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+
+  // Build region groups for the table
+  const tableGroups = []
+  geoGroups.forEach(({ key, label }) => {
+    const regions = regionsByGeo[key].filter(r => allRegions.has(r.value))
+    if (regions.length === 0) return
+
+    const filteredRegions = regions.filter(r => {
+      if (filterMode === 'common') return commonRegions.includes(r.value)
+      if (filterMode === 'diff') return diffRegions.includes(r.value)
+      return true
+    })
+
+    if (filteredRegions.length === 0 && filterMode !== 'all') return
+
+    tableGroups.push({
+      key,
+      label,
+      totalCount: regions.length,
+      filteredCount: filteredRegions.length,
+      regions: filteredRegions,
+    })
+  })
+
   return (
-    <div className="mt-4 space-y-4">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+    <div className="mt-4 space-y-3">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <SummaryCard
+          icon={<Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />}
+          label="Total Regions"
+          value={allRegions.size}
+          isLight={isLight}
+        />
+        <SummaryCard
+          icon={<MapPin className="h-3.5 w-3.5 text-emerald-500" />}
+          label="Common"
+          value={commonRegions.length}
+          isLight={isLight}
+          variant="emerald"
+        />
+        <SummaryCard
+          icon={<Filter className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-amber-400')} />}
+          label="Exclusive"
+          value={exclusiveCount}
+          isLight={isLight}
+          variant="amber"
+        />
+        <SummaryCard
+          icon={<Trophy className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />}
+          label="Best Coverage"
+          value={maxCount}
+          subtitle={bestModels.map(m => m.model.model_name || m.model.model_id).join(', ')}
+          isLight={isLight}
+        />
+      </div>
+
+      {/* Map (left) + Coverage bars (right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        {/* Map - takes 2/3 on left */}
         <div className={cn(
-          'p-4 rounded-lg border',
+          'lg:col-span-2 rounded-lg border overflow-hidden relative',
           isLight
             ? 'bg-white/80 border-stone-200/80'
-            : 'bg-[#161d26]/80 border-slate-700/50'
+            : 'bg-[#131a24]/80 border-slate-700/40'
         )}>
-          <div className="flex items-center gap-2 mb-2">
-            <Globe className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-            <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-500')}>
-              Total Unique Regions
-            </span>
+          <div className={cn(
+            'px-3 py-1.5 border-b flex items-center justify-between',
+            isLight ? 'bg-stone-50 border-stone-200' : 'bg-slate-800/30 border-slate-700'
+          )}>
+            <div className="flex items-center gap-2">
+              <Map className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+              <h3 className={cn('font-semibold text-xs', isLight ? 'text-stone-900' : 'text-white')}>
+                Global Availability
+              </h3>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-6 w-6 p-0',
+                isLight ? 'text-stone-400 hover:text-stone-600' : 'text-slate-500 hover:text-slate-300'
+              )}
+              onClick={() => setMapFullscreen(true)}
+              title="Expand map"
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
-          <p className={cn('text-2xl font-bold', isLight ? 'text-stone-900' : 'text-white')}>
-            {allRegions.size}
-          </p>
+          <RegionMap selectedModels={selectedModels} isLight={isLight} height="350px" />
         </div>
 
+        {/* Coverage bars - 1/3 on right */}
         <div className={cn(
-          'p-4 rounded-lg border',
-          isLight
-            ? 'bg-emerald-50/50 border-emerald-200'
-            : 'bg-emerald-500/10 border-emerald-500/30'
-        )}>
-          <div className="flex items-center gap-2 mb-2">
-            <MapPin className="h-4 w-4 text-emerald-500" />
-            <span className={cn('text-xs', isLight ? 'text-emerald-700' : 'text-emerald-400')}>
-              Common Regions
-            </span>
-          </div>
-          <p className={cn('text-2xl font-bold', 'text-emerald-600')}>
-            {commonRegions.length}
-          </p>
-        </div>
-
-        <div className={cn(
-          'p-4 rounded-lg border',
+          'px-4 py-3 rounded-lg border',
           isLight
             ? 'bg-white/80 border-stone-200/80'
-            : 'bg-[#161d26]/80 border-slate-700/50'
+            : 'bg-[#131a24]/80 border-slate-700/40'
         )}>
-          <div className="flex items-center gap-2 mb-2">
-            <Trophy className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-            <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-500')}>
-              Best Coverage
-            </span>
+          <h3 className={cn(
+            'font-semibold text-xs mb-3',
+            isLight ? 'text-stone-900' : 'text-white'
+          )}>
+            Regional Coverage
+          </h3>
+          <div className="space-y-3">
+            {[...modelCoverage]
+              .sort((a, b) => b.count - a.count)
+              .map(({ model, count, coverage }) => (
+              <div key={model.model_id}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Badge className={cn(
+                      'text-[9px] px-1.5 py-0 flex-shrink-0',
+                      isLight ? 'text-[#faf9f5]' : 'text-white',
+                      providerColors[model.model_provider] || providerColors.default
+                    )}>
+                      {model.model_provider}
+                    </Badge>
+                    <span className={cn(
+                      'text-xs font-medium truncate',
+                      isLight ? 'text-stone-700' : 'text-slate-300'
+                    )}>
+                      {model.model_name || model.model_id}
+                    </span>
+                    {count === maxCount && (
+                      <Trophy className={cn(
+                        'h-3 w-3 flex-shrink-0',
+                        isLight ? 'text-amber-600' : 'text-[#1A9E7A]'
+                      )} />
+                    )}
+                  </div>
+                  <span className={cn(
+                    'text-xs font-semibold tabular-nums flex-shrink-0 ml-2',
+                    isLight ? 'text-stone-600' : 'text-slate-400'
+                  )}>
+                    {count}
+                    <span className={cn('font-normal ml-0.5', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                      ({coverage}%)
+                    </span>
+                  </span>
+                </div>
+                <div className={cn(
+                  'h-2 rounded-full overflow-hidden',
+                  isLight ? 'bg-stone-200' : 'bg-slate-700'
+                )}>
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-all duration-500',
+                      count === maxCount
+                        ? isLight ? 'bg-amber-500' : 'bg-[#1A9E7A]'
+                        : isLight ? 'bg-stone-400' : 'bg-slate-500'
+                    )}
+                    style={{ width: `${coverage}%` }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
-          <p className={cn('text-2xl font-bold', isLight ? 'text-stone-900' : 'text-white')}>
-            {maxCount} regions
-          </p>
         </div>
       </div>
 
-      {/* Interactive Map */}
+      {/* Fullscreen map overlay */}
+      {mapFullscreen && (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: isLight ? '#fafaf9' : '#0d1117' }}>
+          <div className={cn(
+            'px-4 py-2.5 border-b flex items-center justify-between flex-shrink-0',
+            isLight ? 'bg-white border-stone-200' : 'bg-[#131a24] border-slate-700'
+          )}>
+            <div className="flex items-center gap-2">
+              <Map className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+              <h3 className={cn('font-semibold text-sm', isLight ? 'text-stone-900' : 'text-white')}>
+                Global Availability
+              </h3>
+              <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                {selectedModels.length} models
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5"
+              onClick={() => setMapFullscreen(false)}
+            >
+              <Minimize2 className="h-3.5 w-3.5" />
+              Close
+            </Button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <RegionMap selectedModels={selectedModels} isLight={isLight} height="calc(100vh - 45px)" />
+          </div>
+        </div>
+      )}
+
+      {/* CRIS Coverage — collapsible, column format */}
+      {selectedModels.some(({ model }) => model.cross_region_inference?.supported) && (
+        <CrisSection selectedModels={selectedModels} isLight={isLight} />
+      )}
+
+      {/* Region comparison table */}
       <div className={cn(
         'rounded-lg border overflow-hidden',
         isLight
           ? 'bg-white/80 border-stone-200/80'
-          : 'bg-[#161d26]/80 border-slate-700/50'
+          : 'bg-[#131a24]/80 border-slate-700/40'
       )}>
+        {/* Table filter bar */}
         <div className={cn(
-          'px-4 py-3 border-b flex items-center gap-2',
-          isLight ? 'bg-stone-50 border-stone-200' : 'bg-slate-800/50 border-slate-700'
+          'px-4 py-2.5 border-b flex items-center gap-2',
+          isLight ? 'bg-stone-50 border-stone-200' : 'bg-slate-800/30 border-slate-700'
         )}>
-          <Map className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-          <h3 className={cn(
-            'font-semibold text-sm',
-            isLight ? 'text-stone-900' : 'text-white'
-          )}>
-            Global Availability Map
-          </h3>
-        </div>
-        <RegionMap selectedModels={selectedModels} isLight={isLight} />
-      </div>
-
-      {/* Model Coverage Bars */}
-      <div className={cn(
-        'p-4 rounded-lg border',
-        isLight
-          ? 'bg-white/80 border-stone-200/80'
-          : 'bg-[#161d26]/80 border-slate-700/50'
-      )}>
-        <h3 className={cn(
-          'font-semibold mb-4',
-          isLight ? 'text-stone-900' : 'text-white'
-        )}>
-          Regional Coverage
-        </h3>
-        <div className="space-y-3">
-          {modelCoverage.map(({ model, count, coverage }, idx) => (
-            <div key={model.model_id}>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <Badge className={cn(
-                    'text-[10px]',
-                    isLight ? 'text-[#faf9f5]' : 'text-white',
-                    providerColors[model.model_provider] || providerColors.default
-                  )}>
-                    {model.model_provider}
-                  </Badge>
-                  <span className={cn(
-                    'text-sm font-medium truncate max-w-[200px]',
-                    isLight ? 'text-stone-700' : 'text-slate-300'
-                  )}>
-                    {model.model_name || model.model_id}
-                  </span>
-                  {count === maxCount && (
-                    <Trophy className={cn(
-                      'h-3.5 w-3.5 flex-shrink-0',
-                      isLight ? 'text-amber-600' : 'text-[#1A9E7A]'
-                    )} />
-                  )}
-                </div>
-                <span className={cn(
-                  'text-sm font-medium',
-                  isLight ? 'text-stone-600' : 'text-slate-400'
-                )}>
-                  {count} regions ({coverage}%)
-                </span>
-              </div>
-              <div className={cn(
-                'h-2 rounded-full overflow-hidden',
-                isLight ? 'bg-stone-200' : 'bg-slate-700'
-              )}>
-                <div
-                  className={cn(
-                    'h-full rounded-full transition-all duration-500',
-                    count === maxCount
-                      ? isLight ? 'bg-amber-500' : 'bg-[#1A9E7A]'
-                      : isLight ? 'bg-stone-400' : 'bg-slate-500'
-                  )}
-                  style={{ width: `${coverage}%` }}
-                />
-              </div>
-            </div>
+          <span className={cn('text-sm font-medium mr-1', isLight ? 'text-stone-600' : 'text-slate-400')}>Show:</span>
+          {[
+            { key: 'all', label: 'All Regions' },
+            { key: 'common', label: `Common (${commonRegions.length})` },
+            { key: 'diff', label: `Differences (${diffRegions.length})` },
+          ].map(({ key, label }) => (
+            <Button
+              key={key}
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-7 px-3 text-xs rounded-md',
+                filterMode === key
+                  ? isLight
+                    ? 'bg-amber-100 text-amber-800 hover:bg-amber-100'
+                    : 'bg-[#1A9E7A]/20 text-[#1A9E7A] hover:bg-[#1A9E7A]/20'
+                  : isLight
+                    ? 'text-stone-500 hover:text-stone-700 hover:bg-stone-100'
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/50'
+              )}
+              onClick={() => setFilterMode(key)}
+            >
+              {label}
+            </Button>
           ))}
         </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className={cn(
+                'border-b-2',
+                isLight ? 'border-stone-200 bg-stone-50/80' : 'border-slate-700 bg-slate-800/30'
+              )}>
+                <th className={cn(
+                  'px-5 py-3 text-left text-sm font-semibold min-w-[200px]',
+                  isLight ? 'text-stone-900' : 'text-white'
+                )}>
+                  Region
+                </th>
+                {selectedModels.map(({ model }) => (
+                  <th
+                    key={model.model_id}
+                    className={cn(
+                      'px-3 py-3 text-center font-semibold min-w-[120px]',
+                      isLight ? 'text-stone-900' : 'text-white'
+                    )}
+                  >
+                    <Badge className={cn(
+                      'text-[9px] mb-1',
+                      isLight ? 'text-[#faf9f5]' : 'text-white',
+                      providerColors[model.model_provider] || providerColors.default
+                    )}>
+                      {model.model_provider}
+                    </Badge>
+                    <p className={cn(
+                      'text-xs font-semibold line-clamp-2 max-w-[140px] mx-auto leading-tight',
+                      isLight ? 'text-stone-700' : 'text-slate-300'
+                    )}>
+                      {model.model_name || model.model_id}
+                    </p>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tableGroups.map(group => (
+                <GeoSection
+                  key={group.key}
+                  group={group}
+                  collapsed={collapsedGeos.has(group.key)}
+                  onToggle={() => toggleGeo(group.key)}
+                  selectedModels={selectedModels}
+                  commonRegions={commonRegions}
+                  isLight={isLight}
+                />
+              ))}
+              {tableGroups.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={1 + selectedModels.length}
+                    className={cn(
+                      'px-5 py-10 text-center text-sm',
+                      isLight ? 'text-stone-400' : 'text-slate-500'
+                    )}
+                  >
+                    No regions match this filter
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+    </div>
+  )
+}
 
-      {/* Region Table by Geography */}
-      {Object.entries(geoGroups).map(([geo, { label, regions }]) => {
-        const relevantRegions = regions.filter(r => allRegions.has(r.value))
-        if (relevantRegions.length === 0) return null
+function SummaryCard({ icon, label, value, subtitle, isLight, variant }) {
+  const bgClass = variant === 'emerald'
+    ? isLight ? 'bg-emerald-50/50 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/30'
+    : variant === 'amber'
+    ? isLight ? 'bg-amber-50/50 border-amber-200' : 'bg-amber-500/10 border-amber-500/30'
+    : isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
 
+  const valueClass = variant === 'emerald'
+    ? 'text-emerald-600'
+    : variant === 'amber'
+    ? isLight ? 'text-amber-700' : 'text-amber-500'
+    : isLight ? 'text-stone-900' : 'text-white'
+
+  const labelClass = variant === 'emerald'
+    ? isLight ? 'text-emerald-700' : 'text-emerald-400'
+    : variant === 'amber'
+    ? isLight ? 'text-amber-700' : 'text-amber-400'
+    : isLight ? 'text-stone-500' : 'text-slate-500'
+
+  return (
+    <div className={cn('px-3 py-2.5 rounded-lg border', bgClass)}>
+      <div className="flex items-center gap-1.5 mb-0.5">
+        {icon}
+        <span className={cn('text-[10px]', labelClass)}>{label}</span>
+      </div>
+      <p className={cn('text-lg font-bold', valueClass)}>{value}</p>
+      {subtitle && (
+        <p className={cn('text-[10px] truncate', isLight ? 'text-stone-400' : 'text-slate-500')}>
+          {subtitle}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function GeoSection({ group, collapsed, onToggle, selectedModels, commonRegions, isLight }) {
+  return (
+    <>
+      {/* Collapsible geo header */}
+      <tr
+        className={cn(
+          'border-b cursor-pointer select-none',
+          isLight
+            ? 'border-stone-200 bg-stone-100/80 hover:bg-stone-100'
+            : 'border-slate-700 bg-slate-800/50 hover:bg-slate-800/70'
+        )}
+        onClick={onToggle}
+      >
+        <td
+          colSpan={1 + selectedModels.length}
+          className={cn(
+            'px-5 py-2.5 text-sm font-bold',
+            isLight ? 'text-stone-800' : 'text-white'
+          )}
+        >
+          <div className="flex items-center gap-2">
+            {collapsed
+              ? <ChevronRight className="h-3.5 w-3.5 flex-shrink-0" />
+              : <ChevronDown className="h-3.5 w-3.5 flex-shrink-0" />
+            }
+            <span>{group.label}</span>
+            <span className={cn(
+              'text-xs font-normal',
+              isLight ? 'text-stone-400' : 'text-slate-500'
+            )}>
+              {group.filteredCount} region{group.filteredCount !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </td>
+      </tr>
+
+      {/* Region rows */}
+      {!collapsed && group.regions.map(region => {
+        const isCommon = commonRegions.includes(region.value)
         return (
-          <div
-            key={geo}
+          <tr
+            key={region.value}
             className={cn(
-              'rounded-lg border overflow-hidden',
-              isLight
-                ? 'bg-white/80 border-stone-200/80'
-                : 'bg-[#161d26]/80 border-slate-700/50'
+              'border-b last:border-b-0',
+              isCommon
+                ? isLight ? 'bg-emerald-50/30' : 'bg-emerald-500/5'
+                : '',
+              isLight ? 'border-stone-100' : 'border-slate-800/50'
             )}
           >
-            <div className={cn(
-              'px-4 py-2 border-b',
-              isLight ? 'bg-stone-100/80 border-stone-200' : 'bg-slate-800/50 border-slate-700'
-            )}>
-              <h3 className={cn(
-                'font-semibold text-sm',
-                isLight ? 'text-stone-900' : 'text-white'
-              )}>
-                {label}
-              </h3>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className={cn(
-                    'border-b',
-                    isLight ? 'border-stone-200' : 'border-slate-700'
+            <td className="px-5 py-2.5">
+              <div className="flex items-center gap-2">
+                {isCommon && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                )}
+                <div>
+                  <span className={cn(
+                    'text-sm font-medium',
+                    isLight ? 'text-stone-900' : 'text-white'
                   )}>
-                    <th className={cn(
-                      'px-4 py-2 text-left text-xs font-medium',
-                      isLight ? 'text-stone-600' : 'text-slate-400'
-                    )}>
-                      Region
-                    </th>
-                    {selectedModels.map(({ model }) => (
-                      <th
-                        key={model.model_id}
-                        className={cn(
-                          'px-2 py-2 text-center text-xs font-medium',
-                          isLight ? 'text-stone-600' : 'text-slate-400'
-                        )}
-                      >
-                        <span className="truncate block max-w-[100px]" title={model.model_name || model.model_id}>
-                          {(model.model_name || model.model_id).split(/[-_]/).slice(-2).join(' ')}
-                        </span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {relevantRegions.map(region => {
-                    const isCommon = commonRegions.includes(region.value)
-                    return (
-                      <tr
-                        key={region.value}
-                        className={cn(
-                          'border-b last:border-b-0',
-                          isCommon
-                            ? isLight ? 'bg-emerald-50/50' : 'bg-emerald-500/5'
-                            : '',
-                          isLight ? 'border-stone-100' : 'border-slate-800'
-                        )}
-                      >
-                        <td className="px-4 py-2">
-                          <div>
-                            <p className={cn(
-                              'text-sm font-medium',
-                              isLight ? 'text-stone-900' : 'text-white'
-                            )}>
-                              {region.label}
-                            </p>
-                            <p className={cn(
-                              'text-xs font-mono',
-                              isLight ? 'text-stone-500' : 'text-slate-500'
-                            )}>
-                              {region.value}
-                            </p>
-                          </div>
-                        </td>
-                        {selectedModels.map(({ model }) => {
-                          const available = (model.regions_available || []).includes(region.value)
-                          return (
-                            <td key={model.model_id} className="px-2 py-2 text-center">
-                              {available ? (
-                                <Check className="h-4 w-4 text-emerald-500 mx-auto" />
-                              ) : (
-                                <X className="h-4 w-4 text-red-400/40 mx-auto" />
-                              )}
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                    {friendlyName(region.label)}
+                  </span>
+                  <span className={cn(
+                    'text-xs font-mono ml-2',
+                    isLight ? 'text-stone-400' : 'text-slate-500'
+                  )}>
+                    {region.value}
+                  </span>
+                </div>
+              </div>
+            </td>
+            {selectedModels.map(({ model }) => {
+              const available = (model.regions_available || []).includes(region.value)
+              return (
+                <td key={model.model_id} className="px-3 py-2.5 text-center">
+                  {available ? (
+                    <Check className="h-4.5 w-4.5 text-emerald-500 mx-auto" />
+                  ) : (
+                    <span className={cn(
+                      'text-sm',
+                      isLight ? 'text-stone-300' : 'text-slate-700'
+                    )}>--</span>
+                  )}
+                </td>
+              )
+            })}
+          </tr>
         )
       })}
+    </>
+  )
+}
+
+function CrisSection({ selectedModels, isLight }) {
+  const [expanded, setExpanded] = useState(true)
+
+  const crisCount = selectedModels.filter(({ model }) => model.cross_region_inference?.supported).length
+
+  // Build region lookup: code → { name, geo }
+  const regionLookup = {}
+  awsRegions.forEach(r => {
+    regionLookup[r.value] = { name: friendlyName(r.label), geo: r.geo }
+  })
+
+  // Geo labels
+  const geoLabels = { US: 'United States', EU: 'Europe', AP: 'Asia Pacific', CA: 'Canada', SA: 'South America', ME: 'Middle East', AF: 'Africa' }
+
+  // Collect all CRIS source regions and group by geo
+  const allSourceRegions = new Set()
+  selectedModels.forEach(({ model }) => {
+    (model.cross_region_inference?.source_regions || []).forEach(r => allSourceRegions.add(r))
+  })
+
+  const geoGrouped = {}
+  allSourceRegions.forEach(region => {
+    const info = regionLookup[region]
+    const geo = info?.geo || 'Other'
+    if (!geoGrouped[geo]) geoGrouped[geo] = []
+    geoGrouped[geo].push(region)
+  })
+  // Sort regions within each geo
+  Object.values(geoGrouped).forEach(arr => arr.sort())
+
+  // Order geos consistently
+  const geoOrder = ['US', 'EU', 'AP', 'CA', 'SA', 'ME', 'AF', 'Other']
+  const sortedGeos = geoOrder.filter(g => geoGrouped[g])
+
+  return (
+    <div className={cn(
+      'rounded-lg border overflow-hidden',
+      isLight
+        ? 'bg-white/80 border-stone-200/80'
+        : 'bg-[#131a24]/80 border-slate-700/40'
+    )}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={cn(
+          'w-full px-4 py-2.5 flex items-center justify-between cursor-pointer transition-colors',
+          isLight ? 'hover:bg-stone-50' : 'hover:bg-white/5'
+        )}
+      >
+        <div className="flex items-center gap-2">
+          {expanded
+            ? <ChevronDown className={cn('h-3.5 w-3.5', isLight ? 'text-stone-400' : 'text-slate-500')} />
+            : <ChevronRight className={cn('h-3.5 w-3.5', isLight ? 'text-stone-400' : 'text-slate-500')} />
+          }
+          <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+          <span className={cn('font-semibold text-xs', isLight ? 'text-stone-900' : 'text-white')}>
+            Cross-Region Inference (CRIS)
+          </span>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+            {crisCount}/{selectedModels.length} supported
+          </Badge>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className={cn(
+                'border-t border-b',
+                isLight ? 'border-stone-200 bg-stone-50/50' : 'border-slate-700/50 bg-slate-800/20'
+              )}>
+                <th className={cn(
+                  'px-5 py-2.5 text-left text-xs font-semibold min-w-[140px]',
+                  isLight ? 'text-stone-700' : 'text-slate-300'
+                )}>
+                  Attribute
+                </th>
+                {selectedModels.map(({ model }) => (
+                  <th key={model.model_id} className="px-3 py-2.5 text-center min-w-[100px]">
+                    <Badge className={cn(
+                      'text-[9px] mb-0.5',
+                      isLight ? 'text-[#faf9f5]' : 'text-white',
+                      providerColors[model.model_provider] || providerColors.default
+                    )}>
+                      {model.model_provider}
+                    </Badge>
+                    <p className={cn(
+                      'text-[10px] font-semibold line-clamp-1 max-w-[100px] mx-auto',
+                      isLight ? 'text-stone-700' : 'text-slate-300'
+                    )}>
+                      {model.model_name || model.model_id}
+                    </p>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {/* Supported row */}
+              <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-slate-800/50')}>
+                <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                  Supported
+                </td>
+                {selectedModels.map(({ model }) => {
+                  const supported = model.cross_region_inference?.supported
+                  return (
+                    <td key={model.model_id} className="px-3 py-2.5 text-center">
+                      {supported ? (
+                        <Check className="h-4 w-4 text-emerald-500 mx-auto" />
+                      ) : (
+                        <span className={cn('text-sm', isLight ? 'text-stone-300' : 'text-slate-700')}>--</span>
+                      )}
+                    </td>
+                  )
+                })}
+              </tr>
+
+              {/* Profiles row */}
+              <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-slate-800/50')}>
+                <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                  Profiles
+                </td>
+                {selectedModels.map(({ model }) => {
+                  const count = model.cross_region_inference?.profiles_count
+                  return (
+                    <td key={model.model_id} className={cn(
+                      'px-3 py-2.5 text-center text-sm font-medium',
+                      isLight ? 'text-stone-900' : 'text-white'
+                    )}>
+                      {count || '--'}
+                    </td>
+                  )
+                })}
+              </tr>
+
+              {/* Source regions count row */}
+              <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-slate-800/50')}>
+                <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                  Source Regions
+                </td>
+                {selectedModels.map(({ model }) => {
+                  const count = (model.cross_region_inference?.source_regions || []).length
+                  return (
+                    <td key={model.model_id} className={cn(
+                      'px-3 py-2.5 text-center text-sm font-medium',
+                      isLight ? 'text-stone-900' : 'text-white'
+                    )}>
+                      {count || '--'}
+                    </td>
+                  )
+                })}
+              </tr>
+
+              {/* Geo group rows — each cell shows region badges */}
+              {sortedGeos.map(geo => {
+                const regions = geoGrouped[geo]
+                return (
+                  <tr key={geo} className={cn(
+                    'border-b last:border-b-0',
+                    isLight ? 'border-stone-100' : 'border-slate-800/50'
+                  )}>
+                    <td className={cn('px-5 py-3 align-top', isLight ? 'text-stone-800' : 'text-slate-200')}>
+                      <div className="text-sm font-semibold">{geoLabels[geo] || geo}</div>
+                      <div className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                        {regions.length} region{regions.length !== 1 ? 's' : ''}
+                      </div>
+                    </td>
+                    {selectedModels.map(({ model }) => {
+                      const modelRegions = model.cross_region_inference?.source_regions || []
+                      const supported = model.cross_region_inference?.supported
+                      const matchingRegions = regions.filter(r => modelRegions.includes(r))
+
+                      return (
+                        <td key={model.model_id} className="px-2 py-3 align-top">
+                          {!supported ? (
+                            <div className="flex justify-center">
+                              <span className={cn('text-sm', isLight ? 'text-stone-300' : 'text-slate-700')}>--</span>
+                            </div>
+                          ) : matchingRegions.length === 0 ? (
+                            <div className="flex justify-center">
+                              <span className={cn('text-sm', isLight ? 'text-stone-300' : 'text-slate-700')}>--</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1 justify-center">
+                              {matchingRegions.map(r => {
+                                const info = regionLookup[r]
+                                return (
+                                  <span
+                                    key={r}
+                                    title={r}
+                                    className={cn(
+                                      'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium',
+                                      isLight
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                    )}
+                                  >
+                                    {info?.name || r}
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

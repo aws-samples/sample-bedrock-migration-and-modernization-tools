@@ -186,8 +186,29 @@ export function getContextSizeCategory(contextWindow) {
 export const consumptionLabels = {
   on_demand: 'On-Demand',
   provisioned: 'Provisioned',
+  provisioned_throughput: 'Provisioned',
   batch: 'Batch',
   cross_region_inference: 'CRIS',
+}
+
+// Capability labels (prettify snake_case raw values)
+export const capabilityLabels = {
+  chat: 'Chat',
+  function_calling: 'Functions',
+  image_understanding: 'Vision',
+  image_generation: 'Image Gen',
+  multimodal: 'Multimodal',
+  text_generation: 'Text Gen',
+  text_completion: 'Completion',
+  embedding: 'Embedding',
+  code_generation: 'Code',
+  summarization: 'Summarize',
+  classification: 'Classify',
+  reranking: 'Rerank',
+  video_generation: 'Video Gen',
+  audio_generation: 'Audio Gen',
+  speech_generation: 'Speech',
+  document_understanding: 'Document',
 }
 
 // =============================================================================

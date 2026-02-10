@@ -1,6 +1,9 @@
 import { Check, X, MessageSquare, Image, FileText, Video, Mic } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { providerColorClasses, consumptionLabels, capabilityLabels } from '@/config/constants'
+
+const providerColors = providerColorClasses
 
 const modalityIcons = {
   TEXT: MessageSquare,
@@ -11,19 +14,13 @@ const modalityIcons = {
   SPEECH: Mic,
 }
 
-// Provider colors
-const providerColors = {
-  Amazon: 'bg-[#FF9900]',
-  Anthropic: 'bg-[#D4A27F]',
-  Meta: 'bg-[#0082FB]',
-  Mistral: 'bg-[#F54E42]',
-  Cohere: 'bg-[#39594D]',
-  'AI21 Labs': 'bg-[#6C5CE7]',
-  AI21: 'bg-[#6C5CE7]',
-  'Stability AI': 'bg-[#7C5CFF]',
-  Stability: 'bg-[#7C5CFF]',
-  Luma: 'bg-[#6366F1]',
-  default: 'bg-slate-500',
+const modalityLabels = {
+  TEXT: 'Text',
+  IMAGE: 'Image',
+  DOCUMENT: 'Doc',
+  VIDEO: 'Video',
+  AUDIO: 'Audio',
+  SPEECH: 'Speech',
 }
 
 function formatNumber(num) {
@@ -33,39 +30,102 @@ function formatNumber(num) {
   return num.toString()
 }
 
-// Consumption option labels
-const consumptionLabels = {
-  on_demand: 'On-Demand',
-  provisioned: 'Provisioned',
-  batch: 'Batch',
-  cross_region_inference: 'CRIS'
+// Detect long-context support from pricing data
+function detectLongContext(pricing, region) {
+  const fullPricing = pricing?.fullPricing
+  const regionData = fullPricing?.regions?.[region] || fullPricing?.regions?.['us-east-1']
+  const groups = regionData?.pricing_groups || {}
+  return !!(groups['On-Demand Long Context'] && groups['On-Demand Long Context'].length > 0)
 }
 
-export function TechSpecsTab({ selectedModels, isLight }) {
-  // Extract specs for each model
-  const specsData = selectedModels.map(({ model }) => ({
-    model,
-    contextWindow: model.converse_data?.context_window,
-    maxOutput: model.converse_data?.max_output_tokens,
-    inputModalities: model.model_modalities?.input_modalities || [],
-    outputModalities: model.model_modalities?.output_modalities || [],
-    streamingSupported: model.streaming_supported || false,
-    crisSupported: model.cross_region_inference?.supported || false,
-    consumptionOptions: model.consumption_options || [],
-    languages: model.languages_supported || [],
-    capabilities: model.model_capabilities || [],
-    customizations: model.customization?.customization_supported || [],
-    isActive: model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE',
-    arn: model.model_arn,
-  }))
+// Extract extended context window from quota names (e.g., "1M Context Length")
+function getExtendedContextWindow(model) {
+  const quotas = model.model_service_quotas || {}
+  let maxContext = 0
+  const pattern = /(\d+)(K|M)\s*Context\s*Length/i
+  for (const regionQuotas of Object.values(quotas)) {
+    for (const q of regionQuotas) {
+      const match = q.quota_name?.match(pattern)
+      if (match) {
+        const num = parseInt(match[1], 10)
+        const multiplier = match[2].toUpperCase() === 'M' ? 1000000 : 1000
+        maxContext = Math.max(maxContext, num * multiplier)
+      }
+    }
+  }
+  return maxContext > 0 ? maxContext : null
+}
+
+// Convert snake_case to Title Case
+function prettifyLabel(str) {
+  return str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+// Prettify use case labels
+const useCaseLabels = {
+  api_integration: 'API Integration',
+  complex_analysis: 'Analysis',
+  content_creation: 'Content Creation',
+  content_moderation: 'Moderation',
+  conversational_ai: 'Conversational AI',
+  creative_writing: 'Creative Writing',
+  customer_support: 'Support',
+  decision_support: 'Decision Support',
+  document_analysis: 'Doc Analysis',
+  image_analysis: 'Image Analysis',
+  ocr: 'OCR',
+  problem_solving: 'Problem Solving',
+  product_cataloging: 'Cataloging',
+  summarization: 'Summarization',
+  tool_use: 'Tool Use',
+  translation: 'Translation',
+  virtual_assistants: 'Assistants',
+  visual_qa: 'Visual QA',
+  workflow_automation: 'Automation',
+}
+
+export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
+  const specsData = selectedModels.map(({ model, region }) => {
+    const pricing = getPricingForModel?.(model, region)
+    const baseContext = model.converse_data?.context_window
+    const extendedContext = getExtendedContextWindow(model)
+    const effectiveContext = Math.max(baseContext || 0, extendedContext || 0)
+    const hasLongCtx = detectLongContext(pricing, region) || (extendedContext != null && extendedContext > (baseContext || 0))
+    return {
+      model,
+      region,
+      contextWindow: baseContext,
+      effectiveContext,
+      hasExtendedContext: extendedContext != null && extendedContext > (baseContext || 0),
+      maxOutput: model.converse_data?.max_output_tokens,
+      inputModalities: model.model_modalities?.input_modalities || [],
+      outputModalities: model.model_modalities?.output_modalities || [],
+      streamingSupported: model.streaming_supported || false,
+      crisSupported: model.cross_region_inference?.supported || false,
+      crisProfilesCount: model.cross_region_inference?.profiles_count || 0,
+      crisSourceRegions: (model.cross_region_inference?.source_regions || []).length,
+      consumptionOptions: model.consumption_options || [],
+      languages: model.languages_supported || [],
+      capabilities: model.model_capabilities || [],
+      useCases: model.model_use_cases || [],
+      customizations: model.customization?.customization_supported || [],
+      isActive: model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE',
+      hasLongContext: hasLongCtx,
+      batchSupported: model.batch_inference_supported?.supported || false,
+      batchRegions: (model.batch_inference_supported?.supported_regions || []).length,
+      batchCoverage: model.batch_inference_supported?.coverage_percentage,
+      totalRegions: model.total_regions_available || (model.regions_available || []).length,
+      inferenceTypes: model.inference_types_supported || [],
+    }
+  })
 
   const SpecRow = ({ label, children }) => (
     <tr className={cn(
       'border-b',
-      isLight ? 'border-stone-200/60' : 'border-slate-700/50'
+      isLight ? 'border-stone-100' : 'border-slate-800/50'
     )}>
       <td className={cn(
-        'px-4 py-3 font-medium text-sm',
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap',
         isLight ? 'text-stone-700' : 'text-slate-300'
       )}>
         {label}
@@ -74,113 +134,169 @@ export function TechSpecsTab({ selectedModels, isLight }) {
     </tr>
   )
 
-  const TextCell = ({ value }) => (
+  const TextCell = ({ value, subtitle = null }) => (
     <td className={cn(
-      'px-4 py-3 text-center text-sm',
-      isLight ? 'text-stone-600' : 'text-slate-400'
+      'px-3 py-2.5 text-center',
+      isLight ? 'text-stone-900' : 'text-white'
     )}>
-      {value}
-    </td>
-  )
-
-  const BoolCell = ({ value }) => (
-    <td className="px-4 py-3 text-center">
-      {value ? (
-        <div className="flex items-center justify-center gap-1">
-          <Check className="h-4 w-4 text-emerald-500" />
-          <span className="text-xs text-emerald-500">Yes</span>
-        </div>
-      ) : (
-        <div className="flex items-center justify-center gap-1">
-          <X className="h-4 w-4 text-red-400/60" />
-          <span className={cn('text-xs', isLight ? 'text-stone-400' : 'text-slate-500')}>No</span>
-        </div>
+      <span className="text-sm font-medium">{value}</span>
+      {subtitle && (
+        <span className={cn(
+          'block text-[10px] mt-0.5',
+          isLight ? 'text-stone-400' : 'text-slate-500'
+        )}>
+          {subtitle}
+        </span>
       )}
     </td>
   )
 
-  const ModalitiesCell = ({ modalities }) => (
-    <td className="px-4 py-3">
+  const BoolCell = ({ value }) => (
+    <td className="px-3 py-2.5 text-center">
+      {value ? (
+        <Check className="h-4 w-4 text-emerald-500 mx-auto" />
+      ) : (
+        <X className="h-4 w-4 text-red-400/40 mx-auto" />
+      )}
+    </td>
+  )
+
+  const ModalitiesCell = ({ modalities, isOutput = false }) => (
+    <td className="px-3 py-2.5">
       <div className="flex justify-center gap-1 flex-wrap">
         {modalities.length > 0 ? modalities.map(mod => {
           const Icon = modalityIcons[mod] || MessageSquare
           return (
-            <div
+            <span
               key={mod}
               className={cn(
-                'p-1 rounded',
-                isLight ? 'bg-stone-100' : 'bg-white/5'
+                'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium',
+                isOutput
+                  ? isLight ? 'bg-blue-50 text-blue-600' : 'bg-blue-500/10 text-blue-400'
+                  : isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/5 text-slate-400'
               )}
-              title={mod}
             >
-              <Icon className={cn('h-3.5 w-3.5', isLight ? 'text-stone-600' : 'text-slate-400')} />
-            </div>
+              <Icon className="h-3 w-3" />
+              {modalityLabels[mod] || mod}
+            </span>
           )
         }) : (
-          <span className={cn('text-xs', isLight ? 'text-stone-400' : 'text-slate-500')}>N/A</span>
+          <span className={cn('text-xs', isLight ? 'text-stone-300' : 'text-slate-600')}>—</span>
         )}
       </div>
     </td>
   )
 
-  const BadgesCell = ({ items, maxShow = 3 }) => (
-    <td className="px-4 py-3">
-      <div className="flex justify-center gap-1 flex-wrap">
+  const BadgesCell = ({ items, maxShow = 3, labelMap = null }) => (
+    <td className="px-3 py-2.5">
+      <div className="flex justify-center gap-0.5 flex-wrap">
         {items.length > 0 ? (
           <>
             {items.slice(0, maxShow).map(item => (
               <Badge
                 key={item}
                 variant="secondary"
-                className="text-[10px] py-0 px-1.5"
+                className="text-[9px] py-0 px-1"
               >
-                {consumptionLabels[item] || item}
+                {(labelMap || consumptionLabels)[item] || prettifyLabel(item)}
               </Badge>
             ))}
             {items.length > maxShow && (
-              <Badge variant="secondary" className="text-[10px] py-0 px-1.5">
+              <Badge variant="secondary" className="text-[9px] py-0 px-1">
                 +{items.length - maxShow}
               </Badge>
             )}
           </>
         ) : (
-          <span className={cn('text-xs', isLight ? 'text-stone-400' : 'text-slate-500')}>N/A</span>
+          <span className={cn('text-xs', isLight ? 'text-stone-300' : 'text-slate-600')}>—</span>
         )}
       </div>
     </td>
   )
 
   return (
-    <div className={cn(
-      'mt-4 rounded-lg border overflow-hidden',
-      isLight
-        ? 'bg-white/80 border-stone-200/80 backdrop-blur-xl'
-        : 'bg-[#161d26]/80 border-slate-700/50 backdrop-blur-xl'
-    )}>
+    <div className="mt-4 space-y-3">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className={cn(
+          'px-3 py-2.5 rounded-lg border',
+          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+        )}>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Max Context</span>
+          </div>
+          <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>
+            {(() => { const max = Math.max(...specsData.map(d => d.effectiveContext || 0)); return max >= 1000000 ? `${(max/1000000).toFixed(0)}M` : max >= 1000 ? `${(max/1000).toFixed(0)}K` : max || '—' })()}
+          </p>
+        </div>
+
+        <div className={cn(
+          'px-3 py-2.5 rounded-lg border',
+          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+        )}>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Streaming</span>
+          </div>
+          <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>
+            {specsData.filter(d => d.streamingSupported).length}/{specsData.length}
+          </p>
+        </div>
+
+        <div className={cn(
+          'px-3 py-2.5 rounded-lg border',
+          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+        )}>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>CRIS Support</span>
+          </div>
+          <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>
+            {specsData.filter(d => d.crisSupported).length}/{specsData.length}
+          </p>
+        </div>
+
+        <div className={cn(
+          'px-3 py-2.5 rounded-lg border',
+          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+        )}>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Batch Inference</span>
+          </div>
+          <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>
+            {specsData.filter(d => d.batchSupported).length}/{specsData.length}
+          </p>
+        </div>
+      </div>
+
+      <div className={cn(
+        'rounded-lg border overflow-hidden',
+        isLight
+          ? 'bg-white/80 border-stone-200/80 backdrop-blur-xl'
+          : 'bg-[#131a24]/80 border-slate-700/40 backdrop-blur-xl'
+      )}>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className={cn(
               'border-b-2',
-              isLight ? 'border-stone-300 bg-stone-50/80' : 'border-slate-600 bg-slate-800/50'
+              isLight ? 'border-stone-200 bg-stone-50/80' : 'border-slate-700 bg-slate-800/30'
             )}>
               <th className={cn(
-                'px-4 py-3 text-left text-sm font-semibold w-48',
+                'px-4 py-3 text-left text-xs font-semibold w-44 min-w-[140px]',
                 isLight ? 'text-stone-900' : 'text-white'
               )}>
                 Specification
               </th>
               {specsData.map(({ model }) => (
-                <th key={model.model_id} className="px-4 py-3 text-center min-w-[150px]">
+                <th key={model.model_id} className="px-3 py-3 text-center min-w-[110px]">
                   <Badge className={cn(
-                    'text-[10px] mb-1',
+                    'text-[9px] mb-1',
                     isLight ? 'text-[#faf9f5]' : 'text-white',
                     providerColors[model.model_provider] || providerColors.default
                   )}>
                     {model.model_provider}
                   </Badge>
                   <p className={cn(
-                    'text-sm font-semibold line-clamp-2',
+                    'text-xs font-semibold line-clamp-2',
                     isLight ? 'text-stone-900' : 'text-white'
                   )}>
                     {model.model_name || model.model_id}
@@ -190,107 +306,158 @@ export function TechSpecsTab({ selectedModels, isLight }) {
             </tr>
           </thead>
           <tbody>
-            {/* Context Window */}
+            {/* Context Window with long-context indicator */}
             <SpecRow label="Context Window">
               {specsData.map(d => (
-                <TextCell key={d.model.model_id} value={formatNumber(d.contextWindow)} />
+                <td key={d.model.model_id} className={cn(
+                  'px-3 py-2.5 text-center',
+                  isLight ? 'text-stone-900' : 'text-white'
+                )}>
+                  <span className="text-sm font-medium">{formatNumber(d.effectiveContext)}</span>
+                  {d.hasExtendedContext && (
+                    <span className={cn(
+                      'block text-[10px] mt-0.5',
+                      isLight ? 'text-stone-400' : 'text-slate-500'
+                    )}>
+                      base: {formatNumber(d.contextWindow)}
+                    </span>
+                  )}
+                  {d.hasLongContext && (
+                    <span className={cn(
+                      'block text-[10px] mt-0.5 px-1.5 py-0.5 rounded mx-auto w-fit',
+                      isLight ? 'bg-purple-100 text-purple-700' : 'bg-purple-500/15 text-purple-400'
+                    )}>
+                      Long context
+                    </span>
+                  )}
+                </td>
               ))}
             </SpecRow>
 
-            {/* Max Output */}
             <SpecRow label="Max Output Tokens">
               {specsData.map(d => (
                 <TextCell key={d.model.model_id} value={formatNumber(d.maxOutput)} />
               ))}
             </SpecRow>
 
-            {/* Input Modalities */}
             <SpecRow label="Input Modalities">
               {specsData.map(d => (
                 <ModalitiesCell key={d.model.model_id} modalities={d.inputModalities} />
               ))}
             </SpecRow>
 
-            {/* Output Modalities */}
             <SpecRow label="Output Modalities">
               {specsData.map(d => (
-                <ModalitiesCell key={d.model.model_id} modalities={d.outputModalities} />
+                <ModalitiesCell key={d.model.model_id} modalities={d.outputModalities} isOutput={true} />
               ))}
             </SpecRow>
 
-            {/* Streaming */}
-            <SpecRow label="Streaming Support">
+            <SpecRow label="Streaming">
               {specsData.map(d => (
                 <BoolCell key={d.model.model_id} value={d.streamingSupported} />
               ))}
             </SpecRow>
 
-            {/* CRIS */}
-            <SpecRow label="Cross-Region Inference">
+            <SpecRow label="Cross-Region (CRIS)">
               {specsData.map(d => (
-                <BoolCell key={d.model.model_id} value={d.crisSupported} />
+                <td key={d.model.model_id} className="px-3 py-2.5 text-center">
+                  {d.crisSupported ? (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Check className="h-4 w-4 text-emerald-500" />
+                      <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                        {d.crisSourceRegions} regions
+                      </span>
+                    </div>
+                  ) : (
+                    <X className="h-4 w-4 text-red-400/40 mx-auto" />
+                  )}
+                </td>
               ))}
             </SpecRow>
 
-            {/* Consumption Options */}
-            <SpecRow label="Consumption Options">
+            <SpecRow label="Batch Inference">
+              {specsData.map(d => (
+                <td key={d.model.model_id} className="px-3 py-2.5 text-center">
+                  {d.batchSupported ? (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Check className="h-4 w-4 text-emerald-500" />
+                      <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                        {d.batchRegions} regions{d.batchCoverage != null ? ` (${Math.round(d.batchCoverage)}%)` : ''}
+                      </span>
+                    </div>
+                  ) : (
+                    <X className="h-4 w-4 text-red-400/40 mx-auto" />
+                  )}
+                </td>
+              ))}
+            </SpecRow>
+
+            <SpecRow label="Consumption">
               {specsData.map(d => (
                 <BadgesCell key={d.model.model_id} items={d.consumptionOptions} maxShow={4} />
               ))}
             </SpecRow>
 
-            {/* Customizations */}
-            <SpecRow label="Customization Options">
+            <SpecRow label="Customization">
               {specsData.map(d => (
                 <BadgesCell key={d.model.model_id} items={d.customizations} />
               ))}
             </SpecRow>
 
-            {/* Capabilities */}
             <SpecRow label="Capabilities">
               {specsData.map(d => (
-                <BadgesCell key={d.model.model_id} items={d.capabilities} maxShow={3} />
+                <BadgesCell key={d.model.model_id} items={d.capabilities} maxShow={4} labelMap={capabilityLabels} />
               ))}
             </SpecRow>
 
-            {/* Languages */}
+            <SpecRow label="Use Cases">
+              {specsData.map(d => (
+                <BadgesCell key={d.model.model_id} items={d.useCases} maxShow={3} labelMap={useCaseLabels} />
+              ))}
+            </SpecRow>
+
             <SpecRow label="Languages">
               {specsData.map(d => (
                 <td key={d.model.model_id} className={cn(
-                  'px-4 py-3 text-center text-sm',
-                  isLight ? 'text-stone-600' : 'text-slate-400'
+                  'px-3 py-2.5 text-center text-xs font-medium',
+                  isLight ? 'text-stone-900' : 'text-white'
                 )}>
-                  {d.languages.length > 0 ? `${d.languages.length} languages` : 'N/A'}
+                  {d.languages.length > 0 ? `${d.languages.length}` : '—'}
                 </td>
               ))}
             </SpecRow>
 
-            {/* Status */}
+            <SpecRow label="Inference Types">
+              {specsData.map(d => (
+                <BadgesCell key={d.model.model_id} items={d.inferenceTypes} maxShow={2} />
+              ))}
+            </SpecRow>
+
             <SpecRow label="Status">
               {specsData.map(d => (
-                <td key={d.model.model_id} className="px-4 py-3 text-center">
-                  <Badge variant={d.isActive ? 'success' : 'warning'} className="text-xs">
+                <td key={d.model.model_id} className="px-3 py-2.5 text-center">
+                  <Badge variant={d.isActive ? 'success' : 'warning'} className="text-[10px]">
                     {d.isActive ? 'Active' : 'Legacy'}
                   </Badge>
                 </td>
               ))}
             </SpecRow>
 
-            {/* Model ARN */}
-            <SpecRow label="Model ARN">
+            <SpecRow label="Model ID">
               {specsData.map(d => (
                 <td key={d.model.model_id} className={cn(
-                  'px-4 py-3 text-center',
-                  isLight ? 'text-stone-500' : 'text-slate-500'
+                  'px-3 py-2.5 text-center',
+                  isLight ? 'text-stone-400' : 'text-slate-500'
                 )}>
-                  <code className="text-[10px] font-mono break-all">
-                    {d.arn || 'N/A'}
+                  <code className="text-[9px] font-mono break-all leading-tight">
+                    {d.model.model_id || '—'}
                   </code>
                 </td>
               ))}
             </SpecRow>
           </tbody>
         </table>
+      </div>
       </div>
     </div>
   )

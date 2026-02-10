@@ -1,33 +1,20 @@
-import { X, Globe, MessageSquare, Image, FileText, Video, Mic, Radio, Check } from 'lucide-react'
+import { X, Globe, MessageSquare, Image, FileText, Video, Mic, Radio } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { RegionSelector } from '@/components/models/RegionSelector'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import { cn } from '@/lib/utils'
+import { providerColorClasses } from '@/config/constants'
 
-// Provider color mapping
-const providerColors = {
-  Amazon: 'bg-[#FF9900]',
-  Anthropic: 'bg-[#D4A27F]',
-  Meta: 'bg-[#0082FB]',
-  Mistral: 'bg-[#F54E42]',
-  Cohere: 'bg-[#39594D]',
-  'AI21 Labs': 'bg-[#6C5CE7]',
-  AI21: 'bg-[#6C5CE7]',
-  'Stability AI': 'bg-[#7C5CFF]',
-  Stability: 'bg-[#7C5CFF]',
-  Luma: 'bg-[#6366F1]',
-  default: 'bg-slate-500',
-}
+const providerColors = providerColorClasses
 
-const modalityIcons = {
-  TEXT: MessageSquare,
-  IMAGE: Image,
-  DOCUMENT: FileText,
-  VIDEO: Video,
-  AUDIO: Mic,
-  SPEECH: Mic,
+const modalityConfig = {
+  TEXT: { icon: MessageSquare, label: 'Text' },
+  IMAGE: { icon: Image, label: 'Image' },
+  DOCUMENT: { icon: FileText, label: 'Doc' },
+  VIDEO: { icon: Video, label: 'Video' },
+  AUDIO: { icon: Mic, label: 'Audio' },
+  SPEECH: { icon: Mic, label: 'Speech' },
 }
 
 function formatNumber(num) {
@@ -37,11 +24,7 @@ function formatNumber(num) {
   return num.toString()
 }
 
-function getProviderColor(provider) {
-  return providerColors[provider] || providerColors.default
-}
-
-export function ComparisonCard({ model, region, onRemove, onRegionChange }) {
+export function ComparisonCard({ model, onRemove }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
@@ -53,117 +36,122 @@ export function ComparisonCard({ model, region, onRemove, onRegionChange }) {
   const streamingSupported = model.streaming_supported || false
   const crisSupported = model.cross_region_inference?.supported || false
 
-  const allModalities = [...new Set([...inputModalities, ...outputModalities])]
-
   return (
     <Card className={cn(
-      'relative flex flex-col',
+      'relative flex flex-col group',
       isLight
         ? 'bg-white/80 border-stone-200/80 backdrop-blur-xl'
-        : 'bg-[#161d26]/80 border-slate-700/50 backdrop-blur-xl'
+        : 'bg-[#131a24]/80 border-slate-700/40 backdrop-blur-xl'
     )}>
       {/* Remove button */}
       <Button
         variant="ghost"
         size="icon"
         className={cn(
-          'absolute top-2 right-2 h-6 w-6 z-10',
+          'absolute top-1.5 right-1.5 h-5 w-5 z-10 opacity-0 group-hover:opacity-100 transition-opacity',
           isLight
-            ? 'hover:bg-stone-200/80 text-stone-500'
-            : 'hover:bg-slate-700/80 text-slate-400'
+            ? 'hover:bg-stone-200/80 text-stone-400'
+            : 'hover:bg-slate-700/80 text-slate-500'
         )}
         onClick={() => onRemove(model.model_id)}
       >
-        <X className="h-4 w-4" />
+        <X className="h-3 w-3" />
       </Button>
 
-      <CardContent className="p-3 flex flex-col gap-2">
-        {/* Provider and Status */}
-        <div className="flex items-center gap-1.5 pr-6">
-          <Badge className={cn('text-[10px] font-medium', isLight ? 'text-[#faf9f5]' : 'text-white', getProviderColor(model.model_provider))}>
+      <CardContent className="p-2.5 flex flex-col gap-1.5">
+        {/* Provider + Status row */}
+        <div className="flex items-center gap-1 pr-5">
+          <Badge className={cn(
+            'text-[9px] font-medium px-1.5 py-0',
+            isLight ? 'text-[#faf9f5]' : 'text-white',
+            providerColors[model.model_provider] || providerColors.default
+          )}>
             {model.model_provider}
           </Badge>
-          <Badge variant={isActive ? 'success' : 'warning'} className="text-[10px] px-1.5 py-0">
-            {isActive ? 'Active' : 'Legacy'}
-          </Badge>
+          {isActive ? (
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" title="Active" />
+          ) : (
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" title="Legacy" />
+          )}
         </div>
 
         {/* Model name */}
-        <div>
-          <h4 className={cn(
-            'font-semibold text-sm leading-tight line-clamp-2',
-            isLight ? 'text-stone-900' : 'text-white'
-          )}>
-            {model.model_name || model.model_id}
-          </h4>
-          <p className={cn(
-            'text-[10px] mt-0.5 truncate font-mono',
-            isLight ? 'text-stone-500' : 'text-slate-500'
-          )}>
-            {model.model_id}
-          </p>
-        </div>
-
-        {/* Capacity */}
-        <div className={cn(
-          'grid grid-cols-2 gap-1 text-center text-xs rounded p-1.5',
-          isLight ? 'bg-stone-100/60' : 'bg-white/5'
+        <h4 className={cn(
+          'font-semibold text-xs leading-tight line-clamp-2',
+          isLight ? 'text-stone-900' : 'text-white'
         )}>
-          <div>
-            <p className={cn('text-[9px] uppercase', isLight ? 'text-stone-500' : 'text-slate-500')}>Context</p>
-            <p className={cn('font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
-              {formatNumber(contextWindow)}
-            </p>
-          </div>
-          <div>
-            <p className={cn('text-[9px] uppercase', isLight ? 'text-stone-500' : 'text-slate-500')}>Output</p>
-            <p className={cn('font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
-              {formatNumber(maxOutput)}
-            </p>
-          </div>
+          {model.model_name || model.model_id}
+        </h4>
+
+        {/* Compact stats row */}
+        <div className="flex items-center gap-2 text-[10px]">
+          <span className={cn(
+            'font-medium',
+            isLight ? 'text-amber-700' : 'text-[#1A9E7A]'
+          )}>
+            {formatNumber(contextWindow)}
+          </span>
+          <span className={cn('text-[8px]', isLight ? 'text-stone-300' : 'text-slate-600')}>|</span>
+          <span className={cn(
+            'font-medium',
+            isLight ? 'text-amber-700' : 'text-[#1A9E7A]'
+          )}>
+            {formatNumber(maxOutput)}
+          </span>
         </div>
 
         {/* Modalities */}
-        <div className="flex items-center gap-1">
-          {allModalities.slice(0, 4).map(mod => {
-            const Icon = modalityIcons[mod] || MessageSquare
+        <div className="flex flex-wrap items-center gap-1 text-[9px]">
+          {inputModalities.length > 0 && inputModalities.map(mod => {
+            const cfg = modalityConfig[mod] || { icon: MessageSquare, label: mod }
+            const Icon = cfg.icon
             return (
-              <div
-                key={mod}
-                className={cn(
-                  'p-1 rounded',
-                  isLight ? 'bg-stone-100' : 'bg-white/5'
-                )}
-              >
-                <Icon className={cn('h-3 w-3', isLight ? 'text-stone-600' : 'text-slate-400')} />
-              </div>
+              <span key={`in-${mod}`} className={cn(
+                'flex items-center gap-0.5 px-1 py-0.5 rounded',
+                isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/5 text-slate-400'
+              )}>
+                <Icon className="h-2.5 w-2.5" />
+                {cfg.label}
+              </span>
+            )
+          })}
+          {outputModalities.filter(m => !inputModalities.includes(m)).map(mod => {
+            const cfg = modalityConfig[mod] || { icon: MessageSquare, label: mod }
+            const Icon = cfg.icon
+            return (
+              <span key={`out-${mod}`} className={cn(
+                'flex items-center gap-0.5 px-1 py-0.5 rounded',
+                isLight ? 'bg-blue-50 text-blue-600' : 'bg-blue-500/10 text-blue-400'
+              )}>
+                <Icon className="h-2.5 w-2.5" />
+                {cfg.label}
+              </span>
             )
           })}
         </div>
 
-        {/* Features */}
-        <div className="flex items-center gap-2 text-[10px]">
-          <div className="flex items-center gap-0.5">
-            <Radio className={cn('h-3 w-3', streamingSupported ? 'text-emerald-500' : 'text-slate-400')} />
-            {streamingSupported && <Check className="h-2.5 w-2.5 text-emerald-500" />}
-          </div>
-          <div className="flex items-center gap-0.5">
-            <Globe className={cn('h-3 w-3', crisSupported ? 'text-blue-500' : 'text-slate-400')} />
-            {crisSupported && <Check className="h-2.5 w-2.5 text-emerald-500" />}
-          </div>
+        {/* Features row */}
+        <div className="flex items-center gap-1 text-[9px]">
+          {streamingSupported && (
+            <span className={cn(
+              'flex items-center gap-0.5 px-1 py-0.5 rounded',
+              isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/5 text-slate-400'
+            )}>
+              <Radio className="h-2.5 w-2.5" />
+              Stream
+            </span>
+          )}
+          {crisSupported && (
+            <span className={cn(
+              'flex items-center gap-0.5 px-1 py-0.5 rounded',
+              isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/5 text-slate-400'
+            )}>
+              <Globe className="h-2.5 w-2.5" />
+              CRIS
+            </span>
+          )}
         </div>
 
-        {/* Region selector */}
-        <div className="mt-auto pt-2">
-          <p className={cn('text-[10px] mb-1', isLight ? 'text-stone-500' : 'text-slate-500')}>
-            Price Region
-          </p>
-          <RegionSelector
-            value={region}
-            onChange={(newRegion) => onRegionChange(model.model_id, newRegion)}
-            className="h-8 text-xs"
-          />
-        </div>
       </CardContent>
     </Card>
   )

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Amazon Bedrock Model Profiler - A full-stack tool for exploring, analyzing, and comparing Amazon Bedrock foundation models. Live at https://d13th0vs8a20t3.cloudfront.net
+Amazon Bedrock Model Profiler - A full-stack tool for exploring, analyzing, and comparing Amazon Bedrock foundation models. Live at https://d3oem6l61p8j11.cloudfront.net
 
 ## Commands
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Star, GitCompare, ExternalLink, Globe, MessageSquare, Image, FileText, Video, Mic, Check, X, MapPin, Radio, ArrowRight, CheckCircle2, Copy, Search, Clock } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -9,10 +9,25 @@ import { useTheme } from '@/components/layout/ThemeProvider'
 import { useComparisonStore } from '@/stores/comparisonStore'
 import { providerColors, consumptionLabels, getContextSizeCategory } from '@/config/constants'
 
-// Tooltip wrapper for consistent styling
+// Tooltip wrapper with close delay so content stays readable
 function InfoTooltip({ children, content, side = "bottom", sideOffset = 4 }) {
+  const [open, setOpen] = useState(false)
+  const closeTimer = useRef(null)
+
+  const handleOpenChange = (isOpen) => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current)
+      closeTimer.current = null
+    }
+    if (isOpen) {
+      setOpen(true)
+    } else {
+      closeTimer.current = setTimeout(() => setOpen(false), 800)
+    }
+  }
+
   return (
-    <Tooltip delayDuration={200}>
+    <Tooltip delayDuration={100} open={open} onOpenChange={handleOpenChange}>
       <TooltipTrigger asChild>
         {children}
       </TooltipTrigger>
@@ -23,7 +38,7 @@ function InfoTooltip({ children, content, side = "bottom", sideOffset = 4 }) {
   )
 }
 
-// Modality icons
+// Modality icons and labels
 const modalityIcons = {
   TEXT: MessageSquare,
   IMAGE: Image,
@@ -31,6 +46,15 @@ const modalityIcons = {
   VIDEO: Video,
   AUDIO: Mic,
   SPEECH: Mic,
+}
+
+const modalityLabels = {
+  TEXT: 'Text',
+  IMAGE: 'Image',
+  DOCUMENT: 'Doc',
+  VIDEO: 'Video',
+  AUDIO: 'Audio',
+  SPEECH: 'Speech',
 }
 
 function formatNumber(num) {
@@ -139,9 +163,9 @@ function CopyableModelId({ modelId, isLight }) {
   }
 
   return (
-    <InfoTooltip content={copied ? "Copied!" : "Click to copy model ID"}>
       <button
         onClick={handleCopy}
+        title={copied ? "Copied!" : "Click to copy model ID"}
         className={cn(
           'flex items-center gap-1 text-[11px] font-mono truncate max-w-full transition-colors group/copy',
           isLight
@@ -156,27 +180,24 @@ function CopyableModelId({ modelId, isLight }) {
           <Copy className="h-3 w-3 flex-shrink-0 opacity-0 group-hover/copy:opacity-100 transition-opacity" />
         )}
       </button>
-    </InfoTooltip>
   )
 }
 
 // Status pill component
 function StatusPill({ isActive, isLight }) {
   return (
-    <InfoTooltip content={isActive ? "Model is actively supported" : "Legacy model - consider newer alternatives"}>
-      <div className={cn(
-        'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide cursor-default',
-        isActive
-          ? isLight
-            ? 'bg-emerald-100 text-emerald-700'
-            : 'bg-emerald-500/15 text-emerald-400'
-          : isLight
-            ? 'bg-amber-100 text-amber-700'
-            : 'bg-amber-500/15 text-amber-400'
-      )}>
-        {isActive ? 'Active' : 'Legacy'}
-      </div>
-    </InfoTooltip>
+    <div className={cn(
+      'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide',
+      isActive
+        ? isLight
+          ? 'bg-emerald-100 text-emerald-700'
+          : 'bg-emerald-500/15 text-emerald-400'
+        : isLight
+          ? 'bg-amber-100 text-amber-700'
+          : 'bg-amber-500/15 text-amber-400'
+    )}>
+      {isActive ? 'Active' : 'Legacy'}
+    </div>
   )
 }
 
@@ -224,7 +245,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   const isLight = theme === 'light'
 
   // Comparison store
-  const { toggleModel, isModelSelected, canAddMore } = useComparisonStore()
+  const { toggleModel, isModelSelected } = useComparisonStore()
   const isSelectedForComparison = isModelSelected(model.model_id)
 
   const contextWindow = model.converse_data?.context_window
@@ -261,35 +282,31 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
       )}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 pb-2">
-          <InfoTooltip content={`Created by ${model.model_provider}`}>
-            <Badge
-              className="text-[10px] font-semibold cursor-default"
-              style={{ backgroundColor: providerColor, color: getContrastColor(providerColor) }}
-            >
-              {model.model_provider}
-            </Badge>
-          </InfoTooltip>
+          <Badge
+            className="text-[10px] font-semibold"
+            style={{ backgroundColor: providerColor, color: getContrastColor(providerColor) }}
+          >
+            {model.model_provider}
+          </Badge>
 
           <div className="flex items-center gap-2">
             <StatusPill isActive={isActive} isLight={isLight} />
-            <InfoTooltip content={isFavorite ? "Remove from favorites" : "Add to favorites"}>
-              <button
+            <button
+              className={cn(
+                'p-1 rounded transition-colors',
+                isLight ? 'hover:bg-stone-100' : 'hover:bg-[#2c2d32]'
+              )}
+              onClick={() => onToggleFavorite?.(model.model_id)}
+            >
+              <Star
                 className={cn(
-                  'p-1 rounded transition-colors',
-                  isLight ? 'hover:bg-stone-100' : 'hover:bg-[#2c2d32]'
+                  'h-4 w-4 transition-colors',
+                  isFavorite
+                    ? 'fill-amber-400 text-amber-400'
+                    : isLight ? 'text-stone-300 hover:text-stone-400' : 'text-[#6d6e72] hover:text-[#9a9b9f]'
                 )}
-                onClick={() => onToggleFavorite?.(model.model_id)}
-              >
-                <Star
-                  className={cn(
-                    'h-4 w-4 transition-colors',
-                    isFavorite
-                      ? 'fill-amber-400 text-amber-400'
-                      : isLight ? 'text-stone-300 hover:text-stone-400' : 'text-[#6d6e72] hover:text-[#9a9b9f]'
-                  )}
-                />
-              </button>
-            </InfoTooltip>
+              />
+            </button>
           </div>
         </div>
 
@@ -306,12 +323,8 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
 
         <CardContent className="flex-1 flex flex-col gap-3 pt-0">
           {/* Context/Output boxed display */}
-          <InfoTooltip content={hasExtendedContext
-            ? `Context: ${formatNumber(contextWindow)} standard / ${formatNumber(extendedContext)} extended (beta). Output: max response length.`
-            : "Token capacity: Context is max input size, Output is max response length"
-          }>
             <div className={cn(
-              'rounded-lg p-2.5 cursor-default',
+              'rounded-lg p-2.5',
               isLight
                 ? 'bg-gradient-to-r from-amber-50/80 to-orange-50/60 border border-amber-100/50'
                 : 'bg-gradient-to-r from-white/5 to-white/[0.02] border border-white/10'
@@ -336,7 +349,6 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 </div>
               </div>
             </div>
-          </InfoTooltip>
 
           {/* Modalities & Features Row */}
           <div className="flex items-center justify-between">
@@ -400,8 +412,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
           </div>
 
           {/* Pricing - boxed style */}
-          <InfoTooltip content="Cost per 1,000 tokens. Input = what you send, Output = what model generates">
-            <div className="cursor-default">
+            <div>
               {pricingType === 'video_generation' || pricingType === 'video_second' ? (
                 <div className={cn(
                   'text-xs rounded-md p-2',
@@ -477,22 +488,22 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 </div>
               )}
             </div>
-          </InfoTooltip>
 
           {/* Consumption options */}
           {consumptionOptions.filter(opt => opt !== 'cross_region_inference').length > 0 && (
             <div className="flex flex-wrap gap-1">
               {consumptionOptions.filter(opt => opt !== 'cross_region_inference').map(opt => (
-                <InfoTooltip key={opt} content={consumptionDescriptions[opt] || opt}>
-                  <span className={cn(
-                    'text-[10px] px-2 py-0.5 rounded-full font-medium cursor-default',
+                <span
+                  key={opt}
+                  className={cn(
+                    'text-[10px] px-2 py-0.5 rounded-full font-medium',
                     isLight
                       ? 'bg-amber-50 text-amber-700 border border-amber-200'
                       : 'bg-[#1A9E7A]/10 text-[#1A9E7A] border border-[#1A9E7A]/20'
-                  )}>
-                    {consumptionLabels[opt] || opt}
-                  </span>
-                </InfoTooltip>
+                  )}
+                >
+                  {consumptionLabels[opt] || opt}
+                </span>
               ))}
             </div>
           )}
@@ -512,14 +523,12 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 </span>
               ))}
               {capabilities.length > 3 && (
-                <InfoTooltip content={capabilities.slice(3).join(', ')}>
-                  <span className={cn(
-                    'text-[10px] px-1.5 py-0.5 rounded cursor-default',
-                    isLight ? 'bg-stone-100 text-stone-500' : 'bg-[#2c2d32] text-[#b0b1b5]'
-                  )}>
-                    +{capabilities.length - 3}
-                  </span>
-                </InfoTooltip>
+                <span className={cn(
+                  'text-[10px] px-1.5 py-0.5 rounded',
+                  isLight ? 'bg-stone-100 text-stone-500' : 'bg-[#2c2d32] text-[#b0b1b5]'
+                )}>
+                  +{capabilities.length - 3}
+                </span>
               )}
             </div>
           )}
@@ -552,7 +561,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               )}
               style={isSelectedForComparison ? { color: '#ffffff' } : undefined}
               onClick={() => toggleModel(model, preferredRegion)}
-              disabled={!isSelectedForComparison && !canAddMore()}
+              disabled={false}
             >
               {isSelectedForComparison ? (
                 <>

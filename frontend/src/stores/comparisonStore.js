@@ -1,8 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-const MAX_COMPARISON_MODELS = 5
-
 export const useComparisonStore = create(
   persist(
     (set, get) => ({
@@ -15,11 +13,6 @@ export const useComparisonStore = create(
 
         // Check if already selected
         if (selectedModels.some(m => m.model.model_id === model.model_id)) {
-          return false
-        }
-
-        // Check max limit
-        if (selectedModels.length >= MAX_COMPARISON_MODELS) {
           return false
         }
 
@@ -49,15 +42,6 @@ export const useComparisonStore = create(
         }
       },
 
-      // Update region for a specific model
-      updateRegion: (modelId, region) => {
-        set(state => ({
-          selectedModels: state.selectedModels.map(m =>
-            m.model.model_id === modelId ? { ...m, region } : m
-          )
-        }))
-      },
-
       // Check if a model is selected
       isModelSelected: (modelId) => {
         const { selectedModels } = get()
@@ -73,14 +57,6 @@ export const useComparisonStore = create(
       getCount: () => {
         return get().selectedModels.length
       },
-
-      // Check if can add more models
-      canAddMore: () => {
-        return get().selectedModels.length < MAX_COMPARISON_MODELS
-      },
-
-      // Get max allowed models
-      maxModels: MAX_COMPARISON_MODELS,
     }),
     {
       name: 'bedrock-comparison-storage',

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows } from 'lucide-react'
+import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio } from 'lucide-react'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import {
   Dialog,
@@ -73,7 +73,7 @@ function getContrastColor(hexColor) {
   return luminance > 0.75 ? '#000000' : '#ffffff'
 }
 
-// Modality icons
+// Modality icons and labels
 const modalityIcons = {
   TEXT: MessageSquare,
   IMAGE: Image,
@@ -81,6 +81,15 @@ const modalityIcons = {
   VIDEO: Video,
   AUDIO: Mic,
   SPEECH: Mic,
+}
+
+const modalityLabels = {
+  TEXT: 'Text',
+  IMAGE: 'Image',
+  DOCUMENT: 'Doc',
+  VIDEO: 'Video',
+  AUDIO: 'Audio',
+  SPEECH: 'Speech',
 }
 
 function formatNumber(num) {
@@ -723,7 +732,7 @@ function SpecsTab({ model }) {
                       const Icon = modalityIcons[mod] || MessageSquare
                       return (
                         <Badge key={mod} className={cn(isLight ? 'text-[#faf9f5] bg-amber-700' : 'text-white bg-[#1A9E7A]')}>
-                          <Icon className="h-3 w-3 mr-1" />{mod}
+                          <Icon className="h-3 w-3 mr-1" />{modalityLabels[mod] || mod}
                         </Badge>
                       )
                     }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-[#b0b1b5]')}>None specified</span>}
@@ -736,7 +745,7 @@ function SpecsTab({ model }) {
                       const Icon = modalityIcons[mod] || MessageSquare
                       return (
                         <Badge key={mod} className={cn('bg-emerald-600', isLight ? 'text-[#faf9f5]' : 'text-white')}>
-                          <Icon className="h-3 w-3 mr-1" />{mod}
+                          <Icon className="h-3 w-3 mr-1" />{modalityLabels[mod] || mod}
                         </Badge>
                       )
                     }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-[#b0b1b5]')}>None specified</span>}
@@ -2118,15 +2127,25 @@ export function ModelCardExpanded({
                     <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>
                       Features
                     </h3>
-                    <div className="space-y-2">
-                      <div className={cn('flex items-center gap-2 text-sm', streamingSupported ? 'text-emerald-500' : isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
-                        {streamingSupported ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                        <span>Streaming</span>
-                      </div>
-                      <div className={cn('flex items-center gap-2 text-sm', crisSupported ? 'text-emerald-500' : isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
-                        {crisSupported ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                        <span>Cross-Region</span>
-                      </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className={cn(
+                        'inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
+                        streamingSupported
+                          ? isLight ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : isLight ? 'bg-stone-100 text-stone-400 border border-stone-200' : 'bg-[#25262b] text-[#6d6e72] border border-[#373a40]'
+                      )}>
+                        <Radio className="h-3.5 w-3.5" />
+                        Stream
+                      </span>
+                      <span className={cn(
+                        'inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
+                        crisSupported
+                          ? isLight ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : isLight ? 'bg-stone-100 text-stone-400 border border-stone-200' : 'bg-[#25262b] text-[#6d6e72] border border-[#373a40]'
+                      )}>
+                        <Globe className="h-3.5 w-3.5" />
+                        CRIS
+                      </span>
                     </div>
                   </div>
 
@@ -2139,18 +2158,36 @@ export function ModelCardExpanded({
                       <div>
                         <p className={cn('text-xs mb-1', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Input</p>
                         <div className="flex flex-wrap gap-1">
-                          {inputModalities.map(mod => (
-                            <Badge key={mod} variant="secondary" className="text-[10px] px-1.5 py-0">{mod}</Badge>
-                          ))}
+                          {inputModalities.map(mod => {
+                            const Icon = modalityIcons[mod] || MessageSquare
+                            return (
+                              <span key={mod} className={cn(
+                                'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
+                                isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/5 text-slate-400'
+                              )}>
+                                <Icon className="h-3 w-3" />
+                                {modalityLabels[mod] || mod}
+                              </span>
+                            )
+                          })}
                           {inputModalities.length === 0 && <span className={cn('text-xs', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>None</span>}
                         </div>
                       </div>
                       <div>
                         <p className={cn('text-xs mb-1', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Output</p>
                         <div className="flex flex-wrap gap-1">
-                          {outputModalities.map(mod => (
-                            <Badge key={mod} variant="secondary" className="text-[10px] px-1.5 py-0">{mod}</Badge>
-                          ))}
+                          {outputModalities.map(mod => {
+                            const Icon = modalityIcons[mod] || MessageSquare
+                            return (
+                              <span key={mod} className={cn(
+                                'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
+                                isLight ? 'bg-blue-50 text-blue-600' : 'bg-blue-500/10 text-blue-400'
+                              )}>
+                                <Icon className="h-3 w-3" />
+                                {modalityLabels[mod] || mod}
+                              </span>
+                            )
+                          })}
                           {outputModalities.length === 0 && <span className={cn('text-xs', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>None</span>}
                         </div>
                       </div>

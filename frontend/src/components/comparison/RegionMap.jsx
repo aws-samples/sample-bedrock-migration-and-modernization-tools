@@ -85,7 +85,7 @@ function MapBoundsUpdater({ markers }) {
   return null
 }
 
-export function RegionMap({ selectedModels, isLight }) {
+export function RegionMap({ selectedModels, isLight, height = '350px' }) {
   // Build markers data: for each region, list which models are available
   const markersData = useMemo(() => {
     const regionModels = {}
@@ -131,7 +131,7 @@ export function RegionMap({ selectedModels, isLight }) {
   if (markersData.length === 0) {
     return (
       <div className={cn(
-        'h-[400px] rounded-lg border flex items-center justify-center',
+        'rounded-lg border flex items-center justify-center',
         isLight
           ? 'bg-stone-100 border-stone-200 text-stone-500'
           : 'bg-slate-800 border-slate-700 text-slate-400'
@@ -147,14 +147,19 @@ export function RegionMap({ selectedModels, isLight }) {
       isLight ? 'border-stone-200' : 'border-slate-700'
     )}>
       <MapContainer
+        key={isLight ? 'light' : 'dark'}
         center={[20, 0]}
         zoom={2}
-        style={{ height: '400px', width: '100%' }}
+        minZoom={2}
+        maxBounds={[[-85, -180], [85, 180]]}
+        maxBoundsViscosity={1.0}
+        style={{ height, width: '100%', background: isLight ? '#f5f5f4' : '#131a24' }}
         className="z-0"
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url={tileUrl}
+          noWrap={true}
         />
 
         <MapBoundsUpdater markers={markersData} />
