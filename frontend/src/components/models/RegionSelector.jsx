@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { Globe, MapPin, Search, Layers } from 'lucide-react'
 import {
   Select,
@@ -55,8 +55,18 @@ function getDisplayLabel(value) {
 
 export function RegionSelector({ value, onChange, className }) {
   const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef(null)
   const { theme } = useTheme()
   const isLight = theme === 'light'
+
+  // Radix Select steals focus when items re-render; force it back to the search input
+  useEffect(() => {
+    if (searchQuery && searchInputRef.current) {
+      requestAnimationFrame(() => {
+        searchInputRef.current?.focus()
+      })
+    }
+  }, [searchQuery])
 
   // Filter regions based on search
   const filteredRegionsByGeo = useMemo(() => {
@@ -109,13 +119,21 @@ export function RegionSelector({ value, onChange, className }) {
         <div className="px-2 pb-2">
           <div className="relative">
             <Search className={cn('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isLight ? 'text-stone-400' : 'text-[#6d6e72]')} />
-            <Input
+            <input
+              ref={searchInputRef}
+              type="text"
               placeholder="Search regions..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-8 text-sm"
+              className={cn(
+                'flex w-full rounded-md border px-8 h-8 text-sm ring-offset-background',
+                'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]'
+              )}
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.stopPropagation()}
+              onFocus={(e) => e.stopPropagation()}
+              autoComplete="off"
             />
           </div>
         </div>

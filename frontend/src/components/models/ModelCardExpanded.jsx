@@ -17,7 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 
-// Provider color mapping - using actual brand colors
+// Provider color mapping - using actual brand colors (Tailwind classes)
 const providerColors = {
   Amazon: 'bg-[#FF9900]',        // Amazon Orange
   Anthropic: 'bg-[#D4A27F]',     // Anthropic Tan/Clay
@@ -30,6 +30,47 @@ const providerColors = {
   Stability: 'bg-[#7C5CFF]',     // Stability Purple (alternate name)
   Luma: 'bg-[#6366F1]',          // Luma Indigo
   default: 'bg-[#6d6e72]',
+}
+
+// Hex colors for inline styles (provider badge contrast)
+const providerHexColors = {
+  Amazon: '#FF9900',
+  Anthropic: '#D4A27F',
+  Meta: '#0082FB',
+  Mistral: '#F54E42',
+  'Mistral AI': '#F54E42',
+  Cohere: '#39594D',
+  'AI21 Labs': '#6C5CE7',
+  AI21: '#6C5CE7',
+  'Stability AI': '#7C5CFF',
+  Stability: '#7C5CFF',
+  Luma: '#6366F1',
+  'Luma AI': '#6366F1',
+  Writer: '#4A90D9',
+  NVIDIA: '#76B900',
+  DeepSeek: '#4A90D9',
+  Qwen: '#6366F1',
+  Google: '#4285F4',
+  OpenAI: '#10A37F',
+  TwelveLabs: '#6366F1',
+  MiniMax: '#6366F1',
+  'Moonshot AI': '#6366F1',
+  default: '#6d6e72',
+}
+
+function getProviderHexColor(provider) {
+  return providerHexColors[provider] || providerHexColors.default
+}
+
+// Returns '#ffffff' or '#000000' based on background luminance for readable contrast
+function getContrastColor(hexColor) {
+  if (!hexColor) return '#ffffff'
+  const hex = hexColor.replace('#', '')
+  const r = parseInt(hex.substring(0, 2), 16)
+  const g = parseInt(hex.substring(2, 4), 16)
+  const b = parseInt(hex.substring(4, 6), 16)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.75 ? '#000000' : '#ffffff'
 }
 
 // Modality icons
@@ -77,8 +118,8 @@ function CopyableModelIdExpanded({ modelId, isLight }) {
             <Check className="h-3.5 w-3.5 text-emerald-500" />
           ) : (
             <Copy className={cn(
-              'h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity',
-              isLight ? 'text-stone-400' : 'text-[#6d6e72]'
+              'h-3.5 w-3.5 transition-colors',
+              isLight ? 'text-stone-400 group-hover:text-stone-600' : 'text-[#6d6e72] group-hover:text-[#c0c1c5]'
             )} />
           )}
         </button>
@@ -86,6 +127,34 @@ function CopyableModelIdExpanded({ modelId, isLight }) {
       <TooltipContent>
         <p>{copied ? 'Copied!' : 'Click to copy model ID'}</p>
       </TooltipContent>
+    </Tooltip>
+  )
+}
+
+function CopyableText({ text, isLight, className: extraClass }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = async (e) => {
+    e.stopPropagation()
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button onClick={handleCopy} className={cn('flex items-center gap-1.5 group', extraClass)}>
+          <span className="truncate">{text}</span>
+          {copied ? (
+            <Check className="h-3 w-3 text-emerald-500 flex-shrink-0" />
+          ) : (
+            <Copy className={cn(
+              'h-3 w-3 flex-shrink-0 transition-colors',
+              isLight ? 'text-stone-400 group-hover:text-stone-600' : 'text-[#6d6e72] group-hover:text-[#c0c1c5]'
+            )} />
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent><p>{copied ? 'Copied!' : 'Click to copy'}</p></TooltipContent>
     </Tooltip>
   )
 }
@@ -399,9 +468,11 @@ function CrossRegionInferenceSection({ crisData }) {
                       <p className={cn('text-sm font-medium', isLight ? 'text-stone-900' : 'text-white')}>
                         {profile.profile_name}
                       </p>
-                      <p className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500' : 'text-[#c0c1c5]')}>
-                        {profile.profile_id}
-                      </p>
+                      <CopyableText
+                        text={profile.profile_id}
+                        isLight={isLight}
+                        className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500 hover:text-stone-700' : 'text-[#c0c1c5] hover:text-white')}
+                      />
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="secondary" className="text-[10px]">{profile.type || 'inference'}</Badge>
                       </div>
@@ -886,6 +957,221 @@ function categorizeQuota(quotaName) {
   return 'general'
 }
 
+function simplifyQuotaName(quotaName) {
+  if (!quotaName) return 'Unknown quota'
+  let name = quotaName.trim()
+  const qualifiers = []
+
+  // Extract "(doubled for cross-region calls)" qualifier
+  if (/\(doubled for cross-region/i.test(name)) {
+    qualifiers.push('2x cross-region')
+    name = name.replace(/\s*\(doubled for[^)]*\)/i, '')
+  }
+
+  // Strip "(Model customization)" prefix
+  name = name.replace(/^\(Model customization\)\s*/i, '')
+
+  // Extract context length qualifier from model ref (e.g. "1M Context Length", "200K Context Length")
+  const ctxMatch = name.match(/\b(\d+[kKmM])\s+Context\s+Length/i)
+  if (ctxMatch) {
+    qualifiers.push(ctxMatch[1].toUpperCase().replace('K', 'K').replace('M', 'M') + ' context')
+  }
+
+  // Check for "global" prefix
+  if (/^global\s/i.test(name)) {
+    qualifiers.push('global')
+    name = name.replace(/^global\s+/i, '')
+  }
+
+  // Split on "for" and take the first part (the metric description)
+  const forParts = name.split(/\bfor\b/i)
+  let metric = forParts[0].trim()
+
+  // Strip category prefixes to get the core metric
+  metric = metric
+    .replace(/^cross[- ]region\s+model\s+inference\s*/i, '')
+    .replace(/^on[- ]demand\s+model\s+inference\s*/i, '')
+    .replace(/^model\s+invocation\s*/i, '')
+    .replace(/^batch\s+inference\s*/i, '')
+    .replace(/^no[- ]commitment\s+/i, (() => { qualifiers.push('no commitment'); return '' })())
+
+  // Simplify common metric patterns
+  const metricLower = metric.toLowerCase().trim()
+
+  // Tokens per minute/day
+  if (/^(max\s+)?tokens\s+per\s+minute$/i.test(metric.trim())) {
+    metric = metricLower.startsWith('max') ? 'Max tokens/min' : 'Tokens/min'
+  } else if (/^(max\s+)?tokens\s+per\s+day$/i.test(metric.trim())) {
+    metric = metricLower.startsWith('max') ? 'Max tokens/day' : 'Tokens/day'
+  }
+  // Requests per minute
+  else if (/^requests\s+per\s+minute$/i.test(metric.trim())) {
+    metric = 'Requests/min'
+  }
+  // Job size (in GB)
+  else if (/^job\s+size\s*\(in\s+GB\)/i.test(metric.trim())) {
+    metric = 'Job size (GB)'
+  }
+  // Input file size (in GB)
+  else if (/^input\s+file\s+size\s*\(in\s+GB\)/i.test(metric.trim())) {
+    metric = 'Input file size (GB)'
+  }
+  // Records per job / per input file
+  else if (/^records\s+per\s+input\s+file\s+per\s.*job$/i.test(metric.trim())) {
+    metric = 'Records/input file'
+  } else if (/^records\s+per\s.*job$/i.test(metric.trim())) {
+    metric = 'Records/job'
+  }
+  // Min records
+  else if (/^minimum\s+(number\s+of\s+)?records\s+per\s.*job/i.test(metric.trim())) {
+    metric = 'Min records/job'
+  }
+  // Concurrent jobs
+  else if (/^sum\s+of\s+in-progress/i.test(metric.trim())) {
+    metric = 'Concurrent jobs'
+  }
+  // Model units
+  else if (/^model\s+units/i.test(metric.trim())) {
+    metric = 'Model units'
+  }
+  // Active fine-tuning jobs
+  else if (/active\s+fine[- ]?tuning\s+jobs/i.test(metric.trim())) {
+    metric = 'Active fine-tuning jobs'
+  }
+  // Custom model count
+  else if (/custom\s+models?$/i.test(metric.trim())) {
+    metric = 'Custom models'
+  }
+  // Fallback: capitalize first letter, trim
+  else {
+    metric = metric.trim()
+    if (metric.length > 0) {
+      metric = metric.charAt(0).toUpperCase() + metric.slice(1)
+    }
+  }
+
+  // Remove trailing punctuation
+  metric = metric.replace(/[.,;]+$/, '').trim()
+
+  if (qualifiers.length > 0) {
+    return `${metric} · ${qualifiers.join(' · ')}`
+  }
+  return metric || quotaName
+}
+
+function QuotaItemsList({ items, isLight }) {
+  const [expandedIdx, setExpandedIdx] = useState(null)
+  const [copiedIdx, setCopiedIdx] = useState(null)
+
+  const sorted = [...items].sort((a, b) => {
+    if (a.adjustable !== b.adjustable) return a.adjustable ? -1 : 1
+    return (b.value || 0) - (a.value || 0)
+  })
+
+  const handleCopyValue = async (e, quota, idx) => {
+    e.stopPropagation()
+    const text = `${quota.quota_name}: ${formatNumber(quota.value)}`
+    await navigator.clipboard.writeText(text)
+    setCopiedIdx(idx)
+    setTimeout(() => setCopiedIdx(null), 1500)
+  }
+
+  return (
+    <div>
+      {sorted.map((quota, idx) => {
+        const isExpanded = expandedIdx === idx
+        const label = simplifyQuotaName(quota.quota_name)
+        const isAdjustable = quota.adjustable
+
+        return (
+          <div key={idx}>
+            <button
+              onClick={() => setExpandedIdx(isExpanded ? null : idx)}
+              className={cn(
+                'w-full flex items-center justify-between px-2 py-1.5 text-left transition-colors rounded',
+                isLight ? 'hover:bg-stone-50' : 'hover:bg-[#1a1b1e]'
+              )}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className={cn(
+                  'inline-block w-1.5 h-1.5 rounded-full flex-shrink-0',
+                  isAdjustable ? 'bg-amber-500' : 'bg-slate-400'
+                )} />
+                <span className={cn(
+                  'text-xs truncate',
+                  isLight ? 'text-stone-700' : 'text-[#e4e5e7]'
+                )}>{label}</span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span className={cn(
+                  'text-xs font-mono font-semibold tabular-nums',
+                  isLight ? 'text-stone-900' : 'text-emerald-400'
+                )}>
+                  {formatNumber(quota.value)}
+                </span>
+                <span className={cn(
+                  'text-[9px] px-1.5 py-0.5 rounded-full font-medium',
+                  isAdjustable
+                    ? (isLight ? 'bg-amber-100 text-amber-700' : 'bg-amber-500/15 text-amber-400')
+                    : (isLight ? 'bg-stone-100 text-stone-500' : 'bg-[#373a40] text-[#9a9b9f]')
+                )}>
+                  {isAdjustable ? 'Adjustable' : 'Fixed'}
+                </span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => handleCopyValue(e, quota, idx)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleCopyValue(e, quota, idx) }}
+                  className={cn(
+                    'p-0.5 rounded transition-colors',
+                    isLight ? 'hover:bg-stone-200' : 'hover:bg-[#373a40]'
+                  )}
+                >
+                  {copiedIdx === idx ? (
+                    <Check className="h-3 w-3 text-emerald-500" />
+                  ) : (
+                    <Copy className={cn('h-3 w-3', isLight ? 'text-stone-400' : 'text-[#4a4d54]')} />
+                  )}
+                </span>
+              </div>
+            </button>
+            {isExpanded && (
+              <div className={cn(
+                'mx-2 mb-1.5 px-3 py-2 rounded text-[10px] font-mono leading-relaxed space-y-0.5',
+                isLight ? 'text-stone-500 bg-stone-50' : 'text-[#6d6e72] bg-[#1a1b1e]'
+              )}>
+                <p className="break-all">
+                  <span className={isLight ? 'text-stone-400' : 'text-[#4a4d54]'}>name </span>
+                  {quota.quota_name}
+                </p>
+                <p>
+                  <span className={isLight ? 'text-stone-400' : 'text-[#4a4d54]'}>code </span>
+                  {quota.quota_code}
+                </p>
+                <p>
+                  <span className={isLight ? 'text-stone-400' : 'text-[#4a4d54]'}>adj{'  '}</span>
+                  {isAdjustable ? 'Yes \u2014 can request increase' : 'No \u2014 fixed limit'}
+                </p>
+                <p>
+                  <span className={isLight ? 'text-stone-400' : 'text-[#4a4d54]'}>val{'  '}</span>
+                  {typeof quota.value === 'number' ? quota.value.toLocaleString() : 'N/A'}
+                  {quota.unit && quota.unit !== 'None' ? ` ${quota.unit}` : ''}
+                </p>
+                {quota.period && Object.keys(quota.period).length > 0 && (
+                  <p>
+                    <span className={isLight ? 'text-stone-400' : 'text-[#4a4d54]'}>per{'  '}</span>
+                    {quota.period.value} {quota.period.unit}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function QuotasTab({ model }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedGeos, setExpandedGeos] = useState({})
@@ -1016,22 +1302,7 @@ function QuotasTab({ model }) {
                           <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>{regionDisplayNames[region] || region}</span>
                           <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>({region})</span>
                         </div>
-                        <div className="space-y-1.5">
-                          {regionQuotas.map((quota, qIdx) => (
-                            <div key={qIdx} className="flex justify-between items-start gap-2 text-xs">
-                              <div className="flex-1 min-w-0">
-                                <p className={cn('truncate', isLight ? 'text-stone-700' : 'text-[#c0c1c5]')}>{quota.quota_name}</p>
-                                <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>{quota.quota_code}</p>
-                              </div>
-                              <div className="text-right flex-shrink-0">
-                                <p className={cn('font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>{formatNumber(quota.value)}</p>
-                                <p className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
-                                  {quota.adjustable ? '🔧' : '🔒'}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        <QuotaItemsList items={regionQuotas} isLight={isLight} />
                       </div>
                     ))}
                   </div>
@@ -1165,6 +1436,165 @@ function extractRegionPricing(regionPricing) {
   return { onDemand, provisioned }
 }
 
+// Simplify verbose AWS pricing descriptions into clean labels.
+// Handles all formats: 1P dollar-prefixed, 3P marketplace pipe-delimited,
+// dimension strings, and already-clean labels. All matching is keyword-based
+// so it scales to any model without hardcoding.
+// Returns { label, type } where type is 'input' | 'output' | 'other'
+function simplifyPricingDescription(desc, dimension) {
+  if (!desc && !dimension) return { label: 'Price', type: 'other' }
+
+  // Combine description + dimension for robust keyword extraction
+  const combined = `${dimension || ''} ${desc || ''}`.toLowerCase()
+  const dl = (desc || '').toLowerCase()
+
+  // --- Determine direction ---
+  // No word boundaries: catches both "input-tokens" and camelCase "InputTokenCount"
+  const isOutput = /output|response/i.test(combined)
+  const isInput = /input/i.test(combined) && !isOutput
+  const type = isOutput ? 'output' : isInput ? 'input' : 'other'
+  const direction = isOutput ? 'Output' : isInput ? 'Input' : null
+
+  // --- Non-token billing (no input/output direction) ---
+  // Detect billing unit type from "per <unit>" patterns in description
+  if (!direction) {
+    if (/\bper hour\b|provisioned.?throughput/i.test(combined)) {
+      const commit = /no.?commit/i.test(combined) ? ' (No Commit)' :
+                     /6.?month/i.test(combined) ? ' (6 Month)' :
+                     /1.?month/i.test(combined) ? ' (1 Month)' : ''
+      return { label: `Provisioned Throughput${commit}`, type: 'other' }
+    }
+    if (/\bper\s+(?:\d+\s+)?image\b|\bimages?\s*processed\b/i.test(dl)) return { label: 'Per Image', type: 'other' }
+    if (/\bper\s+(?:\d+\s+)?(second|secs)\b|\bvideo.*(second|sec)\b/i.test(dl)) return { label: 'Per Second', type: 'other' }
+    if (/\bper video\b/i.test(dl)) return { label: 'Per Video', type: 'other' }
+    if (/\bper.*request/i.test(dl)) return { label: 'Per Request', type: 'other' }
+    if (/\bmodel.month\b|\bstorage\b/i.test(dl)) return { label: 'Model Storage', type: 'other' }
+    if (/\bper (page|pages?\s*processed)\b/i.test(dl)) return { label: 'Per Page', type: 'other' }
+    if (/\bper (minute|minutes?\s*processed)\b/i.test(dl)) return { label: 'Per Minute', type: 'other' }
+    if (/\btext.?unit/i.test(dl)) return { label: 'Text Units', type: 'other' }
+    if (/\bsearch.?unit/i.test(dl)) return { label: 'Search Units', type: 'other' }
+    if (/\bnode.?transition/i.test(dl)) return { label: 'Node Transitions', type: 'other' }
+    if (/\btpm.?hour\b|\btokens?.per.minute\b/i.test(combined)) return { label: 'Reserved TPM', type: 'other' }
+    if (/\bcustom.?model\b/i.test(dl)) return { label: 'Custom Model', type: 'other' }
+    if (/\bfield/i.test(dl)) return { label: 'Per Field', type: 'other' }
+    if (/\bgrounding\b/i.test(combined)) return { label: 'Grounding', type: 'other' }
+    if (/\bcustomiz/i.test(dl)) return { label: 'Customization', type: 'other' }
+
+    // Fallback for no-direction items: strip known prefixes/suffixes
+    let label = (desc || dimension || 'Price')
+    label = label.replace(/^\$?[\d.,]+\s*(?:USD\s+)?per\s+.+?\s+for\s+/i, '')
+    label = label.replace(/\s+in\s+(?:US|EU|Asia|Canada|South|Middle|Africa).+$/i, '')
+    label = label.replace(/^AWS Marketplace software usage[^|]*\|/i, '')
+    // For multi-pipe marketplace (e.g. "region|metric"): take last segment
+    if (label.includes('|')) label = label.split('|').pop().trim()
+    label = label.replace(/^Million\s+/i, '')
+    label = label.replace(/\s+(Regional|Global)$/i, '')
+    label = label.replace(/^Price per \d+\s*/i, '')
+    label = label.replace(/^[A-Z]{2,4}\d?-/, '')
+    return { label: label.trim() || 'Price', type: 'other' }
+  }
+
+  // --- Reserved capacity with direction (TPM pricing) ---
+  if (/\btpm\b|\breserved\b|\btokens?.per.minute\b/i.test(combined)) {
+    const commitMatch = combined.match(/(\d+)[- ]?month/)
+    const months = commitMatch ? ` (${commitMatch[1]}M)` : ''
+    return { label: `Reserved ${direction}${months}`, type }
+  }
+
+  // --- Token-based pricing with direction ---
+  // Detect modality
+  const modality = /\bimage\b/i.test(combined) ? 'Image' :
+                   /\bvideo\b/i.test(combined) ? 'Video' :
+                   /\baudio\b/i.test(combined) ? 'Audio' :
+                   /\bspeech\b/i.test(combined) ? 'Speech' : null
+
+  // Detect qualifier (cache tier, pricing tier)
+  const qualifier =
+    /cache[- ]?read/i.test(combined) ? 'Cache Read' :
+    /1[- ]?h(?:our)?\s*cache/i.test(combined) ? '1h Cache' :
+    /cache[- ]?write/i.test(combined) ? 'Cache Write' :
+    /\bflex\b/i.test(combined) ? 'Flex' :
+    /\bpriority\b/i.test(combined) ? 'Priority' : null
+
+  // Build label: [Modality] Direction [(Qualifier)]
+  const parts = []
+  if (modality) parts.push(modality)
+  parts.push(direction)
+  if (qualifier) parts.push(`(${qualifier})`)
+  return { label: parts.join(' '), type }
+}
+
+// Shared component for rendering pricing item rows with click-to-reveal details
+function PricingItemsList({ items, isLight }) {
+  const [expandedIdx, setExpandedIdx] = useState(null)
+  const [copiedIdx, setCopiedIdx] = useState(null)
+
+  const handleCopyPrice = async (e, price, unit, idx) => {
+    e.stopPropagation()
+    const text = `$${typeof price === 'number' ? price.toFixed(6) : price} ${unit}`
+    await navigator.clipboard.writeText(text)
+    setCopiedIdx(idx)
+    setTimeout(() => setCopiedIdx(null), 1500)
+  }
+
+  return (
+    <div>
+      {items.map((item, idx) => {
+        const priceStr = typeof item._price === 'number' ? item._price.toFixed(6) : item._price || 'N/A'
+        const isExpanded = expandedIdx === idx
+        return (
+          <div key={idx}>
+            <button
+              onClick={() => setExpandedIdx(isExpanded ? null : idx)}
+              className={cn(
+                'w-full flex items-center justify-between px-2 py-1.5 text-left transition-colors rounded',
+                isLight ? 'hover:bg-stone-50' : 'hover:bg-[#1a1b1e]'
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  'inline-block w-1.5 h-1.5 rounded-full flex-shrink-0',
+                  item._type === 'input' ? 'bg-blue-500' : item._type === 'output' ? 'bg-emerald-500' : 'bg-[#6d6e72]'
+                )} />
+                <span className={cn('text-xs', isLight ? 'text-stone-700' : 'text-[#e4e5e7]')}>{item._label}</span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span className={cn('text-xs font-mono font-semibold tabular-nums', isLight ? 'text-stone-900' : 'text-emerald-400')}>
+                  ${priceStr}
+                  <span className={cn('font-normal ml-1', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>{item._unit}</span>
+                </span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => handleCopyPrice(e, item._price, item._unit, idx)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleCopyPrice(e, item._price, item._unit, idx) }}
+                  className={cn('p-0.5 rounded transition-colors', isLight ? 'hover:bg-stone-200' : 'hover:bg-[#373a40]')}
+                >
+                  {copiedIdx === idx ? (
+                    <Check className="h-3 w-3 text-emerald-500" />
+                  ) : (
+                    <Copy className={cn('h-3 w-3', isLight ? 'text-stone-400' : 'text-[#4a4d54]')} />
+                  )}
+                </span>
+              </div>
+            </button>
+            {isExpanded && (
+              <div className={cn(
+                'mx-2 mb-1.5 px-3 py-2 rounded text-[10px] font-mono leading-relaxed space-y-0.5',
+                isLight ? 'text-stone-500 bg-stone-50' : 'text-[#6d6e72] bg-[#1a1b1e]'
+              )}>
+                {item._raw && <p className="break-all"><span className={isLight ? 'text-stone-400' : 'text-[#4a4d54]'}>desc </span>{item._raw}</p>}
+                {item.dimension && <p className="break-all"><span className={isLight ? 'text-stone-400' : 'text-[#4a4d54]'}>dim  </span>{item.dimension}</p>}
+                {item.original_price != null && <p><span className={isLight ? 'text-stone-400' : 'text-[#4a4d54]'}>raw  </span>${item.original_price} {item.unit || ''}</p>}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function CollapsiblePricingRegion({ region, pricing, category, defaultExpanded = false }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const { theme } = useTheme()
@@ -1208,18 +1638,17 @@ function CollapsiblePricingRegion({ region, pricing, category, defaultExpanded =
       </button>
       {isExpanded && (
         <div className={cn('px-2 pb-2 border-t', isLight ? 'border-stone-200' : 'border-[#373a40]')}>
-          <div className="space-y-1.5 pt-2">
-            {pricingItems.length > 0 ? pricingItems.map((item, idx) => (
-              <div key={idx} className={cn('rounded p-2 flex justify-between items-center', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
-                <div>
-                  <p className={cn('text-xs', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{item.description}</p>
-                  <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#c0c1c5]')}>{item.unit}</p>
-                </div>
-                <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                  ${typeof item.price === 'number' ? item.price.toFixed(6) : item.price}
-                </p>
-              </div>
-            )) : (
+          <div className="pt-2">
+            {pricingItems.length > 0 ? (
+              <PricingItemsList items={pricingItems.map(item => ({
+                ...item,
+                _label: simplifyPricingDescription(item.description).label,
+                _type: item.type,
+                _price: item.price,
+                _unit: item.unit || 'per 1K tokens',
+                _raw: item.description,
+              }))} isLight={isLight} />
+            ) : (
               <p className={cn('text-sm', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>No pricing available</p>
             )}
           </div>
@@ -1413,23 +1842,17 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
                           <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>{regionDisplayNames[region] || region}</span>
                           <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>({region})</span>
                         </div>
-                        <div className="space-y-1.5">
-                          {regionItems.map((item, idx) => {
-                            const price = item.price_per_thousand ?? item.price_per_unit
-                            const unit = item.unit_label || (item.price_per_thousand != null ? '/1K tokens' : `/${item.unit || 'unit'}`)
-                            return (
-                              <div key={idx} className="flex justify-between items-start gap-2 text-xs">
-                                <p className={cn('flex-1 min-w-0 truncate', isLight ? 'text-stone-700' : 'text-[#c0c1c5]')}>{item.description || item.dimension || 'Price'}</p>
-                                <div className="text-right flex-shrink-0">
-                                  <span className={cn('font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
-                                    ${typeof price === 'number' ? price.toFixed(6) : price || 'N/A'}
-                                  </span>
-                                  <span className={cn('text-[10px] ml-1', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>{unit}</span>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
+                        <PricingItemsList items={regionItems.map(item => {
+                          const { label, type } = simplifyPricingDescription(item.description, item.dimension)
+                          return {
+                            ...item,
+                            _label: label,
+                            _type: type,
+                            _price: item.price_per_thousand ?? item.price_per_unit,
+                            _unit: item.unit_label || `per ${item.unit || 'unit'}`,
+                            _raw: item.description || item.dimension,
+                          }
+                        })} isLight={isLight} />
                       </div>
                     ))}
                   </div>
@@ -1574,12 +1997,24 @@ export function ModelCardExpanded({
           )}>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Badge className={cn('text-xs font-medium px-2 py-0.5', isLight ? 'text-[#faf9f5]' : 'text-white', getProviderColor(model.model_provider))}>
+                <Badge
+                  className="text-xs font-medium px-2 py-0.5"
+                  style={{ backgroundColor: getProviderHexColor(model.model_provider), color: getContrastColor(getProviderHexColor(model.model_provider)) }}
+                >
                   {model.model_provider}
                 </Badge>
-                <Badge variant={isActive ? 'success' : 'warning'} className="text-xs px-2 py-0.5">
+                <span className={cn(
+                  'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide',
+                  isActive
+                    ? isLight
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-emerald-500/15 text-emerald-400'
+                    : isLight
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-amber-500/15 text-amber-400'
+                )}>
                   {isActive ? 'Active' : 'Legacy'}
-                </Badge>
+                </span>
               </div>
               <div>
                 <h2 className={cn('text-lg font-semibold', isLight ? 'text-stone-900' : 'text-white')}>

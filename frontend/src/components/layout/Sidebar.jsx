@@ -163,32 +163,13 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
       {/* User Profile */}
       <UserProfile collapsed={collapsed} mobileMenuOpen={mobileMenuOpen} />
 
-      {/* Footer — collapse toggle + version + theme */}
-      <div className={cn(
-        'border-t px-3 py-3',
-        isLight ? 'border-stone-200/80' : 'border-[#2c2d32]'
-      )}>
-        {/* Theme & Version row */}
-        <div className={cn(
-          'flex items-center',
-          collapsed && !mobileMenuOpen ? 'justify-center' : 'justify-between'
-        )}>
-          {showExpanded && (
-            <span className={cn(
-              'text-[11px] font-medium tracking-wide uppercase',
-              isLight ? 'text-stone-400' : 'text-[#4a4d54]'
-            )}>
-              v1.0.0
-            </span>
-          )}
-          <ThemeToggle />
-        </div>
-
+      {/* Footer — collapse toggle + separator + version + theme */}
+      <div className="px-3 py-3">
         {/* Collapse/Expand button */}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={cn(
-            'w-full mt-2 flex items-center rounded-lg transition-all duration-200 hidden lg:flex',
+            'w-full flex items-center rounded-lg transition-all duration-200 hidden lg:flex',
             collapsed && !mobileMenuOpen ? 'justify-center py-2' : 'gap-3 px-3 py-2',
             isLight
               ? 'text-stone-500 hover:bg-stone-100 hover:text-stone-700'
@@ -204,6 +185,28 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
             <span className="text-[12px] font-medium">Collapse</span>
           )}
         </button>
+
+        {/* Separator */}
+        <div className={cn(
+          'my-2 border-t',
+          isLight ? 'border-stone-200/80' : 'border-[#2c2d32]'
+        )} />
+
+        {/* Theme & Version row */}
+        <div className={cn(
+          'flex items-center',
+          collapsed && !mobileMenuOpen ? 'justify-center' : 'justify-between'
+        )}>
+          {showExpanded && (
+            <span className={cn(
+              'text-[11px] font-medium tracking-wide uppercase',
+              isLight ? 'text-stone-400' : 'text-[#4a4d54]'
+            )}>
+              v1.0.0
+            </span>
+          )}
+          <ThemeToggle />
+        </div>
       </div>
     </>
   )

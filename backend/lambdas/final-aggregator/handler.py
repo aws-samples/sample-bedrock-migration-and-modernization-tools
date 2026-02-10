@@ -176,124 +176,233 @@ def build_cross_region_inference(model_id: str, features_by_region: dict) -> dic
     }
 
 
-def normalize_model_name(name: str) -> str:
+def _normalize_for_quota_matching(name: str) -> str:
     """
-    Normalize model name for matching.
-    - Convert to lowercase
+    Normalize a model name or quota model reference for exact matching.
+    - Lowercase
     - Replace hyphens/underscores with spaces
-    - Normalize version numbers (3-5 -> 3.5, 3 5 -> 3.5)
-    - Remove extra whitespace
+    - Strip default version tags (v1, v1.0) — keeps v2, v2.1, etc.
+    - Strip 8-digit date codes (e.g. 20240307)
+    - Join standalone single-digit pairs: "3 5" -> "3.5"
+    - Strip trailing context length qualifiers (200K, 1M Context Length)
+    - Collapse whitespace
     """
-    normalized = name.lower()
-    # Replace hyphens and underscores with spaces
-    normalized = normalized.replace('-', ' ').replace('_', ' ')
-    # Normalize version patterns like "3 5" or "3  5" to "3.5"
-    normalized = re.sub(r'(\d)\s+(\d)', r'\1.\2', normalized)
-    # Remove extra whitespace
-    normalized = ' '.join(normalized.split())
-    return normalized
+    n = name.lower().strip()
+    # Strip trailing punctuation (AWS quota typos like "Claude Sonnet 4.5.")
+    n = re.sub(r'[.;,!]+$', '', n)
+    n = n.replace('-', ' ').replace('_', ' ')
+    # Normalize "+" to " plus" (e.g. "Command R+" → "Command R plus")
+    n = n.replace('+', ' plus')
+    # Strip v1/V1/V1.0 (default version, not a distinguishing identifier)
+    n = re.sub(r'\bv1(?:\.0)?\b', '', n, flags=re.I)
+    # Strip 8-digit date patterns (e.g. 20240307, 20250929)
+    n = re.sub(r'\b\d{8}\b', '', n)
+    # Join standalone single-digit pairs not adjacent to letters/digits/dots
+    # e.g. "3 5" -> "3.5" but NOT "v1 1m" or "3.1 70b"
+    n = re.sub(r'(?<![a-zA-Z\d.])(\d)\s+(\d)(?![a-zA-Z\d])', r'\1.\2', n)
+    # Strip trailing context length qualifiers (200K, 1M, 256K, 1M Context Length)
+    n = re.sub(r'\s+\d+[kKmM](?:\s+context\s+length)?\s*$', '', n, flags=re.I)
+    # Collapse whitespace
+    n = ' '.join(n.split())
+    return n
 
 
-def extract_model_keywords(model_id: str, model_name: str) -> set:
+# Known provider prefixes that appear in quota names but not in model names.
+# Ordered longest-first to avoid partial matches.
+_PROVIDER_PREFIXES = [
+    'anthropic ', 'ai21 labs ', 'stability.ai ', 'stability ai ',
+    'mistral ai ', 'moonshot ai ', 'writer ai ', 'luma ai ',
+    'twelvelabs ', 'deepseek ', 'minimax ', 'openai ', 'nvidia ',
+    'amazon ', 'google ', 'cohere ', 'meta ', 'luma ', 'qwen ',
+    'mistral ',  # After 'mistral ai ' — catches "Mistral Mixtral..." in quotas
+]
+
+
+def _strip_provider_prefix(name: str) -> str:
+    """Strip a known provider prefix from a normalized (lowercase) name."""
+    for prefix in _PROVIDER_PREFIXES:
+        if name.startswith(prefix):
+            return name[len(prefix):]
+    return name
+
+
+def _extract_quota_model_ref(quota_name: str) -> str:
     """
-    Extract keywords from model ID and name for matching.
-    Returns a set of normalized keywords.
+    Extract the model reference string from a quota name.
+
+    Quota names follow patterns like:
+      "On-demand model inference requests per minute for Anthropic Claude 3.5 Sonnet"
+      "Batch inference job size (in GB) for Claude Sonnet 4.5"
+      "(Model customization) ... for a Claude 3 Haiku v1 Fine-tuning job"
+      "Model units per provisioned model for the 128k context length variant for Amazon Nova Micro"
+      "No-commitment model units for Provisioned Throughput created for base model Amazon Nova 2 Lite V1.0 256K"
+
+    Returns the model name portion, or None if not found.
     """
-    keywords = set()
+    name = quota_name.strip()
 
-    # Normalize and add model name parts
-    if model_name:
-        normalized_name = normalize_model_name(model_name)
-        keywords.add(normalized_name)
-        # Add individual significant words
-        for word in normalized_name.split():
-            if len(word) > 2 and word not in ('for', 'the', 'and', 'per'):
-                keywords.add(word)
+    # Remove leading category prefix like "(Model customization)"
+    name = re.sub(r'^\([^)]+\)\s*', '', name)
 
-    # Extract from model_id (e.g., "anthropic.claude-3-5-haiku-20241022-v1:0")
+    # Remove trailing "(doubled for cross-region calls)" qualifier
+    name = re.sub(r'\s*\(doubled\s+for[^)]*\)\s*$', '', name, flags=re.I)
+
+    # Split by "for" and take the LAST segment (the model reference)
+    parts = re.split(r'\bfor\s+', name, flags=re.I)
+    if len(parts) < 2:
+        return None
+
+    ref = parts[-1].strip()
+
+    # Clean up extracted ref:
+    # Remove leading articles "a "/"an "
+    ref = re.sub(r'^(?:a|an)\s+', '', ref, flags=re.I)
+    # Remove "base model"/"custom model" prefix
+    ref = re.sub(r'^(?:base|custom)\s+model\s+', '', ref, flags=re.I)
+    # Remove trailing job type suffixes (Fine-tuning, Continued Pre-Training, distillation)
+    ref = re.sub(r'\s+(?:Fine[- ]?tuning|Continued Pre[- ]?Training|distillation)\b.*$', '', ref, flags=re.I)
+    # Remove trailing "per month"
+    ref = re.sub(r'\s+per\s+month$', '', ref, flags=re.I)
+
+    return ref.strip() if ref.strip() else None
+
+
+def _build_model_aliases(model_id: str, model_name: str, model_provider: str) -> set:
+    """
+    Build a set of normalized aliases for a model that quotas might reference.
+
+    Generates aliases from:
+    1. model_name (primary)
+    2. provider + model_name (for quotas that include provider prefix)
+    3. model_name without parenthetical (for Mistral date versions like "(24.07)")
+    4. model_id-derived name (catches naming variants like "2407" vs "(24.07)")
+    """
+    aliases = set()
+    if not model_name:
+        return aliases
+
+    # Normalize provider name
+    prov = (model_provider or '').lower().strip()
+
+    # Alias 1: from model_name
+    norm_name = _normalize_for_quota_matching(model_name)
+    aliases.add(norm_name)
+    # Also without provider prefix (in case model_name includes it, e.g. "DeepSeek-R1")
+    aliases.add(_strip_provider_prefix(norm_name))
+
+    # Alias 2: provider + model_name (for quotas like "Anthropic Claude 3.5 Sonnet")
+    if prov and not norm_name.startswith(prov):
+        aliases.add(_normalize_for_quota_matching(prov + ' ' + model_name))
+
+    # Alias 3: model_name without parenthetical (e.g. "Mistral Large (24.07)" -> "Mistral Large")
+    if '(' in model_name:
+        name_no_parens = re.sub(r'\s*\([^)]*\)', '', model_name).strip()
+        if name_no_parens:
+            np = _normalize_for_quota_matching(name_no_parens)
+            aliases.add(np)
+            aliases.add(_strip_provider_prefix(np))
+            if prov and not np.startswith(prov):
+                aliases.add(_normalize_for_quota_matching(prov + ' ' + name_no_parens))
+        # Also: parens removed but content kept (e.g. "Pixtral Large (25.02)" -> "Pixtral Large 25.02")
+        name_flat_parens = model_name.replace('(', '').replace(')', '').strip()
+        fp = _normalize_for_quota_matching(name_flat_parens)
+        aliases.add(fp)
+        aliases.add(_strip_provider_prefix(fp))
+        if prov and not fp.startswith(prov):
+            aliases.add(_normalize_for_quota_matching(prov + ' ' + name_flat_parens))
+
+    # Alias 5: short name without trailing size+task suffix
+    # e.g. "Llama 4 Maverick 17B Instruct" -> "Llama 4 Maverick"
+    short_name = re.sub(r'\s+\d+[Bb]\s+(?:Instruct|Chat|IT|PT)\s*$', '', model_name)
+    if short_name != model_name:
+        sn = _normalize_for_quota_matching(short_name)
+        aliases.add(sn)
+        aliases.add(_strip_provider_prefix(sn))
+        if prov and not sn.startswith(prov):
+            aliases.add(_normalize_for_quota_matching(prov + ' ' + short_name))
+
+    # Alias 6: without trailing version number (e.g. "Stable Image Core 1.0" -> "Stable Image Core")
+    short_ver = re.sub(r'\s+\d+\.\d+\s*$', '', model_name)
+    if short_ver != model_name:
+        sv = _normalize_for_quota_matching(short_ver)
+        aliases.add(sv)
+        aliases.add(_strip_provider_prefix(sv))
+        if prov and not sv.startswith(prov):
+            aliases.add(_normalize_for_quota_matching(prov + ' ' + short_ver))
+
+    # Alias 4: from model_id (catches naming variants)
     if model_id:
-        # Remove provider prefix and version suffix
         clean_id = model_id.split(':')[0]  # Remove :0, :18k etc.
-        clean_id = re.sub(r'\.\w+\.', '.', clean_id)  # Keep provider.model format
+        # Extract model part after provider prefix (e.g. "anthropic.claude-sonnet-4-5-20250929-v1")
+        id_parts = clean_id.split('.', 1)
+        model_part = id_parts[1] if len(id_parts) > 1 else clean_id
+        # Remove trailing date+v1 or just v1 (default version only; keep v2+ as they distinguish models)
+        model_part = re.sub(r'(-\d{8})?-v1$', '', model_part)
+        # Remove trailing standalone 8-digit date (for models without version suffix)
+        model_part = re.sub(r'-\d{8}$', '', model_part)
+        if model_part:
+            id_alias = _normalize_for_quota_matching(model_part)
+            aliases.add(id_alias)
 
-        # Extract model family name
-        parts = clean_id.replace('.', ' ').replace('-', ' ').split()
-        for part in parts:
-            # Skip date patterns and version numbers
-            if not re.match(r'^\d{8}$', part) and not re.match(r'^v\d+$', part):
-                if len(part) > 2:
-                    keywords.add(part.lower())
-
-        # Add normalized full model name from ID
-        normalized_id = normalize_model_name(clean_id)
-        keywords.add(normalized_id)
-
-    return keywords
+    # Remove any empty strings
+    aliases.discard('')
+    return aliases
 
 
-def quota_matches_model(quota_name: str, model_keywords: set, model_name: str) -> bool:
+# Cached quota index: maps normalized model ref -> {region -> [quotas]}
+_quota_index = None
+
+
+def _build_quota_index(quotas_by_region: dict) -> dict:
     """
-    Check if a quota name matches a model based on keywords.
+    Pre-index all quotas by their normalized model reference.
+    This enables O(1) lookup per model instead of O(quotas) scanning.
     """
-    normalized_quota = normalize_model_name(quota_name)
-
-    # Direct substring match with normalized model name
-    normalized_model = normalize_model_name(model_name)
-    if normalized_model and normalized_model in normalized_quota:
-        return True
-
-    # Get model families and variants from config
-    config = _get_config()
-    model_families = set(config.get_model_families())
-    variants = set(config.get_model_variants())
-
-    quota_words = set(normalized_quota.split())
-
-    # Find which model family this model belongs to
-    model_family = None
-    for family in model_families:
-        if family in model_keywords:
-            model_family = family
-            break
-
-    if not model_family:
-        return False
-
-    # Check if quota is for this model family
-    if model_family not in quota_words:
-        return False
-
-    # Check for variant match
-    model_variants = model_keywords & variants
-    quota_variants = quota_words & variants
-
-    # If model has a variant, quota must have the same variant
-    if model_variants:
-        if model_variants & quota_variants:
-            return True
-        # Special case: quota might not specify variant for general quotas
-        if not quota_variants:
-            return True
-    else:
-        # Model has no specific variant, match if quota is for same family
-        return True
-
-    return False
-
-
-def build_model_quotas(model_id: str, model_name: str, quotas_by_region: dict) -> dict:
-    """Build model-specific quotas by region."""
-    model_quotas = {}
-    model_keywords = extract_model_keywords(model_id, model_name)
-
+    index = {}
     for region, quotas in quotas_by_region.items():
-        region_quotas = []
         for quota in quotas:
             quota_name = quota.get('quotaName', quota.get('quota_name', ''))
-            # Check if quota is related to this model
-            if quota_matches_model(quota_name, model_keywords, model_name):
-                region_quotas.append({
-                    'quota_code': quota.get('quotaCode', quota.get('quota_code', '')),
+            ref = _extract_quota_model_ref(quota_name)
+            if not ref:
+                continue
+            # Normalize and index both with and without provider prefix
+            norm = _normalize_for_quota_matching(ref)
+            norm_no_prov = _strip_provider_prefix(norm)
+            for key in {norm, norm_no_prov}:
+                if key:
+                    index.setdefault(key, {}).setdefault(region, []).append(quota)
+    return index
+
+
+def build_model_quotas(model_id: str, model_name: str, quotas_by_region: dict,
+                       model_provider: str = '') -> dict:
+    """
+    Build model-specific quotas by region using exact name matching.
+
+    Uses a pre-built index of quota model references for efficient lookup.
+    Matches quota names against model aliases derived from model_name,
+    model_provider, and model_id — no hardcoded model lists or keyword matching.
+    """
+    global _quota_index
+    if _quota_index is None:
+        _quota_index = _build_quota_index(quotas_by_region)
+
+    aliases = _build_model_aliases(model_id, model_name, model_provider)
+    model_quotas = {}
+    seen_codes_per_region = {}  # Dedup: same quota found via multiple aliases
+
+    for alias in aliases:
+        matched = _quota_index.get(alias, {})
+        for region, quotas in matched.items():
+            if region not in seen_codes_per_region:
+                seen_codes_per_region[region] = set()
+            for quota in quotas:
+                code = quota.get('quotaCode', quota.get('quota_code', ''))
+                if code in seen_codes_per_region[region]:
+                    continue
+                seen_codes_per_region[region].add(code)
+                model_quotas.setdefault(region, []).append({
+                    'quota_code': code,
                     'quota_name': quota.get('quotaName', quota.get('quota_name', '')),
                     'quota_arn': quota.get('quotaArn', quota.get('quota_arn', '')),
                     'description': quota.get('description', ''),
@@ -305,8 +414,6 @@ def build_model_quotas(model_id: str, model_name: str, quotas_by_region: dict) -
                     'usage_metric': quota.get('usageMetric', quota.get('usage_metric', {})),
                     'period': quota.get('period', {})
                 })
-        if region_quotas:
-            model_quotas[region] = region_quotas
 
     return model_quotas
 
@@ -497,9 +604,18 @@ def transform_model_to_schema(
     # --- TIER 3: profiler-config.json ---
     config_specs = get_context_window_from_config(model_id)
     if config_specs:
+        config_standard = config_specs.get('standard_context')
+        config_extended = config_specs.get('extended_context')
+
+        # If API returned the extended value as context_window, prefer config's standard
+        # (e.g., API says 1M for Opus 4.6, but standard is 200K with 1M extended)
+        if config_standard and config_extended and context_window == config_extended:
+            context_window = config_standard
+            source = config_specs.get('source', 'config')
+
         # Use standard_context only if Tiers 1-2 didn't provide context_window
         if context_window is None:
-            context_window = config_specs.get('standard_context')
+            context_window = config_standard
             source = config_specs.get('source', 'config')
 
         # Use max_output from config if not yet set
@@ -508,7 +624,7 @@ def transform_model_to_schema(
 
         # Extended fields: ALWAYS apply from config regardless of tier
         # These fields only exist in config (Claude dual context, extended output)
-        extended_context = config_specs.get('extended_context')
+        extended_context = config_extended
         extended_context_beta = config_specs.get('extended_context_beta')
         extended_output = config_specs.get('extended_output')
         extended_output_beta = config_specs.get('extended_output_beta')
@@ -563,7 +679,8 @@ def transform_model_to_schema(
     model_quotas = build_model_quotas(
         model_id,
         model.get('model_name', ''),
-        quotas_by_region
+        quotas_by_region,
+        model_provider=model.get('model_provider', '')
     )
 
     # Get model pricing from upstream (already in snake_case)
@@ -813,6 +930,10 @@ def lambda_handler(event: dict, context: Any) -> dict:
     """
     start_time = time.time()
     collection_timestamp = time.strftime('%Y-%m-%dT%H:%M:%S.000000+00:00', time.gmtime())
+
+    # Reset quota index cache for each invocation (Lambda containers may be reused)
+    global _quota_index
+    _quota_index = None
 
     # Validate required parameters
     try:

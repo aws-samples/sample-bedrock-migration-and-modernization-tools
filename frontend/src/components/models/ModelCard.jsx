@@ -44,6 +44,17 @@ function getProviderColor(provider) {
   return providerColors[provider] || providerColors.default
 }
 
+// Returns '#ffffff' or '#000000' based on background luminance for readable contrast
+function getContrastColor(hexColor) {
+  if (!hexColor) return '#ffffff'
+  const hex = hexColor.replace('#', '')
+  const r = parseInt(hex.substring(0, 2), 16)
+  const g = parseInt(hex.substring(2, 4), 16)
+  const b = parseInt(hex.substring(4, 6), 16)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  return luminance > 0.75 ? '#000000' : '#ffffff'
+}
+
 function extractPricing(model, preferredRegion = 'us-east-1') {
   const pricing = model.model_pricing || model.comprehensive_pricing || {}
 
@@ -252,8 +263,8 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
         <div className="flex items-center justify-between p-4 pb-2">
           <InfoTooltip content={`Created by ${model.model_provider}`}>
             <Badge
-              className="text-[10px] font-semibold cursor-default text-white"
-              style={{ backgroundColor: providerColor }}
+              className="text-[10px] font-semibold cursor-default"
+              style={{ backgroundColor: providerColor, color: getContrastColor(providerColor) }}
             >
               {model.model_provider}
             </Badge>
@@ -536,9 +547,10 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               className={cn(
                 "flex-1 text-xs",
                 isSelectedForComparison && (isLight
-                  ? "bg-amber-600 hover:bg-amber-700 text-white"
-                  : "bg-[#1A9E7A] hover:bg-[#22b38d] text-white")
+                  ? "bg-amber-600 hover:bg-amber-700"
+                  : "bg-[#1A9E7A] hover:bg-[#22b38d]")
               )}
+              style={isSelectedForComparison ? { color: '#ffffff' } : undefined}
               onClick={() => toggleModel(model, preferredRegion)}
               disabled={!isSelectedForComparison && !canAddMore()}
             >
