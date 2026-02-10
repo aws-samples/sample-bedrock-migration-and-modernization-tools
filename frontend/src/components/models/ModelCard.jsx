@@ -154,7 +154,7 @@ function StatusPill({ isActive, isLight }) {
   return (
     <InfoTooltip content={isActive ? "Model is actively supported" : "Legacy model - consider newer alternatives"}>
       <div className={cn(
-        'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide cursor-help',
+        'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide cursor-default',
         isActive
           ? isLight
             ? 'bg-emerald-100 text-emerald-700'
@@ -174,7 +174,7 @@ function FeatureIndicator({ supported, icon: Icon, label, isLight }) {
   return (
     <InfoTooltip content={label}>
       <div className={cn(
-        'flex items-center gap-0.5 cursor-help',
+        'flex items-center gap-0.5 cursor-default',
         supported
           ? isLight ? 'text-emerald-600' : 'text-emerald-400'
           : isLight ? 'text-stone-300' : 'text-[#4a4d54]'
@@ -217,6 +217,8 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   const isSelectedForComparison = isModelSelected(model.model_id)
 
   const contextWindow = model.converse_data?.context_window
+  const extendedContext = model.converse_data?.extended_context
+  const hasExtendedContext = model.converse_data?.has_extended_context
   const maxOutput = model.converse_data?.max_output_tokens
   const inputModalities = model.model_modalities?.input_modalities || []
   const outputModalities = model.model_modalities?.output_modalities || []
@@ -250,7 +252,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
         <div className="flex items-center justify-between p-4 pb-2">
           <InfoTooltip content={`Created by ${model.model_provider}`}>
             <Badge
-              className="text-[10px] font-semibold cursor-help text-white"
+              className="text-[10px] font-semibold cursor-default text-white"
               style={{ backgroundColor: providerColor }}
             >
               {model.model_provider}
@@ -293,9 +295,12 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
 
         <CardContent className="flex-1 flex flex-col gap-3 pt-0">
           {/* Context/Output boxed display */}
-          <InfoTooltip content="Token capacity: Context is max input size, Output is max response length">
+          <InfoTooltip content={hasExtendedContext
+            ? `Context: ${formatNumber(contextWindow)} standard / ${formatNumber(extendedContext)} extended (beta). Output: max response length.`
+            : "Token capacity: Context is max input size, Output is max response length"
+          }>
             <div className={cn(
-              'rounded-lg p-2.5 cursor-help',
+              'rounded-lg p-2.5 cursor-default',
               isLight
                 ? 'bg-gradient-to-r from-amber-50/80 to-orange-50/60 border border-amber-100/50'
                 : 'bg-gradient-to-r from-white/5 to-white/[0.02] border border-white/10'
@@ -305,6 +310,11 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   <p className={cn('text-[10px] uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>Context</p>
                   <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
                     {formatNumber(contextWindow)}
+                    {hasExtendedContext && (
+                      <span className={cn('text-xs font-normal ml-1', isLight ? 'text-amber-500' : 'text-emerald-400')}>
+                        / {formatNumber(extendedContext)}
+                      </span>
+                    )}
                   </p>
                 </div>
                 <div className="flex-1 text-center">
@@ -326,7 +336,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 return (
                   <InfoTooltip key={`in-${mod}`} content={`Input: ${modalityDescriptions[mod]}`}>
                     <div className={cn(
-                      'p-1.5 rounded cursor-help',
+                      'p-1.5 rounded cursor-default',
                       isLight ? 'bg-stone-100' : 'bg-[#2c2d32]'
                     )}>
                       <Icon className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-[#c0c1c5]')} />
@@ -342,7 +352,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 return (
                   <InfoTooltip key={`out-${mod}`} content={`Output: ${modalityDescriptions[mod]}`}>
                     <div className={cn(
-                      'p-1.5 rounded cursor-help',
+                      'p-1.5 rounded cursor-default',
                       isLight ? 'bg-emerald-50' : 'bg-emerald-500/10'
                     )}>
                       <Icon className={cn('h-3.5 w-3.5', isLight ? 'text-emerald-600' : 'text-emerald-400')} />
@@ -368,7 +378,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               />
               <InfoTooltip content={`Available in ${regions.length} AWS regions`}>
                 <div className={cn(
-                  'flex items-center gap-1 text-xs cursor-help',
+                  'flex items-center gap-1 text-xs cursor-default',
                   isLight ? 'text-stone-500' : 'text-[#c0c1c5]'
                 )}>
                   <MapPin className="h-3 w-3" />
@@ -380,7 +390,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
 
           {/* Pricing - boxed style */}
           <InfoTooltip content="Cost per 1,000 tokens. Input = what you send, Output = what model generates">
-            <div className="cursor-help">
+            <div className="cursor-default">
               {pricingType === 'video_generation' || pricingType === 'video_second' ? (
                 <div className={cn(
                   'text-xs rounded-md p-2',
@@ -464,7 +474,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               {consumptionOptions.filter(opt => opt !== 'cross_region_inference').map(opt => (
                 <InfoTooltip key={opt} content={consumptionDescriptions[opt] || opt}>
                   <span className={cn(
-                    'text-[10px] px-2 py-0.5 rounded-full font-medium cursor-help',
+                    'text-[10px] px-2 py-0.5 rounded-full font-medium cursor-default',
                     isLight
                       ? 'bg-amber-50 text-amber-700 border border-amber-200'
                       : 'bg-[#1A9E7A]/10 text-[#1A9E7A] border border-[#1A9E7A]/20'
@@ -493,7 +503,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               {capabilities.length > 3 && (
                 <InfoTooltip content={capabilities.slice(3).join(', ')}>
                   <span className={cn(
-                    'text-[10px] px-1.5 py-0.5 rounded cursor-help',
+                    'text-[10px] px-1.5 py-0.5 rounded cursor-default',
                     isLight ? 'bg-stone-100 text-stone-500' : 'bg-[#2c2d32] text-[#b0b1b5]'
                   )}>
                     +{capabilities.length - 3}

@@ -165,7 +165,7 @@ class ConfigLoader:
             config_key: S3 key for the config file
         """
         self._s3_client = s3_client
-        self._bucket = bucket or os.environ.get('CONFIG_BUCKET') or os.environ.get('S3_BUCKET')
+        self._bucket = bucket or os.environ.get('CONFIG_BUCKET') or os.environ.get('DATA_BUCKET') or os.environ.get('S3_BUCKET')
         self._config_key = config_key
         self._config: Optional[dict] = None
         self._loaded_from_s3 = False

@@ -104,7 +104,7 @@ export const modalityOptions = [
  */
 export const initialFilterState = {
   searchQuery: '',
-  primaryRegion: 'us-east-1',
+  primaryRegion: 'all',
   providers: [],
   geoRegion: 'All Regions',
   modelStatus: 'All Status',
@@ -285,8 +285,8 @@ export function applyFilters(models, filters) {
     )
   }
 
-  // Primary region availability filter
-  if (filters.primaryRegion) {
+  // Primary region availability filter (skip if 'all' is selected)
+  if (filters.primaryRegion && filters.primaryRegion !== 'all') {
     if (isGeoSelection(filters.primaryRegion)) {
       // GEO selection - filter models available in ANY region within that geo
       const geoRegions = getRegionsForGeo(filters.primaryRegion, awsRegions)

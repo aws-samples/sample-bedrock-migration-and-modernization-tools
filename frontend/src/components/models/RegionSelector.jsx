@@ -1,5 +1,6 @@
 import * as React from 'react'
-import { Globe, MapPin } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Globe, MapPin, Search, Layers } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -10,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import { awsRegions, isGeoSelection } from '@/utils/filters'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/layout/ThemeProvider'
@@ -42,6 +44,7 @@ const geoOptions = [
 
 // Get display label for a value
 function getDisplayLabel(value) {
+  if (!value || value === 'all') return 'All Regions'
   if (isGeoSelection(value)) {
     const geoOption = geoOptions.find(g => g.value === value)
     return geoOption?.label || value
@@ -51,14 +54,47 @@ function getDisplayLabel(value) {
 }
 
 export function RegionSelector({ value, onChange, className }) {
+  const [searchQuery, setSearchQuery] = useState('')
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
+  // Filter regions based on search
+  const filteredRegionsByGeo = useMemo(() => {
+    if (!searchQuery) return regionsByGeo
+    const query = searchQuery.toLowerCase()
+    const filtered = {}
+    for (const [geo, regions] of Object.entries(regionsByGeo)) {
+      const matchingRegions = regions.filter(r =>
+        r.label.toLowerCase().includes(query) ||
+        r.value.toLowerCase().includes(query) ||
+        geoLabels[geo].toLowerCase().includes(query)
+      )
+      if (matchingRegions.length > 0) {
+        filtered[geo] = matchingRegions
+      }
+    }
+    return filtered
+  }, [searchQuery])
+
+  // Filter geo options based on search
+  const filteredGeoOptions = useMemo(() => {
+    if (!searchQuery) return geoOptions
+    const query = searchQuery.toLowerCase()
+    return geoOptions.filter(opt =>
+      opt.label.toLowerCase().includes(query) ||
+      geoLabels[opt.geo]?.toLowerCase().includes(query)
+    )
+  }, [searchQuery])
+
+  const showAllRegions = !searchQuery || 'all regions'.includes(searchQuery.toLowerCase())
+
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select value={value || 'all'} onValueChange={onChange}>
       <SelectTrigger className={className}>
         <div className="flex items-center gap-2">
-          {isGeoSelection(value) ? (
+          {!value || value === 'all' ? (
+            <Layers className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+          ) : isGeoSelection(value) ? (
             <MapPin className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
           ) : (
             <Globe className="h-4 w-4 text-blue-500" />
@@ -68,31 +104,62 @@ export function RegionSelector({ value, onChange, className }) {
           </SelectValue>
         </div>
       </SelectTrigger>
-      <SelectContent>
-        {/* GEO-level options first */}
-        <SelectGroup>
-          <SelectLabel className={cn(
-            'text-[10px] uppercase tracking-wider font-bold pb-1',
-            isLight ? 'text-stone-500' : 'text-[#1A9E7A]'
-          )}>
-            Filter by Area
-          </SelectLabel>
-          {geoOptions.map(option => (
-            regionsByGeo[option.geo]?.length > 0 && (
-              <SelectItem key={option.value} value={option.value}>
-                <span className="flex items-center gap-2 font-medium">
-                  <MapPin className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-                  {option.label}
-                </span>
-              </SelectItem>
-            )
-          ))}
-        </SelectGroup>
+      <SelectContent className="max-h-[400px]">
+        {/* Search input */}
+        <div className="px-2 pb-2">
+          <div className="relative">
+            <Search className={cn('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isLight ? 'text-stone-400' : 'text-[#6d6e72]')} />
+            <Input
+              placeholder="Search regions..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 text-sm"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
 
-        <SelectSeparator className={cn('my-2', isLight ? 'bg-stone-300' : 'bg-[#4a4d54]')} />
+        {/* All Regions option */}
+        {showAllRegions && (
+          <>
+            <SelectItem value="all">
+              <span className="flex items-center gap-2 font-medium">
+                <Layers className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+                All Regions
+              </span>
+            </SelectItem>
+            <SelectSeparator className={cn('my-2', isLight ? 'bg-stone-300' : 'bg-[#4a4d54]')} />
+          </>
+        )}
+
+        {/* GEO-level options */}
+        {filteredGeoOptions.length > 0 && (
+          <>
+            <SelectGroup>
+              <SelectLabel className={cn(
+                'text-[10px] uppercase tracking-wider font-bold pb-1',
+                isLight ? 'text-stone-500' : 'text-[#1A9E7A]'
+              )}>
+                Filter by Area
+              </SelectLabel>
+              {filteredGeoOptions.map(option => (
+                regionsByGeo[option.geo]?.length > 0 && (
+                  <SelectItem key={option.value} value={option.value}>
+                    <span className="flex items-center gap-2 font-medium">
+                      <MapPin className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+                      {option.label}
+                    </span>
+                  </SelectItem>
+                )
+              ))}
+            </SelectGroup>
+            <SelectSeparator className={cn('my-2', isLight ? 'bg-stone-300' : 'bg-[#4a4d54]')} />
+          </>
+        )}
 
         {/* Individual regions by geo */}
-        {Object.entries(regionsByGeo).map(([geo, regions], index) => (
+        {Object.entries(filteredRegionsByGeo).map(([geo, regions], index) => (
           regions.length > 0 && (
             <React.Fragment key={geo}>
               {index > 0 && <SelectSeparator className={cn('my-1', isLight ? 'bg-stone-200' : 'bg-[#373a40]')} />}
@@ -112,6 +179,13 @@ export function RegionSelector({ value, onChange, className }) {
             </React.Fragment>
           )
         ))}
+
+        {/* No results */}
+        {searchQuery && Object.keys(filteredRegionsByGeo).length === 0 && filteredGeoOptions.length === 0 && (
+          <div className={cn('py-4 text-center text-sm', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>
+            No regions found
+          </div>
+        )}
       </SelectContent>
     </Select>
   )

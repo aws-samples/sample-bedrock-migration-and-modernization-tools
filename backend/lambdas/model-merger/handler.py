@@ -2,11 +2,13 @@
 Model Merger Lambda
 
 Merges and deduplicates models collected from multiple regions.
+Extracts context window sizes from model ID variants before deduplication.
 Works with the correct snake_case schema.
 """
 
 import logging
 import os
+import re
 import time
 from typing import Any
 
@@ -33,11 +35,25 @@ def get_base_model_id(model_id: str) -> str:
         'anthropic.claude-3-5-sonnet-20240620-v1:0:200k' -> 'anthropic.claude-3-5-sonnet-20240620-v1:0'
         'anthropic.claude-3-5-sonnet-20240620-v1:0' -> 'anthropic.claude-3-5-sonnet-20240620-v1:0'
     """
-    # Check for context window suffixes like :18k, :200k, :51k, :28k
-    import re
     # Pattern matches :NNNk at the end (where N is a digit)
-    pattern = r':\d+k$'
-    return re.sub(pattern, '', model_id)
+    return re.sub(r':\d+k$', '', model_id)
+
+
+def parse_variant_size(model_id: str) -> int | None:
+    """
+    Extract context window size from model ID variant suffix.
+
+    Examples:
+        'anthropic.claude-3-5-sonnet-20240620-v1:0:200k' -> 200000
+        'anthropic.claude-3-5-sonnet-20240620-v1:0:18k'  -> 18000
+        'meta.llama3-70b-instruct-v1:0:51k'              -> 51000
+
+    Returns None if no :NNNk suffix found.
+    """
+    match = re.search(r':(\d+)k$', model_id)
+    if match:
+        return int(match.group(1)) * 1000
+    return None
 
 
 def merge_models(all_models: list[dict]) -> dict:
@@ -62,6 +78,8 @@ def merge_models(all_models: list[dict]) -> dict:
     """
     # Use dict to deduplicate by model_id
     models_by_id = {}
+    # Track max context window from size variants (e.g., :200k, :18k)
+    variant_context_windows = {}
 
     for model in all_models:
         model_id = model.get('model_id')
@@ -71,8 +89,12 @@ def merge_models(all_models: list[dict]) -> dict:
         # Get base model ID (remove context window suffixes like :18k, :200k)
         base_model_id = get_base_model_id(model_id)
 
-        # Skip context window variants - only keep base models
+        # Skip context window variants - but extract size info first
         if model_id != base_model_id:
+            size_tokens = parse_variant_size(model_id)
+            if size_tokens:
+                current_max = variant_context_windows.get(base_model_id, 0)
+                variant_context_windows[base_model_id] = max(current_max, size_tokens)
             logger.debug(f"Skipping context variant: {model_id} (base: {base_model_id})")
             continue
 
@@ -100,6 +122,18 @@ def merge_models(all_models: list[dict]) -> dict:
             if 'collection_metadata' not in models_by_id[model_id]:
                 models_by_id[model_id]['collection_metadata'] = {}
             models_by_id[model_id]['collection_metadata']['regions_collected_from'] = merged_collected
+
+            # Merge console_metadata: keep first non-empty across regions
+            existing_console_meta = models_by_id[model_id].get('console_metadata')
+            new_console_meta = model.get('console_metadata')
+            if not existing_console_meta and new_console_meta:
+                models_by_id[model_id]['console_metadata'] = new_console_meta
+
+    # Attach variant context windows to base models
+    for model_id, max_size in variant_context_windows.items():
+        if model_id in models_by_id:
+            models_by_id[model_id]['variant_context_window'] = max_size
+            logger.info(f"Variant context window for {model_id}: {max_size}")
 
     # Group by provider
     providers = {}

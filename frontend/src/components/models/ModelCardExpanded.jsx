@@ -888,6 +888,7 @@ function categorizeQuota(quotaName) {
 
 function QuotasTab({ model }) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [expandedGeos, setExpandedGeos] = useState({})
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const quotas = model.model_service_quotas || {}
@@ -903,6 +904,8 @@ function QuotasTab({ model }) {
     'Other': { icon: '📍', name: 'Other' }
   }
 
+  const geoOrder = ['US', 'EU', 'APAC', 'CA', 'SA', 'ME', 'Other']
+
   const getGeoForRegion = (region) => {
     if (region.startsWith('us-')) return 'US'
     if (region.startsWith('eu-')) return 'EU'
@@ -913,16 +916,20 @@ function QuotasTab({ model }) {
     return 'Other'
   }
 
-  // Calculate statistics and categorize quotas
+  const toggleGeo = (key) => setExpandedGeos(prev => ({ ...prev, [key]: !prev[key] }))
+
+  // Calculate statistics and categorize quotas by category -> geo -> region
   const categorizedQuotas = {}
 
   for (const region of allRegions) {
     const regionQuotas = quotas[region] || []
     for (const quota of regionQuotas) {
       const category = categorizeQuota(quota.quota_name || '')
+      const geo = getGeoForRegion(region)
       if (!categorizedQuotas[category]) categorizedQuotas[category] = {}
-      if (!categorizedQuotas[category][region]) categorizedQuotas[category][region] = []
-      categorizedQuotas[category][region].push(quota)
+      if (!categorizedQuotas[category][geo]) categorizedQuotas[category][geo] = {}
+      if (!categorizedQuotas[category][geo][region]) categorizedQuotas[category][geo][region] = []
+      categorizedQuotas[category][geo][region].push(quota)
     }
   }
 
@@ -934,51 +941,107 @@ function QuotasTab({ model }) {
     )
   }
 
-  // Get unique quota types for a category (across all regions), with search filter
-  const getUniqueQuotaTypes = (categoryData) => {
-    const quotaTypes = new Map()
+  // Filter quotas by search
+  const filterQuotas = (geoData) => {
+    if (!searchQuery) return geoData
     const query = searchQuery.toLowerCase()
-    for (const [region, regionQuotas] of Object.entries(categoryData)) {
-      for (const quota of regionQuotas) {
-        // Apply search filter
-        if (query) {
-          const regionName = (regionDisplayNames[region] || '').toLowerCase()
-          const geo = getGeoForRegion(region).toLowerCase()
-          const geoName = (geoInfo[getGeoForRegion(region)]?.name || '').toLowerCase()
-          const quotaName = (quota.quota_name || '').toLowerCase()
-          const quotaCode = (quota.quota_code || '').toLowerCase()
-          const matches = region.toLowerCase().includes(query) ||
-                         regionName.includes(query) ||
-                         geo.includes(query) ||
-                         geoName.includes(query) ||
-                         quotaName.includes(query) ||
-                         quotaCode.includes(query)
-          if (!matches) continue
+    const filtered = {}
+    for (const [geo, regions] of Object.entries(geoData)) {
+      const geoName = (geoInfo[geo]?.name || '').toLowerCase()
+      for (const [region, regionQuotas] of Object.entries(regions)) {
+        const regionName = (regionDisplayNames[region] || '').toLowerCase()
+        const matchingQuotas = regionQuotas.filter(q => {
+          const quotaName = (q.quota_name || '').toLowerCase()
+          const quotaCode = (q.quota_code || '').toLowerCase()
+          return region.toLowerCase().includes(query) ||
+                 regionName.includes(query) ||
+                 geo.toLowerCase().includes(query) ||
+                 geoName.includes(query) ||
+                 quotaName.includes(query) ||
+                 quotaCode.includes(query)
+        })
+        if (matchingQuotas.length > 0) {
+          if (!filtered[geo]) filtered[geo] = {}
+          filtered[geo][region] = matchingQuotas
         }
-        const key = quota.quota_name
-        if (!quotaTypes.has(key)) {
-          quotaTypes.set(key, {
-            name: quota.quota_name,
-            code: quota.quota_code,
-            adjustable: quota.adjustable,
-            regions: []
-          })
-        }
-        quotaTypes.get(key).regions.push({ region, value: quota.value })
       }
     }
-    return Array.from(quotaTypes.values())
+    return filtered
   }
 
-  // Group regions by geo
-  const groupRegionsByGeo = (regions) => {
-    const byGeo = {}
-    for (const r of regions) {
-      const geo = getGeoForRegion(r.region)
-      if (!byGeo[geo]) byGeo[geo] = []
-      byGeo[geo].push(r)
-    }
-    return byGeo
+  // Render a category section with geo grouping
+  const renderCategorySection = (categoryKey, title, icon) => {
+    const categoryData = categorizedQuotas[categoryKey]
+    if (!categoryData || Object.keys(categoryData).length === 0) return null
+
+    const filteredData = filterQuotas(categoryData)
+    if (Object.keys(filteredData).length === 0) return null
+
+    return (
+      <CollapsibleSection title={title} icon={icon} defaultExpanded={true}>
+        <div className="space-y-2">
+          {geoOrder.map(geo => {
+            const geoData = filteredData[geo]
+            if (!geoData || Object.keys(geoData).length === 0) return null
+
+            const regionCount = Object.keys(geoData).length
+            const quotaCount = Object.values(geoData).flat().length
+            const geoKey = `${categoryKey}_${geo}`
+            const isGeoExpanded = expandedGeos[geoKey]
+
+            return (
+              <div key={geo} className={cn('rounded-lg border overflow-hidden', isLight ? 'bg-stone-50/50 border-stone-200' : 'bg-[#25262b]/50 border-[#373a40]')}>
+                <button
+                  className={cn('w-full flex items-center justify-between p-2.5 transition-colors', isLight ? 'hover:bg-stone-100' : 'hover:bg-[#373a40]')}
+                  onClick={() => toggleGeo(geoKey)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{geoInfo[geo]?.icon}</span>
+                    <span className={cn('font-medium text-sm', isLight ? 'text-stone-800' : 'text-white')}>{geoInfo[geo]?.name}</span>
+                    <Badge variant="secondary" className="text-[10px]">{regionCount} regions</Badge>
+                    <Badge variant="outline" className="text-[10px]">{quotaCount} quotas</Badge>
+                  </div>
+                  {isGeoExpanded ? (
+                    <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')} />
+                  ) : (
+                    <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')} />
+                  )}
+                </button>
+                {isGeoExpanded && (
+                  <div className={cn('px-2.5 pb-2.5 space-y-2 border-t', isLight ? 'border-stone-200' : 'border-[#373a40]')}>
+                    {Object.entries(geoData).sort().map(([region, regionQuotas]) => (
+                      <div key={region} className={cn('rounded-lg p-2 mt-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+                          <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>{regionDisplayNames[region] || region}</span>
+                          <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>({region})</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {regionQuotas.map((quota, qIdx) => (
+                            <div key={qIdx} className="flex justify-between items-start gap-2 text-xs">
+                              <div className="flex-1 min-w-0">
+                                <p className={cn('truncate', isLight ? 'text-stone-700' : 'text-[#c0c1c5]')}>{quota.quota_name}</p>
+                                <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>{quota.quota_code}</p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className={cn('font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>{formatNumber(quota.value)}</p>
+                                <p className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
+                                  {quota.adjustable ? '🔧' : '🔒'}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </CollapsibleSection>
+    )
   }
 
   return (
@@ -997,258 +1060,20 @@ function QuotasTab({ model }) {
           </div>
         </div>
 
-        {/* Two-column grid layout matching Technical Specs */}
+        {/* Two-column grid layout */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Left Column */}
           <div className="space-y-4">
-            {/* On-Demand Quotas */}
-            {categorizedQuotas['on_demand'] && Object.keys(categorizedQuotas['on_demand']).length > 0 && (
-              <CollapsibleSection title="On-Demand Inference" icon={Zap} defaultExpanded={true}>
-                <div className="space-y-2">
-                  {getUniqueQuotaTypes(categorizedQuotas['on_demand']).map((quotaType, idx) => (
-                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{quotaType.name}</p>
-                          <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{quotaType.code}</p>
-                        </div>
-                        <Badge variant={quotaType.adjustable ? 'success' : 'secondary'} className="text-[10px]">
-                          {quotaType.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(groupRegionsByGeo(quotaType.regions)).map(([geo, regions]) => (
-                          <Tooltip key={geo} delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="text-[10px] cursor-default">
-                                {geoInfo[geo]?.icon} {regions.length} regions
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-xs">
-                              <div className="space-y-1">
-                                {regions.map(r => (
-                                  <p key={r.region} className="text-xs">
-                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">{formatNumber(r.value)}</span>
-                                  </p>
-                                ))}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CollapsibleSection>
-            )}
-
-            {/* Batch Quotas */}
-            {categorizedQuotas['batch'] && Object.keys(categorizedQuotas['batch']).length > 0 && (
-              <CollapsibleSection title="Batch Inference" icon={Layers} defaultExpanded={true}>
-                <div className="space-y-2">
-                  {getUniqueQuotaTypes(categorizedQuotas['batch']).map((quotaType, idx) => (
-                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{quotaType.name}</p>
-                          <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{quotaType.code}</p>
-                        </div>
-                        <Badge variant={quotaType.adjustable ? 'success' : 'secondary'} className="text-[10px]">
-                          {quotaType.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(groupRegionsByGeo(quotaType.regions)).map(([geo, regions]) => (
-                          <Tooltip key={geo} delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="text-[10px] cursor-default">
-                                {geoInfo[geo]?.icon} {regions.length} regions
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-xs">
-                              <div className="space-y-1">
-                                {regions.map(r => (
-                                  <p key={r.region} className="text-xs">
-                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">{formatNumber(r.value)}</span>
-                                  </p>
-                                ))}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CollapsibleSection>
-            )}
+            {renderCategorySection('on_demand', 'On-Demand Inference', Zap)}
+            {renderCategorySection('batch', 'Batch Inference', Layers)}
           </div>
 
           {/* Right Column */}
           <div className="space-y-4">
-            {/* Cross-Region Quotas */}
-            {categorizedQuotas['cross_region'] && Object.keys(categorizedQuotas['cross_region']).length > 0 && (
-              <CollapsibleSection title="Cross-Region Inference" icon={Globe} defaultExpanded={true}>
-                <div className="space-y-2">
-                  {getUniqueQuotaTypes(categorizedQuotas['cross_region']).map((quotaType, idx) => (
-                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{quotaType.name}</p>
-                          <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{quotaType.code}</p>
-                        </div>
-                        <Badge variant={quotaType.adjustable ? 'success' : 'secondary'} className="text-[10px]">
-                          {quotaType.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(groupRegionsByGeo(quotaType.regions)).map(([geo, regions]) => (
-                          <Tooltip key={geo} delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="text-[10px] cursor-default">
-                                {geoInfo[geo]?.icon} {regions.length} regions
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-xs">
-                              <div className="space-y-1">
-                                {regions.map(r => (
-                                  <p key={r.region} className="text-xs">
-                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">{formatNumber(r.value)}</span>
-                                  </p>
-                                ))}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CollapsibleSection>
-            )}
-
-            {/* Provisioned Quotas */}
-            {categorizedQuotas['provisioned'] && Object.keys(categorizedQuotas['provisioned']).length > 0 && (
-              <CollapsibleSection title="Provisioned Throughput" icon={Server} defaultExpanded={true}>
-                <div className="space-y-2">
-                  {getUniqueQuotaTypes(categorizedQuotas['provisioned']).map((quotaType, idx) => (
-                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{quotaType.name}</p>
-                          <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{quotaType.code}</p>
-                        </div>
-                        <Badge variant={quotaType.adjustable ? 'success' : 'secondary'} className="text-[10px]">
-                          {quotaType.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(groupRegionsByGeo(quotaType.regions)).map(([geo, regions]) => (
-                          <Tooltip key={geo} delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="text-[10px] cursor-default">
-                                {geoInfo[geo]?.icon} {regions.length} regions
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-xs">
-                              <div className="space-y-1">
-                                {regions.map(r => (
-                                  <p key={r.region} className="text-xs">
-                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">{formatNumber(r.value)}</span>
-                                  </p>
-                                ))}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CollapsibleSection>
-            )}
-
-            {/* Customization Quotas */}
-            {categorizedQuotas['customization'] && Object.keys(categorizedQuotas['customization']).length > 0 && (
-              <CollapsibleSection title="Customization" icon={Cpu} defaultExpanded={true}>
-                <div className="space-y-2">
-                  {getUniqueQuotaTypes(categorizedQuotas['customization']).map((quotaType, idx) => (
-                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{quotaType.name}</p>
-                          <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{quotaType.code}</p>
-                        </div>
-                        <Badge variant={quotaType.adjustable ? 'success' : 'secondary'} className="text-[10px]">
-                          {quotaType.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(groupRegionsByGeo(quotaType.regions)).map(([geo, regions]) => (
-                          <Tooltip key={geo} delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="text-[10px] cursor-default">
-                                {geoInfo[geo]?.icon} {regions.length} regions
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-xs">
-                              <div className="space-y-1">
-                                {regions.map(r => (
-                                  <p key={r.region} className="text-xs">
-                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">{formatNumber(r.value)}</span>
-                                  </p>
-                                ))}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CollapsibleSection>
-            )}
-
-            {/* General Quotas */}
-            {categorizedQuotas['general'] && Object.keys(categorizedQuotas['general']).length > 0 && (
-              <CollapsibleSection title="General" icon={FileText} defaultExpanded={true}>
-                <div className="space-y-2">
-                  {getUniqueQuotaTypes(categorizedQuotas['general']).map((quotaType, idx) => (
-                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{quotaType.name}</p>
-                          <p className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>{quotaType.code}</p>
-                        </div>
-                        <Badge variant={quotaType.adjustable ? 'success' : 'secondary'} className="text-[10px]">
-                          {quotaType.adjustable ? '🔧 Adjustable' : '🔒 Fixed'}
-                        </Badge>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(groupRegionsByGeo(quotaType.regions)).map(([geo, regions]) => (
-                          <Tooltip key={geo} delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="text-[10px] cursor-default">
-                                {geoInfo[geo]?.icon} {regions.length} regions
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-xs">
-                              <div className="space-y-1">
-                                {regions.map(r => (
-                                  <p key={r.region} className="text-xs">
-                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">{formatNumber(r.value)}</span>
-                                  </p>
-                                ))}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CollapsibleSection>
-            )}
+            {renderCategorySection('cross_region', 'Cross-Region Inference', Globe)}
+            {renderCategorySection('provisioned', 'Provisioned Throughput', Server)}
+            {renderCategorySection('customization', 'Customization', Cpu)}
+            {renderCategorySection('general', 'General', FileText)}
           </div>
         </div>
       </div>
@@ -1419,63 +1244,9 @@ const pricingGroupInfo = {
 
 function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [expandedGeos, setExpandedGeos] = useState({})
   const { theme } = useTheme()
   const isLight = theme === 'light'
-
-  // Get pricing from new source
-  const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
-  const fullPricing = pricingResult?.fullPricing
-
-  // Fallback to model's embedded pricing
-  const legacyPricing = model.model_pricing || model.comprehensive_pricing || {}
-  const legacyByRegion = legacyPricing.by_region || {}
-
-  // Process pricing structure
-  const pricingByGroup = {}
-  let allRegions = []
-
-  if (fullPricing?.regions) {
-    allRegions = Object.keys(fullPricing.regions)
-    for (const [region, regionData] of Object.entries(fullPricing.regions)) {
-      if (!regionData?.pricing_groups) continue
-      for (const [groupName, items] of Object.entries(regionData.pricing_groups)) {
-        if (!pricingByGroup[groupName]) pricingByGroup[groupName] = {}
-        pricingByGroup[groupName][region] = items
-      }
-    }
-  } else if (Object.keys(legacyByRegion).length > 0) {
-    allRegions = Object.keys(legacyByRegion)
-    for (const region of allRegions) {
-      const regionData = legacyByRegion[region]
-      const { onDemand, provisioned } = extractRegionPricing(regionData)
-      if (onDemand.length > 0) {
-        if (!pricingByGroup['On-Demand']) pricingByGroup['On-Demand'] = {}
-        pricingByGroup['On-Demand'][region] = onDemand.map(p => ({
-          description: p.description,
-          price_per_thousand: p.price,
-          unit: p.unit
-        }))
-      }
-      if (provisioned.length > 0) {
-        if (!pricingByGroup['Provisioned Throughput']) pricingByGroup['Provisioned Throughput'] = {}
-        pricingByGroup['Provisioned Throughput'][region] = provisioned.map(p => ({
-          description: p.description,
-          price_per_thousand: p.price,
-          unit: p.unit
-        }))
-      }
-    }
-  }
-
-  const pricingGroupOrder = ['On-Demand', 'On-Demand Long Context', 'On-Demand Global', 'Batch', 'Batch Long Context', 'Batch Global', 'Provisioned Throughput', 'Custom Model']
-  const pricingGroups = Object.keys(pricingByGroup).sort((a, b) => {
-    const indexA = pricingGroupOrder.indexOf(a)
-    const indexB = pricingGroupOrder.indexOf(b)
-    if (indexA !== -1 && indexB !== -1) return indexA - indexB
-    if (indexA !== -1) return -1
-    if (indexB !== -1) return 1
-    return a.localeCompare(b)
-  })
 
   const geoInfo = {
     'US': { icon: '🇺🇸', name: 'United States' },
@@ -1487,6 +1258,8 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
     'Other': { icon: '📍', name: 'Other' }
   }
 
+  const geoOrder = ['US', 'EU', 'APAC', 'CA', 'SA', 'ME', 'Other']
+
   const getGeoForRegion = (region) => {
     if (region.startsWith('us-')) return 'US'
     if (region.startsWith('eu-')) return 'EU'
@@ -1497,55 +1270,175 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
     return 'Other'
   }
 
-  // Group pricing items by description across regions, with search filter
-  const getPricingItems = (groupData) => {
-    const items = new Map()
-    const query = searchQuery.toLowerCase()
-    for (const [region, regionItems] of Object.entries(groupData)) {
-      for (const item of regionItems) {
-        // Apply search filter
-        if (query) {
-          const regionName = (regionDisplayNames[region] || '').toLowerCase()
-          const geo = getGeoForRegion(region).toLowerCase()
-          const geoName = (geoInfo[getGeoForRegion(region)]?.name || '').toLowerCase()
-          const description = (item.description || item.dimension || '').toLowerCase()
-          const matches = region.toLowerCase().includes(query) ||
-                         regionName.includes(query) ||
-                         geo.includes(query) ||
-                         geoName.includes(query) ||
-                         description.includes(query)
-          if (!matches) continue
-        }
-        const key = item.description || item.dimension || 'Price'
-        if (!items.has(key)) {
-          items.set(key, { description: key, regions: [] })
-        }
-        items.get(key).regions.push({
-          region,
-          price: item.price_per_thousand ?? item.price_per_unit,
-          unit: item.unit_label || (item.price_per_thousand != null ? '/1K tokens' : `/${item.unit || 'unit'}`)
-        })
+  const toggleGeo = (key) => setExpandedGeos(prev => ({ ...prev, [key]: !prev[key] }))
+
+  // Get pricing from new source
+  const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
+  const fullPricing = pricingResult?.fullPricing
+
+  // Fallback to model's embedded pricing
+  const legacyPricing = model.model_pricing || model.comprehensive_pricing || {}
+  const legacyByRegion = legacyPricing.by_region || {}
+
+  // Process pricing structure: group -> geo -> region -> items
+  const pricingByGroupGeoRegion = {}
+  let allRegions = []
+
+  if (fullPricing?.regions) {
+    allRegions = Object.keys(fullPricing.regions)
+    for (const [region, regionData] of Object.entries(fullPricing.regions)) {
+      if (!regionData?.pricing_groups) continue
+      const geo = getGeoForRegion(region)
+      for (const [groupName, items] of Object.entries(regionData.pricing_groups)) {
+        if (!pricingByGroupGeoRegion[groupName]) pricingByGroupGeoRegion[groupName] = {}
+        if (!pricingByGroupGeoRegion[groupName][geo]) pricingByGroupGeoRegion[groupName][geo] = {}
+        pricingByGroupGeoRegion[groupName][geo][region] = items
       }
     }
-    return Array.from(items.values())
+  } else if (Object.keys(legacyByRegion).length > 0) {
+    allRegions = Object.keys(legacyByRegion)
+    for (const region of allRegions) {
+      const regionData = legacyByRegion[region]
+      const { onDemand, provisioned } = extractRegionPricing(regionData)
+      const geo = getGeoForRegion(region)
+      if (onDemand.length > 0) {
+        if (!pricingByGroupGeoRegion['On-Demand']) pricingByGroupGeoRegion['On-Demand'] = {}
+        if (!pricingByGroupGeoRegion['On-Demand'][geo]) pricingByGroupGeoRegion['On-Demand'][geo] = {}
+        pricingByGroupGeoRegion['On-Demand'][geo][region] = onDemand.map(p => ({
+          description: p.description,
+          price_per_thousand: p.price,
+          unit: p.unit
+        }))
+      }
+      if (provisioned.length > 0) {
+        if (!pricingByGroupGeoRegion['Provisioned Throughput']) pricingByGroupGeoRegion['Provisioned Throughput'] = {}
+        if (!pricingByGroupGeoRegion['Provisioned Throughput'][geo]) pricingByGroupGeoRegion['Provisioned Throughput'][geo] = {}
+        pricingByGroupGeoRegion['Provisioned Throughput'][geo][region] = provisioned.map(p => ({
+          description: p.description,
+          price_per_thousand: p.price,
+          unit: p.unit
+        }))
+      }
+    }
   }
 
-  // Group regions by geo
-  const groupRegionsByGeo = (regions) => {
-    const byGeo = {}
-    for (const r of regions) {
-      const geo = getGeoForRegion(r.region)
-      if (!byGeo[geo]) byGeo[geo] = []
-      byGeo[geo].push(r)
-    }
-    return byGeo
-  }
+  const pricingGroupOrder = ['On-Demand', 'On-Demand Long Context', 'On-Demand Global', 'Batch', 'Batch Long Context', 'Batch Global', 'Provisioned Throughput', 'Custom Model']
+  const pricingGroups = Object.keys(pricingByGroupGeoRegion).sort((a, b) => {
+    const indexA = pricingGroupOrder.indexOf(a)
+    const indexB = pricingGroupOrder.indexOf(b)
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB
+    if (indexA !== -1) return -1
+    if (indexB !== -1) return 1
+    return a.localeCompare(b)
+  })
 
   if (allRegions.length === 0) {
     return (
       <div className={cn('text-center py-8', isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>
         <p>No pricing information available</p>
       </div>
+    )
+  }
+
+  // Filter pricing by search
+  const filterPricing = (geoData) => {
+    if (!searchQuery) return geoData
+    const query = searchQuery.toLowerCase()
+    const filtered = {}
+    for (const [geo, regions] of Object.entries(geoData)) {
+      const geoName = (geoInfo[geo]?.name || '').toLowerCase()
+      for (const [region, regionItems] of Object.entries(regions)) {
+        const regionName = (regionDisplayNames[region] || '').toLowerCase()
+        const matchingItems = regionItems.filter(item => {
+          const description = (item.description || item.dimension || '').toLowerCase()
+          return region.toLowerCase().includes(query) ||
+                 regionName.includes(query) ||
+                 geo.toLowerCase().includes(query) ||
+                 geoName.includes(query) ||
+                 description.includes(query)
+        })
+        if (matchingItems.length > 0) {
+          if (!filtered[geo]) filtered[geo] = {}
+          filtered[geo][region] = matchingItems
+        }
+      }
+    }
+    return filtered
+  }
+
+  // Render a pricing group section with geo grouping
+  const renderPricingGroupSection = (groupName, icon) => {
+    const groupData = pricingByGroupGeoRegion[groupName]
+    if (!groupData || Object.keys(groupData).length === 0) return null
+
+    const filteredData = filterPricing(groupData)
+    if (Object.keys(filteredData).length === 0) return null
+
+    return (
+      <CollapsibleSection title={pricingGroupInfo[groupName]?.label || groupName} icon={icon} defaultExpanded={groupName === 'On-Demand'}>
+        <div className="space-y-2">
+          {geoOrder.map(geo => {
+            const geoData = filteredData[geo]
+            if (!geoData || Object.keys(geoData).length === 0) return null
+
+            const regionCount = Object.keys(geoData).length
+            const itemCount = Object.values(geoData).reduce((sum, items) => sum + items.length, 0)
+            const geoKey = `${groupName}_${geo}`
+            const isGeoExpanded = expandedGeos[geoKey]
+
+            return (
+              <div key={geo} className={cn('rounded-lg border overflow-hidden', isLight ? 'bg-stone-50/50 border-stone-200' : 'bg-[#25262b]/50 border-[#373a40]')}>
+                <button
+                  className={cn('w-full flex items-center justify-between p-2.5 transition-colors', isLight ? 'hover:bg-stone-100' : 'hover:bg-[#373a40]')}
+                  onClick={() => toggleGeo(geoKey)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{geoInfo[geo]?.icon}</span>
+                    <span className={cn('font-medium text-sm', isLight ? 'text-stone-800' : 'text-white')}>{geoInfo[geo]?.name}</span>
+                    <Badge variant="secondary" className="text-[10px]">{regionCount} regions</Badge>
+                    <Badge variant="outline" className="text-[10px]">{itemCount} items</Badge>
+                  </div>
+                  {isGeoExpanded ? (
+                    <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')} />
+                  ) : (
+                    <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')} />
+                  )}
+                </button>
+                {isGeoExpanded && (
+                  <div className={cn('px-2.5 pb-2.5 space-y-2 border-t', isLight ? 'border-stone-200' : 'border-[#373a40]')}>
+                    {Object.entries(geoData).sort().map(([region, regionItems]) => (
+                      <div key={region} className={cn('rounded-lg p-2 mt-2', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+                          <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>{regionDisplayNames[region] || region}</span>
+                          <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>({region})</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {regionItems.map((item, idx) => {
+                            const price = item.price_per_thousand ?? item.price_per_unit
+                            const unit = item.unit_label || (item.price_per_thousand != null ? '/1K tokens' : `/${item.unit || 'unit'}`)
+                            return (
+                              <div key={idx} className="flex justify-between items-start gap-2 text-xs">
+                                <p className={cn('flex-1 min-w-0 truncate', isLight ? 'text-stone-700' : 'text-[#c0c1c5]')}>{item.description || item.dimension || 'Price'}</p>
+                                <div className="text-right flex-shrink-0">
+                                  <span className={cn('font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
+                                    ${typeof price === 'number' ? price.toFixed(6) : price || 'N/A'}
+                                  </span>
+                                  <span className={cn('text-[10px] ml-1', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>{unit}</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </CollapsibleSection>
     )
   }
 
@@ -1572,126 +1465,26 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
 
         {/* Two-column grid layout matching Technical Specs */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* Left Column */}
+          {/* Left Column - On-Demand Pricing */}
           <div className="space-y-4">
-            {/* On-Demand Pricing */}
             {onDemandGroups.map(groupName => (
-              <CollapsibleSection key={groupName} title={pricingGroupInfo[groupName]?.label || groupName} icon={Zap} defaultExpanded={groupName === 'On-Demand'}>
-                <div className="space-y-2">
-                  {getPricingItems(pricingByGroup[groupName]).map((item, idx) => (
-                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{item.description}</p>
-                        <p className={cn('text-xs font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
-                          ${item.regions[0]?.price?.toFixed(6) || 'N/A'}
-                          <span className={cn('font-normal ml-1', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>{item.regions[0]?.unit}</span>
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(groupRegionsByGeo(item.regions)).map(([geo, regions]) => (
-                          <Tooltip key={geo} delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="text-[10px] cursor-default">
-                                {geoInfo[geo]?.icon} {regions.length} regions
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-xs">
-                              <div className="space-y-1">
-                                {regions.map(r => (
-                                  <p key={r.region} className="text-xs">
-                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">${r.price?.toFixed(6)}</span>
-                                  </p>
-                                ))}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CollapsibleSection>
+              <div key={groupName}>
+                {renderPricingGroupSection(groupName, Zap)}
+              </div>
             ))}
           </div>
 
-          {/* Right Column */}
+          {/* Right Column - Batch and Other Pricing */}
           <div className="space-y-4">
-            {/* Batch Pricing */}
             {batchGroups.map(groupName => (
-              <CollapsibleSection key={groupName} title={pricingGroupInfo[groupName]?.label || groupName} icon={Layers} defaultExpanded={true}>
-                <div className="space-y-2">
-                  {getPricingItems(pricingByGroup[groupName]).map((item, idx) => (
-                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{item.description}</p>
-                        <p className={cn('text-xs font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
-                          ${item.regions[0]?.price?.toFixed(6) || 'N/A'}
-                          <span className={cn('font-normal ml-1', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>{item.regions[0]?.unit}</span>
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(groupRegionsByGeo(item.regions)).map(([geo, regions]) => (
-                          <Tooltip key={geo} delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="text-[10px] cursor-default">
-                                {geoInfo[geo]?.icon} {regions.length} regions
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-xs">
-                              <div className="space-y-1">
-                                {regions.map(r => (
-                                  <p key={r.region} className="text-xs">
-                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">${r.price?.toFixed(6)}</span>
-                                  </p>
-                                ))}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CollapsibleSection>
+              <div key={groupName}>
+                {renderPricingGroupSection(groupName, Layers)}
+              </div>
             ))}
-
-            {/* Other Pricing (Provisioned, Custom, etc.) */}
             {otherGroups.map(groupName => (
-              <CollapsibleSection key={groupName} title={pricingGroupInfo[groupName]?.label || groupName} icon={Server} defaultExpanded={true}>
-                <div className="space-y-2">
-                  {getPricingItems(pricingByGroup[groupName]).map((item, idx) => (
-                    <div key={idx} className={cn('rounded-lg p-2.5', isLight ? 'bg-white border border-stone-200' : 'bg-[#1a1b1e] border border-[#373a40]')}>
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <p className={cn('text-xs font-medium', isLight ? 'text-stone-800' : 'text-[#e4e5e7]')}>{item.description}</p>
-                        <p className={cn('text-xs font-semibold', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
-                          ${item.regions[0]?.price?.toFixed(6) || 'N/A'}
-                          <span className={cn('font-normal ml-1', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>{item.regions[0]?.unit}</span>
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.entries(groupRegionsByGeo(item.regions)).map(([geo, regions]) => (
-                          <Tooltip key={geo} delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="text-[10px] cursor-default">
-                                {geoInfo[geo]?.icon} {regions.length} regions
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-xs">
-                              <div className="space-y-1">
-                                {regions.map(r => (
-                                  <p key={r.region} className="text-xs">
-                                    <span className="font-mono">{r.region}</span>: <span className="font-semibold text-emerald-400">${r.price?.toFixed(6)}</span>
-                                  </p>
-                                ))}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CollapsibleSection>
+              <div key={groupName}>
+                {renderPricingGroupSection(groupName, Server)}
+              </div>
             ))}
           </div>
         </div>
@@ -1717,9 +1510,11 @@ export function ModelCardExpanded({
 
   if (!model) return null
 
-  const isActive = model.model_status === 'ACTIVE'
+  const isActive = model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE'
 
   const contextWindow = model.converse_data?.context_window
+  const extendedContext = model.converse_data?.extended_context
+  const hasExtendedContext = model.converse_data?.has_extended_context
   const maxOutput = model.converse_data?.max_output_tokens
   const regions = model.regions_available || []
   const capabilities = model.model_capabilities || []
@@ -1843,7 +1638,15 @@ export function ModelCardExpanded({
                   <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Context Window</p>
                   <p className={cn('text-xl font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
                     {contextWindow ? (contextWindow >= 1000000 ? `${(contextWindow/1000000).toFixed(1)}M` : contextWindow >= 1000 ? `${(contextWindow/1000).toFixed(0)}K` : contextWindow) : 'N/A'}
+                    {hasExtendedContext && extendedContext && (
+                      <span className={cn('text-sm font-normal ml-1', isLight ? 'text-amber-500' : 'text-emerald-400')}>
+                        / {extendedContext >= 1000000 ? `${(extendedContext/1000000).toFixed(0)}M` : `${(extendedContext/1000).toFixed(0)}K`}
+                      </span>
+                    )}
                   </p>
+                  {hasExtendedContext && (
+                    <p className={cn('text-[10px] mt-1', isLight ? 'text-amber-600' : 'text-emerald-500')}>Extended context (beta)</p>
+                  )}
                 </div>
                 <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-[#25262b] border-[#373a40]')}>
                   <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Max Output</p>

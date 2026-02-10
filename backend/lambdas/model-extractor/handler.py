@@ -2,15 +2,23 @@
 Model Extractor Lambda
 
 Extracts foundation models from a single AWS region using the Bedrock API.
+Also fetches console metadata via direct REST API with SigV4 signing to
+extract context window, descriptions, languages, and categories.
 Outputs models in the correct snake_case schema matching the original collector.
 """
 
+import json
 import logging
 import os
+import re
 import time
 from typing import Any
+from urllib.request import urlopen, Request
+from urllib.error import URLError, HTTPError
 
 import boto3
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
 from botocore.exceptions import ClientError
 
 from shared import (
@@ -46,6 +54,148 @@ def get_bedrock_client(region: str):
 
 def get_s3_client():
     return boto3.client('s3', config=RETRY_CONFIG)
+
+
+def parse_context_window_string(value: str) -> int | None:
+    """
+    Parse context window strings from consoleIDEMetadata into integers.
+
+    Examples:
+        "200K" -> 200000
+        "1M (beta)" -> 1000000
+        "256K" -> 256000
+        "128000" -> 128000
+        "1,000,000" -> 1000000
+    """
+    if not value or not isinstance(value, str):
+        return None
+
+    value = value.strip()
+
+    # Try pure numeric (with optional commas)
+    clean = value.replace(',', '')
+    try:
+        return int(clean)
+    except ValueError:
+        pass
+
+    # Match patterns like "200K", "1M", "1M (beta)", "256K tokens"
+    match = re.match(r'^([\d.]+)\s*([KkMm])', value)
+    if match:
+        num = float(match.group(1))
+        unit = match.group(2).upper()
+        if unit == 'K':
+            return int(num * 1000)
+        elif unit == 'M':
+            return int(num * 1000000)
+
+    return None
+
+
+def fetch_console_metadata(region: str) -> dict:
+    """
+    Fetch extended model metadata via direct Bedrock REST API with SigV4 signing.
+
+    Uses the x-console-consumer header to get consoleIDEMetadata which includes
+    context windows, descriptions, languages, and categories for ~53 models.
+
+    Returns dict mapping model_id -> metadata dict. Returns empty dict on any error.
+    """
+    try:
+        session = boto3.Session(region_name=region)
+        credentials = session.get_credentials()
+        if not credentials:
+            logger.warning(f"No credentials available for console metadata fetch in {region}")
+            return {}
+
+        frozen_credentials = credentials.get_frozen_credentials()
+        url = f'https://bedrock.{region}.amazonaws.com/foundation-models'
+
+        headers = {
+            'Content-Type': 'application/json',
+            'x-console-consumer': 'true',
+        }
+
+        request = AWSRequest(method='GET', url=url, headers=headers)
+        SigV4Auth(frozen_credentials, 'bedrock', region).add_auth(request)
+
+        # Build urllib request with signed headers
+        http_request = Request(url, headers=dict(request.headers), method='GET')
+        with urlopen(http_request, timeout=30) as response:
+            data = json.loads(response.read().decode('utf-8'))
+
+        model_summaries = data.get('modelSummaries', [])
+        metadata_by_id = {}
+
+        for model in model_summaries:
+            model_id = model.get('modelId', '')
+            if not model_id:
+                continue
+
+            meta = {}
+
+            # Parse consoleIDEMetadata (JSON string field)
+            console_ide_raw = model.get('consoleIDEMetadata')
+            if console_ide_raw and isinstance(console_ide_raw, str):
+                try:
+                    console_ide = json.loads(console_ide_raw)
+                    desc = console_ide.get('description', {})
+
+                    # Context window
+                    max_cw_str = desc.get('maxContextWindow')
+                    if max_cw_str:
+                        parsed = parse_context_window_string(str(max_cw_str))
+                        if parsed:
+                            meta['max_context_window'] = parsed
+
+                    # Descriptions
+                    if desc.get('fullDescription'):
+                        meta['description'] = desc['fullDescription']
+                    if desc.get('shortDescription'):
+                        meta['short_description'] = desc['shortDescription']
+
+                    # Languages
+                    languages = desc.get('languages')
+                    if languages and isinstance(languages, list):
+                        meta['languages'] = languages
+
+                    # Categories
+                    categories = desc.get('categories')
+                    if categories and isinstance(categories, list):
+                        meta['categories'] = categories
+
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            # Also extract from description object (available without console header for some)
+            desc_obj = model.get('description', {})
+            if isinstance(desc_obj, dict):
+                if 'max_context_window' not in meta:
+                    max_cw_str = desc_obj.get('maxContextWindow')
+                    if max_cw_str:
+                        parsed = parse_context_window_string(str(max_cw_str))
+                        if parsed:
+                            meta['max_context_window'] = parsed
+
+            # Extract max output tokens from converse object
+            converse = model.get('converse', {})
+            if isinstance(converse, dict):
+                max_tokens = converse.get('maxTokensMaximum')
+                if max_tokens and isinstance(max_tokens, (int, float)):
+                    meta['max_output_tokens'] = int(max_tokens)
+
+            if meta:
+                metadata_by_id[model_id] = meta
+
+        logger.info(f"Fetched console metadata for {len(metadata_by_id)} models from {region}")
+        return metadata_by_id
+
+    except (URLError, HTTPError) as e:
+        logger.warning(f"Failed to fetch console metadata from {region}: {e}")
+        return {}
+    except Exception as e:
+        logger.warning(f"Unexpected error fetching console metadata from {region}: {e}")
+        return {}
 
 
 def get_documentation_links(model_id: str, provider: str) -> dict:
@@ -123,6 +273,11 @@ def extract_models(bedrock_client: Any, region: str) -> list[dict]:
     """
     Extract all foundation models from Bedrock API.
 
+    Makes two calls:
+    1. Standard boto3 list_foundation_models() for core model data
+    2. Direct REST API with x-console-consumer header for extended metadata
+       (context windows, descriptions, languages, categories)
+
     Returns list of model dictionaries with correct snake_case schema.
     """
     models = []
@@ -148,6 +303,18 @@ def extract_models(bedrock_client: Any, region: str) -> list[dict]:
 
     except Exception as e:
         logger.warning(f"Unexpected error extracting models in {region}: {e}")
+
+    # Fetch console metadata (context windows, descriptions, etc.)
+    # This is a separate call that gracefully degrades on failure
+    console_metadata = fetch_console_metadata(region)
+    if console_metadata:
+        attached_count = 0
+        for model in models:
+            model_id = model.get('model_id', '')
+            if model_id in console_metadata:
+                model['console_metadata'] = console_metadata[model_id]
+                attached_count += 1
+        logger.info(f"Attached console metadata to {attached_count}/{len(models)} models in {region}")
 
     return models
 

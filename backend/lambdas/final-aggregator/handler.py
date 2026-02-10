@@ -93,6 +93,40 @@ def get_size_category(context_window: int) -> dict:
         return {"category": "Small", "color": "#F59E0B", "tier": 1}
 
 
+def get_context_window_from_config(model_id: str) -> dict:
+    """
+    Get context window specs from config for a model.
+
+    Uses pattern matching to find the best match in context_window_specs.
+    Returns dict with context window data or empty dict if not found.
+    """
+    config = _get_config()
+    context_specs = config.config.get('model_configuration', {}).get('context_window_specs', {})
+
+    # Remove version suffix for matching (e.g., anthropic.claude-opus-4-6-v1:0 -> anthropic.claude-opus-4-6)
+    model_id_clean = model_id.lower()
+    # Remove common suffixes
+    for suffix in ['-v1:0', '-v1', '-v2:0', '-v2', ':0', ':1']:
+        if model_id_clean.endswith(suffix):
+            model_id_clean = model_id_clean[:-len(suffix)]
+
+    # Try exact match first
+    if model_id_clean in context_specs:
+        return context_specs[model_id_clean]
+
+    # Try prefix matching (longest match wins)
+    best_match = None
+    best_match_len = 0
+    for pattern, specs in context_specs.items():
+        if pattern.startswith('_'):  # Skip comment keys
+            continue
+        if model_id_clean.startswith(pattern) and len(pattern) > best_match_len:
+            best_match = specs
+            best_match_len = len(pattern)
+
+    return best_match or {}
+
+
 def build_cross_region_inference(model_id: str, features_by_region: dict) -> dict:
     """Build cross-region inference data for a model.
 
@@ -430,14 +464,64 @@ def transform_model_to_schema(
     doc_links = enriched_model.get('documentation_links', model.get('documentation_links', {}))
 
     # Build token/converse data (upstream uses snake_case)
-    # Use token_specs first, fall back to enriched model's converse_data or model's existing data
+    # 4-tier priority: 1) Console API metadata, 2) Model ID variants,
+    # 3) Config (extended fields always, context as fallback), 4) LiteLLM
     existing_converse = enriched_model.get('converse_data', model.get('converse_data', {}))
 
-    context_window = token_specs.get('context_window')
-    max_output = token_specs.get('max_output_tokens')
-    source = token_specs.get('source')
+    context_window = None
+    max_output = None
+    source = None
+    extended_context = None
+    extended_context_beta = None
+    extended_output = None
+    extended_output_beta = None
 
-    # Fall back to existing converse_data values if token_specs doesn't have them
+    # --- TIER 1: Console API metadata (from model-extractor REST call) ---
+    console_meta = model.get('console_metadata', {})
+    if console_meta:
+        api_context = console_meta.get('max_context_window')
+        if api_context and isinstance(api_context, (int, float)):
+            context_window = int(api_context)
+            source = 'bedrock_console_api'
+        api_output = console_meta.get('max_output_tokens')
+        if api_output and isinstance(api_output, (int, float)):
+            max_output = int(api_output)
+
+    # --- TIER 2: Model ID size variant (from model-merger) ---
+    if context_window is None:
+        variant_cw = model.get('variant_context_window')
+        if variant_cw and isinstance(variant_cw, (int, float)):
+            context_window = int(variant_cw)
+            source = 'model_id_variant'
+
+    # --- TIER 3: profiler-config.json ---
+    config_specs = get_context_window_from_config(model_id)
+    if config_specs:
+        # Use standard_context only if Tiers 1-2 didn't provide context_window
+        if context_window is None:
+            context_window = config_specs.get('standard_context')
+            source = config_specs.get('source', 'config')
+
+        # Use max_output from config if not yet set
+        if max_output is None:
+            max_output = config_specs.get('max_output')
+
+        # Extended fields: ALWAYS apply from config regardless of tier
+        # These fields only exist in config (Claude dual context, extended output)
+        extended_context = config_specs.get('extended_context')
+        extended_context_beta = config_specs.get('extended_context_beta')
+        extended_output = config_specs.get('extended_output')
+        extended_output_beta = config_specs.get('extended_output_beta')
+
+    # --- TIER 4: LiteLLM token_specs (last resort) ---
+    if context_window is None:
+        context_window = token_specs.get('context_window')
+    if max_output is None:
+        max_output = token_specs.get('max_output_tokens')
+    if source is None and token_specs.get('source'):
+        source = token_specs.get('source')
+
+    # --- Fallback: existing converse_data ---
     if context_window is None:
         context_window = existing_converse.get('context_window')
     if max_output is None:
@@ -456,6 +540,21 @@ def transform_model_to_schema(
         'use_cases_count': len(use_cases),
         'regions_count': len(regional_availability)
     }
+
+    # Add extended context info if available
+    if extended_context:
+        converse_data['extended_context'] = extended_context
+        converse_data['has_extended_context'] = True
+        if extended_context_beta:
+            converse_data['extended_context_beta'] = extended_context_beta
+    else:
+        converse_data['has_extended_context'] = False
+
+    # Add extended output info if available
+    if extended_output:
+        converse_data['extended_output'] = extended_output
+        if extended_output_beta:
+            converse_data['extended_output_beta'] = extended_output_beta
 
     # Build cross-region inference
     cross_region = build_cross_region_inference(model_id, features_by_region)

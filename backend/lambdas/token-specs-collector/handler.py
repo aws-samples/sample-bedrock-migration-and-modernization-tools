@@ -53,7 +53,11 @@ def write_to_s3(s3_client: Any, bucket: str, key: str, data: dict) -> None:
 def fetch_litellm_data() -> dict:
     """Fetch model data from LiteLLM GitHub repository."""
     try:
-        request = Request(LITELLM_MODEL_DB_URL, headers={'User-Agent': 'BedrockProfiler/1.0'})
+        request = Request(LITELLM_MODEL_DB_URL, headers={
+            'User-Agent': 'BedrockProfiler/1.0',
+            'Cache-Control': 'no-cache, no-store',
+            'Pragma': 'no-cache'
+        })
         with urlopen(request, timeout=30) as response:
             data = json.loads(response.read().decode('utf-8'))
             logger.info(f"Fetched {len(data)} models from LiteLLM")
