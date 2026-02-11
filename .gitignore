@@ -60,3 +60,7 @@ cdk/cdk.json
 cdk/cdk.out/
 cdk/*.js
 cdk/*.d.ts
+
+# Runtime data files (fetched from S3/CloudFront, not source-controlled)
+frontend/public/bedrock_models.json
+frontend/public/bedrock_pricing.json
