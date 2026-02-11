@@ -27,7 +27,7 @@ function ActiveFilterChip({ label, onRemove, isLight }) {
     <span className={cn(
       'inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium',
       isLight
-        ? 'bg-amber-100 text-amber-800'
+        ? 'bg-amber-700 text-white'
         : 'bg-[#1A9E7A]/15 text-[#1A9E7A]'
     )}>
       {label}
@@ -35,7 +35,7 @@ function ActiveFilterChip({ label, onRemove, isLight }) {
         onClick={onRemove}
         className={cn(
           'ml-0.5 rounded-full p-0.5 transition-colors',
-          isLight ? 'hover:bg-amber-200' : 'hover:bg-[#1A9E7A]/25'
+          isLight ? 'hover:bg-amber-800' : 'hover:bg-[#1A9E7A]/25'
         )}
       >
         <X className="h-3 w-3" />

@@ -92,6 +92,13 @@ const modalityLabels = {
   SPEECH: 'Speech',
 }
 
+// Format snake_case identifiers to Title Case (e.g. "complex_analysis" → "Complex Analysis")
+function formatLabel(str) {
+  if (!str) return str
+  if (str.includes('_')) return str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  return str
+}
+
 function formatNumber(num) {
   if (typeof num !== 'number' || isNaN(num)) return 'N/A'
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
@@ -699,6 +706,7 @@ function SpecsTab({ model }) {
   const outputModalities = model.model_modalities?.output_modalities || []
   const capabilities = model.model_capabilities || []
   const useCases = model.model_use_cases || []
+  const languages = model.languages_supported || []
   const documentationLinks = model.documentation_links || {}
   const regions = model.regions_available || []
   const streamingSupported = model.streaming_supported
@@ -755,7 +763,7 @@ function SpecsTab({ model }) {
                   <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Capabilities</p>
                   <div className="flex flex-wrap gap-1.5">
                     {capabilities.length > 0 ? capabilities.map(cap => (
-                      <Badge key={cap} variant="secondary" className="text-xs">{cap}</Badge>
+                      <Badge key={cap} variant="secondary" className="text-xs">{formatLabel(cap)}</Badge>
                     )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>None specified</span>}
                   </div>
                 </div>
@@ -763,10 +771,19 @@ function SpecsTab({ model }) {
                   <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Use Cases</p>
                   <div className="flex flex-wrap gap-1.5">
                     {useCases.length > 0 ? useCases.map(uc => (
-                      <Badge key={uc} variant="outline" className="text-xs">{uc}</Badge>
+                      <Badge key={uc} variant="outline" className="text-xs">{formatLabel(uc)}</Badge>
                     )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>None specified</span>}
                   </div>
                 </div>
+              </div>
+            </CollapsibleSection>
+
+            {/* Languages */}
+            <CollapsibleSection title="Languages" icon={Languages} defaultExpanded={true}>
+              <div className="flex flex-wrap gap-1.5">
+                {languages.length > 0 ? languages.map(lang => (
+                  <Badge key={lang} variant="secondary" className="text-xs">{lang}</Badge>
+                )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>Not specified</span>}
               </div>
             </CollapsibleSection>
 

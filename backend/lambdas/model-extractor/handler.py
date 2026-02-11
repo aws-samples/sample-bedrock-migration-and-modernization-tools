@@ -154,15 +154,19 @@ def fetch_console_metadata(region: str) -> dict:
                     if desc.get('shortDescription'):
                         meta['short_description'] = desc['shortDescription']
 
-                    # Languages
-                    languages = desc.get('languages')
-                    if languages and isinstance(languages, list):
-                        meta['languages'] = languages
+                    # Languages (comma/and-separated string, e.g. "English, French and Other languages.")
+                    lang_str = desc.get('supportedLanguages')
+                    if lang_str and isinstance(lang_str, str):
+                        # Replace " and " with comma, strip trailing period
+                        cleaned = lang_str.rstrip('.').replace(' and ', ', ')
+                        meta['languages'] = [l.strip() for l in cleaned.split(',') if l.strip()]
 
-                    # Categories
-                    categories = desc.get('categories')
-                    if categories and isinstance(categories, list):
-                        meta['categories'] = categories
+                    # Use cases (semicolon or comma-separated string)
+                    use_str = desc.get('supportedUseCases')
+                    if use_str and isinstance(use_str, str):
+                        # Use semicolons as delimiter if present, otherwise commas
+                        delimiter = ';' if ';' in use_str else ','
+                        meta['use_cases'] = [u.strip().rstrip('.') for u in use_str.split(delimiter) if u.strip()]
 
                 except (json.JSONDecodeError, TypeError):
                     pass

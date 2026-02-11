@@ -586,7 +586,7 @@ def transform_model_to_schema(
     # --- TIER 1: Console API metadata (from model-extractor REST call) ---
     console_meta = model.get('console_metadata', {})
     console_languages = console_meta.get('languages', []) if console_meta else []
-    console_categories = console_meta.get('categories', []) if console_meta else []
+    console_use_cases = console_meta.get('use_cases', []) if console_meta else []
     if console_meta:
         api_context = console_meta.get('max_context_window')
         if api_context and isinstance(api_context, (int, float)):
@@ -796,7 +796,7 @@ def transform_model_to_schema(
         'model_lifecycle': model_lifecycle,
         'regions_available': regional_availability if regional_availability else model.get('regions_available', []),
         'model_capabilities': capabilities,
-        'model_use_cases': console_categories if console_categories else use_cases,
+        'model_use_cases': console_use_cases if console_use_cases else use_cases,
         'languages_supported': console_languages if console_languages else model.get('languages_supported', ['English']),
         'consumption_options': get_consumption_options(model.get('inference_types_supported', []), pricing_data, upstream_pricing_ref),
         'cross_region_inference': cross_region,
