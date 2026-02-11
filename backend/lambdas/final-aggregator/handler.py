@@ -587,6 +587,8 @@ def transform_model_to_schema(
     console_meta = model.get('console_metadata', {})
     console_languages = console_meta.get('languages', []) if console_meta else []
     console_use_cases = console_meta.get('use_cases', []) if console_meta else []
+    console_description = console_meta.get('description', '') if console_meta else ''
+    console_short_description = console_meta.get('short_description', '') if console_meta else ''
     if console_meta:
         api_context = console_meta.get('max_context_window')
         if api_context and isinstance(api_context, (int, float)):
@@ -798,6 +800,8 @@ def transform_model_to_schema(
         'model_capabilities': capabilities,
         'model_use_cases': console_use_cases,
         'languages_supported': console_languages,
+        'description': console_description,
+        'short_description': console_short_description,
         'consumption_options': get_consumption_options(model.get('inference_types_supported', []), pricing_data, upstream_pricing_ref),
         'cross_region_inference': cross_region,
         'documentation_links': documentation_links,
