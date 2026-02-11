@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Layout } from '@/components/layout/Layout'
 import { ModelExplorer } from '@/components/models/ModelExplorer'
+import { Favorites } from '@/components/models/Favorites'
 import { ModelComparison } from '@/components/comparison/ModelComparison'
 import { AdminDashboard } from '@/components/admin/AdminDashboard'
 import { RegionRoadmap } from '@/components/admin/RegionRoadmap'
@@ -41,12 +42,7 @@ function App() {
             case 'explorer':
               return <ModelExplorer />
             case 'favorites':
-              return (
-                <div className="text-center py-16">
-                  <h2 className="text-xl font-semibold text-white">Favorites</h2>
-                  <p className="text-slate-400 mt-2">Coming soon...</p>
-                </div>
-              )
+              return <Favorites onNavigateToExplorer={() => setActiveSection('explorer')} />
             case 'comparison':
               return (
                 <ModelComparison

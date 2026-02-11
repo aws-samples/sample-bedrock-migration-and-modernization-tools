@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Loader2, LayoutGrid } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Loader2, LayoutGrid, Star, ArrowRight } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -8,7 +7,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ModelOverview } from './ModelOverview'
 import { ModelGrid } from './ModelGrid'
 import { ModelCardExpanded } from './ModelCardExpanded'
 import { ModelFilters } from './ModelFilters'
@@ -27,24 +25,29 @@ const gridColumnOptions = [
   { value: '6', label: '6 per row' },
 ]
 
-export function ModelExplorer() {
-  const { models, providers, capabilities, useCases, customizations, languages, consumptionOptionsList, stats, loading, error, getPricingForModel } = useModels()
+export function Favorites({ onNavigateToExplorer }) {
+  const { models, providers, capabilities, useCases, customizations, languages, consumptionOptionsList, loading, error, getPricingForModel } = useModels()
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const { toggleModel, isModelSelected } = useComparisonStore()
   const { favoriteIds, toggleFavorite } = useFavoritesStore()
 
-  // Local state
   const [filters, setFilters] = useState(initialFilterState)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [columnsPerRow, setColumnsPerRow] = useState(4)
   const [selectedModel, setSelectedModel] = useState(null)
 
-  // Filter models based on all filters
-  const filteredModels = useMemo(() => {
-    return applyFilters(models, filters)
-  }, [models, filters])
+  // Filter to favorites first, then apply user filters
+  const favoriteModels = useMemo(
+    () => models.filter(m => favoriteIds.includes(m.model_id)),
+    [models, favoriteIds]
+  )
+
+  const filteredModels = useMemo(
+    () => applyFilters(favoriteModels, filters),
+    [favoriteModels, filters]
+  )
 
   // Paginate
   const totalPages = Math.ceil(filteredModels.length / pageSize)
@@ -53,18 +56,9 @@ export function ModelExplorer() {
     return filteredModels.slice(start, start + pageSize)
   }, [filteredModels, currentPage, pageSize])
 
-  // Handlers
   const handleFiltersChange = (newFilters) => {
     setFilters(newFilters)
     setCurrentPage(1)
-  }
-
-  const handleViewDetails = (model) => {
-    setSelectedModel(model)
-  }
-
-  const handleCompare = (model) => {
-    console.log('Compare:', model.model_id)
   }
 
   const handlePageChange = (page) => {
@@ -77,7 +71,6 @@ export function ModelExplorer() {
     setCurrentPage(1)
   }
 
-  // Loading state
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
@@ -87,7 +80,6 @@ export function ModelExplorer() {
     )
   }
 
-  // Error state
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-red-500">
@@ -97,18 +89,63 @@ export function ModelExplorer() {
     )
   }
 
+  // Empty state — no favorites yet
+  if (favoriteIds.length === 0) {
+    return (
+      <div>
+        <div className="mb-4 sm:mb-6">
+          <h1 className={cn('text-xl sm:text-2xl font-bold', isLight ? 'text-slate-900' : 'text-white')}>Favorites</h1>
+          <p className={cn('mt-1 text-sm sm:text-base', isLight ? 'text-slate-500' : 'text-slate-400')}>
+            Your favorited Bedrock models
+          </p>
+        </div>
+        <div className={cn(
+          'flex flex-col items-center justify-center py-24 rounded-2xl border backdrop-blur-xl',
+          isLight
+            ? 'bg-white/70 border-stone-200/60'
+            : 'bg-white/[0.03] border-white/[0.06]',
+        )}>
+          <Star className={cn('h-12 w-12 mb-4', isLight ? 'text-stone-300' : 'text-[#4a4d54]')} />
+          <p className={cn('text-lg font-medium mb-1', isLight ? 'text-stone-700' : 'text-[#e4e5e7]')}>
+            No favorites yet
+          </p>
+          <p className={cn('text-sm mb-6', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
+            Star models in the Model Explorer to add them here
+          </p>
+          <button
+            onClick={onNavigateToExplorer}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+              isLight
+                ? 'bg-amber-700 text-white hover:bg-amber-800'
+                : 'bg-emerald-500 text-white hover:bg-emerald-600',
+            )}
+          >
+            Browse Models
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
-      {/* Page header */}
+      {/* Header */}
       <div className="mb-4 sm:mb-6">
-        <h1 className={cn('text-xl sm:text-2xl font-bold', isLight ? 'text-slate-900' : 'text-white')}>Model Explorer</h1>
+        <div className="flex items-center gap-3">
+          <h1 className={cn('text-xl sm:text-2xl font-bold', isLight ? 'text-slate-900' : 'text-white')}>Favorites</h1>
+          <span className={cn(
+            'text-xs font-medium px-2 py-0.5 rounded-full',
+            isLight ? 'bg-amber-100 text-amber-700' : 'bg-emerald-500/15 text-emerald-400',
+          )}>
+            {favoriteIds.length}
+          </span>
+        </div>
         <p className={cn('mt-1 text-sm sm:text-base', isLight ? 'text-slate-500' : 'text-slate-400')}>
-          Browse and explore Amazon Bedrock foundation models
+          Your favorited Bedrock models
         </p>
       </div>
-
-      {/* Overview stats */}
-      <ModelOverview stats={stats} />
 
       {/* Filters */}
       <div className="mb-6">
@@ -127,17 +164,16 @@ export function ModelExplorer() {
       {/* Results bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
         <div className={cn('text-sm', isLight ? 'text-slate-500' : 'text-slate-400')}>
-          {filteredModels.length === models.length ? (
-            <span>Showing all {models.length} models</span>
+          {filteredModels.length === favoriteModels.length ? (
+            <span>Showing all {favoriteModels.length} favorite{favoriteModels.length !== 1 ? 's' : ''}</span>
           ) : (
             <span>
-              Found {filteredModels.length} model{filteredModels.length !== 1 ? 's' : ''}
+              Found {filteredModels.length} of {favoriteModels.length} favorite{favoriteModels.length !== 1 ? 's' : ''}
               {filters.searchQuery && <span className="hidden sm:inline"> matching "{filters.searchQuery}"</span>}
             </span>
           )}
         </div>
 
-        {/* Grid columns selector - hidden on mobile */}
         <div className="hidden md:flex items-center gap-2">
           <LayoutGrid className="h-4 w-4 text-slate-400" />
           <Select
@@ -161,8 +197,8 @@ export function ModelExplorer() {
       {/* Model grid */}
       <ModelGrid
         models={paginatedModels}
-        onViewDetails={handleViewDetails}
-        onCompare={handleCompare}
+        onViewDetails={(model) => setSelectedModel(model)}
+        onCompare={() => {}}
         onToggleFavorite={toggleFavorite}
         favorites={favoriteIds}
         columnsPerRow={columnsPerRow}
