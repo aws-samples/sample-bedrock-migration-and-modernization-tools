@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import { useComparisonStore } from '@/stores/comparisonStore'
 import { providerColors, consumptionLabels, getContextSizeCategory } from '@/config/constants'
+import { trackEvent } from '@/services/analytics'
 
 // Tooltip wrapper with close delay so content stays readable
 function InfoTooltip({ children, content, side = "bottom", sideOffset = 4 }) {
@@ -114,14 +115,14 @@ function SpecBar({ label, value, maxValue, isLight }) {
   return (
     <div className="mb-2 last:mb-0">
       <div className="flex justify-between items-center text-xs mb-1">
-        <span className={cn(isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>{label}</span>
-        <span className={cn('font-semibold', isLight ? 'text-stone-700' : 'text-[#e4e5e7]')}>
+        <span className={cn(isLight ? 'text-stone-500' : 'text-slate-400')}>{label}</span>
+        <span className={cn('font-semibold', isLight ? 'text-stone-700' : 'text-slate-200')}>
           {displayValue}
         </span>
       </div>
       <div className={cn(
         'h-1.5 rounded-full overflow-hidden',
-        isLight ? 'bg-stone-200' : 'bg-[#373a40]'
+        isLight ? 'bg-stone-200' : 'bg-white/[0.06]'
       )}>
         <div
           className={cn(
@@ -170,7 +171,7 @@ function CopyableModelId({ modelId, isLight }) {
           'flex items-center gap-1 text-[11px] font-mono truncate max-w-full transition-colors group/copy',
           isLight
             ? 'text-stone-400 hover:text-stone-600'
-            : 'text-[#9a9b9f] hover:text-[#c0c1c5]'
+            : 'text-slate-400 hover:text-[#c0c1c5]'
         )}
       >
         <span className="truncate">{displayId}</span>
@@ -209,7 +210,7 @@ function FeatureIndicator({ supported, icon: Icon, label, isLight }) {
         'flex items-center gap-0.5 cursor-default',
         supported
           ? isLight ? 'text-emerald-600' : 'text-emerald-400'
-          : isLight ? 'text-stone-300' : 'text-[#4a4d54]'
+          : isLight ? 'text-stone-300' : 'text-slate-600'
       )}>
         <Icon className="h-3.5 w-3.5" />
         {supported ? (
@@ -278,7 +279,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
             : 'ring-2 ring-[#1A9E7A] border-[#1A9E7A]/50'
           : isLight
             ? 'hover:border-stone-300 hover:shadow-lg'
-            : 'hover:border-[#4a4d54] hover:shadow-xl hover:shadow-black/20'
+            : 'hover:border-white/[0.12] hover:shadow-xl hover:shadow-black/20'
       )}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 pb-2">
@@ -294,16 +295,19 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
             <button
               className={cn(
                 'p-1 rounded transition-colors',
-                isLight ? 'hover:bg-stone-100' : 'hover:bg-[#2c2d32]'
+                isLight ? 'hover:bg-stone-100' : 'hover:bg-white/[0.06]'
               )}
-              onClick={() => onToggleFavorite?.(model.model_id)}
+              onClick={() => {
+                trackEvent('favorite_toggle', { modelId: model.model_id, provider: model.model_provider, modelName: model.model_name, section: 'explorer' })
+                onToggleFavorite?.(model.model_id)
+              }}
             >
               <Star
                 className={cn(
                   'h-4 w-4 transition-colors',
                   isFavorite
                     ? 'fill-amber-400 text-amber-400'
-                    : isLight ? 'text-stone-300 hover:text-stone-400' : 'text-[#6d6e72] hover:text-[#9a9b9f]'
+                    : isLight ? 'text-stone-300 hover:text-stone-400' : 'text-slate-500 hover:text-slate-400'
                 )}
               />
             </button>
@@ -314,7 +318,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
         <div className="px-4 pb-3">
           <h3 className={cn(
             'font-semibold text-[15px] leading-tight line-clamp-2 mb-1',
-            isLight ? 'text-stone-900' : 'text-[#e4e5e7]'
+            isLight ? 'text-stone-900' : 'text-slate-200'
           )}>
             {model.model_name || model.model_id}
           </h3>
@@ -331,7 +335,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
             )}>
               <div className="flex items-center justify-between">
                 <div className="flex-1 text-center border-r border-current/10">
-                  <p className={cn('text-[10px] uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>Context</p>
+                  <p className={cn('text-[10px] uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-slate-400')}>Context</p>
                   <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
                     {formatNumber(contextWindow)}
                     {hasExtendedContext && (
@@ -342,7 +346,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   </p>
                 </div>
                 <div className="flex-1 text-center">
-                  <p className={cn('text-[10px] uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>Output</p>
+                  <p className={cn('text-[10px] uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-slate-400')}>Output</p>
                   <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
                     {formatNumber(maxOutput)}
                   </p>
@@ -360,15 +364,15 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   <InfoTooltip key={`in-${mod}`} content={`Input: ${modalityDescriptions[mod]}`}>
                     <div className={cn(
                       'p-1.5 rounded cursor-default',
-                      isLight ? 'bg-stone-100' : 'bg-[#2c2d32]'
+                      isLight ? 'bg-stone-100' : 'bg-white/[0.06]'
                     )}>
-                      <Icon className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-[#c0c1c5]')} />
+                      <Icon className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-300')} />
                     </div>
                   </InfoTooltip>
                 )
               })}
               {inputModalities.length > 0 && outputModalities.length > 0 && (
-                <ArrowRight className={cn('h-3 w-3 mx-0.5', isLight ? 'text-stone-300' : 'text-[#4a4d54]')} />
+                <ArrowRight className={cn('h-3 w-3 mx-0.5', isLight ? 'text-stone-300' : 'text-slate-600')} />
               )}
               {outputModalities.slice(0, 2).map(mod => {
                 const Icon = modalityIcons[mod] || MessageSquare
@@ -402,7 +406,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               <InfoTooltip content={`Available in ${regions.length} AWS regions`}>
                 <div className={cn(
                   'flex items-center gap-1 text-xs cursor-default',
-                  isLight ? 'text-stone-500' : 'text-[#c0c1c5]'
+                  isLight ? 'text-stone-500' : 'text-slate-300'
                 )}>
                   <MapPin className="h-3 w-3" />
                   <span className="font-medium">{regions.length}</span>
@@ -419,7 +423,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   isLight ? 'bg-stone-100/60' : 'bg-white/5'
                 )}>
                   <div className="text-center">
-                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>
+                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
                       <Video className="h-3 w-3 inline mr-1" />
                       Per {pricingType === 'video_second' ? 'Second' : 'Video'}
                     </p>
@@ -434,7 +438,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   isLight ? 'bg-stone-100/60' : 'bg-white/5'
                 )}>
                   <div className="text-center">
-                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>
+                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
                       <Image className="h-3 w-3 inline mr-1" />
                       Per Image
                     </p>
@@ -449,7 +453,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   isLight ? 'bg-stone-100/60' : 'bg-white/5'
                 )}>
                   <div className="text-center">
-                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>
+                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
                       <Search className="h-3 w-3 inline mr-1" />
                       Per 1K Units
                     </p>
@@ -464,18 +468,18 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   isLight ? 'bg-stone-100/60' : 'bg-white/5'
                 )}>
                   <div className="text-center">
-                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>Input</p>
+                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>Input</p>
                     <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-[#f0f1f3]')}>
                       ${inputPrice < 0.0001 ? inputPrice.toFixed(6) : inputPrice.toFixed(4)}
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-[#b0b1b5]')}>Output</p>
+                    <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>Output</p>
                     <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-[#f0f1f3]')}>
                       ${outputPrice !== null ? (outputPrice < 0.0001 ? outputPrice.toFixed(6) : outputPrice.toFixed(4)) : 'N/A'}
                     </p>
                   </div>
-                  <p className={cn('col-span-2 text-center text-[10px] -mt-1', isLight ? 'text-stone-400' : 'text-[#b0b1b5]')}>
+                  <p className={cn('col-span-2 text-center text-[10px] -mt-1', isLight ? 'text-stone-400' : 'text-slate-400')}>
                     {unitLabel || 'per 1K tokens'}
                   </p>
                 </div>
@@ -516,7 +520,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   key={cap}
                   className={cn(
                     'text-[10px] px-1.5 py-0.5 rounded',
-                    isLight ? 'bg-stone-100 text-stone-500' : 'bg-[#2c2d32] text-[#b0b1b5]'
+                    isLight ? 'bg-stone-100 text-stone-500' : 'bg-white/[0.06] text-slate-400'
                   )}
                 >
                   {cap}
@@ -525,7 +529,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               {capabilities.length > 3 && (
                 <span className={cn(
                   'text-[10px] px-1.5 py-0.5 rounded',
-                  isLight ? 'bg-stone-100 text-stone-500' : 'bg-[#2c2d32] text-[#b0b1b5]'
+                  isLight ? 'bg-stone-100 text-stone-500' : 'bg-white/[0.06] text-slate-400'
                 )}>
                   +{capabilities.length - 3}
                 </span>
@@ -539,13 +543,16 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
           {/* Action Buttons */}
           <div className={cn(
             'flex gap-2 pt-3 border-t',
-            isLight ? 'border-stone-200' : 'border-[#373a40]'
+            isLight ? 'border-stone-200' : 'border-white/[0.06]'
           )}>
             <Button
               variant="outline"
               size="sm"
               className="flex-1 text-xs"
-              onClick={() => onViewDetails?.(model)}
+              onClick={() => {
+                trackEvent('model_detail_open', { modelId: model.model_id, provider: model.model_provider, modelName: model.model_name, section: 'explorer' })
+                onViewDetails?.(model)
+              }}
             >
               <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
               Details
@@ -560,7 +567,11 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   : "bg-[#1A9E7A] hover:bg-[#22b38d]")
               )}
               style={isSelectedForComparison ? { color: '#ffffff' } : undefined}
-              onClick={() => toggleModel(model, preferredRegion)}
+              onClick={() => {
+                const wasSelected = isSelectedForComparison
+                toggleModel(model, preferredRegion)
+                trackEvent(wasSelected ? 'comparison_remove' : 'comparison_add', { modelId: model.model_id, provider: model.model_provider, modelName: model.model_name, section: 'explorer' })
+              }}
               disabled={false}
             >
               {isSelectedForComparison ? (

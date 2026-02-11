@@ -345,18 +345,19 @@
               "Parameters": {
                 "s3Bucket.$": "$.config.s3Bucket",
                 "executionId.$": "$.executionId",
-                "pricingS3Key.$": "$.pricingAggregated.s3Key"
+                "pricingS3Key.$": "$.pricingAggregated.s3Key",
+                "regions.$": "$.config.featureRegions"
               },
               "ResultPath": "$.result",
               "Retry": [
                 {
                   "ErrorEquals": ["States.ALL"],
-                  "IntervalSeconds": 3,
-                  "MaxAttempts": 2,
+                  "IntervalSeconds": 5,
+                  "MaxAttempts": 3,
                   "BackoffRate": 2
                 }
               ],
-              "TimeoutSeconds": 60,
+              "TimeoutSeconds": 300,
               "End": true
             }
           }

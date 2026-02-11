@@ -697,6 +697,24 @@ def transform_model_to_schema(
     # Use fallback to model.regions_available if regional_availability is empty (same logic as total_regions_available)
     regions_for_coverage = regional_availability if regional_availability else model.get('regions_available', [])
     batch_inference = check_batch_inference(model_id, pricing_data, upstream_pricing_ref, regions_for_coverage)
+
+    # Union regional_availability with CRIS source_regions and batch supported_regions
+    # This catches regions missed by fuzzy matching in find_matching_availability
+    regions_set = set(regional_availability)
+    if cross_region.get('source_regions'):
+        regions_set.update(cross_region['source_regions'])
+    if batch_inference.get('supported_regions'):
+        regions_set.update(batch_inference['supported_regions'])
+    if len(regions_set) > len(regional_availability):
+        regional_availability = sorted(list(regions_set))
+        # Recalculate batch coverage with expanded regional_availability
+        if batch_inference.get('supported'):
+            total_regs = len(regional_availability)
+            batch_regs = len(batch_inference['supported_regions'])
+            batch_inference['coverage_percentage'] = round(
+                min(batch_regs / total_regs * 100, 100.0), 1
+            ) if total_regs > 0 else 0.0
+
     if upstream_pricing_ref and isinstance(upstream_pricing_ref, dict):
         pricing_provider = upstream_pricing_ref.get('provider', model.get('model_provider', ''))
         pricing_model_key = upstream_pricing_ref.get('model_key', pricing_ref_id or model_id)

@@ -10,10 +10,10 @@ const Card = React.forwardRef(({ className, ...props }, ref) => {
     <div
       ref={ref}
       className={cn(
-        'rounded-xl border card-hover-lift',
+        'rounded-xl border card-hover-lift backdrop-blur-xl',
         isLight
-          ? 'border-stone-200/80 bg-white/90 text-stone-900 backdrop-blur-xl shadow-md shadow-stone-900/5 ring-1 ring-stone-100/50'
-          : 'border-[#373a40] bg-[#25262b] text-[#e4e5e7] shadow-lg shadow-black/15 ring-1 ring-white/[0.03]',
+          ? 'border-stone-200/60 bg-white/70 text-stone-900 shadow-[0_2px_15px_-3px_rgba(120,113,108,0.08)] ring-1 ring-stone-100/50'
+          : 'border-white/[0.06] bg-white/[0.03] text-[#e4e5e7] shadow-[0_2px_15px_-3px_rgba(0,0,0,0.3)] ring-1 ring-white/[0.03]',
         className
       )}
       {...props}

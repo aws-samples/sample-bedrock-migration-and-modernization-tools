@@ -1,0 +1,7192 @@
+{
+  "lastUpdated": "2025-02-05",
+  "summary": {
+    "totalRegions": 41,
+    "totalItems": 100,
+    "totalAvailable": 570,
+    "totalCris": 343,
+    "totalPlanned": 24,
+    "totalNp": 603
+  },
+  "providers": [
+    {
+      "name": "Amazon Nova",
+      "category": "models",
+      "items": [
+        {
+          "id": "cris_profile",
+          "name": "CRIS Profile"
+        },
+        {
+          "id": "cmi",
+          "name": "CMI"
+        },
+        {
+          "id": "micro_1_0",
+          "name": "Micro 1.0"
+        },
+        {
+          "id": "lite_1_0",
+          "name": "Lite 1.0"
+        },
+        {
+          "id": "pro_1_0",
+          "name": "Pro 1.0"
+        },
+        {
+          "id": "pro_speed_sku",
+          "name": "Pro (Speed SKU)"
+        },
+        {
+          "id": "canvas_1_0",
+          "name": "Canvas 1.0"
+        },
+        {
+          "id": "canvas_1_1",
+          "name": "Canvas 1.1"
+        },
+        {
+          "id": "reel_1_0",
+          "name": "Reel 1.0"
+        },
+        {
+          "id": "reel_1_1",
+          "name": "Reel 1.1"
+        },
+        {
+          "id": "rerank_1_0",
+          "name": "Rerank 1.0"
+        },
+        {
+          "id": "nova_sonic_1_0",
+          "name": "Nova sonic 1.0"
+        },
+        {
+          "id": "nova_premier",
+          "name": "Nova Premier"
+        },
+        {
+          "id": "nova_mme",
+          "name": "Nova MME"
+        },
+        {
+          "id": "nova_2_lite",
+          "name": "Nova 2 Lite"
+        },
+        {
+          "id": "nova_2_omni_preview",
+          "name": "Nova 2 Omni (preview)"
+        },
+        {
+          "id": "nova_2_sonic",
+          "name": "Nova 2 Sonic"
+        },
+        {
+          "id": "nova_mme_2",
+          "name": "Nova MME"
+        }
+      ]
+    },
+    {
+      "name": "Anthropic Claude",
+      "category": "models",
+      "items": [
+        {
+          "id": "3_haiku",
+          "name": "3 Haiku"
+        },
+        {
+          "id": "3_5_sonnet_v1",
+          "name": "3.5 Sonnet V1"
+        },
+        {
+          "id": "3_5_haiku",
+          "name": "3.5 Haiku"
+        },
+        {
+          "id": "3_opus",
+          "name": "3 Opus"
+        },
+        {
+          "id": "3_5_sonnet_v2",
+          "name": "3.5 Sonnet V2"
+        },
+        {
+          "id": "3_7_sonnet",
+          "name": "3.7 Sonnet"
+        },
+        {
+          "id": "4_sonnet",
+          "name": "4 Sonnet"
+        },
+        {
+          "id": "4_opus",
+          "name": "4 Opus"
+        },
+        {
+          "id": "4_1_opus",
+          "name": "4.1 Opus"
+        },
+        {
+          "id": "4_5_sonnet",
+          "name": "4.5 Sonnet"
+        },
+        {
+          "id": "4_5_haiku",
+          "name": "4.5 Haiku"
+        },
+        {
+          "id": "4_5_opus",
+          "name": "4.5 opus"
+        },
+        {
+          "id": "4_6_opus",
+          "name": "4.6 Opus"
+        }
+      ]
+    },
+    {
+      "name": "DeepSeek",
+      "category": "models",
+      "items": [
+        {
+          "id": "r1_not_on_mantle",
+          "name": "R1 (Not on Mantle)"
+        },
+        {
+          "id": "deepseekv3_1_mantle",
+          "name": "DeepSeekv3.1 (Mantle)"
+        }
+      ]
+    },
+    {
+      "name": "OpenAI",
+      "category": "models",
+      "items": [
+        {
+          "id": "gpt_oss_20b_mantle",
+          "name": "gpt-oss-20b (Mantle)"
+        },
+        {
+          "id": "gpt_oss_120b_mantle",
+          "name": "gpt-oss-120b (Mantle)"
+        },
+        {
+          "id": "gpt_oss_safeguard_20b_mantle",
+          "name": "GPT OSS Safeguard 20B (Mantle)"
+        },
+        {
+          "id": "gpt_oss_safeguard_120b_mantle",
+          "name": "GPT OSS Safeguard 120B (Mantle)"
+        }
+      ]
+    },
+    {
+      "name": "Meta Llama",
+      "category": "models",
+      "items": [
+        {
+          "id": "llama_3_2_11b_instruct_not_on_mantle",
+          "name": "Llama 3.2 11B Instruct (Not on Mantle)"
+        },
+        {
+          "id": "llama_3_2_90b_instruct_not_on_mantle",
+          "name": "Llama 3.2 90B Instruct (Not on Mantle)"
+        },
+        {
+          "id": "llama_3_2_3b_instruct_not_on_mantle",
+          "name": "Llama 3.2 3B Instruct (Not on Mantle)"
+        },
+        {
+          "id": "llama_3_2_1b_instruct_not_on_mantle",
+          "name": "Llama 3.2 1B Instruct (Not on Mantle)"
+        },
+        {
+          "id": "llama_3_3_70b_instruct_not_on_mantle",
+          "name": "Llama 3.3 70B Instruct (Not on Mantle)"
+        },
+        {
+          "id": "llama_4_scout_17b_not_on_mantle",
+          "name": "Llama 4 Scout 17B (Not on Mantle)"
+        },
+        {
+          "id": "llama_4_maverick_17b_not_on_mantle",
+          "name": "Llama 4 Maverick 17B (Not on Mantle)"
+        }
+      ]
+    },
+    {
+      "name": "Qwen",
+      "category": "models",
+      "items": [
+        {
+          "id": "qwen3_coder_30b_a3b_instruct_mantle",
+          "name": "Qwen3-Coder-30B-A3B-Instruct (Mantle)"
+        },
+        {
+          "id": "qwen3_coder_480b_a35b_instruct_mantle",
+          "name": "Qwen3-Coder-480B-A35B-Instruct (Mantle)"
+        },
+        {
+          "id": "qwen_3_235b_a22b_instruct_2507_mantle",
+          "name": "Qwen-3-235B-A22B-Instruct-2507 (Mantle)"
+        },
+        {
+          "id": "qwen_32b_mantle",
+          "name": "Qwen 32B (Mantle)"
+        },
+        {
+          "id": "qwen3_next_80b_a3b_mantle",
+          "name": "Qwen3 Next 80B A3B (Mantle)"
+        },
+        {
+          "id": "qwen3_vl_235b_a22b_mantle",
+          "name": "Qwen3 VL 235B A22B (Mantle)"
+        }
+      ]
+    },
+    {
+      "name": "Google Gemma",
+      "category": "models",
+      "items": [
+        {
+          "id": "gemma_3_4b_mantle",
+          "name": "Gemma 3 4b (Mantle)"
+        },
+        {
+          "id": "gemma_3_12b_mantle",
+          "name": "Gemma 3 12b (Mantle)"
+        },
+        {
+          "id": "gemma_3_27b_mantle",
+          "name": "Gemma 3 27b (Mantle)"
+        }
+      ]
+    },
+    {
+      "name": "Mistral AI",
+      "category": "models",
+      "items": [
+        {
+          "id": "7b_instruct_not_on_mantle",
+          "name": "7B Instruct (Not on Mantle)"
+        },
+        {
+          "id": "8x7b_instruct_not_on_mantle",
+          "name": "8x7B Instruct (Not on Mantle)"
+        },
+        {
+          "id": "large_24_02_not_on_mantle",
+          "name": "Large (24.02) (Not on Mantle)"
+        },
+        {
+          "id": "small_24_02_not_on_mantle",
+          "name": "Small (24.02) (Not on Mantle)"
+        },
+        {
+          "id": "large_24_07_not_on_mantle",
+          "name": "Large (24.07) (Not on Mantle)"
+        },
+        {
+          "id": "pixtral_large_25_02_not_on_mantle",
+          "name": "Pixtral Large (25.02) (Not on Mantle)"
+        },
+        {
+          "id": "magistral_small_1_2_mantle",
+          "name": "Magistral Small 1.2 (Mantle)"
+        },
+        {
+          "id": "voxtral_mini_1_0_mantle",
+          "name": "Voxtral Mini 1.0 (Mantle)"
+        },
+        {
+          "id": "voxtral_small_1_0_mantle",
+          "name": "Voxtral Small 1.0 (Mantle)"
+        },
+        {
+          "id": "ministral_3b_3_0_mantle",
+          "name": "Ministral 3B 3.0 (Mantle)"
+        },
+        {
+          "id": "ministral_8b_3_0_mantle",
+          "name": "Ministral 8B 3.0 (Mantle)"
+        },
+        {
+          "id": "ministral_14b_3_0_mantle",
+          "name": "Ministral 14B 3.0 (Mantle)"
+        },
+        {
+          "id": "mistral_large_3_mantle",
+          "name": "Mistral Large 3 (Mantle)"
+        }
+      ]
+    },
+    {
+      "name": "Kimi AI",
+      "category": "models",
+      "items": [
+        {
+          "id": "kimi_k2_thinking_mantle",
+          "name": "Kimi K2 Thinking (Mantle)"
+        }
+      ]
+    },
+    {
+      "name": "Nvidia",
+      "category": "models",
+      "items": [
+        {
+          "id": "nvidia_nemotron_nano_2_mantle",
+          "name": "NVIDIA Nemotron Nano 2 (Mantle)"
+        },
+        {
+          "id": "nvidia_nemotron_nano_2_vl_mantle",
+          "name": "NVIDIA Nemotron Nano 2 VL (Mantle)"
+        }
+      ]
+    },
+    {
+      "name": "Cohere",
+      "category": "models",
+      "items": [
+        {
+          "id": "embed_multilingual",
+          "name": "Embed Multilingual"
+        },
+        {
+          "id": "embed_english",
+          "name": "Embed English"
+        },
+        {
+          "id": "r",
+          "name": "R"
+        },
+        {
+          "id": "r_2",
+          "name": "R+"
+        },
+        {
+          "id": "rerank_3_5",
+          "name": "Rerank 3.5"
+        },
+        {
+          "id": "embed_4",
+          "name": "Embed 4"
+        }
+      ]
+    },
+    {
+      "name": "Amazon Titan",
+      "category": "models",
+      "items": [
+        {
+          "id": "multimodal_embeddings_g1",
+          "name": "Multimodal Embeddings G1"
+        },
+        {
+          "id": "embeddings_g1_text",
+          "name": "Embeddings G1 - Text"
+        },
+        {
+          "id": "text_embeddings_v2",
+          "name": "Text Embeddings V2"
+        },
+        {
+          "id": "image_generator_v1",
+          "name": "Image Generator V1"
+        },
+        {
+          "id": "image_generator_g1_v2",
+          "name": "Image Generator G1 v2"
+        },
+        {
+          "id": "titan_text_premier",
+          "name": "Titan text Premier"
+        }
+      ]
+    },
+    {
+      "name": "Luma AI",
+      "category": "models",
+      "items": [
+        {
+          "id": "ray_v2",
+          "name": "Ray v2"
+        }
+      ]
+    },
+    {
+      "name": "AI21 Labs",
+      "category": "models",
+      "items": [
+        {
+          "id": "jamba_1_5_mini",
+          "name": "Jamba 1.5 Mini"
+        },
+        {
+          "id": "jamba_1_5_large",
+          "name": "Jamba 1.5 Large"
+        }
+      ]
+    },
+    {
+      "name": "Stability AI",
+      "category": "models",
+      "items": [
+        {
+          "id": "stable_diffusion_3_5_large",
+          "name": "Stable Diffusion 3.5 Large"
+        }
+      ]
+    },
+    {
+      "name": "TwelveLabs",
+      "category": "models",
+      "items": [
+        {
+          "id": "marengo",
+          "name": "Marengo"
+        },
+        {
+          "id": "pegasus",
+          "name": "Pegasus"
+        }
+      ]
+    },
+    {
+      "name": "Writer",
+      "category": "models",
+      "items": [
+        {
+          "id": "palmyra_x4",
+          "name": "Palmyra X4"
+        },
+        {
+          "id": "palmyra_x5",
+          "name": "Palmyra X5"
+        }
+      ]
+    },
+    {
+      "name": "Bedrock Services",
+      "category": "features",
+      "items": [
+        {
+          "id": "guardrails",
+          "name": "Guardrails"
+        },
+        {
+          "id": "agents",
+          "name": "Agents"
+        },
+        {
+          "id": "knowledge_base_rag",
+          "name": "Knowledge Base (RAG)"
+        },
+        {
+          "id": "flows",
+          "name": "Flows"
+        },
+        {
+          "id": "prompt_mgmt",
+          "name": "Prompt Mgmt"
+        },
+        {
+          "id": "prompt_optimization_apo",
+          "name": "Prompt Optimization (APO)"
+        },
+        {
+          "id": "evaluations",
+          "name": "Evaluations"
+        },
+        {
+          "id": "fine_tuning",
+          "name": "Fine Tuning"
+        },
+        {
+          "id": "distillation",
+          "name": "Distillation"
+        },
+        {
+          "id": "marketplace",
+          "name": "Marketplace"
+        },
+        {
+          "id": "bda",
+          "name": "BDA"
+        }
+      ]
+    }
+  ],
+  "regions": [
+    {
+      "name": "US East (N. Virginia)",
+      "code": "us-east-1",
+      "shortCode": "IAD",
+      "geo": "americas",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "US"
+        },
+        "cmi": {
+          "status": "available",
+          "label": "Now"
+        },
+        "micro_1_0": {
+          "status": "in_region_cris",
+          "label": "In region & CRIS"
+        },
+        "lite_1_0": {
+          "status": "in_region_cris",
+          "label": "In region & CRIS"
+        },
+        "pro_1_0": {
+          "status": "in_region_cris",
+          "label": "In region & CRIS"
+        },
+        "pro_speed_sku": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "canvas_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "reel_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "reel_1_1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nova_sonic_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nova_premier": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "nova_2_sonic": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_haiku": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_opus": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_5_sonnet_v2": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_opus": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_1_opus": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "r1_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "gpt_oss_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_3_70b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_4_scout_17b_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_4_maverick_17b_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "qwen3_coder_30b_a3b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_32b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_next_80b_a3b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_vl_235b_a22b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_4b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_12b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_27b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "small_24_02_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pixtral_large_25_02_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "magistral_small_1_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_mini_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_small_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_3b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_8b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_14b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "mistral_large_3_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "kimi_k2_thinking_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_vl_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_multilingual": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_english": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r_2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "rerank_3_5": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_4": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embeddings_g1_text": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "image_generator_v1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "image_generator_g1_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "titan_text_premier": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "jamba_1_5_mini": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "jamba_1_5_large": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "marengo": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pegasus": {
+          "status": "cris",
+          "label": "CRIS:",
+          "plannedDate": "2025-07-15"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_optimization_apo": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "fine_tuning": {
+          "status": "available",
+          "label": "Now"
+        },
+        "distillation": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "available",
+          "label": "Now"
+        }
+      }
+    },
+    {
+      "name": "US East (Ohio)",
+      "code": "us-east-2",
+      "shortCode": "CMH",
+      "geo": "americas",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "US"
+        },
+        "cmi": {
+          "status": "available",
+          "label": "Now"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_speed_sku": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "nova_premier": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_haiku": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_5_sonnet_v1": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_5_haiku": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_5_sonnet_v2": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_opus": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_1_opus": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "r1_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "deepseekv3_1_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_3_70b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_4_scout_17b_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_4_maverick_17b_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "qwen3_coder_30b_a3b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_coder_480b_a35b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_3_235b_a22b_instruct_2507_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_32b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_next_80b_a3b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_vl_235b_a22b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_4b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_12b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_27b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pixtral_large_25_02_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "magistral_small_1_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_mini_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_small_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_3b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_8b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_14b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "mistral_large_3_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "kimi_k2_thinking_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_vl_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_optimization_apo": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "planned",
+          "date": "2025-12-18",
+          "label": "Dec 18, 2025"
+        }
+      }
+    },
+    {
+      "name": "US West (N. California)",
+      "code": "us-west-1",
+      "shortCode": "SFO",
+      "geo": "americas",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "US"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "nova_premier": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_5_haiku": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_1_opus": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS**"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS**"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "llama_3_3_70b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_4_scout_17b_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_4_maverick_17b_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        }
+      }
+    },
+    {
+      "name": "US West (Oregon)",
+      "code": "us-west-2",
+      "shortCode": "PDX",
+      "geo": "americas",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "US"
+        },
+        "cmi": {
+          "status": "available",
+          "label": "Now"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_speed_sku": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "canvas_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nova_premier": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "nova_2_sonic": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_opus": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_opus": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_1_opus": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "r1_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "deepseekv3_1_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_3_70b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_4_scout_17b_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_4_maverick_17b_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "qwen3_coder_30b_a3b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_coder_480b_a35b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_3_235b_a22b_instruct_2507_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_32b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_next_80b_a3b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_vl_235b_a22b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_4b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_12b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_27b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "large_24_07_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pixtral_large_25_02_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "magistral_small_1_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_mini_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_small_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_3b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_8b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_14b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "mistral_large_3_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "kimi_k2_thinking_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_vl_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_multilingual": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_english": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r_2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "rerank_3_5": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embeddings_g1_text": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "image_generator_v1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "image_generator_g1_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pegasus": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "palmyra_x4": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "palmyra_x5": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_optimization_apo": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "fine_tuning": {
+          "status": "available",
+          "label": "Now"
+        },
+        "distillation": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "available",
+          "label": "Now"
+        }
+      }
+    },
+    {
+      "name": "Canada (Central)",
+      "code": "ca-central-1",
+      "shortCode": "YUL",
+      "geo": "americas",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "US"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CA CRIS"
+        },
+        "rerank_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS ***"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS ***"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_multilingual": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_english": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_optimization_apo": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "planned",
+          "date": "2025-12-18",
+          "label": "Dec 18, 2025"
+        }
+      }
+    },
+    {
+      "name": "Canada West (Calgary)",
+      "code": "ca-west-1",
+      "shortCode": "YYC",
+      "geo": "americas",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris",
+          "label": "Global for all models except Nova that has Global CA CRIS"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        }
+      }
+    },
+    {
+      "name": "Mexico (Central)",
+      "code": "mx-central-1",
+      "shortCode": "QRO",
+      "geo": "americas",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & US CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        }
+      }
+    },
+    {
+      "name": "GovCloud (US-East)",
+      "code": "GovCloud (US-East)",
+      "shortCode": "OSU",
+      "geo": "americas",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Gov"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "4_5_sonnet": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "planned",
+          "date": "",
+          "label": "DFD 6/30"
+        },
+        "bda": {
+          "status": "planned",
+          "date": "",
+          "label": "H1-26"
+        }
+      }
+    },
+    {
+      "name": "GovCloud (US-West)",
+      "code": "GovCloud (US-West)",
+      "shortCode": "PDT",
+      "geo": "americas",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Gov"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "lite_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pro_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "canvas_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_haiku": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_5_sonnet_v1": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "4_sonnet": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "4_5_sonnet": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "fine_tuning": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "planned",
+          "date": "",
+          "label": "DFD 6/30"
+        },
+        "bda": {
+          "status": "available",
+          "label": "Now"
+        }
+      }
+    },
+    {
+      "name": "US ISO East",
+      "code": "US ISO East",
+      "shortCode": "DCA",
+      "geo": "americas",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "ADC-TS1"
+        },
+        "cmi": {
+          "status": "available",
+          "label": "Now"
+        },
+        "lite_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_7_sonnet": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "planned",
+          "date": "2025-07-21",
+          "label": "Jul 21, 2025"
+        },
+        "knowledge_base_rag": {
+          "status": "planned",
+          "date": "2025-07-21",
+          "label": "Jul 21, 2025"
+        },
+        "evaluations": {
+          "status": "planned",
+          "date": "2025-09-09",
+          "label": "Sep 09, 2025"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "bda": {
+          "status": "planned",
+          "date": "2026-02-24",
+          "label": "Feb 24, 2026"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Tokyo)",
+      "code": "ap-northeast-1",
+      "shortCode": "NRT",
+      "geo": "apac",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "JP"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "canvas_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "reel_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "rerank_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nova_2_sonic": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v2": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & JP CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & JP CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "deepseekv3_1_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "qwen3_coder_30b_a3b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_coder_480b_a35b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_32b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_next_80b_a3b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_vl_235b_a22b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_4b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_12b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_27b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "magistral_small_1_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_mini_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_small_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_3b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_8b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_14b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "mistral_large_3_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "kimi_k2_thinking_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_vl_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_multilingual": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_english": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_4": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embeddings_g1_text": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "planned",
+          "date": "2026-02-24",
+          "label": "Feb 24, 2026"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Seoul)",
+      "code": "ap-northeast-2",
+      "shortCode": "ICN",
+      "geo": "apac",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v2": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "marengo": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "planned",
+          "date": "2026-02-24",
+          "label": "Feb 24, 2026"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Osaka)",
+      "code": "ap-northeast-3",
+      "shortCode": "KIX",
+      "geo": "apac",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "JP"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_sonnet_v2": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & JP CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & JP CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "prompt_mgmt": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "evaluations": {
+          "status": "planned",
+          "date": "",
+          "label": "5/7"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "bda": {
+          "status": "available",
+          "label": "x"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Mumbai)",
+      "code": "ap-south-1",
+      "shortCode": "BOM",
+      "geo": "apac",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v1": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_5_sonnet_v2": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "deepseekv3_1_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "qwen3_coder_30b_a3b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_coder_480b_a35b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_3_235b_a22b_instruct_2507_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_32b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_next_80b_a3b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_vl_235b_a22b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_4b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_12b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_27b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "magistral_small_1_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_mini_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_small_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_3b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_8b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_14b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "mistral_large_3_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "kimi_k2_thinking_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_vl_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_multilingual": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_english": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_optimization_apo": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "available",
+          "label": "Now"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Hyderabad)",
+      "code": "ap-south-2",
+      "shortCode": "HYD",
+      "geo": "apac",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_sonnet_v2": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "prompt_mgmt": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "evaluations": {
+          "status": "planned",
+          "date": "",
+          "label": "5/7"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "bda": {
+          "status": "available",
+          "label": "x"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Singapore)",
+      "code": "ap-southeast-1",
+      "shortCode": "SIN",
+      "geo": "apac",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v2": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_opus": {
+          "status": "available",
+          "label": "x"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_english": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "planned",
+          "date": "2026-02-24",
+          "label": "Feb 24, 2026"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Sydney)",
+      "code": "ap-southeast-2",
+      "shortCode": "SYD",
+      "geo": "apac",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "AU"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "lite_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pro_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v1": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_5_sonnet_v2": {
+          "status": "in_region_cris",
+          "label": "In region, CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & AU CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & AU CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & AU CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_multilingual": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_english": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_optimization_apo": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "available",
+          "label": "Now"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Melbourne)",
+      "code": "ap-southeast-4",
+      "shortCode": "MEL",
+      "geo": "apac",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "AU"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_speed_sku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "canvas_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "canvas_1_1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "nova_sonic_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & AU CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & AU CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & AU CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_3_70b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Jakarta)",
+      "code": "ap-southeast-3",
+      "shortCode": "CGK",
+      "geo": "apac",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_speed_sku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "canvas_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "canvas_1_1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "nova_sonic_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_haiku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_sonnet_v1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_haiku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_opus": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_sonnet_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "deepseekv3_1_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_3_70b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_4_scout_17b_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "qwen3_coder_30b_a3b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_coder_480b_a35b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_3_235b_a22b_instruct_2507_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_32b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "small_24_02_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "large_24_07_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "pixtral_large_25_02_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "x"
+        },
+        "embeddings_g1_text": {
+          "status": "available",
+          "label": "x"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "image_generator_v1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "image_generator_g1_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "titan_text_premier": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "jamba_1_5_mini": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "jamba_1_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "pegasus": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Malaysia)",
+      "code": "ap-southeast-5",
+      "shortCode": "KUL",
+      "geo": "apac",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_speed_sku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "canvas_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "canvas_1_1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "nova_sonic_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_haiku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_sonnet_v1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_haiku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_opus": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_sonnet_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_7_sonnet": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_3_70b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_4_scout_17b_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_4_maverick_17b_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "small_24_02_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "large_24_07_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "pixtral_large_25_02_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "x"
+        },
+        "embeddings_g1_text": {
+          "status": "available",
+          "label": "x"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "image_generator_v1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "image_generator_g1_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "titan_text_premier": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "jamba_1_5_mini": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "jamba_1_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "pegasus": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "bda": {
+          "status": "planned",
+          "date": "2026-02-24",
+          "label": "Feb 24, 2026"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Thailand)",
+      "code": "ap-southeast-7",
+      "shortCode": "BKK",
+      "geo": "apac",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_speed_sku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "canvas_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "canvas_1_1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "nova_sonic_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_haiku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_sonnet_v1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_haiku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_opus": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_sonnet_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_7_sonnet": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_3_70b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_4_scout_17b_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_4_maverick_17b_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "small_24_02_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "large_24_07_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "pixtral_large_25_02_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "x"
+        },
+        "embeddings_g1_text": {
+          "status": "available",
+          "label": "x"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "image_generator_v1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "image_generator_g1_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "titan_text_premier": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "jamba_1_5_mini": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "jamba_1_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "pegasus": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Taipei)",
+      "code": "ap-east-2",
+      "shortCode": "TPE",
+      "geo": "apac",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_speed_sku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "canvas_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "canvas_1_1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "nova_sonic_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_haiku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_sonnet_v1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_haiku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_opus": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_sonnet_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_7_sonnet": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_3_70b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_4_scout_17b_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_4_maverick_17b_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "small_24_02_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "large_24_07_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "pixtral_large_25_02_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "x"
+        },
+        "embeddings_g1_text": {
+          "status": "available",
+          "label": "x"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "image_generator_v1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "image_generator_g1_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "titan_text_premier": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "jamba_1_5_mini": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "jamba_1_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "pegasus": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        }
+      }
+    },
+    {
+      "name": "Europe (Frankfurt)",
+      "code": "eu-central-1",
+      "shortCode": "FRA",
+      "geo": "europe",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "EU"
+        },
+        "cmi": {
+          "status": "available",
+          "label": "Now"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "rerank_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "deepseekv3_1_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "qwen3_coder_30b_a3b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_coder_480b_a35b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_3_235b_a22b_instruct_2507_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_32b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pixtral_large_25_02_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "embed_multilingual": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_english": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embeddings_g1_text": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_optimization_apo": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "available",
+          "label": "Now"
+        }
+      }
+    },
+    {
+      "name": "Europe (Zurich)",
+      "code": "eu-central-2",
+      "shortCode": "ZRH",
+      "geo": "europe",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "EU"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "lite_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "pro_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS*"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS*"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS*"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS*"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "planned",
+          "date": "",
+          "label": "12/1"
+        },
+        "marketplace": {
+          "status": "planned",
+          "date": "",
+          "label": "6/30 DFD: Planned to launch with Bedrock (which is tentatively targeted for 8/29)."
+        },
+        "bda": {
+          "status": "available",
+          "label": "x"
+        }
+      }
+    },
+    {
+      "name": "Europe (Stockholm)",
+      "code": "eu-north-1",
+      "shortCode": "ARN",
+      "geo": "europe",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "EU"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "deepseekv3_1_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "qwen3_coder_30b_a3b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_coder_480b_a35b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_3_235b_a22b_instruct_2507_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_32b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pixtral_large_25_02_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "planned",
+          "date": "",
+          "label": "2/14"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "bda": {
+          "status": "available",
+          "label": "x"
+        }
+      }
+    },
+    {
+      "name": "Europe (Ireland)",
+      "code": "eu-west-1",
+      "shortCode": "DUB",
+      "geo": "europe",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "EU"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "canvas_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "reel_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v1": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_5_haiku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_opus": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_5_sonnet_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "r1_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "gpt_oss_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "qwen3_coder_30b_a3b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_32b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_next_80b_a3b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_vl_235b_a22b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_4b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_12b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_27b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pixtral_large_25_02_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "voxtral_mini_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_small_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_8b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_14b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_vl_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_multilingual": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_english": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_4": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "marengo": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pegasus": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_optimization_apo": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "available",
+          "label": "Now"
+        }
+      }
+    },
+    {
+      "name": "Europe (London)",
+      "code": "eu-west-2",
+      "shortCode": "LHR",
+      "geo": "europe",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "EU"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "lite_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pro_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_7_sonnet": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS*"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS*"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS*"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS*"
+        },
+        "deepseekv3_1_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "qwen3_coder_30b_a3b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_coder_480b_a35b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_3_235b_a22b_instruct_2507_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_32b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_next_80b_a3b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_vl_235b_a22b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_4b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_12b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_27b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_mini_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_small_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_8b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_14b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_vl_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_multilingual": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_english": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "image_generator_v1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_optimization_apo": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "available",
+          "label": "Now"
+        }
+      }
+    },
+    {
+      "name": "Europe (Paris)",
+      "code": "eu-west-3",
+      "shortCode": "CDG",
+      "geo": "europe",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "EU"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "3_5_sonnet_v1": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "3_7_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pixtral_large_25_02_not_on_mantle": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "embed_multilingual": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_english": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_optimization_apo": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "available",
+          "label": "x"
+        }
+      }
+    },
+    {
+      "name": "Europe (Milan)",
+      "code": "eu-south-1",
+      "shortCode": "MXP",
+      "geo": "europe",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "EU"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "gpt_oss_safeguard_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_safeguard_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_3_70b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "qwen3_coder_30b_a3b_instruct_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_3_235b_a22b_instruct_2507_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen_32b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_next_80b_a3b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "qwen3_vl_235b_a22b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_4b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_12b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gemma_3_27b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_mini_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_small_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_8b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_14b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_vl_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "prompt_mgmt": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "prompt_optimization_apo": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "evaluations": {
+          "status": "planned",
+          "date": "",
+          "label": "DFD 5/30"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "bda": {
+          "status": "available",
+          "label": "x"
+        }
+      }
+    },
+    {
+      "name": "Europe (Spain)",
+      "code": "eu-south-2",
+      "shortCode": "THC",
+      "geo": "europe",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "EU"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS & EU CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_3_70b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_optimization_apo": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "evaluations": {
+          "status": "planned",
+          "date": "",
+          "label": "DFD 5/30"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "bda": {
+          "status": "planned",
+          "date": "2026-02-24",
+          "label": "Feb 24, 2026"
+        }
+      }
+    },
+    {
+      "name": "Africa (Cape Town)",
+      "code": "af-south-1",
+      "shortCode": "CPT",
+      "geo": "mea",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        }
+      }
+    },
+    {
+      "name": "Middle East (UAE)",
+      "code": "me-central-1",
+      "shortCode": "DXB",
+      "geo": "mea",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pro_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "bda": {
+          "status": "planned",
+          "date": "2026-02-24",
+          "label": "Feb 24, 2026"
+        }
+      }
+    },
+    {
+      "name": "Middle East (Bahrain)",
+      "code": "me-south-1",
+      "shortCode": "BAH",
+      "geo": "mea",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        }
+      }
+    },
+    {
+      "name": "Israel (Tel Aviv)",
+      "code": "il-central-1",
+      "shortCode": "TLV",
+      "geo": "mea",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "lite_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "pro_1_0": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_sonnet": {
+          "status": "cris",
+          "label": "CRIS"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "bda": {
+          "status": "planned",
+          "date": "",
+          "label": "DFD 7/31"
+        }
+      }
+    },
+    {
+      "name": "European Sovereign Cloud (ESC)",
+      "code": "eusc-de-east-1",
+      "shortCode": "THF",
+      "geo": "europe",
+      "launchStatus": "Available",
+      "availability": {
+        "lite_1_0": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "pro_1_0": {
+          "status": "available",
+          "label": "In Region"
+        }
+      }
+    },
+    {
+      "name": "S. America (Sao Paulo)",
+      "code": "sa-east-1",
+      "shortCode": "GRU",
+      "geo": "americas",
+      "launchStatus": "Available",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "3_haiku": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "4_sonnet": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "4_5_sonnet": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_haiku": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_5_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "4_6_opus": {
+          "status": "cris",
+          "label": "Global CRIS"
+        },
+        "gpt_oss_20b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "gpt_oss_120b_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "8x7b_instruct_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "large_24_02_not_on_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "magistral_small_1_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_mini_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "voxtral_small_1_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_3b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_8b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ministral_14b_3_0_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "mistral_large_3_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "kimi_k2_thinking_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "nvidia_nemotron_nano_2_vl_mantle": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_multilingual": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "embed_english": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "multimodal_embeddings_g1": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "text_embeddings_v2": {
+          "status": "available",
+          "label": "In Region"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "Now"
+        },
+        "agents": {
+          "status": "available",
+          "label": "Now"
+        },
+        "knowledge_base_rag": {
+          "status": "available",
+          "label": "Now"
+        },
+        "flows": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_mgmt": {
+          "status": "available",
+          "label": "Now"
+        },
+        "prompt_optimization_apo": {
+          "status": "available",
+          "label": "Now"
+        },
+        "evaluations": {
+          "status": "available",
+          "label": "Now"
+        },
+        "marketplace": {
+          "status": "available",
+          "label": "Now"
+        },
+        "bda": {
+          "status": "planned",
+          "date": "2026-02-24",
+          "label": "Feb 24, 2026"
+        }
+      }
+    },
+    {
+      "name": "Asia Pacific (Auckland)",
+      "code": "",
+      "shortCode": "AKL",
+      "geo": "apac",
+      "launchStatus": "TBD (Pending date from Service team)",
+      "availability": {
+        "cris_profile": {
+          "status": "cris_profile",
+          "label": "Global"
+        },
+        "cmi": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "micro_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "pro_speed_sku": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "canvas_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "canvas_1_1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "reel_1_1": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "nova_sonic_1_0": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_11b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_90b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_3b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_2_1b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "llama_3_3_70b_instruct_not_on_mantle": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_multilingual": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "embed_english": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "r_2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "rerank_3_5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "ray_v2": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "stable_diffusion_3_5_large": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x4": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "palmyra_x5": {
+          "status": "np",
+          "label": "Not Planned"
+        },
+        "guardrails": {
+          "status": "available",
+          "label": "at launch"
+        },
+        "marketplace": {
+          "status": "np",
+          "label": "Not Planned"
+        }
+      }
+    },
+    {
+      "name": "DCA",
+      "code": "",
+      "shortCode": "",
+      "geo": "other",
+      "launchStatus": "",
+      "availability": {}
+    },
+    {
+      "name": "LCK",
+      "code": "",
+      "shortCode": "",
+      "geo": "other",
+      "launchStatus": "",
+      "availability": {}
+    },
+    {
+      "name": "ALE",
+      "code": "",
+      "shortCode": "",
+      "geo": "other",
+      "launchStatus": "",
+      "availability": {}
+    },
+    {
+      "name": "LTW",
+      "code": "",
+      "shortCode": "",
+      "geo": "other",
+      "launchStatus": "",
+      "availability": {}
+    }
+  ],
+  "upcomingLaunches": [
+    {
+      "date": "2025-07-21",
+      "label": "Jul 21, 2025",
+      "region": "US ISO East",
+      "regionCode": "DCA",
+      "regionGeo": "americas",
+      "modelName": "Agents",
+      "provider": "Bedrock Services"
+    },
+    {
+      "date": "2025-07-21",
+      "label": "Jul 21, 2025",
+      "region": "US ISO East",
+      "regionCode": "DCA",
+      "regionGeo": "americas",
+      "modelName": "Knowledge Base (RAG)",
+      "provider": "Bedrock Services"
+    },
+    {
+      "date": "2025-09-09",
+      "label": "Sep 09, 2025",
+      "region": "US ISO East",
+      "regionCode": "DCA",
+      "regionGeo": "americas",
+      "modelName": "Evaluations",
+      "provider": "Bedrock Services"
+    },
+    {
+      "date": "2025-12-18",
+      "label": "Dec 18, 2025",
+      "region": "US East (Ohio)",
+      "regionCode": "CMH",
+      "regionGeo": "americas",
+      "modelName": "BDA",
+      "provider": "Bedrock Services"
+    },
+    {
+      "date": "2025-12-18",
+      "label": "Dec 18, 2025",
+      "region": "Canada (Central)",
+      "regionCode": "YUL",
+      "regionGeo": "americas",
+      "modelName": "BDA",
+      "provider": "Bedrock Services"
+    },
+    {
+      "date": "2026-02-24",
+      "label": "Feb 24, 2026",
+      "region": "US ISO East",
+      "regionCode": "DCA",
+      "regionGeo": "americas",
+      "modelName": "BDA",
+      "provider": "Bedrock Services"
+    },
+    {
+      "date": "2026-02-24",
+      "label": "Feb 24, 2026",
+      "region": "Asia Pacific (Tokyo)",
+      "regionCode": "NRT",
+      "regionGeo": "apac",
+      "modelName": "BDA",
+      "provider": "Bedrock Services"
+    },
+    {
+      "date": "2026-02-24",
+      "label": "Feb 24, 2026",
+      "region": "Asia Pacific (Seoul)",
+      "regionCode": "ICN",
+      "regionGeo": "apac",
+      "modelName": "BDA",
+      "provider": "Bedrock Services"
+    },
+    {
+      "date": "2026-02-24",
+      "label": "Feb 24, 2026",
+      "region": "Asia Pacific (Singapore)",
+      "regionCode": "SIN",
+      "regionGeo": "apac",
+      "modelName": "BDA",
+      "provider": "Bedrock Services"
+    },
+    {
+      "date": "2026-02-24",
+      "label": "Feb 24, 2026",
+      "region": "Asia Pacific (Malaysia)",
+      "regionCode": "KUL",
+      "regionGeo": "apac",
+      "modelName": "BDA",
+      "provider": "Bedrock Services"
+    },
+    {
+      "date": "2026-02-24",
+      "label": "Feb 24, 2026",
+      "region": "Europe (Spain)",
+      "regionCode": "THC",
+      "regionGeo": "europe",
+      "modelName": "BDA",
+      "provider": "Bedrock Services"
+    },
+    {
+      "date": "2026-02-24",
+      "label": "Feb 24, 2026",
+      "region": "Middle East (UAE)",
+      "regionCode": "DXB",
+      "regionGeo": "mea",
+      "modelName": "BDA",
+      "provider": "Bedrock Services"
+    },
+    {
+      "date": "2026-02-24",
+      "label": "Feb 24, 2026",
+      "region": "S. America (Sao Paulo)",
+      "regionCode": "GRU",
+      "regionGeo": "americas",
+      "modelName": "BDA",
+      "provider": "Bedrock Services"
+    }
+  ]
+}

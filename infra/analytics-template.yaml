@@ -1,0 +1,149 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Bedrock Model Profiler - Analytics API (DynamoDB + API Gateway + Lambda)
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+
+  AllowedOrigins:
+    Type: String
+    Default: '*'
+    Description: CORS allowed origins (e.g., https://d3oem6l61p8j11.cloudfront.net)
+
+  AdminGroup:
+    Type: String
+    Default: 'admins'
+    Description: Cognito group name that grants access to the analytics dashboard
+
+  CognitoUserPoolId:
+    Type: String
+    Description: Cognito User Pool ID (from existing auth stack)
+
+  CognitoClientId:
+    Type: String
+    Description: Cognito App Client ID (audience for JWT validation)
+
+  CognitoRegion:
+    Type: String
+    Default: us-east-1
+    Description: AWS region of the Cognito User Pool
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 30
+    MemorySize: 256
+
+Resources:
+  #############################################
+  # DynamoDB Table
+  #############################################
+  AnalyticsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'bedrock-profiler-analytics-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: bedrock-model-profiler
+        - Key: Component
+          Value: analytics
+
+  #############################################
+  # HTTP API (SAM managed)
+  #############################################
+  AnalyticsApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Environment
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowedOrigins
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        MaxAge: 3600
+      Auth:
+        DefaultAuthorizer: CognitoJWT
+        Authorizers:
+          CognitoJWT:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub 'https://cognito-idp.${CognitoRegion}.amazonaws.com/${CognitoUserPoolId}'
+              audience:
+                - !Ref CognitoClientId
+
+  #############################################
+  # Lambda Function
+  #############################################
+  AnalyticsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-analytics-${Environment}'
+      CodeUri: ../backend/lambdas/analytics/
+      Handler: handler.lambda_handler
+      Environment:
+        Variables:
+          ANALYTICS_TABLE: !Ref AnalyticsTable
+          ADMIN_GROUP: !Ref AdminGroup
+          ALLOWED_ORIGINS: !Ref AllowedOrigins
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+                - dynamodb:Query
+                - dynamodb:BatchWriteItem
+              Resource:
+                - !GetAtt AnalyticsTable.Arn
+      Events:
+        PostEvents:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AnalyticsApi
+            Path: /events
+            Method: POST
+            Auth:
+              Authorizer: NONE
+        GetDashboard:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AnalyticsApi
+            Path: /dashboard
+            Method: GET
+
+Outputs:
+  AnalyticsApiUrl:
+    Description: Analytics API endpoint URL
+    Value: !Sub 'https://${AnalyticsApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-ApiUrl'
+
+  AnalyticsTableName:
+    Description: DynamoDB table name
+    Value: !Ref AnalyticsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-TableName'

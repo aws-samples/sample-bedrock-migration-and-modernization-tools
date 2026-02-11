@@ -40,8 +40,8 @@ export function ComparisonCard({ model, onRemove }) {
     <Card className={cn(
       'relative flex flex-col group',
       isLight
-        ? 'bg-white/80 border-stone-200/80 backdrop-blur-xl'
-        : 'bg-[#131a24]/80 border-slate-700/40 backdrop-blur-xl'
+        ? 'bg-white/70 border-stone-200/60 backdrop-blur-xl shadow-[0_2px_15px_-3px_rgba(120,113,108,0.08)]'
+        : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.3)]'
     )}>
       {/* Remove button */}
       <Button
@@ -51,7 +51,7 @@ export function ComparisonCard({ model, onRemove }) {
           'absolute top-1.5 right-1.5 h-5 w-5 z-10 opacity-0 group-hover:opacity-100 transition-opacity',
           isLight
             ? 'hover:bg-stone-200/80 text-stone-400'
-            : 'hover:bg-slate-700/80 text-slate-500'
+            : 'hover:bg-white/[0.08] text-slate-500'
         )}
         onClick={() => onRemove(model.model_id)}
       >

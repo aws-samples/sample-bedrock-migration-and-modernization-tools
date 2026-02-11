@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   LayoutGrid,
   Star,
   GitCompare,
+  BarChart3,
+  Map,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -13,9 +15,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme } from './ThemeProvider'
 import { BedrockIcon } from '@/components/icons/BedrockIcon'
-import { UserProfile } from './UserProfile'
+import { useAuthStore } from '@/stores/authStore'
+import { canViewRoadmap, canViewAnalytics, getSectionBadge } from '@/config/admin'
 
-const navigationItems = [
+const baseNavigationItems = [
   {
     id: 'explorer',
     label: 'Model Explorer',
@@ -61,7 +64,17 @@ function NavButton({ item, isActive, isLight, collapsed, mobileMenuOpen, onClick
             : 'text-[#6d6e72] group-hover:text-[#c0c1c5]'
       )} />
       {showLabel && (
-        <span className="text-[13px] font-medium">{item.label}</span>
+        <>
+          <span className="text-[13px] font-medium">{item.label}</span>
+          {item.badge && (
+            <span className={cn(
+              'ml-auto text-[9px] font-bold leading-none px-1.5 py-0.5 rounded-full border',
+              isLight ? item.badge.light : item.badge.dark
+            )}>
+              {item.badge.text}
+            </span>
+          )}
+        </>
       )}
     </button>
   )
@@ -73,6 +86,14 @@ function NavButton({ item, isActive, isLight, collapsed, mobileMenuOpen, onClick
           <TooltipTrigger asChild>{button}</TooltipTrigger>
           <TooltipContent side="right" sideOffset={8} className="z-[100]">
             {item.label}
+            {item.badge && (
+              <span className={cn(
+                'ml-1.5 text-[9px] font-bold leading-none px-1.5 py-0.5 rounded-full border inline-block',
+                isLight ? item.badge.light : item.badge.dark
+              )}>
+                {item.badge.text}
+              </span>
+            )}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -87,6 +108,19 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const showExpanded = !collapsed || mobileMenuOpen
+  const user = useAuthStore((s) => s.user)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+
+  const navigationItems = useMemo(() => {
+    const items = [...baseNavigationItems]
+    if (isAuthenticated && canViewRoadmap(user)) {
+      items.push({ id: 'roadmap', label: 'Region Roadmap', icon: Map, badge: getSectionBadge(user, 'roadmap') })
+    }
+    if (isAuthenticated && canViewAnalytics(user)) {
+      items.push({ id: 'admin', label: 'Analytics', icon: BarChart3, badge: getSectionBadge(user, 'admin') })
+    }
+    return items
+  }, [isAuthenticated, user])
 
   const handleNavigation = (sectionId) => {
     onSectionChange(sectionId)
@@ -159,9 +193,6 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
           />
         ))}
       </nav>
-
-      {/* User Profile */}
-      <UserProfile collapsed={collapsed} mobileMenuOpen={mobileMenuOpen} />
 
       {/* Footer — collapse toggle + separator + version + theme */}
       <div className="px-3 py-3">

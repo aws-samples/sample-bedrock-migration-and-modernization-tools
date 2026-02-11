@@ -25,12 +25,23 @@ export const useAuthStore = create((set, get) => ({
       return
     }
 
+    const profile = authUser.profile || {}
+
+    // Extract Cognito groups from token claims
+    const groups = profile['cognito:groups'] || []
+
     set({
       user: {
-        givenName: authUser.profile?.given_name || null,
-        email: authUser.profile?.email || null,
-        alias: authUser.profile?.identities?.[0]?.userId || authUser.profile?.preferred_username || null,
-        sub: authUser.profile?.sub || null,
+        givenName: profile.given_name || null,
+        email: profile.email || null,
+        alias: profile.identities?.[0]?.userId || profile.preferred_username || null,
+        sub: profile.sub || null,
+        // Cognito groups (e.g., ['admins'])
+        groups: Array.isArray(groups) ? groups : [],
+        // Midway/Federate geo attributes (non-PII, used for aggregated analytics only)
+        country: profile['custom:country'] || null,
+        region: profile['custom:region'] || null,
+        geoLocation: profile['custom:geo_location'] || null,
       },
       accessToken: authUser.access_token,
       isAuthenticated: true,

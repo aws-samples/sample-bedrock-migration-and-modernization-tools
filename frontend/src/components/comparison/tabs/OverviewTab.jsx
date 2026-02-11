@@ -110,7 +110,7 @@ function MetricRow({ label, values, isLight, bestIndices = null }) {
   return (
     <tr className={cn(
       'border-b',
-      isLight ? 'border-stone-100' : 'border-slate-800/50'
+      isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
         'px-4 py-2.5 font-medium text-xs whitespace-nowrap',
@@ -145,7 +145,7 @@ function ContextRow({ label, values, isLight, bestIndices = null }) {
   return (
     <tr className={cn(
       'border-b',
-      isLight ? 'border-stone-100' : 'border-slate-800/50'
+      isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
         'px-4 py-2.5 font-medium text-xs whitespace-nowrap',
@@ -198,7 +198,7 @@ function BooleanRow({ label, values, isLight }) {
   return (
     <tr className={cn(
       'border-b',
-      isLight ? 'border-stone-100' : 'border-slate-800/50'
+      isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
         'px-4 py-2.5 font-medium text-xs whitespace-nowrap',
@@ -223,7 +223,7 @@ function ModalitiesRow({ label, values, isLight, isOutput = false }) {
   return (
     <tr className={cn(
       'border-b',
-      isLight ? 'border-stone-100' : 'border-slate-800/50'
+      isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
         'px-4 py-2.5 font-medium text-xs whitespace-nowrap',
@@ -266,8 +266,8 @@ function RadarTooltip({ active, payload, label, isLight }) {
     <div className={cn(
       'px-3 py-2 rounded-lg border text-xs shadow-lg',
       isLight
-        ? 'bg-white border-stone-200 text-stone-900'
-        : 'bg-[#131a24] border-slate-700 text-white'
+        ? 'bg-white/90 border-stone-200/60 text-stone-900 backdrop-blur-xl'
+        : 'bg-slate-900/90 border-white/[0.08] text-white backdrop-blur-xl'
     )}>
       <p className="font-semibold mb-1">{label}</p>
       {sorted.map((entry, idx) => (
@@ -357,7 +357,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div className={cn(
           'px-3 py-2.5 rounded-lg border',
-          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+          isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
         )}>
           <div className="flex items-center gap-1.5 mb-0.5">
             <Trophy className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
@@ -378,7 +378,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
 
         <div className={cn(
           'px-3 py-2.5 rounded-lg border',
-          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+          isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
         )}>
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Best Context</span>
@@ -413,7 +413,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
 
         <div className={cn(
           'px-3 py-2.5 rounded-lg border',
-          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+          isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
         )}>
           <div className="flex items-center gap-1.5 mb-0.5">
             <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
@@ -435,12 +435,12 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
         <div className={cn(
           'rounded-lg border overflow-hidden',
           isLight
-            ? 'bg-white/80 border-stone-200/80 backdrop-blur-xl'
-            : 'bg-[#131a24]/80 border-slate-700/40 backdrop-blur-xl'
+            ? 'bg-white/70 border-stone-200/60 backdrop-blur-xl'
+            : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl'
         )}>
           <div className={cn(
             'px-4 py-2.5 border-b flex items-center gap-2',
-            isLight ? 'bg-stone-50/80 border-stone-200' : 'bg-slate-800/30 border-slate-700'
+            isLight ? 'bg-stone-50/60 border-stone-200' : 'bg-white/[0.02] border-white/[0.06]'
           )}>
             <h3 className={cn('font-semibold text-xs', isLight ? 'text-stone-900' : 'text-white')}>
               Model Comparison Radar
@@ -452,7 +452,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={radarChartData} cx="50%" cy="50%" outerRadius="70%">
                   <PolarGrid
-                    stroke={isLight ? '#d6d3d1' : '#334155'}
+                    stroke={isLight ? '#d6d3d1' : 'rgba(255,255,255,0.08)'}
                     strokeDasharray="3 3"
                   />
                   <PolarAngleAxis
@@ -514,7 +514,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
               {/* Score summary per model */}
               <div className={cn(
                 'mt-3 pt-3 border-t space-y-1.5',
-                isLight ? 'border-stone-200' : 'border-slate-700'
+                isLight ? 'border-stone-200' : 'border-white/[0.06]'
               )}>
                 {radarScores.map((scores, idx) => {
                   const total = scores.costScore + scores.contextScore + scores.regionScore + scores.featureScore
@@ -551,15 +551,15 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
       <div className={cn(
         'rounded-lg border overflow-hidden',
         isLight
-          ? 'bg-white/80 border-stone-200/80 backdrop-blur-xl'
-          : 'bg-[#131a24]/80 border-slate-700/40 backdrop-blur-xl'
+          ? 'bg-white/70 border-stone-200/60 backdrop-blur-xl'
+          : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl'
       )}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className={cn(
                 'border-b-2',
-                isLight ? 'border-stone-200 bg-stone-50/80' : 'border-slate-700 bg-slate-800/30'
+                isLight ? 'border-stone-200 bg-stone-50/60' : 'border-white/[0.06] bg-white/[0.02]'
               )}>
                 <th className={cn(
                   'px-4 py-3 text-left text-xs font-semibold w-40 min-w-[130px]',

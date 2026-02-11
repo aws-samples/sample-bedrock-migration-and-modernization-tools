@@ -122,7 +122,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
   const SpecRow = ({ label, children }) => (
     <tr className={cn(
       'border-b',
-      isLight ? 'border-stone-100' : 'border-slate-800/50'
+      isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
         'px-4 py-2.5 font-medium text-xs whitespace-nowrap',
@@ -220,7 +220,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div className={cn(
           'px-3 py-2.5 rounded-lg border',
-          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+          isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
         )}>
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Max Context</span>
@@ -232,7 +232,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
 
         <div className={cn(
           'px-3 py-2.5 rounded-lg border',
-          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+          isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
         )}>
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Streaming</span>
@@ -244,7 +244,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
 
         <div className={cn(
           'px-3 py-2.5 rounded-lg border',
-          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+          isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
         )}>
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>CRIS Support</span>
@@ -256,7 +256,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
 
         <div className={cn(
           'px-3 py-2.5 rounded-lg border',
-          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+          isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
         )}>
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Batch Inference</span>
@@ -271,14 +271,14 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
         'rounded-lg border overflow-hidden',
         isLight
           ? 'bg-white/80 border-stone-200/80 backdrop-blur-xl'
-          : 'bg-[#131a24]/80 border-slate-700/40 backdrop-blur-xl'
+          : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl'
       )}>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className={cn(
               'border-b-2',
-              isLight ? 'border-stone-200 bg-stone-50/80' : 'border-slate-700 bg-slate-800/30'
+              isLight ? 'border-stone-200 bg-stone-50/60' : 'border-white/[0.06] bg-white/[0.02]'
             )}>
               <th className={cn(
                 'px-4 py-3 text-left text-xs font-semibold w-44 min-w-[140px]',

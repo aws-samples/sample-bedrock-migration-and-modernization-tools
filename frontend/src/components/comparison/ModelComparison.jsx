@@ -13,6 +13,7 @@ import { AvailabilityTab } from './tabs/AvailabilityTab'
 import { TechSpecsTab } from './tabs/TechSpecsTab'
 import { cn } from '@/lib/utils'
 import { providerColorClasses } from '@/config/constants'
+import { trackEvent } from '@/services/analytics'
 
 function AddModelSearch({ isLight, models, addModel, isModelSelected }) {
   const [open, setOpen] = useState(false)
@@ -103,7 +104,7 @@ function AddModelSearch({ isLight, models, addModel, isModelSelected }) {
     <div ref={dropdownRef} className="relative">
       <div className={cn(
         'flex items-center gap-1 rounded-md border px-2 py-1',
-        isLight ? 'bg-white border-stone-300' : 'bg-[#131a24] border-slate-600'
+        isLight ? 'bg-white border-stone-300' : 'bg-white/[0.04] border-white/[0.08]'
       )}>
         <Search className={cn('h-3.5 w-3.5 flex-shrink-0', isLight ? 'text-stone-400' : 'text-slate-500')} />
         <input
@@ -125,12 +126,12 @@ function AddModelSearch({ isLight, models, addModel, isModelSelected }) {
       {/* Dropdown */}
       <div className={cn(
         'absolute top-full right-0 mt-1 w-96 rounded-lg border shadow-xl z-50 flex flex-col',
-        isLight ? 'bg-white border-stone-200' : 'bg-[#131a24] border-slate-700'
+        isLight ? 'bg-white/90 border-stone-200/60' : 'bg-slate-900/95 border-white/[0.08] backdrop-blur-xl'
       )} style={{ maxHeight: '420px' }}>
         {/* Provider filter pills */}
         <div className={cn(
           'flex items-center gap-1 px-3 py-2 overflow-x-auto flex-shrink-0 border-b',
-          isLight ? 'border-stone-100' : 'border-slate-800/50'
+          isLight ? 'border-stone-100' : 'border-white/[0.04]'
         )}>
           <button
             onClick={() => setProviderFilter(null)}
@@ -162,7 +163,7 @@ function AddModelSearch({ isLight, models, addModel, isModelSelected }) {
         {/* Results count */}
         <div className={cn(
           'px-3 py-1.5 text-[10px] flex-shrink-0 border-b',
-          isLight ? 'text-stone-400 border-stone-100' : 'text-slate-500 border-slate-800/50'
+          isLight ? 'text-stone-400 border-stone-100' : 'text-slate-500 border-white/[0.04]'
         )}>
           {filtered.length} model{filtered.length !== 1 ? 's' : ''}
           {query && ` matching "${query}"`}
@@ -181,7 +182,7 @@ function AddModelSearch({ isLight, models, addModel, isModelSelected }) {
                 {!providerFilter && (
                   <div className={cn(
                     'px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider sticky top-0',
-                    isLight ? 'bg-stone-50 text-stone-500 border-b border-stone-100' : 'bg-[#0e1319] text-slate-500 border-b border-slate-800/50'
+                    isLight ? 'bg-stone-50 text-stone-500 border-b border-stone-100' : 'bg-white/[0.02] text-slate-500 border-b border-white/[0.04]'
                   )}>
                     {provider} ({provModels.length})
                   </div>
@@ -191,12 +192,17 @@ function AddModelSearch({ isLight, models, addModel, isModelSelected }) {
                   return (
                     <button
                       key={model.model_id}
-                      onClick={() => { if (!selected) addModel(model) }}
+                      onClick={() => {
+                        if (!selected) {
+                          addModel(model)
+                          trackEvent('comparison_add', { modelId: model.model_id, provider: model.model_provider, modelName: model.model_name, section: 'comparison' })
+                        }
+                      }}
                       disabled={selected}
                       className={cn(
                         'w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors',
                         selected
-                          ? isLight ? 'bg-stone-50/50' : 'bg-slate-800/20'
+                          ? isLight ? 'bg-stone-50/50' : 'bg-white/[0.02]'
                           : isLight ? 'hover:bg-amber-50/50' : 'hover:bg-white/5',
                       )}
                     >
@@ -240,8 +246,8 @@ function EmptyState({ isLight, onNavigateToExplorer }) {
     <div className={cn(
       'flex flex-col items-center justify-center py-20 px-4 rounded-xl border',
       isLight
-        ? 'bg-white/60 border-stone-200/80 backdrop-blur-xl'
-        : 'bg-[#161d26]/60 border-slate-700/50 backdrop-blur-xl'
+        ? 'bg-white/70 border-stone-200/60 backdrop-blur-xl shadow-[0_2px_15px_-3px_rgba(120,113,108,0.08)]'
+        : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.3)]'
     )}>
       <div className={cn(
         'w-16 h-16 rounded-full flex items-center justify-center mb-4',
@@ -269,8 +275,8 @@ function EmptyState({ isLight, onNavigateToExplorer }) {
         onClick={onNavigateToExplorer}
         className={cn(
           isLight
-            ? 'bg-amber-600 hover:bg-amber-700 text-white'
-            : 'bg-[#1A9E7A] hover:bg-[#158567] text-white'
+            ? 'bg-amber-600 hover:bg-amber-700 text-[#faf9f5]'
+            : 'bg-[#1A9E7A] hover:bg-[#158567] text-[#ffffff]'
         )}
       >
         <ArrowLeft className="h-4 w-4 mr-2" />
@@ -342,7 +348,7 @@ export function ModelComparison({ onNavigateToExplorer }) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={clearAll}
+            onClick={() => { trackEvent('comparison_clear', { section: 'comparison' }); clearAll() }}
             className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
           >
             <Trash2 className="h-4 w-4 sm:mr-2" />
@@ -355,8 +361,8 @@ export function ModelComparison({ onNavigateToExplorer }) {
       <div className={cn(
         'rounded-lg border overflow-hidden',
         isLight
-          ? 'bg-white/50 border-stone-200/80'
-          : 'bg-[#131a24]/50 border-slate-700/40'
+          ? 'bg-white/60 border-stone-200/60 backdrop-blur-xl'
+          : 'bg-white/[0.02] border-white/[0.06] backdrop-blur-xl'
       )}>
         <button
           onClick={() => setCardsCollapsed(prev => !prev)}
@@ -365,7 +371,7 @@ export function ModelComparison({ onNavigateToExplorer }) {
             'transition-colors',
             isLight
               ? 'hover:bg-stone-50'
-              : 'hover:bg-slate-800/30'
+              : 'hover:bg-white/[0.04]'
           )}
         >
           <div className="flex items-center gap-2">
@@ -389,7 +395,7 @@ export function ModelComparison({ onNavigateToExplorer }) {
                     variant="secondary"
                     className={cn(
                       'text-[9px] py-0 px-1.5',
-                      isLight ? 'bg-stone-100 text-stone-600' : 'bg-slate-700/50 text-slate-400'
+                      isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/[0.06] text-slate-400'
                     )}
                   >
                     {model.model_name || model.model_id}

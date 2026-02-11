@@ -134,7 +134,7 @@ export function RegionMap({ selectedModels, isLight, height = '350px' }) {
         'rounded-lg border flex items-center justify-center',
         isLight
           ? 'bg-stone-100 border-stone-200 text-stone-500'
-          : 'bg-slate-800 border-slate-700 text-slate-400'
+          : 'bg-white/[0.03] border-white/[0.06] text-slate-400'
       )}>
         No region data available
       </div>
@@ -144,7 +144,7 @@ export function RegionMap({ selectedModels, isLight, height = '350px' }) {
   return (
     <div className={cn(
       'rounded-lg border overflow-hidden',
-      isLight ? 'border-stone-200' : 'border-slate-700'
+      isLight ? 'border-stone-200' : 'border-white/[0.06]'
     )}>
       <MapContainer
         key={isLight ? 'light' : 'dark'}
@@ -153,11 +153,11 @@ export function RegionMap({ selectedModels, isLight, height = '350px' }) {
         minZoom={2}
         maxBounds={[[-85, -180], [85, 180]]}
         maxBoundsViscosity={1.0}
-        style={{ height, width: '100%', background: isLight ? '#f5f5f4' : '#131a24' }}
+        style={{ height, width: '100%', background: isLight ? '#faf9f5' : 'transparent' }}
         className="z-0"
+        attributionControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url={tileUrl}
           noWrap={true}
         />
@@ -229,7 +229,7 @@ export function RegionMap({ selectedModels, isLight, height = '350px' }) {
         'px-4 py-2 border-t flex items-center gap-4 text-xs',
         isLight
           ? 'bg-stone-50 border-stone-200 text-stone-600'
-          : 'bg-slate-800/50 border-slate-700 text-slate-400'
+          : 'bg-white/[0.02] border-white/[0.06] text-slate-400'
       )}>
         <div className="flex items-center gap-1.5">
           <span

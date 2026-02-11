@@ -147,7 +147,7 @@ function PricingGroupSection({ groupName, rows, models, pricingByModel, isLight 
       'rounded-lg border overflow-hidden',
       isLight
         ? 'bg-white/80 border-stone-200/80'
-        : 'bg-[#131a24]/80 border-slate-700/40'
+        : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl'
     )}>
       {/* Group header */}
       <button
@@ -182,7 +182,7 @@ function PricingGroupSection({ groupName, rows, models, pricingByModel, isLight 
             <thead>
               <tr className={cn(
                 'border-t border-b',
-                isLight ? 'border-stone-200 bg-stone-50/80' : 'border-slate-700/50 bg-slate-800/30'
+                isLight ? 'border-stone-200 bg-stone-50/60' : 'border-white/[0.06] bg-white/[0.02]'
               )}>
                 <th className={cn(
                   'px-5 py-2.5 text-left text-sm font-semibold w-44 min-w-[140px]',
@@ -221,7 +221,7 @@ function PricingGroupSection({ groupName, rows, models, pricingByModel, isLight 
                     key={row.key}
                     className={cn(
                       'border-b last:border-b-0',
-                      isLight ? 'border-stone-100' : 'border-slate-800/50'
+                      isLight ? 'border-stone-100' : 'border-white/[0.04]'
                     )}
                   >
                     <td className={cn(
@@ -276,7 +276,7 @@ function PricingGroupSection({ groupName, rows, models, pricingByModel, isLight 
                               </div>
                               <div className={cn(
                                 'w-full h-1.5 rounded-full overflow-hidden',
-                                isLight ? 'bg-stone-100' : 'bg-slate-700/50'
+                                isLight ? 'bg-stone-100' : 'bg-white/[0.04]'
                               )}>
                                 <div
                                   className={cn(
@@ -439,7 +439,7 @@ export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
 
         <div className={cn(
           'px-3 py-2.5 rounded-lg border',
-          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+          isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
         )}>
           <div className="flex items-center gap-1.5 mb-0.5">
             <DollarSign className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
@@ -452,7 +452,7 @@ export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
 
         <div className={cn(
           'px-3 py-2.5 rounded-lg border',
-          isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+          isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
         )}>
           <div className="flex items-center gap-1.5 mb-0.5">
             <Info className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
@@ -469,7 +469,7 @@ export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
         'flex items-center gap-2 px-3 py-2 rounded-lg text-xs',
         isLight
           ? 'bg-stone-50 text-stone-500 border border-stone-200/60'
-          : 'bg-white/[0.02] text-slate-500 border border-slate-700/30'
+          : 'bg-white/[0.02] text-slate-500 border border-white/[0.06]'
       )}>
         <Info className="h-3.5 w-3.5 flex-shrink-0" />
         Prices shown for us-east-1. Actual pricing may vary by region.
@@ -507,7 +507,7 @@ export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
           'text-center py-12 rounded-lg border',
           isLight
             ? 'bg-white/80 border-stone-200/80 text-stone-500'
-            : 'bg-[#131a24]/80 border-slate-700/40 text-slate-500'
+            : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl text-slate-500'
         )}>
           <DollarSign className="h-8 w-8 mx-auto mb-2 opacity-30" />
           <p className="text-sm">No pricing data available for the selected models and regions.</p>

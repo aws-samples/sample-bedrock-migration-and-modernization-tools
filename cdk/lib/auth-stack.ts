@@ -3,8 +3,10 @@ import { Construct } from 'constructs';
 import {
     CfnIdentityPool,
     CfnIdentityPoolRoleAttachment,
+    CfnUserPoolGroup,
     CfnUserPoolIdentityProvider,
     OAuthScope,
+    StringAttribute,
     UserPool,
     UserPoolClientIdentityProvider,
     UserPoolDomain
@@ -32,6 +34,12 @@ export class AuthStack extends cdk.Stack {
             userPoolName: userPoolName,
             signInAliases: { email: true },
             standardAttributes: { email: { mutable: true, required: true } },
+            customAttributes: {
+                country: new StringAttribute({ mutable: true, maxLen: 256 }),
+                region: new StringAttribute({ mutable: true, maxLen: 256 }),
+                geo_location: new StringAttribute({ mutable: true, maxLen: 256 }),
+                city: new StringAttribute({ mutable: true, maxLen: 256 }),
+            },
             removalPolicy: cdk.RemovalPolicy.DESTROY
         });
 
@@ -52,6 +60,10 @@ export class AuthStack extends cdk.Stack {
                 email: 'EMAIL',
                 given_name: 'GIVEN_NAME',
                 username: 'sub',
+                'custom:country': 'country',
+                'custom:region': 'region',
+                'custom:geo_location': 'geo_location',
+                'custom:city': 'city',
             },
             providerDetails: {
                 attributes_request_method: 'GET',
@@ -84,6 +96,27 @@ export class AuthStack extends cdk.Stack {
         // Ensure Identity Provider is created before the client
         userPoolClient.node.addDependency(userPoolIdentityProvider);
         this.clientId = userPoolClient.userPoolClientId;
+
+        // Create admins group for analytics dashboard access
+        new CfnUserPoolGroup(this, 'AdminsGroup', {
+            userPoolId: userPool.userPoolId,
+            groupName: 'admins',
+            description: 'Admin users with access to the analytics dashboard',
+        });
+
+        // Create beta-access-users group for read-only access to beta features (e.g. Region Roadmap)
+        new CfnUserPoolGroup(this, 'BetaAccessUsersGroup', {
+            userPoolId: userPool.userPoolId,
+            groupName: 'beta-access-users',
+            description: 'Beta testers with read access to Region Roadmap',
+        });
+
+        // Create region-roadmap-operators group for edit access to Region Roadmap
+        new CfnUserPoolGroup(this, 'RegionRoadmapOperatorsGroup', {
+            userPoolId: userPool.userPoolId,
+            groupName: 'region-roadmap-operators',
+            description: 'Operators with edit access to Region Roadmap',
+        });
 
         // Create Cognito Identity Pool (for AWS credentials if needed later)
         const identityPool = new CfnIdentityPool(this, 'IdentityPool', {

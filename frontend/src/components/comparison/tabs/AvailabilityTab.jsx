@@ -138,14 +138,14 @@ export function AvailabilityTab({ selectedModels, isLight }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Map - takes 2/3 on left */}
         <div className={cn(
-          'lg:col-span-2 rounded-lg border overflow-hidden relative',
+          'lg:col-span-2 rounded-lg border overflow-hidden relative backdrop-blur-xl',
           isLight
-            ? 'bg-white/80 border-stone-200/80'
-            : 'bg-[#131a24]/80 border-slate-700/40'
+            ? 'bg-white/70 border-stone-200/60'
+            : 'bg-white/[0.03] border-white/[0.06]'
         )}>
           <div className={cn(
             'px-3 py-1.5 border-b flex items-center justify-between',
-            isLight ? 'bg-stone-50 border-stone-200' : 'bg-slate-800/30 border-slate-700'
+            isLight ? 'bg-stone-50/60 border-stone-200' : 'bg-white/[0.02] border-white/[0.06]'
           )}>
             <div className="flex items-center gap-2">
               <Map className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
@@ -171,10 +171,10 @@ export function AvailabilityTab({ selectedModels, isLight }) {
 
         {/* Coverage bars - 1/3 on right */}
         <div className={cn(
-          'px-4 py-3 rounded-lg border',
+          'px-4 py-3 rounded-lg border backdrop-blur-xl',
           isLight
-            ? 'bg-white/80 border-stone-200/80'
-            : 'bg-[#131a24]/80 border-slate-700/40'
+            ? 'bg-white/70 border-stone-200/60'
+            : 'bg-white/[0.03] border-white/[0.06]'
         )}>
           <h3 className={cn(
             'font-semibold text-xs mb-3',
@@ -221,7 +221,7 @@ export function AvailabilityTab({ selectedModels, isLight }) {
                 </div>
                 <div className={cn(
                   'h-2 rounded-full overflow-hidden',
-                  isLight ? 'bg-stone-200' : 'bg-slate-700'
+                  isLight ? 'bg-stone-200' : 'bg-white/[0.06]'
                 )}>
                   <div
                     className={cn(
@@ -244,7 +244,7 @@ export function AvailabilityTab({ selectedModels, isLight }) {
         <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: isLight ? '#fafaf9' : '#0d1117' }}>
           <div className={cn(
             'px-4 py-2.5 border-b flex items-center justify-between flex-shrink-0',
-            isLight ? 'bg-white border-stone-200' : 'bg-[#131a24] border-slate-700'
+            isLight ? 'bg-white/90 border-stone-200' : 'bg-slate-950/90 border-white/[0.06] backdrop-blur-xl'
           )}>
             <div className="flex items-center gap-2">
               <Map className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
@@ -281,12 +281,12 @@ export function AvailabilityTab({ selectedModels, isLight }) {
         'rounded-lg border overflow-hidden',
         isLight
           ? 'bg-white/80 border-stone-200/80'
-          : 'bg-[#131a24]/80 border-slate-700/40'
+          : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl'
       )}>
         {/* Table filter bar */}
         <div className={cn(
           'px-4 py-2.5 border-b flex items-center gap-2',
-          isLight ? 'bg-stone-50 border-stone-200' : 'bg-slate-800/30 border-slate-700'
+          isLight ? 'bg-stone-50/60 border-stone-200' : 'bg-white/[0.02] border-white/[0.06]'
         )}>
           <span className={cn('text-sm font-medium mr-1', isLight ? 'text-stone-600' : 'text-slate-400')}>Show:</span>
           {[
@@ -306,7 +306,7 @@ export function AvailabilityTab({ selectedModels, isLight }) {
                     : 'bg-[#1A9E7A]/20 text-[#1A9E7A] hover:bg-[#1A9E7A]/20'
                   : isLight
                     ? 'text-stone-500 hover:text-stone-700 hover:bg-stone-100'
-                    : 'text-slate-500 hover:text-slate-300 hover:bg-slate-700/50'
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.06]'
               )}
               onClick={() => setFilterMode(key)}
             >
@@ -320,7 +320,7 @@ export function AvailabilityTab({ selectedModels, isLight }) {
             <thead>
               <tr className={cn(
                 'border-b-2',
-                isLight ? 'border-stone-200 bg-stone-50/80' : 'border-slate-700 bg-slate-800/30'
+                isLight ? 'border-stone-200 bg-stone-50/60' : 'border-white/[0.06] bg-white/[0.02]'
               )}>
                 <th className={cn(
                   'px-5 py-3 text-left text-sm font-semibold min-w-[200px]',
@@ -391,7 +391,7 @@ function SummaryCard({ icon, label, value, subtitle, isLight, variant }) {
     ? isLight ? 'bg-emerald-50/50 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/30'
     : variant === 'amber'
     ? isLight ? 'bg-amber-50/50 border-amber-200' : 'bg-amber-500/10 border-amber-500/30'
-    : isLight ? 'bg-white/80 border-stone-200/80' : 'bg-[#131a24]/80 border-slate-700/40'
+    : isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
 
   const valueClass = variant === 'emerald'
     ? 'text-emerald-600'
@@ -430,7 +430,7 @@ function GeoSection({ group, collapsed, onToggle, selectedModels, commonRegions,
           'border-b cursor-pointer select-none',
           isLight
             ? 'border-stone-200 bg-stone-100/80 hover:bg-stone-100'
-            : 'border-slate-700 bg-slate-800/50 hover:bg-slate-800/70'
+            : 'border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.05]'
         )}
         onClick={onToggle}
       >
@@ -468,7 +468,7 @@ function GeoSection({ group, collapsed, onToggle, selectedModels, commonRegions,
               isCommon
                 ? isLight ? 'bg-emerald-50/30' : 'bg-emerald-500/5'
                 : '',
-              isLight ? 'border-stone-100' : 'border-slate-800/50'
+              isLight ? 'border-stone-100' : 'border-white/[0.04]'
             )}
           >
             <td className="px-5 py-2.5">
@@ -501,7 +501,7 @@ function GeoSection({ group, collapsed, onToggle, selectedModels, commonRegions,
                   ) : (
                     <span className={cn(
                       'text-sm',
-                      isLight ? 'text-stone-300' : 'text-slate-700'
+                      isLight ? 'text-stone-300' : 'text-slate-600'
                     )}>--</span>
                   )}
                 </td>
@@ -553,7 +553,7 @@ function CrisSection({ selectedModels, isLight }) {
       'rounded-lg border overflow-hidden',
       isLight
         ? 'bg-white/80 border-stone-200/80'
-        : 'bg-[#131a24]/80 border-slate-700/40'
+        : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl'
     )}>
       <button
         onClick={() => setExpanded(!expanded)}
@@ -583,7 +583,7 @@ function CrisSection({ selectedModels, isLight }) {
             <thead>
               <tr className={cn(
                 'border-t border-b',
-                isLight ? 'border-stone-200 bg-stone-50/50' : 'border-slate-700/50 bg-slate-800/20'
+                isLight ? 'border-stone-200 bg-stone-50/50' : 'border-white/[0.06] bg-white/[0.02]'
               )}>
                 <th className={cn(
                   'px-5 py-2.5 text-left text-xs font-semibold min-w-[140px]',
@@ -612,7 +612,7 @@ function CrisSection({ selectedModels, isLight }) {
             </thead>
             <tbody>
               {/* Supported row */}
-              <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-slate-800/50')}>
+              <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-white/[0.04]')}>
                 <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
                   Supported
                 </td>
@@ -623,7 +623,7 @@ function CrisSection({ selectedModels, isLight }) {
                       {supported ? (
                         <Check className="h-4 w-4 text-emerald-500 mx-auto" />
                       ) : (
-                        <span className={cn('text-sm', isLight ? 'text-stone-300' : 'text-slate-700')}>--</span>
+                        <span className={cn('text-sm', isLight ? 'text-stone-300' : 'text-slate-600')}>--</span>
                       )}
                     </td>
                   )
@@ -631,7 +631,7 @@ function CrisSection({ selectedModels, isLight }) {
               </tr>
 
               {/* Profiles row */}
-              <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-slate-800/50')}>
+              <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-white/[0.04]')}>
                 <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
                   Profiles
                 </td>
@@ -649,7 +649,7 @@ function CrisSection({ selectedModels, isLight }) {
               </tr>
 
               {/* Source regions count row */}
-              <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-slate-800/50')}>
+              <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-white/[0.04]')}>
                 <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
                   Source Regions
                 </td>
@@ -672,7 +672,7 @@ function CrisSection({ selectedModels, isLight }) {
                 return (
                   <tr key={geo} className={cn(
                     'border-b last:border-b-0',
-                    isLight ? 'border-stone-100' : 'border-slate-800/50'
+                    isLight ? 'border-stone-100' : 'border-white/[0.04]'
                   )}>
                     <td className={cn('px-5 py-3 align-top', isLight ? 'text-stone-800' : 'text-slate-200')}>
                       <div className="text-sm font-semibold">{geoLabels[geo] || geo}</div>
@@ -689,11 +689,11 @@ function CrisSection({ selectedModels, isLight }) {
                         <td key={model.model_id} className="px-2 py-3 align-top">
                           {!supported ? (
                             <div className="flex justify-center">
-                              <span className={cn('text-sm', isLight ? 'text-stone-300' : 'text-slate-700')}>--</span>
+                              <span className={cn('text-sm', isLight ? 'text-stone-300' : 'text-slate-600')}>--</span>
                             </div>
                           ) : matchingRegions.length === 0 ? (
                             <div className="flex justify-center">
-                              <span className={cn('text-sm', isLight ? 'text-stone-300' : 'text-slate-700')}>--</span>
+                              <span className={cn('text-sm', isLight ? 'text-stone-300' : 'text-slate-600')}>--</span>
                             </div>
                           ) : (
                             <div className="flex flex-wrap gap-1 justify-center">
