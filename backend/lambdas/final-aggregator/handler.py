@@ -585,6 +585,8 @@ def transform_model_to_schema(
 
     # --- TIER 1: Console API metadata (from model-extractor REST call) ---
     console_meta = model.get('console_metadata', {})
+    console_languages = console_meta.get('languages', []) if console_meta else []
+    console_categories = console_meta.get('categories', []) if console_meta else []
     if console_meta:
         api_context = console_meta.get('max_context_window')
         if api_context and isinstance(api_context, (int, float)):
@@ -698,11 +700,9 @@ def transform_model_to_schema(
     regions_for_coverage = regional_availability if regional_availability else model.get('regions_available', [])
     batch_inference = check_batch_inference(model_id, pricing_data, upstream_pricing_ref, regions_for_coverage)
 
-    # Union regional_availability with CRIS source_regions and batch supported_regions
-    # This catches regions missed by fuzzy matching in find_matching_availability
+    # Union regional_availability with batch supported_regions
+    # (CRIS source_regions are kept separate — they represent cross-region inference, not direct availability)
     regions_set = set(regional_availability)
-    if cross_region.get('source_regions'):
-        regions_set.update(cross_region['source_regions'])
     if batch_inference.get('supported_regions'):
         regions_set.update(batch_inference['supported_regions'])
     if len(regions_set) > len(regional_availability):
@@ -796,8 +796,8 @@ def transform_model_to_schema(
         'model_lifecycle': model_lifecycle,
         'regions_available': regional_availability if regional_availability else model.get('regions_available', []),
         'model_capabilities': capabilities,
-        'model_use_cases': use_cases,
-        'languages_supported': model.get('languages_supported', ['English']),
+        'model_use_cases': console_categories if console_categories else use_cases,
+        'languages_supported': console_languages if console_languages else model.get('languages_supported', ['English']),
         'consumption_options': get_consumption_options(model.get('inference_types_supported', []), pricing_data, upstream_pricing_ref),
         'cross_region_inference': cross_region,
         'documentation_links': documentation_links,
