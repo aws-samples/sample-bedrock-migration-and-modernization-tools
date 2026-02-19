@@ -28,8 +28,22 @@ export function ThemeProvider({ children, defaultTheme = 'dark', storageKey = 'b
     },
     toggleTheme: () => {
       const newTheme = theme === 'dark' ? 'light' : 'dark'
-      localStorage.setItem(storageKey, newTheme)
-      setTheme(newTheme)
+      const apply = () => {
+        localStorage.setItem(storageKey, newTheme)
+        setTheme(newTheme)
+      }
+
+      // Use View Transitions API for a smooth cross-fade if available
+      if (document.startViewTransition) {
+        document.startViewTransition(apply)
+      } else {
+        // Fallback: add temporary transition class
+        document.documentElement.classList.add('theme-transitioning')
+        apply()
+        setTimeout(() => {
+          document.documentElement.classList.remove('theme-transitioning')
+        }, 500)
+      }
     },
   }
 

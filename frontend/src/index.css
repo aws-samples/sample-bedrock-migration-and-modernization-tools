@@ -556,3 +556,20 @@ button:focus,
 .light .leaflet-control-zoom a:hover {
   background: #f5f3ef !important;
 }
+
+/* ── Theme transition ── */
+
+/* View Transitions API: smooth cross-fade between themes */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 300ms;
+  animation-timing-function: ease-in-out;
+}
+
+/* Fallback for browsers without View Transitions API */
+.theme-transitioning,
+.theme-transitioning *,
+.theme-transitioning *::before,
+.theme-transitioning *::after {
+  transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease, box-shadow 300ms ease, fill 300ms ease !important;
+}

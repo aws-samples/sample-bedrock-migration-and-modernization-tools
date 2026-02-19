@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio } from 'lucide-react'
+import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info } from 'lucide-react'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import {
   Dialog,
@@ -174,7 +174,7 @@ function getProviderColor(provider) {
 }
 
 // Collapsible section component
-function CollapsibleSection({ title, icon: Icon, children, defaultExpanded = false }) {
+function CollapsibleSection({ title, icon: Icon, children, defaultExpanded = false, infoLink = null }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -196,6 +196,18 @@ function CollapsibleSection({ title, icon: Icon, children, defaultExpanded = fal
         <div className="flex items-center gap-2">
           <Icon className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
           <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{title}</span>
+          {infoLink && (
+            <a
+              href={infoLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className={cn('ml-1 transition-colors', isLight ? 'text-blue-600 hover:text-blue-700' : 'text-blue-400 hover:text-blue-300')}
+              title="Learn more"
+            >
+              <Info className="h-3.5 w-3.5" />
+            </a>
+          )}
         </div>
         {isExpanded ? (
           <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
@@ -1194,7 +1206,12 @@ function SpecsTab({ model }) {
             </CollapsibleSection>
 
             {/* Mantle Inference Support */}
-            <CollapsibleSection title="Mantle Inference" icon={Cpu} defaultExpanded={false}>
+            <CollapsibleSection
+              title="Mantle Inference"
+              icon={Cpu}
+              defaultExpanded={false}
+              infoLink="https://aws.amazon.com/blogs/machine-learning/exploring-the-zero-operator-access-design-of-mantle/"
+            >
               <MantleInferenceSection mantleData={mantleData} />
             </CollapsibleSection>
           </div>

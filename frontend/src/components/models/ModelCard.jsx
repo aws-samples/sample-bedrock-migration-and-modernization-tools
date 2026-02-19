@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { Star, GitCompare, ExternalLink, Globe, MessageSquare, Image, FileText, Video, Mic, Check, X, MapPin, Radio, ArrowRight, CheckCircle2, Copy, Search, Clock, Cpu } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,25 +10,9 @@ import { useComparisonStore } from '@/stores/comparisonStore'
 import { providerColors, consumptionLabels, getContextSizeCategory } from '@/config/constants'
 import { trackEvent } from '@/services/analytics'
 
-// Tooltip wrapper with close delay so content stays readable
 function InfoTooltip({ children, content, side = "bottom", sideOffset = 4 }) {
-  const [open, setOpen] = useState(false)
-  const closeTimer = useRef(null)
-
-  const handleOpenChange = (isOpen) => {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current)
-      closeTimer.current = null
-    }
-    if (isOpen) {
-      setOpen(true)
-    } else {
-      closeTimer.current = setTimeout(() => setOpen(false), 800)
-    }
-  }
-
   return (
-    <Tooltip delayDuration={100} open={open} onOpenChange={handleOpenChange}>
+    <Tooltip delayDuration={100}>
       <TooltipTrigger asChild>
         {children}
       </TooltipTrigger>
@@ -267,7 +251,22 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   const crisSupported = model.cross_region_inference?.supported || false
   const mantleSupported = model.mantle_inference?.supported || model.is_mantle || false
   const streamingSupported = model.streaming_supported || false
-  const consumptionOptions = model.consumption_options || []
+  const consumptionOptions = useMemo(() => {
+    const opts = [...(model.consumption_options || [])]
+    // Ensure provisioned_throughput is shown if model supports it
+    if (model.provisioned_throughput?.supported && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
+      opts.push('provisioned_throughput')
+    }
+    // Ensure mantle is shown if model supports it
+    if ((model.mantle_inference?.supported || model.is_mantle) && !opts.includes('mantle')) {
+      opts.push('mantle')
+    }
+    // Ensure cross_region_inference is shown if model supports it
+    if (model.cross_region_inference?.supported && !opts.includes('cross_region_inference')) {
+      opts.push('cross_region_inference')
+    }
+    return opts
+  }, [model])
   const providerColor = getProviderColor(model.model_provider)
 
   return (

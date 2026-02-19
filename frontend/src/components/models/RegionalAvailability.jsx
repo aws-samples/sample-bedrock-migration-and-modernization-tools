@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback, Fragment } from 'react'
-import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, ChevronLeft, ChevronRight as ChevronRightIcon, Zap, Globe2, Cpu } from 'lucide-react'
+import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, ChevronsUpDown, Zap, Globe2, Cpu } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -86,7 +86,6 @@ function buildRegionEntry(code) {
 }
 
 const MODEL_COL_WIDTH = 280
-const REGION_COL_WIDTH = 40
 
 /**
  * Compute per-region availability for a model (on-demand + CRIS, no batch).
@@ -106,20 +105,30 @@ function getRegionAvailability(model, regionCode) {
 
 /**
  * Derive color tokens for the availability cell based on type.
- * On-Demand (with or without CRIS/Mantle) → emerald/green
- * CRIS-only (no on-demand) → sky/blue
- * Mantle-only (no on-demand, no CRIS) → violet/purple
+ * Multiple types (on-demand + CRIS/Mantle) → emerald/green (multi-availability)
+ * On-Demand only → stone/neutral (standard)
+ * CRIS-only → sky/blue
+ * Mantle-only → violet/purple
  */
 function getAvailabilityColors(onDemand, cris, mantle, isLight) {
-  if (onDemand) {
-    // On-Demand present (possibly combined with CRIS/Mantle) → green
+  const typeCount = (onDemand ? 1 : 0) + (cris ? 1 : 0) + (mantle ? 1 : 0)
+
+  if (typeCount > 1) {
+    // Multiple availability types → green
     return {
       bg: isLight ? 'bg-emerald-100' : 'bg-emerald-500/15',
       icon: isLight ? 'text-emerald-600' : 'text-emerald-400',
     }
   }
+  if (onDemand) {
+    // On-Demand only → neutral stone
+    return {
+      bg: isLight ? 'bg-stone-100' : 'bg-white/[0.08]',
+      icon: isLight ? 'text-stone-500' : 'text-[#9a9b9f]',
+    }
+  }
   if (cris) {
-    // CRIS-only (possibly combined with Mantle, but no on-demand) → blue
+    // CRIS-only → blue
     return {
       bg: isLight ? 'bg-sky-100' : 'bg-sky-500/15',
       icon: isLight ? 'text-sky-600' : 'text-sky-400',
@@ -179,7 +188,7 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight }) {
           <div className="space-y-0.5">
             {onDemand && (
               <div className="flex items-center gap-1.5">
-                <Zap className={cn('w-3 h-3', isLight ? 'text-emerald-500' : 'text-emerald-400')} strokeWidth={2} />
+                <Zap className={cn('w-3 h-3', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')} strokeWidth={2} />
                 <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>On-Demand</span>
               </div>
             )}
@@ -211,7 +220,7 @@ function ScrollButton({ direction, onClick, isLight, visible }) {
       className={cn(
         'fixed z-50 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200',
         isUp ? 'bottom-20 right-6' : 'bottom-8 right-6',
-        visible ? 'opacity-100 scale-100' : 'opacity-30 scale-90 pointer-events-none',
+        visible ? 'opacity-100 scale-100' : 'opacity-50 scale-95',
         isLight
           ? 'bg-white/95 backdrop-blur-sm border border-stone-200 text-stone-500 hover:bg-stone-50 hover:text-stone-700 shadow-lg hover:shadow-xl'
           : 'bg-[#1a1a1c]/90 backdrop-blur-xl border border-white/[0.08] text-[#9a9b9f] hover:bg-[#1a1a1c] hover:text-white shadow-[0_4px_16px_rgba(0,0,0,0.4)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.04]'
@@ -222,26 +231,7 @@ function ScrollButton({ direction, onClick, isLight, visible }) {
   )
 }
 
-function HScrollButton({ direction, onClick, isLight, visible }) {
-  const isLeft = direction === 'left'
-  const Icon = isLeft ? ChevronLeft : ChevronRightIcon
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'absolute z-40 w-6 h-14 rounded-full flex items-center justify-center transition-all duration-200',
-        'top-[40px]',
-        isLeft ? 'left-[262px]' : 'right-1',
-        visible ? 'opacity-90 hover:opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none',
-        isLight
-          ? 'bg-white/95 backdrop-blur-sm border border-stone-200 text-stone-400 hover:text-stone-700 shadow-lg'
-          : 'bg-[#1a1a1c]/90 backdrop-blur-xl border border-white/[0.08] text-[#6d6e72] hover:text-white shadow-[0_4px_12px_rgba(0,0,0,0.3)] ring-1 ring-white/[0.04]'
-      )}
-    >
-      <Icon className="w-3.5 h-3.5" />
-    </button>
-  )
-}
+
 
 export function RegionalAvailability() {
   const { theme } = useTheme()
@@ -396,43 +386,52 @@ export function RegionalAvailability() {
     })
   }
 
+  const allProviders = groupedModels.map(([provider]) => provider)
+  const allCollapsed = allProviders.length > 0 && allProviders.every(p => collapsedProviders.has(p))
+
+  const toggleAllProviders = () => {
+    if (allCollapsed) {
+      setCollapsedProviders(new Set())
+    } else {
+      setCollapsedProviders(new Set(allProviders))
+    }
+  }
+
   const updateScrollState = useCallback(() => {
-    // Vertical scroll tracking from window (page-level scroll)
-    const atTop = window.scrollY <= 50
-    const atBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 50
+    const main = document.querySelector('main')
 
-    // Horizontal scroll tracking from table container
-    const el = tableContainerRef.current
-    const atLeft = !el || el.scrollLeft <= 10
-    const atRight = !el || el.scrollLeft + el.clientWidth >= el.scrollWidth - 10
+    // Vertical scroll tracking from <main> (the page-level scroll container)
+    const atTop = !main || main.scrollTop <= 50
+    const atBottom = !main || main.scrollTop + main.clientHeight >= main.scrollHeight - 50
 
-    setScrollState({ atTop, atBottom, atLeft, atRight, scrollTop: window.scrollY })
+    setScrollState({ atTop, atBottom, atLeft: true, atRight: true, scrollTop: main ? main.scrollTop : 0 })
   }, [])
 
   useEffect(() => {
-    // Horizontal scroll tracking on table container
     const el = tableContainerRef.current
+    const main = document.querySelector('main')
+    // Scroll on table container
     if (el) {
       el.addEventListener('scroll', updateScrollState, { passive: true })
     }
-    // Vertical scroll tracking on window
-    window.addEventListener('scroll', updateScrollState, { passive: true })
+    // Vertical scroll on <main>
+    if (main) {
+      main.addEventListener('scroll', updateScrollState, { passive: true })
+    }
     updateScrollState()
     return () => {
       if (el) el.removeEventListener('scroll', updateScrollState)
-      window.removeEventListener('scroll', updateScrollState)
+      if (main) main.removeEventListener('scroll', updateScrollState)
     }
   }, [updateScrollState])
 
-  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
-  const scrollToBottom = () => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })
-  const scrollLeftAction = () => {
-    const el = tableContainerRef.current
-    el?.scrollBy({ left: -REGION_COL_WIDTH * 6, behavior: 'smooth' })
+  const scrollToTop = () => {
+    const main = document.querySelector('main')
+    if (main) main.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  const scrollRightAction = () => {
-    const el = tableContainerRef.current
-    el?.scrollBy({ left: REGION_COL_WIDTH * 6, behavior: 'smooth' })
+  const scrollToBottom = () => {
+    const main = document.querySelector('main')
+    if (main) main.scrollTo({ top: main.scrollHeight, behavior: 'smooth' })
   }
 
   const toggleGeo = (geoId) => {
@@ -572,12 +571,12 @@ export function RegionalAvailability() {
         </div>
       </div>
 
-      {/* Table container with floating navigation */}
+      {/* Table container */}
       <div className="flex-1 relative min-h-0">
         <div
           ref={tableContainerRef}
           className={cn(
-            'h-full overflow-auto rounded-xl backdrop-blur-xl',
+            'flex-1 min-w-0 h-full overflow-auto rounded-xl backdrop-blur-xl',
             isLight
               ? 'border border-stone-200/60 bg-white/70 shadow-[0_2px_15px_-3px_rgba(120,113,108,0.08)] ring-1 ring-stone-100/50'
               : 'border border-white/[0.06] bg-white/[0.03] shadow-[0_2px_15px_-3px_rgba(0,0,0,0.3)] ring-1 ring-white/[0.03]'
@@ -594,10 +593,29 @@ export function RegionalAvailability() {
                     'w-[280px] min-w-[280px] max-w-[280px]',
                     isLight
                       ? 'bg-stone-50/90 backdrop-blur-sm text-stone-500 border-b border-r border-stone-200'
-                      : 'bg-white/[0.04] backdrop-blur-xl text-[#9a9b9f] border-b border-r border-white/[0.06]'
+                      : 'bg-[#141517]/95 backdrop-blur-xl text-[#9a9b9f] border-b border-r border-white/[0.06]'
                   )}
                 >
-                  Model
+                  <div className="flex items-center justify-between">
+                    <span>Model</span>
+                    <button
+                      onClick={toggleAllProviders}
+                      className={cn(
+                        'flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium transition-all duration-150',
+                        allCollapsed
+                          ? isLight
+                            ? 'text-amber-700 hover:bg-amber-50'
+                            : 'text-[#1A9E7A] hover:bg-[#1A9E7A]/10'
+                          : isLight
+                            ? 'text-stone-400 hover:text-stone-600 hover:bg-stone-100'
+                            : 'text-[#6d6e72] hover:text-[#c0c1c5] hover:bg-white/[0.04]'
+                      )}
+                      title={allCollapsed ? 'Expand all providers' : 'Collapse all providers'}
+                    >
+                      <ChevronsUpDown className="w-2.5 h-2.5" />
+                      {allCollapsed ? 'Expand' : 'Collapse'}
+                    </button>
+                  </div>
                 </th>
                 {geoHeaderCells.map((cell, gi) => (
                   <th
@@ -706,7 +724,7 @@ export function RegionalAvailability() {
                         'sticky left-0 z-10 px-3 py-2 font-semibold text-xs',
                         isLight
                           ? 'bg-stone-100/90 backdrop-blur-sm text-stone-700 border-b border-r border-stone-200'
-                          : 'bg-white/[0.06] backdrop-blur-xl text-[#e4e5e7] border-b border-r border-white/[0.06]'
+                          : 'bg-[#1a1b1f]/95 backdrop-blur-xl text-[#e4e5e7] border-b border-r border-white/[0.06]'
                       )}>
                         <div className="flex items-center gap-2">
                           {isCollapsed
@@ -774,8 +792,8 @@ export function RegionalAvailability() {
                               ? 'border-b border-r border-stone-100'
                               : 'border-b border-r border-white/[0.03]',
                             isHovered
-                              ? isLight ? 'bg-amber-50/80 backdrop-blur-sm' : 'bg-white/[0.05] backdrop-blur-xl'
-                              : isLight ? 'bg-white/90 backdrop-blur-sm' : 'bg-white/[0.02] backdrop-blur-xl'
+                              ? isLight ? 'bg-amber-50/80 backdrop-blur-sm' : 'bg-[#1a1b1f]/90 backdrop-blur-xl'
+                              : isLight ? 'bg-white/90 backdrop-blur-sm' : 'bg-[#141517]/95 backdrop-blur-xl'
                           )}>
                             <div className="flex items-center gap-2 min-w-0">
                               <div className="min-w-0 flex-1">
@@ -841,10 +859,6 @@ export function RegionalAvailability() {
             </div>
           )}
         </div>
-
-        {/* Horizontal scroll buttons — left/right */}
-        <HScrollButton direction="left" onClick={scrollLeftAction} isLight={isLight} visible={!scrollState.atLeft} />
-        <HScrollButton direction="right" onClick={scrollRightAction} isLight={isLight} visible={!scrollState.atRight} />
 
         {/* Vertical scroll buttons — up/down (fixed position) */}
         <ScrollButton direction="up" onClick={scrollToTop} isLight={isLight} visible={!scrollState.atTop} />

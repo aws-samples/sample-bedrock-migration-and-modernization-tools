@@ -1,6 +1,6 @@
 # Bedrock Model Profiler - Backend Architecture
 
-> Comprehensive technical reference for all backend Lambda functions, the Step Functions state machine, shared layer, and profiler configuration.
+> Comprehensive technical reference for all 17 backend Lambda functions, the Step Functions state machine, shared layer, profiler configuration, and infrastructure templates.
 
 ---
 
@@ -8,7 +8,7 @@
 
 1. [State Machine Workflow](#1-state-machine-workflow)
 2. [Shared Lambda Layer](#2-shared-lambda-layer)
-3. [Lambda Functions](#3-lambda-functions)
+3. [Lambda Functions](#3-lambda-functions) (17 total)
    - [Region Discovery](#31-region-discovery)
    - [Pricing Collector](#32-pricing-collector)
    - [Pricing Aggregator](#33-pricing-aggregator)
@@ -25,9 +25,41 @@
    - [Gap Detection](#314-gap-detection)
    - [Self-Healing Agent](#315-self-healing-agent)
    - [Copy to Latest](#316-copy-to-latest)
+   - [Analytics](#317-analytics)
 4. [Profiler Configuration](#4-profiler-configuration)
-5. [SAM Template / IAM Permissions](#5-sam-template--iam-permissions)
+5. [SAM Templates / IAM Permissions](#5-sam-templates--iam-permissions)
+   - [Backend Template](#51-backend-template)
+   - [Analytics Template](#52-analytics-template)
+   - [Frontend Template](#53-frontend-template)
+   - [Local Test Template](#54-local-test-template)
+   - [Pricing-Only Template](#55-pricing-only-template)
 6. [S3 Key Map](#6-s3-key-map)
+7. [Hardcoded Values Inventory](#7-hardcoded-values-inventory)
+8. [Redundancies & Simplification Opportunities](#8-redundancies--simplification-opportunities)
+9. [Enhancement Opportunities](#9-enhancement-opportunities)
+10. [Backlog — Self-Healing Mechanism](#10-backlog--self-healing-mechanism)
+11. [API Inventory](#11-api-inventory)
+
+---
+
+## How to Use This Document
+
+This document is the single source of truth for the Bedrock Model Profiler backend. It covers all 17 Lambda functions, the Step Functions state machine, shared layer, profiler configuration, and infrastructure templates.
+
+**If you're new to the project**, read in this order:
+1. **Data Flow Summary** (after Section 6) — understand the big picture
+2. **State Machine Workflow** (Section 1) — understand execution order and the 12-state pipeline
+3. **Shared Lambda Layer** (Section 2) — understand common patterns used by most Lambdas
+4. **Lambda Functions** (Section 3) — deep dive into each of the 17 functions
+5. **Profiler Configuration** (Section 4) — understand runtime config that drives matching, enrichment, and self-healing
+
+**If you're debugging a specific Lambda**, jump directly to its subsection in Section 3 (§3.1–§3.17).
+
+**If you're looking for a specific API call**, see the [API Inventory](#11-api-inventory) (Section 11) for a complete table of every AWS and external API the backend uses.
+
+**If you're deploying or modifying infrastructure**, see [SAM Templates](#5-sam-templates--iam-permissions) (Section 5) for all 5 CloudFormation templates.
+
+> **Note on Lambda count:** The backend has **17 Lambda functions** — 16 pipeline Lambdas orchestrated by Step Functions, plus 1 standalone Analytics Lambda triggered by API Gateway. The `backend/lambdas/README.md` contract file documents 11 of these (the original pipeline set); the remaining 6 (region-discovery, model-enricher, mantle-collector, gap-detection, self-healing-agent, analytics) were added later and are fully documented here.
 
 ---
 
@@ -92,6 +124,8 @@ The workflow is a multi-wave Step Functions state machine that collects, enriche
 **Path:** `backend/layers/common/python/shared/`
 
 All Lambda functions import from this shared layer. It provides:
+
+> **Exceptions:** Three Lambdas do NOT use the shared layer: **region-discovery** (uses only boto3 directly), **token-specs-collector** (defines its own S3 helpers and RETRY_CONFIG — see §8.1, §8.2), and **analytics** (completely standalone with DynamoDB, not S3). Additionally, **regional-availability** imports from the shared layer but defines its own `RETRY_CONFIG` with different timeout values (see §8.1).
 
 ### `config.py`
 
@@ -574,6 +608,8 @@ The S3 bucket for config is resolved from env vars: `CONFIG_BUCKET` > `DATA_BUCK
 
 **IAM Permissions:** `s3:GetObject`, `s3:PutObject`
 
+> **Legacy artifacts:** The `pricing-linker/` directory also contains `handler_v1.py` (301 lines, original implementation without PORT features, hard-coded confidence threshold 0.7) and `compare_implementations.py` (686 lines, standalone CLI tool for comparing V1 vs V2 output). Neither is referenced by any SAM template or ASL definition. See §3.17 for full details.
+
 ---
 
 ### 3.8 Regional Availability
@@ -624,6 +660,8 @@ The S3 bucket for config is resolved from env vars: `CONFIG_BUCKET` > `DATA_BUCK
 **Dependencies:** Reads dynamically discovered regions from Wave 1
 
 **IAM Permissions:** `bedrock:ListFoundationModels`, `s3:GetObject`, `s3:PutObject`
+
+> **RETRY_CONFIG inconsistency:** This Lambda defines its own `RETRY_CONFIG` (lines 47-51) with `connect_timeout=5` instead of the shared layer's `connect_timeout=10`. This is the only Lambda with a *different* timeout value — it may be intentional (faster failure for parallel region checks) but is not documented as such. See §8.1 for details.
 
 ---
 
@@ -721,6 +759,8 @@ The S3 bucket for config is resolved from env vars: `CONFIG_BUCKET` > `DATA_BUCK
 **Dependencies:** Reads Model Merger output
 
 **IAM Permissions:** `s3:GetObject`, `s3:PutObject`
+
+> **Shared layer inconsistency:** This Lambda does NOT use the shared layer's `read_from_s3`, `write_to_s3`, or `RETRY_CONFIG`. It defines its own S3 helpers (lines 36-50) that lack error handling (`S3ReadError`/`S3WriteError`) and `default_on_missing` support. It also defines its own `RETRY_CONFIG` (lines 22-26) with identical values to the shared layer. It accesses `event['s3Bucket']` directly (line 154) instead of using `validate_required_params`, which would throw a `KeyError` instead of a clean `ValidationError`. See §8.1 and §8.2 for improvement recommendations.
 
 ---
 
@@ -821,7 +861,7 @@ The S3 bucket for config is resolved from env vars: `CONFIG_BUCKET` > `DATA_BUCK
 
 ### 3.13 Final Aggregator
 
-**File:** `backend/lambdas/final-aggregator/handler.py` (1349 lines)
+**File:** `backend/lambdas/final-aggregator/handler.py` (1365 lines)
 
 **Purpose:** The largest and most complex Lambda. Merges ALL collected data into the final comprehensive JSON outputs (`bedrock_models.json` and `bedrock_pricing.json`).
 
@@ -871,16 +911,18 @@ The S3 bucket for config is resolved from env vars: `CONFIG_BUCKET` > `DATA_BUCK
 
 4. **Cross-region inference** (`build_cross_region_inference`, line 165): Matches inference profiles to models by checking if model_id appears in any profile's model ARN. Deduplicates by `(profile_id, source_region)`.
 
-5. **Batch inference detection** (`check_batch_inference`, line 596): Checks pricing data for any pricing group starting with "Batch". Calculates coverage percentage relative to the model's regional availability, capped at 100%.
+5. **Provisioned throughput** (`build_provisioned_throughput`, line 232): Builds a mapping of model IDs to their provisioned throughput availability regions from the regional-availability data's `provisioned_availability` field.
 
-6. **Consumption options** (`get_consumption_options`, line 523): Derives from inference types and pricing data:
+6. **Batch inference detection** (`check_batch_inference`, line 596): Checks pricing data for any pricing group starting with "Batch". Calculates coverage percentage relative to the model's regional availability, capped at 100%.
+
+7. **Consumption options** (`get_consumption_options`, line 523): Derives from inference types and pricing data:
    - `ON_DEMAND` -> `on_demand`
    - `PROVISIONED` -> `provisioned_throughput`
    - `INFERENCE_PROFILE` -> `cross_region_inference`
    - Checks pricing for `Batch` and `Provisioned Throughput` groups
    - Adds `mantle` if Mantle is supported
 
-7. **Size categorization** (`get_size_category`, line 117):
+8. **Size categorization** (`get_size_category`, line 117):
    - `>= 128K` -> Large (green)
    - `>= 32K` -> Medium (blue)
    - `< 32K` -> Small (amber)
@@ -1050,7 +1092,7 @@ The S3 bucket for config is resolved from env vars: `CONFIG_BUCKET` > `DATA_BUCK
    - Reads previous `latest/bedrock_models.json` to get existing `date_added` values
    - For existing models: preserves their original `date_added`
    - For new models: stamps today's date (`YYYY-MM-DD`)
-   - Writes updated data back to the source key before the copy
+   - **Important:** Writes the updated data back to the *source* key (`executions/{id}/final/bedrock_models.json`) at lines 100-105 BEFORE the S3 copy operation. This means the execution-specific file is mutated in place, not just the latest copy.
 
 2. **Manifest creation** (line 177): Creates `latest/manifest.json` with `lastUpdated`, `executionId`, and file references.
 
@@ -1068,11 +1110,126 @@ The S3 bucket for config is resolved from env vars: `CONFIG_BUCKET` > `DATA_BUCK
 
 ---
 
+### 3.17 Analytics
+
+**File:** `backend/lambdas/analytics/handler.py` (629 lines)
+
+**Purpose:** Standalone analytics Lambda (NOT part of the Step Functions pipeline). Records anonymous usage events from the frontend and serves an admin-only dashboard with aggregated metrics. Triggered by API Gateway HTTP API, not by the state machine.
+
+> **Architecture note:** This Lambda is completely standalone — it does NOT use the shared layer, does NOT read from or write to S3, and has its own DynamoDB-based storage. It uses `print()` for error logging instead of the `logger` pattern used by all other Lambdas.
+
+**AWS APIs Used:**
+- `dynamodb.Table.update_item` — Upserts daily aggregates, session buckets, and user records
+- `dynamodb.Table.query` — Queries daily aggregates and session buckets for dashboard
+- `dynamodb.Table.get_item` — Reads user records to determine new vs returning users
+
+**Trigger:** API Gateway HTTP API (v2) with two routes:
+- `POST /events` — Public (no auth). Records anonymous usage events.
+- `GET /dashboard` — Cognito JWT auth required. Returns aggregated dashboard data. Caller must belong to the admin Cognito group.
+
+**Environment Variables:**
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `ANALYTICS_TABLE` | `bedrock-profiler-analytics-dev` | DynamoDB table name |
+| `ADMIN_GROUP` | `admins` | Cognito group name for dashboard access |
+| `ALLOWED_ORIGINS` | `*` | CORS allowed origins |
+
+**Input (POST /events):**
+```json
+{
+  "body": "{\"events\": [{\"type\": \"page_view\", \"section\": \"overview\", \"meta\": {}}], \"auid\": \"anon-uuid\", \"country\": \"US\", \"region\": \"Virginia\"}"
+}
+```
+
+**Input (GET /dashboard):**
+```json
+{
+  "queryStringParameters": {
+    "days": "30"
+  }
+}
+```
+Supports `start`/`end` date range or `days` parameter (default 30, max 365).
+
+**Output (POST /events):**
+```json
+{
+  "statusCode": 200,
+  "headers": { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", ... },
+  "body": "{\"status\": \"ok\", \"recorded\": 5}"
+}
+```
+
+**Output (GET /dashboard):**
+```json
+{
+  "statusCode": 200,
+  "body": "{\"summary\": {...}, \"previousPeriod\": {...}, \"timeSeries\": [...], \"hourlySeries\": [...], \"countries\": [...], \"regions\": [...], \"period\": {\"start\": \"2026-01-01\", \"end\": \"2026-01-30\", \"days\": 30}}"
+}
+```
+
+**DynamoDB Table Schema:**
+
+The analytics table uses a single-table design with composite keys:
+
+| PK Pattern | SK Pattern | Purpose | TTL? |
+|------------|------------|---------|------|
+| `AGG#daily` | `YYYY-MM-DD` | Daily aggregate counters (views, unique users, sections, features, top models) | No |
+| `SESSION#{YYYY-MM-DD}` | `HH:MM#{auid}` | 5-minute session buckets per user | Yes (7 days) |
+| `USER#{auid}` | `META` | Per-user tracking (firstSeen, lastSeen, visitCount, country) | No |
+
+**Key Logic:**
+
+1. **Event processing** (`handle_post_events`, line 53): Accepts batches of up to 50 events. Validates event types against `VALID_EVENT_TYPES` (7 types: `page_view`, `section_change`, `model_detail_open`, `comparison_add`, `comparison_remove`, `comparison_clear`, `favorite_toggle`). Counts events by type and updates three DynamoDB records atomically: daily aggregate, session bucket, and user record.
+
+2. **Daily aggregate updates** (`_update_daily_aggregate`, line 463): Uses DynamoDB `UpdateItem` with `ADD` expressions for atomic counter increments. Tracks: views, unique users (string set), new users (string set), countries (string set), regions (string set), section usage (map), feature usage (map), top models (map), compared models (map), favorited models (map), provider comparisons (map), provider favorites (map).
+
+3. **Session bucket pattern** (`_upsert_session_bucket`, line 346): Groups events into 5-minute windows (e.g., `14:05`, `14:10`). Key format: `SESSION#{date}` / `{HH:MM}#{auid}`. Uses TTL of 7 days for automatic cleanup. Multiple flushes within the same 5-minute window update the same item (idempotent upsert).
+
+4. **User tracking** (`_upsert_user`, line 519): Creates or updates anonymous user records. Uses `if_not_exists(firstSeen, :today)` to preserve the original first-seen date. Increments `visitCount` atomically. After upserting the user, checks if `firstSeen == today` to determine if this is a new user, then adds the user to the daily aggregate's `uniqueUsers` set (and `newUsers` set if new).
+
+5. **Dashboard with previous period comparison** (`handle_get_dashboard`, line 141): Queries two date ranges — the requested period and the immediately preceding period of the same length. Returns both summaries for trend comparison. Also queries session buckets for today to build an hourly activity series.
+
+6. **Admin authorization** (`_is_admin`, line 569): Extracts Cognito groups from the JWT claims at `requestContext.authorizer.jwt.claims["cognito:groups"]`. Handles both list and string formats (Cognito returns groups as a string like `"[admins, editors]"` in some configurations). Returns `True` if the configured `ADMIN_GROUP` is present.
+
+7. **Map counter increment pattern** (`_increment_map_counter`, line 434): Uses a two-phase approach for incrementing counters inside DynamoDB map attributes. First attempts `ADD #m.#k :val`. If the map doesn't exist yet, catches the error, creates the map with `SET #m = if_not_exists(#m, :empty)`, then retries the `ADD`.
+
+**Hardcoded Values:**
+
+| Value | Line | Description |
+|-------|------|-------------|
+| `VALID_EVENT_TYPES` (7 types) | 29-33 | Allowed analytics event types |
+| `SESSION_BUCKET_TTL_DAYS = 7` | 36 | TTL for session bucket items |
+| 5-minute bucket window | 353 | `(now.minute // 5) * 5` — groups events into 5-min windows |
+| Max 50 events per batch | 68 | Protection limit for POST /events |
+| Max 365 days query | 155 | Protection limit for dashboard date range |
+| Top 20 items | 271 | `_top()` helper returns top 20 entries by count |
+
+**Dependencies:** None — completely standalone. Not part of the Step Functions workflow.
+
+**IAM Permissions:** `dynamodb:PutItem`, `dynamodb:GetItem`, `dynamodb:UpdateItem`, `dynamodb:Query`, `dynamodb:BatchWriteItem`
+
+**Shared Layer Usage:** None — this Lambda does NOT import from the shared layer. It defines its own response helper, JSON serializer (handles `Decimal` and `set` types), and DynamoDB helpers.
+
+**Legacy artifacts in pricing-linker directory:**
+> **Note:** The `backend/lambdas/pricing-linker/` directory contains two legacy files not used in production:
+> - `handler_v1.py` (301 lines): Original pricing-linker implementation without PORT features. Hard-coded confidence threshold of 0.7. Not referenced by any SAM template or ASL definition — purely a historical artifact.
+> - `compare_implementations.py` (686 lines): Standalone CLI comparison script for V1 vs V2 implementations. Contains its own copy of `V2_PROVIDER_ALIASES` (lines 159-177) which may drift from the canonical config. Not a Lambda — a developer tool.
+
+---
+
 ## 4. Profiler Configuration
 
 **File:** `backend/config/profiler-config.json` (1131 lines)
 
 This JSON file is the central configuration for the entire pipeline. It is loaded from S3 at runtime by the `ConfigLoader` class, with embedded defaults as fallback.
+
+> **Version string anomaly:** The current version is `"1.0.0-auto-updated-auto-updated"`. This confirms the self-healing agent has run at least twice — each invocation appends `-auto-updated` to the version string (see `self-healing-agent/handler.py` line 270: `f"{version}-auto-updated"`). The config was last updated on `2026-02-04T16:29:46Z`.
+
+> **Embedded defaults vs S3 config:** The `DEFAULT_CONFIG` embedded in `config_loader.py` (lines 18-142) is a minimal subset of the full S3 config. The S3 version has been expanded by the self-healing agent and manual updates to include additional sections (`provider_colors`, `region_coordinates`, `aws_regions`, `geo_region_options`, `context_window_specs` with 20+ entries, etc.) that are not in the embedded fallback.
+
+> **Frontend-consumed sections:** Several config sections (`aws_regions`, `geo_region_options`, `region_coordinates`, `provider_colors`) are consumed by the frontend, not by backend Lambdas. They are stored in the profiler config for centralized management but are served to the frontend via the final aggregator output.
 
 ### Structure
 
@@ -1158,11 +1315,25 @@ This JSON file is the central configuration for the entire pipeline. It is loade
 
 ---
 
-## 5. SAM Template / IAM Permissions
+## 5. SAM Templates / IAM Permissions
+
+The project uses **5 SAM/CloudFormation templates** across 3 deployment stacks, plus a CDK-based auth stack (not covered here). All templates are in the `infra/` directory.
+
+| Template | Stack | Purpose | Resources |
+|----------|-------|---------|-----------|
+| `backend-template.yaml` | Backend | Pipeline Lambdas + Step Functions + S3 + EventBridge | 16 Lambdas, state machine, S3 bucket, schedule |
+| `analytics-template.yaml` | Analytics | Analytics API | 1 Lambda, DynamoDB table, API Gateway HTTP API |
+| `frontend-template.yaml` | Frontend | Static hosting | S3 bucket, CloudFront distribution, OAC, cache policies |
+| `template-local-test.yaml` | (local) | SAM local testing | 5 Lambdas (subset) for `sam local invoke` |
+| `template-pricing-only.yaml` | (local) | Pricing-only testing | 1 Lambda for isolated pricing collection |
+
+> **Dual IaC note:** The backend and analytics stacks use SAM (CloudFormation). Authentication (Cognito User Pool, App Client) is managed by a separate CDK stack not documented here.
+
+### 5.1 Backend Template
 
 **File:** `infra/backend-template.yaml` (639 lines)
 
-### Global Settings
+#### Global Settings
 
 - **Runtime:** Python 3.11
 - **Default Timeout:** 60s
@@ -1170,7 +1341,7 @@ This JSON file is the central configuration for the entire pipeline. It is loade
 - **Layer:** `SharedUtilsLayer` (from `backend/layers/common/`)
 - **Environment Variables:** `ENVIRONMENT`, `DATA_BUCKET`, `LOG_LEVEL=INFO`
 
-### Per-Lambda Resources
+#### Per-Lambda Resources
 
 | Lambda | Timeout | Memory | IAM Permissions |
 |--------|---------|--------|----------------|
@@ -1191,7 +1362,7 @@ This JSON file is the central configuration for the entire pipeline. It is loade
 | SelfHealingAgent | 300s | 1024 MB | `s3:GetObject`, `s3:PutObject`, `bedrock:InvokeModel` (Claude models) |
 | CopyToLatest | 60s | 256 MB | `s3:GetObject`, `s3:PutObject`, `s3:CopyObject` |
 
-### Additional Infrastructure
+#### Additional Infrastructure
 
 - **S3 Bucket** (`DataBucket`): Versioned, 30-day lifecycle for `executions/`, 7-day noncurrent version expiration. Public access fully blocked.
 - **CloudFront Bucket Policy**: Grants `s3:GetObject` on `latest/*` to CloudFront service principal (conditional on distribution ARN).
@@ -1199,7 +1370,7 @@ This JSON file is the central configuration for the entire pipeline. It is loade
 - **Step Functions Logging**: ALL level with execution data, CloudWatch Logs with 30-day retention.
 - **X-Ray Tracing**: Enabled on the state machine.
 
-### Parameters
+#### Parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -1207,6 +1378,117 @@ This JSON file is the central configuration for the entire pipeline. It is loade
 | `ScheduleEnabled` | `true` | Enable/disable daily schedule |
 | `CloudFrontDistributionArn` | `''` | Optional CloudFront ARN for bucket policy |
 | `ExistingDataBucket` | `''` | Use existing bucket instead of creating new |
+
+### 5.2 Analytics Template
+
+**File:** `infra/analytics-template.yaml` (149 lines)
+
+Deploys the analytics subsystem as a **separate CloudFormation stack** from the main backend. This is intentional — the analytics system has different scaling characteristics (API Gateway + DynamoDB) and can be deployed/updated independently.
+
+#### Resources
+
+| Resource | Type | Description |
+|----------|------|-------------|
+| `AnalyticsTable` | `AWS::DynamoDB::Table` | Single-table design with PK/SK (both String). PAY_PER_REQUEST billing. TTL enabled on `ttl` attribute. |
+| `AnalyticsApi` | `AWS::Serverless::HttpApi` | HTTP API (v2) with CORS and Cognito JWT authorizer. |
+| `AnalyticsFunction` | `AWS::Serverless::Function` | Python 3.11, 30s timeout, 256 MB. Two event routes: `POST /events` (no auth) and `GET /dashboard` (Cognito JWT). |
+
+#### Auth Configuration
+
+- **Default authorizer:** `CognitoJWT` — validates JWTs against the specified Cognito User Pool
+- **POST /events:** Explicitly set to `Authorizer: NONE` (public endpoint for anonymous event recording)
+- **GET /dashboard:** Uses the default Cognito JWT authorizer (admin group check is done in Lambda code)
+
+#### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `Environment` | `dev` | Allowed: dev, staging, prod |
+| `AllowedOrigins` | `*` | CORS allowed origins (comma-separated) |
+| `AdminGroup` | `admins` | Cognito group name for dashboard access |
+| `CognitoUserPoolId` | (required) | Cognito User Pool ID from existing auth stack |
+| `CognitoClientId` | (required) | Cognito App Client ID for JWT audience validation |
+| `CognitoRegion` | `us-east-1` | AWS region of the Cognito User Pool |
+
+#### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `AnalyticsApiUrl` | Full API endpoint URL (e.g., `https://{api-id}.execute-api.{region}.amazonaws.com/{env}`) |
+| `AnalyticsTableName` | DynamoDB table name |
+
+### 5.3 Frontend Template
+
+**File:** `infra/frontend-template.yaml` (360 lines)
+
+Deploys the frontend static hosting infrastructure. Supports optional custom domain with ACM certificate and Route 53 DNS.
+
+#### Resources
+
+| Resource | Type | Description |
+|----------|------|-------------|
+| `FrontendBucket` | `AWS::S3::Bucket` | Static file hosting. Public access fully blocked. CORS enabled for GET/HEAD. |
+| `FrontendBucketPolicy` | `AWS::S3::BucketPolicy` | Grants CloudFront OAC access to frontend bucket. |
+| `FrontendOAC` | `AWS::CloudFront::OriginAccessControl` | OAC for frontend S3 origin (SigV4 signing). |
+| `DataBucketOAC` | `AWS::CloudFront::OriginAccessControl` | OAC for data S3 origin (serves `latest/*` files). |
+| `CloudFrontDistribution` | `AWS::CloudFront::Distribution` | HTTP/2+3, PriceClass_100. Two origins: frontend (default) and data (`/latest/*`). SPA routing via custom 403/404 → index.html. |
+| `FrontendCachePolicy` | `AWS::CloudFront::CachePolicy` | 24h default TTL for static assets. Gzip + Brotli compression. |
+| `DataCachePolicy` | `AWS::CloudFront::CachePolicy` | 1h default TTL for data files. Gzip + Brotli compression. |
+| `SecurityHeadersPolicy` | `AWS::CloudFront::ResponseHeadersPolicy` | X-Content-Type-Options, X-Frame-Options (DENY), HSTS, XSS Protection. |
+| `DomainRedirectFunction` | `AWS::CloudFront::Function` (conditional) | Redirects CloudFront domain to custom domain (301). |
+| `Certificate` | `AWS::CertificateManager::Certificate` (conditional) | DNS-validated ACM certificate for custom domain. |
+| `DNSRecord` / `DNSRecordIPv6` | `AWS::Route53::RecordSet` (conditional) | A and AAAA alias records pointing to CloudFront. |
+
+#### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `Environment` | `dev` | Allowed: dev, staging, prod |
+| `DataBucketName` | `''` | Existing data bucket name (empty = use default naming) |
+| `DataBucketAccountId` | `''` | AWS Account ID for cross-account data bucket access |
+| `DomainName` | `''` | Custom domain (empty = CloudFront domain only) |
+| `HostedZoneId` | `''` | Route 53 Hosted Zone ID (required if DomainName is set) |
+
+### 5.4 Local Test Template
+
+**File:** `infra/template-local-test.yaml` (55 lines)
+
+A minimal SAM template for running a subset of Lambdas locally with `sam local invoke`. Useful for testing individual Lambda functions without deploying the full stack.
+
+**Usage:**
+```bash
+cd infra
+sam build -t template-local-test.yaml
+sam local invoke PricingCollectorFunction -e test-event.json -t template-local-test.yaml
+```
+
+**Included Lambdas:** 5 of 17 (the most commonly tested during development):
+- `PricingCollectorFunction` (with `PRICING_API_REGION=us-east-1`)
+- `ModelExtractorFunction`
+- `QuotaCollectorFunction`
+- `FeatureCollectorFunction`
+- `TokenSpecsCollectorFunction`
+
+**Global overrides:** Runtime Python 3.11, Timeout 300s (5 min), Memory 512 MB, `LOG_LEVEL=INFO`. These are more generous than production to avoid timeouts during local testing.
+
+> **Note:** This template does NOT include the shared layer. Lambdas that depend on the shared layer (e.g., pricing-aggregator, model-merger) cannot be tested with this template without additional setup.
+
+### 5.5 Pricing-Only Template
+
+**File:** `infra/template-pricing-only.yaml` (22 lines)
+
+The smallest template — deploys only the pricing collector Lambda for isolated pricing API testing. Useful when debugging pricing data collection without running the full pipeline.
+
+**Usage:**
+```bash
+cd infra
+sam build -t template-pricing-only.yaml
+sam local invoke PricingCollectorFunction -e '{"serviceCode": "AmazonBedrock"}' -t template-pricing-only.yaml
+```
+
+**Included Lambdas:** 1 — `PricingCollectorFunction` (named `pricing-collector-test` to avoid conflicts with the main stack).
+
+**Global overrides:** Runtime Python 3.11, Timeout 300s, Memory 512 MB.
 
 ---
 
@@ -1300,6 +1582,8 @@ s3://{bucket}/
                    |
            ExecutionSucceeded
 ```
+
+> **Note:** The Analytics Lambda (§3.17) is NOT part of this pipeline. It runs independently, triggered by API Gateway HTTP API requests from the frontend. It has its own DynamoDB-based storage and does not interact with S3 or the Step Functions workflow.
 
 ---
 
@@ -1506,23 +1790,61 @@ Comprehensive table of every hardcoded value across all Lambdas and the state ma
 
 ## 8. Redundancies & Simplification Opportunities
 
+> **Last verified:** 2026-02-19 against current codebase. All items confirmed present.
+
+### Summary
+
+| # | Item | Severity | Effort | Risk | Priority |
+|---|------|----------|--------|------|----------|
+| 8.1 | Duplicate RETRY_CONFIG definitions | Medium | S | Low | P2 |
+| 8.2 | Duplicate S3 read/write in token-specs-collector | High | S | Low | P1 |
+| 8.3 | Duplicate config loader init pattern (7 Lambdas) | Low | S | Low | P3 |
+| 8.4 | Duplicate documentation link logic | Medium | S | Low | P2 |
+| 8.5 | Duplicate execution ID parsing | Medium | S | Low | P1 |
+| 8.6 | Duplicate provider prefix lists | High | M | Medium | P1 |
+| 8.7 | Mantle endpoint pattern duplication | Low | S | Low | P3 |
+| 8.8 | Pricing aggregator God function | Medium | L | Medium | P2 |
+| 8.9 | Final aggregator monolith (1,365 lines) | Critical | XL | High | P1 |
+| 8.10 | Unnecessary data transformations | Low | M | Medium | P3 |
+| 8.11 | Duplicate error handling boilerplate | Low | M | Low | P3 |
+| 8.12 | Analytics Lambda ignores shared layer entirely | High | M | Low | P1 |
+| 8.13 | Legacy pricing-linker artifacts (987 dead lines) | Medium | S | Low | P2 |
+| 8.14 | Missing `requirements.txt` in 4 Lambdas | Low | S | Low | P3 |
+| 8.15 | Duplicate `get_s3_client()` in token-specs-collector | Medium | S | Low | P1 |
+
 ### 8.1 Duplicate RETRY_CONFIG Definitions
+
+**Severity**: Medium | **Effort**: S (30 min) | **Risk**: Low
+**Files affected**: `backend/lambdas/regional-availability/handler.py`, `backend/lambdas/token-specs-collector/handler.py`
 
 Three separate `RETRY_CONFIG` definitions exist:
 
-1. **Shared layer** (`backend/layers/common/python/shared/config.py`): The canonical definition — `max_attempts=3, adaptive, connect_timeout=10, read_timeout=30`
-2. **Regional Availability** (`backend/lambdas/regional-availability/handler.py:47-51`): Local copy — `max_attempts=3, adaptive, connect_timeout=5, read_timeout=30` (different connect timeout)
-3. **Token Specs Collector** (`backend/lambdas/token-specs-collector/handler.py:22-26`): Local copy — identical to shared layer
+1. **Shared layer** (`backend/layers/common/python/shared/config.py:11-15`): The canonical definition — `max_attempts=3, adaptive, connect_timeout=10, read_timeout=30`
+2. **Regional Availability** (`backend/lambdas/regional-availability/handler.py:47-51`): Local copy — `max_attempts=3, adaptive, connect_timeout=5, read_timeout=30` (**different** `connect_timeout`: 5 vs 10)
+3. **Token Specs Collector** (`backend/lambdas/token-specs-collector/handler.py:22-26`): Local copy — **identical** to shared layer (pure duplication)
 
-**Fix:** Remove local `RETRY_CONFIG` from regional-availability and token-specs-collector. Import from shared layer. If regional-availability genuinely needs `connect_timeout=5`, create a named variant in the shared layer.
+**Why this matters:** The regional-availability variant with `connect_timeout=5` is intentionally different (faster timeout for parallel region probing), but this intent is undocumented. The token-specs-collector copy is pure redundancy that could silently drift.
+
+**Recommendation:** Remove the token-specs-collector copy (import from shared). For regional-availability, either (a) import from shared and accept the 10s connect timeout, or (b) create a named variant `RETRY_CONFIG_FAST` in the shared layer with a docstring explaining the use case.
 
 ### 8.2 Duplicate S3 read/write Implementations
 
-`token-specs-collector/handler.py:36-49` defines its own `read_from_s3` and `write_to_s3` functions that duplicate the shared layer's `s3_utils.py`. The local versions lack error handling (no `S3ReadError`/`S3WriteError`, no `default_on_missing` support).
+**Severity**: High | **Effort**: S (30 min) | **Risk**: Low
+**Files affected**: `backend/lambdas/token-specs-collector/handler.py`
 
-**Fix:** Replace with `from shared import read_from_s3, write_to_s3`.
+`token-specs-collector/handler.py:36-49` defines its own `read_from_s3` and `write_to_s3` functions that duplicate the shared layer's `s3_utils.py`. The local versions are **inferior**:
+- No `S3ReadError`/`S3WriteError` custom exceptions (raw boto3 errors propagate)
+- No `default_on_missing` parameter for graceful handling of missing objects
+- No consistent error context (bucket/key not attached to exceptions)
+
+**Why this matters:** If the shared layer's S3 error handling is improved (e.g., adding retry logic or metrics), token-specs-collector won't benefit. A bug fix in one won't propagate to the other.
+
+**Recommendation:** Replace with `from shared import read_from_s3, write_to_s3`. This also requires adding `from shared import get_s3_client` (see 8.15).
 
 ### 8.3 Duplicate Config Loader Initialization Pattern
+
+**Severity**: Low | **Effort**: S (1 hour) | **Risk**: Low
+**Files affected**: 7 Lambda handlers
 
 Seven Lambdas repeat the exact same lazy-init pattern for `_config_loader`:
 
@@ -1538,20 +1860,30 @@ def _get_config():
 
 Found in: `pricing-aggregator/handler.py:30-39`, `model-extractor/handler.py:37-47`, `pricing-linker/handler.py:34-44`, `model-enricher/handler.py:29-38`, `final-aggregator/handler.py:29-38`, `gap-detection/handler.py:34-43`, `self-healing-agent/handler.py:37-46`.
 
-**Fix:** Move `load_config()` call into `get_config_loader()` itself (or make `ConfigLoader.config` property auto-load, which it already does at `config_loader.py:214-216`). Then Lambdas can just call `get_config_loader()` directly without the wrapper.
+**Why this matters:** This is a code smell but low severity — the pattern is simple, well-understood, and unlikely to cause bugs. The `ConfigLoader` already auto-loads at `config_loader.py:214-216` when accessing properties, making the explicit `load_config()` call redundant.
+
+**Recommendation:** Make `get_config_loader()` call `load_config()` internally (or rely on the existing auto-load). Then Lambdas can just call `get_config_loader()` directly without the wrapper. Low priority because the current pattern works correctly.
 
 ### 8.4 Duplicate Documentation Link Logic
 
-Documentation link resolution is implemented twice:
+**Severity**: Medium | **Effort**: S (30 min) | **Risk**: Low
+**Files affected**: `backend/lambdas/model-extractor/handler.py`, `backend/lambdas/model-enricher/handler.py`
 
-1. `model-extractor/handler.py:277-288` (`get_documentation_links`)
-2. `model-enricher/handler.py:128-143` (`get_documentation_links`)
+Documentation link resolution is implemented twice with near-identical logic:
 
-Both have identical logic: check for "nova" in model_id, then fall back to provider docs from config.
+1. `model-extractor/handler.py:277-288` (`get_documentation_links(model_id, provider)`)
+2. `model-enricher/handler.py:128-143` (`get_documentation_links(model_data)`)
 
-**Fix:** Move `get_documentation_links(model_id, provider)` into the shared layer or into `ConfigLoader`.
+Both check for "nova" in model_id, then fall back to provider docs from config. The only difference is the function signature (one takes `model_id` + `provider` strings, the other takes a `model_data` dict).
+
+**Why this matters:** If a new special-case provider is added (like Nova was), it must be updated in two places. The model-enricher runs after model-extractor, so the extractor's links may be overwritten — making the extractor's copy potentially dead code.
+
+**Recommendation:** Move `get_documentation_links(model_id, provider)` into `ConfigLoader` as a method. Both Lambdas call the same function.
 
 ### 8.5 Duplicate Execution ID Parsing
+
+**Severity**: Medium | **Effort**: S (15 min) | **Risk**: Low
+**Files affected**: `backend/lambdas/token-specs-collector/handler.py`
 
 `token-specs-collector/handler.py:159-160` manually parses execution IDs:
 ```python
@@ -1559,66 +1891,106 @@ if ':' in execution_id:
     execution_id = execution_id.split(':')[-1]
 ```
 
-This duplicates `shared/execution.py`'s `parse_execution_id()` function.
+This duplicates `shared/execution.py`'s `parse_execution_id()` function. The token-specs-collector doesn't import from the shared layer at all (see 8.12-related pattern).
 
-**Fix:** Use `from shared import parse_execution_id`.
+**Why this matters:** The shared function handles edge cases consistently. The inline version is fragile — if the execution ID format changes, this won't be updated.
+
+**Recommendation:** Use `from shared import parse_execution_id`. This is part of the broader token-specs-collector shared layer adoption (8.2, 8.15).
 
 ### 8.6 Duplicate Provider Prefix Lists
 
+**Severity**: High | **Effort**: M (2-3 hours) | **Risk**: Medium
+**Files affected**: `backend/lambdas/final-aggregator/handler.py`, `backend/lambdas/pricing-aggregator/handler.py`, `backend/config/profiler-config.json`
+
 Provider prefixes for stripping/matching are hardcoded in multiple places:
 
-1. `final-aggregator/handler.py:282-303` — `_PROVIDER_PREFIXES` list (20 entries)
-2. `final-aggregator/handler.py:1044-1064` — `find_matching_availability` has 9 hardcoded `.replace("anthropic.", "")...` chains
+1. `final-aggregator/handler.py:282-303` — `_PROVIDER_PREFIXES` list (20 entries) for quota name matching
+2. `final-aggregator/handler.py:1061-1080` — `find_matching_availability` has 9 hardcoded `.replace("anthropic.", "")...` chains for availability matching
 3. `pricing-aggregator/handler.py:443-484` — `infer_provider` uses config patterns but also hardcodes fallback logic
 
-**Fix:** Consolidate provider prefix lists into `profiler-config.json` and provide a `get_provider_prefixes()` accessor in `ConfigLoader`.
+**Why this matters:** When a new provider appears in Bedrock (e.g., "Reka AI"), all three locations must be updated independently. The `_PROVIDER_PREFIXES` list (20 entries) and the `.replace()` chain (9 entries) are already out of sync — the replace chain is missing 11 providers that `_PROVIDER_PREFIXES` knows about. This means availability matching silently fails for newer providers.
+
+**Recommendation:** Consolidate provider prefix lists into `profiler-config.json` under `provider_configuration.provider_prefixes` and provide a `get_provider_prefixes()` accessor in `ConfigLoader`. Both the final-aggregator and pricing-aggregator should read from config. Risk is medium because changing matching logic could affect pricing/quota linkage accuracy.
 
 ### 8.7 Mantle Endpoint Pattern Duplication
 
+**Severity**: Low | **Effort**: S (15 min) | **Risk**: Low
+**Files affected**: `backend/lambdas/mantle-collector/handler.py`, `backend/lambdas/final-aggregator/handler.py`
+
 The Mantle endpoint pattern `"bedrock-mantle.{region}.api.aws"` is hardcoded in:
 
-1. `mantle-collector/handler.py:30`
-2. `final-aggregator/handler.py:228`
+1. `mantle-collector/handler.py:30` — `MANTLE_ENDPOINT_PATTERN`
+2. `final-aggregator/handler.py:228` — inline string in `build_mantle_inference`
 
-**Fix:** Define once in config or shared constants.
+**Why this matters:** Low impact — this AWS endpoint pattern is unlikely to change. But it's a minor consistency issue.
+
+**Recommendation:** Define once in config or as a shared constant. Low priority.
 
 ### 8.8 Overly Complex Pricing Aggregator `aggregate_pricing` Function
 
-`pricing-aggregator/handler.py:500-684` (`aggregate_pricing`) is a 184-line function that:
-- Extracts model info
-- Infers providers
-- Determines pricing groups and types
-- Normalizes prices
-- Structures output by provider/region
-- Applies Global-to-OnDemand fallback
-- Calculates group statistics
+**Severity**: Medium | **Effort**: L (4-6 hours) | **Risk**: Medium
+**Files affected**: `backend/lambdas/pricing-aggregator/handler.py`
 
-This is a God function. It should be decomposed into: (a) extraction, (b) grouping, (c) statistics computation.
+`pricing-aggregator/handler.py:500-684` (`aggregate_pricing`) is a 184-line God function that performs 7 distinct responsibilities:
+1. Extracts model info (name, provider, region)
+2. Infers providers via 4-strategy approach
+3. Determines pricing groups and types
+4. Normalizes prices (per-million → per-thousand)
+5. Structures output by provider/region
+6. Applies Global-to-OnDemand fallback
+7. Calculates group statistics
+
+**Why this matters:** Difficult to test individual behaviors in isolation. A bug in price normalization requires understanding the entire 184-line flow. New pricing types require modifying a function that already does too much.
+
+**Recommendation:** Decompose into: (a) `extract_model_info()` — steps 1-2, (b) `classify_and_normalize()` — steps 3-4, (c) `structure_by_provider()` — step 5, (d) `apply_fallbacks_and_stats()` — steps 6-7. Risk is medium because the function's internal state flow is tightly coupled.
 
 ### 8.9 Final Aggregator as a Monolith
 
-`final-aggregator/handler.py` at 1,349 lines is the largest Lambda by far. It handles:
-- Quota aggregation and indexing (lines 41-520)
-- Cross-region inference building (lines 165-218)
-- Mantle inference building (lines 221-229)
-- Provisioned throughput building (lines 232-246)
-- Quota name parsing and matching (lines 249-520)
-- Consumption option determination (lines 523-593)
-- Batch inference detection (lines 596-684)
-- Context window resolution (4-tier priority, lines 714-796)
-- Model transformation (lines 687-1002)
-- Availability matching (lines 1005-1083)
-- Final assembly (lines 1086-1349)
+**Severity**: Critical | **Effort**: XL (8-16 hours) | **Risk**: High
+**Files affected**: `backend/lambdas/final-aggregator/handler.py` (1,365 lines), potentially new shared layer modules
 
-**Fix:** Extract quota matching, availability matching, and context window resolution into separate modules in the shared layer.
+`final-aggregator/handler.py` at 1,365 lines is the largest Lambda by far — more than 2x the next largest (pricing-aggregator at 827 lines). It handles 11 distinct responsibilities:
+
+| Responsibility | Lines | Complexity |
+|---------------|-------|------------|
+| Quota aggregation from S3 | 41-163 | Low |
+| Cross-region inference building | 165-218 | Medium |
+| Mantle inference building | 221-229 | Low |
+| Provisioned throughput building | 232-246 | Low |
+| Quota name parsing & normalization | 249-340 | High |
+| Quota index building & matching | 342-520 | High |
+| Consumption option determination | 523-593 | Medium |
+| Batch inference detection | 596-684 | Medium |
+| Context window resolution (4-tier) | 714-796 | High |
+| Model transformation | 687-1002 | High |
+| Availability matching | 1005-1099 | High |
+
+**Why this matters:** This is the single biggest maintainability risk in the backend. Any change to quota matching, context window logic, or availability matching requires understanding the entire 1,365-line file. Testing is difficult — the function has 10 input sources and complex internal state. A bug here affects every model in the output.
+
+**Recommendation:** Extract into separate modules:
+1. **`shared/quota_matching.py`** — `_normalize_for_quota_matching`, `_extract_quota_model_ref`, `_build_model_aliases`, `_build_quota_index`, `build_model_quotas` (lines 249-520, ~270 lines)
+2. **`shared/context_window.py`** — `resolve_context_window` with the 4-tier priority system (lines 714-796, ~80 lines)
+3. **`shared/availability_matching.py`** — `find_matching_availability` with provider prefix stripping (lines 1005-1099, ~95 lines)
+
+This would reduce the handler to ~920 lines (orchestration + model transformation) and make the extracted logic independently testable.
 
 ### 8.10 Unnecessary Data Transformations
 
-1. **camelCase to snake_case round-trip:** Feature collector outputs `inferenceProfiles` (camelCase), then `final-aggregator/handler.py:78-79` handles both `inference_profiles` and `inferenceProfiles`. If feature-collector outputted snake_case consistently, this dual handling would be unnecessary.
+**Severity**: Low | **Effort**: M (2-3 hours) | **Risk**: Medium
+**Files affected**: `backend/lambdas/feature-collector/handler.py`, `backend/lambdas/final-aggregator/handler.py`, `backend/lambdas/copy-to-latest/handler.py`
+
+1. **camelCase to snake_case round-trip:** Feature collector outputs `inferenceProfiles` (camelCase from AWS API), then `final-aggregator/handler.py:78-79` handles both `inference_profiles` and `inferenceProfiles` with a fallback. If feature-collector normalized to snake_case on output, this dual handling would be unnecessary.
 
 2. **Pricing data pass-through:** `final-aggregator/handler.py:1322` copies pricing data as-is to the final output. The pricing aggregator already formats it correctly. This is a no-op copy that could be eliminated by having copy-to-latest directly copy from `merged/pricing.json`.
 
+**Why this matters:** Low impact on correctness, but adds cognitive overhead when tracing data flow. The pricing pass-through wastes ~1-2 seconds of Lambda execution time on large datasets.
+
+**Recommendation:** (1) Normalize feature-collector output to snake_case. (2) Have copy-to-latest copy pricing directly from `merged/pricing.json`. Risk is medium because changing data flow between Lambdas requires careful testing of the full pipeline.
+
 ### 8.11 Duplicate Error Handling Boilerplate
+
+**Severity**: Low | **Effort**: M (2-3 hours) | **Risk**: Low
+**Files affected**: All 16 pipeline Lambda handlers, shared layer
 
 Every Lambda handler has the same error handling structure:
 ```python
@@ -1627,26 +1999,181 @@ except Exception as e:
     return {"status": "FAILED", "errorType": type(e).__name__, "errorMessage": str(e)}
 ```
 
-**Fix:** Create a `@lambda_error_handler` decorator in the shared layer that wraps the handler and standardizes error responses.
+This pattern is repeated in all 16 pipeline Lambdas (analytics uses a different pattern for API Gateway responses).
+
+**Why this matters:** Low severity because the pattern is simple and correct. However, if the error response format needs to change (e.g., adding a `timestamp` field or `retryable` flag), all 16 handlers must be updated.
+
+**Recommendation:** Create a `@lambda_error_handler` decorator in the shared layer:
+```python
+def lambda_error_handler(func):
+    def wrapper(event, context):
+        try:
+            return func(event, context)
+        except ValidationError as e:
+            logger.warning(f"Validation error: {e}")
+            return {"status": "FAILED", "errorType": "ValidationError", "errorMessage": str(e), "retryable": False}
+        except Exception as e:
+            logger.error(f"Unhandled error: {e}", exc_info=True)
+            return {"status": "FAILED", "errorType": type(e).__name__, "errorMessage": str(e), "retryable": True}
+    return wrapper
+```
+
+### 8.12 Analytics Lambda Ignores Shared Layer Entirely
+
+**Severity**: High | **Effort**: M (2-3 hours) | **Risk**: Low
+**Files affected**: `backend/lambdas/analytics/handler.py`
+
+The analytics Lambda (629 lines) is completely standalone — it does not import from the shared layer at all. Specific issues:
+
+1. **Uses `print()` instead of `logger`** — 5 instances at lines 399, 429, 460, 501, 564. All other 16 Lambdas use `logging.getLogger()`. This means analytics errors don't respect `LOG_LEVEL` and have inconsistent formatting in CloudWatch.
+2. **No `validate_required_params`** — request body fields are accessed directly, producing raw `KeyError` instead of clean `ValidationError`.
+3. **No `RETRY_CONFIG`** — DynamoDB client uses default boto3 retry settings instead of the project's standard adaptive retry.
+4. **No `build_error_response`** — error responses are constructed inline with different structure than pipeline Lambdas.
+
+**Why this matters:** The analytics Lambda is architecturally different (API Gateway-triggered, DynamoDB-backed) from the pipeline Lambdas, which partially explains the divergence. However, the `print()` usage and lack of structured logging is a genuine operational issue — errors are harder to find and filter in CloudWatch.
+
+**Recommendation:** At minimum, replace `print()` with `logger` (5 lines, 15 min). Full shared layer adoption is lower priority since the Lambda's architecture is fundamentally different from the pipeline.
+
+### 8.13 Legacy Pricing-Linker Artifacts
+
+**Severity**: Medium | **Effort**: S (15 min) | **Risk**: Low
+**Files affected**: `backend/lambdas/pricing-linker/handler_v1.py`, `backend/lambdas/pricing-linker/compare_implementations.py`
+
+Two legacy files remain in the pricing-linker directory:
+
+1. **`handler_v1.py`** (301 lines): Original pricing-linker implementation without PORT features (provider-scoped matching, conflict detection). Has a hardcoded confidence threshold of 0.7. **Not referenced by any SAM template or ASL** — purely a historical artifact.
+2. **`compare_implementations.py`** (686 lines): Standalone CLI comparison script for V1 vs V2 output. Contains its own copy of `V2_PROVIDER_ALIASES` (lines 159-177) which **may drift from config**. Not a Lambda — a developer tool.
+
+Combined: **987 lines of dead code** in the deployment package.
+
+**Why this matters:** These files are included in the Lambda deployment package (SAM bundles the entire directory), adding ~30KB of unnecessary code. More importantly, `compare_implementations.py` has a hardcoded `V2_PROVIDER_ALIASES` that could mislead a developer into thinking it's the source of truth.
+
+**Recommendation:** Delete both files. If historical reference is needed, they're preserved in git history. If the comparison script is still useful, move it to a `tools/` or `scripts/` directory outside the Lambda package.
+
+### 8.14 Missing `requirements.txt` in 4 Lambdas
+
+**Severity**: Low | **Effort**: S (15 min) | **Risk**: Low
+**Files affected**: `backend/lambdas/gap-detection/`, `backend/lambdas/mantle-collector/`, `backend/lambdas/region-discovery/`, `backend/lambdas/self-healing-agent/`
+
+Four Lambdas lack a `requirements.txt` file while the other 13 have one. All 4 rely only on boto3/botocore (provided by the Lambda runtime) and the shared layer, so no external pip dependencies are needed.
+
+**Why this matters:** This is a consistency issue, not a functional one. A new developer might wonder if dependencies are missing. SAM `sam build` handles this gracefully (no-op if no requirements.txt), but it's inconsistent with the project convention.
+
+**Recommendation:** Add empty `requirements.txt` files (or with a comment like `# No external dependencies — uses Lambda runtime boto3 + shared layer`) to the 4 directories for consistency.
+
+### 8.15 Duplicate `get_s3_client()` in Token-Specs-Collector
+
+**Severity**: Medium | **Effort**: S (15 min) | **Risk**: Low
+**Files affected**: `backend/lambdas/token-specs-collector/handler.py`
+
+`token-specs-collector/handler.py:32-33` defines its own `get_s3_client()`:
+```python
+def get_s3_client():
+    return boto3.client('s3', config=RETRY_CONFIG)
+```
+
+This duplicates `shared/s3_utils.py`'s `get_s3_client()` which does the same thing but uses the canonical `RETRY_CONFIG`.
+
+**Why this matters:** Part of the broader pattern where token-specs-collector is entirely disconnected from the shared layer (see 8.1, 8.2, 8.5). This Lambda has the most redundancy of any single handler.
+
+**Recommendation:** Replace with `from shared import get_s3_client`. Fix as part of the token-specs-collector shared layer adoption (bundle with 8.1, 8.2, 8.5 — total effort ~1 hour for all 4 items).
+
+### 8.16 Over-Complexity Analysis
+
+This subsection identifies areas where the codebase is more complex than necessary, beyond the specific redundancies above. Over-complexity hurts maintainability by increasing the cognitive load for developers and the surface area for bugs.
+
+#### 8.16.1 Final Aggregator: Too Many Responsibilities
+
+The final-aggregator (8.9) is the clearest example of over-complexity. It is a **pipeline-within-a-pipeline**: it reads from 10+ S3 sources, performs 5 distinct data transformations (quota matching, context window resolution, availability matching, consumption option derivation, batch inference detection), and produces 2 output files. Each transformation has its own complex logic with edge cases.
+
+**Single Responsibility Violation:** The handler function `lambda_handler` at lines 1102-1349 is 247 lines long and orchestrates all 11 responsibilities listed in 8.9. A new developer must understand the entire file to modify any single behavior.
+
+**Specific over-complex patterns:**
+- **Quota matching** uses a 4-step normalization pipeline (`_normalize_for_quota_matching` → `_extract_quota_model_ref` → `_build_model_aliases` → `_build_quota_index`) with regex-heavy string manipulation. The `_build_model_aliases` function alone generates 6 different alias forms per model.
+- **Context window resolution** has a 4-tier priority system with special-case logic for extended context windows (lines 760-780) that compares API values against config values and makes heuristic decisions about which to trust.
+- **Availability matching** (`find_matching_availability`, lines 1005-1099) has a 3-stage fallback (exact match → base model match → fuzzy match with provider prefix stripping) where the fuzzy match stage has 9 hardcoded `.replace()` calls.
+
+**Why simplification helps:** Extracting these into separate modules (as recommended in 8.9) would allow each to be tested independently, documented separately, and modified without risk to unrelated logic. A developer fixing a quota matching bug shouldn't need to understand context window resolution.
+
+#### 8.16.2 Pricing Aggregator: Classification Heuristics
+
+The pricing-aggregator's classification logic (`determine_pricing_type` at line 57, `determine_pricing_group` at line 176) relies on string matching against usage types and descriptions. These heuristics have grown organically:
+
+- `determine_pricing_type` checks for 8 different pricing types using substring matching on `usage_type` and `description`
+- `determine_pricing_group` checks for 10 different groups using similar substring matching
+- Both functions have overlapping detection logic (e.g., "batch" appears in both type and group detection)
+
+**Why simplification helps:** These classification rules could be expressed as a declarative configuration (a list of `{pattern, type, group}` rules) rather than imperative if/elif chains. This would make it easier to add new pricing types without modifying code.
+
+#### 8.16.3 Profiler Config: Frontend Data in Backend Config
+
+The `profiler-config.json` (1,131 lines) has grown to include significant frontend-specific data:
+
+| Section | Lines | Used By |
+|---------|-------|---------|
+| `provider_colors` | ~22 | Frontend only |
+| `region_coordinates` | ~204 | Frontend only |
+| `aws_regions` | ~170 | Frontend only |
+| `geo_region_options` | ~32 | Frontend only |
+| `geo_prefix_map` | ~8 | Frontend only |
+| **Total frontend-only** | **~436** | **39% of config** |
+
+**Why simplification helps:** The self-healing agent modifies this config file. Frontend-only data (map coordinates, UI colors) should not be in the same file that the agent auto-patches — a malformed agent update could break the frontend. Separating into `profiler-config.json` (backend) and `frontend-config.json` (frontend) would reduce risk and make each file's purpose clearer.
+
+#### 8.16.4 Self-Healing Agent: Premature Architecture
+
+The self-healing agent (418 lines) + gap detection (347 lines) = 765 lines of infrastructure for a feature that has run exactly twice (config version `"1.0.0-auto-updated-auto-updated"`). The architecture includes:
+
+- Claude Opus 4.5 invocation with structured prompt construction
+- Safe/risky change classification
+- Auto-apply with backup
+- Configurable thresholds for trigger decisions
+
+**Current state:** The agent has auto-appended `-auto-updated` to the config version twice, confirming it runs. But there's no evidence it has made meaningful config improvements (no new provider patterns, no new aliases visible in the config).
+
+**Why this matters:** This is 765 lines of code that runs daily, invokes an expensive LLM, and can modify production config — but has no rollback mechanism, no validation of applied changes, and no alerting. The complexity-to-value ratio is currently unfavorable.
+
+**Recommendation:** This is not a "remove it" recommendation — the architecture is sound for the future. But it should be gated behind a feature flag (currently it runs unconditionally if gaps are detected) and the auto-apply should be disabled until regression detection is implemented (see §10).
 
 ---
 
 ## 9. Enhancement Opportunities
 
+> **Last verified:** 2026-02-19. Priorities based on value/effort ratio.
+
+### Summary
+
+| # | Item | Value | Effort | Priority | Prerequisites |
+|---|------|-------|--------|----------|---------------|
+| 9.1 | Missing data collection (deprecation dates, guardrails) | Medium | L | P2 | None |
+| 9.2 | Unused API capabilities | Low | M | P3 | None |
+| 9.3 | Performance improvements (parallel S3, caching) | High | M | P1 | 8.9 (for final-aggregator changes) |
+| 9.4 | Reliability improvements (circuit breakers, validation) | High | L | P1 | None |
+| 9.5 | Data quality improvements (normalization, canonicalization) | High | M | P1 | 8.6 (provider prefix consolidation) |
+| 9.6 | Observability improvements (metrics, alerting) | Medium | M | P2 | None |
+
 ### 9.1 Missing Data We Could Collect
 
-| Data Point | API/Source | Current Status |
-|------------|-----------|---------------|
-| **Model deprecation dates** | `ListFoundationModels` → `modelLifecycle.deprecationDate` | Not collected — only `status` is captured |
-| **Guardrail compatibility** | `ListGuardrails` + `GetGuardrail` | Not collected — would show which models support guardrails |
-| **Custom model base models** | `ListCustomModels` → `baseModelId` | Not collected — could show fine-tuning relationships |
-| **Model evaluation results** | `ListEvaluationJobs` | Not collected — could show benchmark data |
-| **Prompt caching support** | Converse API metadata / Pricing API `cache` usage types | Partially collected via pricing but not surfaced per-model |
-| **Latency benchmarks** | InvokeModel/Converse with timing | Not collected — would require active invocation |
-| **Model throughput limits** | Service Quotas → TPM quotas | Collected but not cross-referenced with model capacity info |
-| **Knowledge base compatibility** | `ListFoundationModels` → integration capabilities | Not explicitly tracked |
+**Value**: Medium | **Effort**: L (8+ hours total) | **Priority**: P2
+**Prerequisites**: None
+
+| Data Point | API/Source | Current Status | Value | Effort |
+|------------|-----------|---------------|-------|--------|
+| **Model deprecation dates** | `ListFoundationModels` → `modelLifecycle.deprecationDate` | Not collected — only `status` is captured | High | S |
+| **Guardrail compatibility** | `ListGuardrails` + `GetGuardrail` | Not collected — would show which models support guardrails | Medium | M |
+| **Custom model base models** | `ListCustomModels` → `baseModelId` | Not collected — could show fine-tuning relationships | Low | M |
+| **Model evaluation results** | `ListEvaluationJobs` | Not collected — could show benchmark data | Low | L |
+| **Prompt caching support** | Converse API metadata / Pricing API `cache` usage types | Partially collected via pricing but not surfaced per-model | High | S |
+| **Latency benchmarks** | InvokeModel/Converse with timing | Not collected — would require active invocation | High | XL |
+| **Model throughput limits** | Service Quotas → TPM quotas | Collected but not cross-referenced with model capacity info | Medium | M |
+| **Knowledge base compatibility** | `ListFoundationModels` → integration capabilities | Not explicitly tracked | Low | S |
+
+**Recommendation:** Start with deprecation dates (already in the API response, just not captured) and prompt caching support (partially available via pricing data). These are high-value, low-effort additions.
 
 ### 9.2 Unused API Capabilities
+
+**Value**: Low | **Effort**: M (2-4 hours) | **Priority**: P3
+**Prerequisites**: None
 
 1. **`ListFoundationModels` parameters not used:**
    - `byCustomizationType` — could filter to only fine-tunable models
@@ -1661,9 +2188,25 @@ except Exception as e:
 
 4. **Bulk Pricing API regions:** Only `us-east-1` is queried. `ap-south-1` also offers bulk pricing and might have different regional pricing data.
 
+**Recommendation:** Low priority. The current approach (fetch everything, filter in code) is simpler and more resilient to API changes. The `GetFoundationModel` API is worth investigating if individual model detail pages are added to the frontend.
+
 ### 9.3 Performance Improvements
 
-1. **Parallel S3 reads in final-aggregator:** Currently reads 6+ S3 objects sequentially (`models_with_pricing`, `availability_data`, `token_specs_data`, `pricing_data`, `enriched_models_data`, plus per-region quotas/features/mantle). Using `ThreadPoolExecutor` for concurrent reads could cut aggregation time by 50-70%.
+**Value**: High | **Effort**: M (4-8 hours total) | **Priority**: P1
+**Prerequisites**: 8.9 (final-aggregator refactoring) for items 1-2
+
+| # | Improvement | Impact | Effort | Priority |
+|---|------------|--------|--------|----------|
+| 1 | Parallel S3 reads in final-aggregator | 50-70% faster aggregation | M | P1 |
+| 2 | Pre-computed quota index caching | ~10% faster aggregation | S | P3 |
+| 3 | Batch S3 writes per wave | Fewer S3 API calls | M | P3 |
+| 4 | Region discovery caching | Skip redundant API calls | S | P2 |
+| 5 | LiteLLM data caching (ETag) | Skip redundant 2MB download | S | P1 |
+| 6 | Pricing collector deduplication | Less data to process | M | P3 |
+
+**Details:**
+
+1. **Parallel S3 reads in final-aggregator:** Currently reads 6+ S3 objects sequentially (`models_with_pricing`, `availability_data`, `token_specs_data`, `pricing_data`, `enriched_models_data`, plus per-region quotas/features/mantle). Using `ThreadPoolExecutor` for concurrent reads could cut aggregation time by 50-70%. This is the highest-impact performance improvement.
 
 2. **Pre-computed quota index caching:** `final-aggregator/handler.py:443-478` builds a quota index on every invocation. Since Lambda containers are reused, the index could be cached with a TTL check (quota data changes daily, not per-invocation).
 
@@ -1671,17 +2214,30 @@ except Exception as e:
 
 4. **Region discovery caching:** `region-discovery/handler.py` makes N API calls (one per region). Results could be cached in S3 with a TTL (regions don't change frequently) and only refreshed weekly.
 
-5. **LiteLLM data caching:** `token-specs-collector/handler.py` fetches a ~2MB JSON file from GitHub on every execution. This could be cached in S3 and only refreshed if the ETag changes.
+5. **LiteLLM data caching:** `token-specs-collector/handler.py` fetches a ~2MB JSON file from GitHub on every execution. This could be cached in S3 and only refreshed if the ETag changes. Simple to implement and eliminates an external dependency on every run.
 
 6. **Pricing collector deduplication:** Pricing data from 3 service codes has significant overlap. The deduplication by SKU in `pricing-collector/handler.py:233-238` could be moved to the aggregator to avoid downloading duplicate data.
 
 ### 9.4 Reliability Improvements
 
+**Value**: High | **Effort**: L (8-12 hours total) | **Priority**: P1
+**Prerequisites**: None
+
+| # | Improvement | Impact | Effort | Priority |
+|---|------------|--------|--------|----------|
+| 1 | Circuit breaker for external APIs | Prevents wasted retries | M | P1 |
+| 2 | Partial retry for Map states | Recovers from single-region failures | L | P2 |
+| 3 | Self-healing agent rollback | Prevents config regressions | M | P1 |
+| 4 | Inter-wave data validation | Catches corrupt data early | M | P1 |
+| 5 | Dead-letter queue for failed executions | Enables manual review | S | P2 |
+
+**Details:**
+
 1. **No circuit breaker for external APIs:** The LiteLLM GitHub fetch (`token-specs-collector/handler.py:61`) and Mantle endpoint (`mantle-collector/handler.py:73`) have no circuit breaker. If GitHub is down, every execution wastes time and retries. A circuit breaker pattern (stored in DynamoDB or S3) that skips external calls after N consecutive failures would improve resilience.
 
 2. **No partial retry for Map states:** If 1 of 16 quota regions fails, the entire quota collection is treated as partial success. The state machine could re-run only the failed regions.
 
-3. **Self-healing agent has no rollback:** `self-healing-agent/handler.py:267-279` auto-applies config changes and creates a backup, but there's no mechanism to detect if the change caused a regression in the next run and automatically revert.
+3. **Self-healing agent has no rollback:** `self-healing-agent/handler.py:267-279` auto-applies config changes and creates a backup, but there's no mechanism to detect if the change caused a regression in the next run and automatically revert. This is the most critical reliability gap given the agent can modify production config.
 
 4. **No data validation between waves:** The pipeline trusts upstream outputs without validation. A corrupt pricing file from Wave 1 would cascade into bad pricing-linked data in Wave 2 and incorrect final output. Adding checksum/schema validation between waves would catch issues early.
 
@@ -1689,15 +2245,50 @@ except Exception as e:
 
 ### 9.5 Data Quality Improvements
 
+**Value**: High | **Effort**: M (4-6 hours total) | **Priority**: P1
+**Prerequisites**: 8.6 (provider prefix consolidation) for item 5
+
+| # | Improvement | Impact | Effort | Priority |
+|---|------------|--------|--------|----------|
+| 1 | Confidence score transparency | Users see data quality | S | P1 |
+| 2 | Stale data detection | Catches silent API failures | M | P2 |
+| 3 | Cross-validation of token specs | Catches data disagreements | M | P2 |
+| 4 | Unified model ID normalization | Prevents matching bugs | M | P1 |
+| 5 | Unified provider canonicalization | Consistent provider names | M | P1 |
+
+**Details:**
+
 1. **Confidence score transparency:** The pricing-linker assigns confidence scores but they're not exposed in the frontend. Models with 0.7-0.8 confidence may have incorrect pricing displayed with no warning.
 
 2. **Stale data detection:** No mechanism to detect if a model's pricing has been unchanged for an unusual number of runs (possible API failure silently returning cached data).
 
 3. **Cross-validation:** Token specs from LiteLLM could be cross-validated against console metadata and config values. Disagreements should be flagged, not silently overridden by the priority system.
 
-4. **Model ID normalization inconsistency:** Different Lambdas normalize model IDs differently — `pricing-linker` strips separators and suffixes, `final-aggregator` strips version suffixes, `model-merger` strips `:Nk` suffixes. A single canonical normalization function in the shared layer would prevent matching inconsistencies.
+4. **Model ID normalization inconsistency:** Different Lambdas normalize model IDs differently — `pricing-linker` strips separators and suffixes, `final-aggregator` strips version suffixes, `model-merger` strips `:Nk` suffixes. A single canonical `normalize_model_id(model_id)` function in the shared layer would prevent matching inconsistencies.
 
-5. **Provider name canonicalization:** Provider names flow through multiple stages (Pricing API → pricing-aggregator → pricing-linker → final-aggregator) and may be normalized differently at each stage. A single `canonicalize_provider(name)` function in the shared layer would ensure consistency.
+5. **Provider name canonicalization:** Provider names flow through multiple stages (Pricing API → pricing-aggregator → pricing-linker → final-aggregator) and may be normalized differently at each stage. A single `canonicalize_provider(name)` function in the shared layer would ensure consistency. Depends on 8.6 (provider prefix consolidation) being done first.
+
+### 9.6 Observability Improvements
+
+**Value**: Medium | **Effort**: M (3-5 hours total) | **Priority**: P2
+**Prerequisites**: None
+
+| # | Improvement | Impact | Effort | Priority |
+|---|------------|--------|--------|----------|
+| 1 | Structured logging with correlation IDs | Easier debugging | M | P2 |
+| 2 | CloudWatch custom metrics | Pipeline health dashboard | M | P2 |
+| 3 | Execution summary notifications | Proactive issue detection | S | P2 |
+| 4 | Data quality metrics over time | Trend detection | M | P3 |
+
+**Details:**
+
+1. **Structured logging:** Currently, each Lambda logs free-form text. Adding structured JSON logging with `execution_id` as a correlation ID would make it possible to trace a single pipeline run across all 17 Lambdas in CloudWatch Logs Insights.
+
+2. **CloudWatch custom metrics:** Key metrics to track: models collected per run, pricing match rate, quota match rate, context window coverage, execution duration per Lambda. These would enable a CloudWatch dashboard showing pipeline health over time.
+
+3. **Execution summary notifications:** An SNS notification after each pipeline run with key stats (models collected, match rates, errors) would enable proactive monitoring without checking CloudWatch.
+
+4. **Data quality metrics over time:** Track confidence score distributions, unmatched model counts, and provider coverage across runs. A sudden drop in any metric indicates a problem that the gap-detection Lambda might miss if it's below threshold.
 
 ---
 
@@ -1895,4 +2486,51 @@ Exploration has started but the system is **unverified in production**. Key gaps
 - Claude prompt needs refinement based on real-world gap patterns
 - No alerting/notification when changes are auto-applied
 - Documentation context loading not yet implemented (currently only config context)
+
+---
+
+## 11. API Inventory
+
+Complete reference of every external API call made by the backend. Use this section to understand what the backend communicates with, for IAM policy reviews, network egress planning, or debugging API failures.
+
+### 11.1 AWS APIs
+
+| API Call | AWS Service | Lambda(s) | Region Constraint | Purpose |
+|----------|-------------|-----------|-------------------|---------|
+| `ec2.describe_regions` | EC2 | region-discovery | us-east-1 (any region works) | Discover all enabled AWS regions |
+| `bedrock.list_inference_profiles` | Bedrock | region-discovery, feature-collector | per-region | Test Bedrock availability (region-discovery); collect CRIS profiles (feature-collector) |
+| `pricing.get_products` | AWS Pricing | pricing-collector | us-east-1 only | Fetch Bedrock pricing data by service code |
+| `bedrock.list_foundation_models` | Bedrock | model-extractor, regional-availability | per-region | List all foundation models in a region |
+| `service-quotas.list_service_quotas` | Service Quotas | quota-collector | per-region | Collect Bedrock service quotas per region |
+| `bedrock-runtime.invoke_model` | Bedrock Runtime | self-healing-agent | default region | Invoke Claude Opus 4.5 for gap analysis |
+| `s3.get_object` | S3 | All (via shared layer) | default region | Read intermediate data and config |
+| `s3.put_object` | S3 | All (via shared layer) | default region | Write intermediate and final data |
+| `s3.copy_object` | S3 | copy-to-latest | default region | Copy final outputs to `latest/` prefix |
+| `dynamodb.Table.update_item` | DynamoDB | analytics | default region | Upsert daily aggregates, session buckets, user records |
+| `dynamodb.Table.query` | DynamoDB | analytics | default region | Query aggregates for dashboard |
+| `dynamodb.Table.get_item` | DynamoDB | analytics | default region | Read user records for new/returning detection |
+
+### 11.2 External (Non-AWS) APIs
+
+| API | Endpoint URL | Lambda | Auth | Purpose | Fallback |
+|-----|-------------|--------|------|---------|----------|
+| AWS Bulk Pricing | `https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/{service_code}/current/{region}/index.json` | pricing-collector | None (public HTTPS) | Supplementary pricing data (e.g., Stability AI models not in GetProducts) | Graceful skip — uses GetProducts data only |
+| Bedrock Console Metadata | `https://bedrock.{region}.amazonaws.com/foundation-models` | model-extractor | SigV4 + `x-console-consumer: true` header | Extended model metadata (context windows, descriptions, languages, use cases) | Graceful skip — models still collected without console metadata |
+| LiteLLM Model Database | `https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json` | token-specs-collector | None (public HTTPS, `User-Agent: BedrockProfiler/1.0`) | Token specifications (context window, max output tokens) | Graceful skip — models get `null` token specs |
+| Bedrock Mantle | `https://bedrock-mantle.{region}.api.aws/v1/models` | mantle-collector | SigV4 (service: `bedrock`) | Console model list with additional metadata | Graceful skip — mantle data omitted from final output |
+
+### 11.3 Environment Variables (Complete)
+
+| Variable | Used By | Default | Purpose |
+|----------|---------|---------|---------|
+| `LOG_LEVEL` | All 17 Lambdas | `INFO` | Logging level |
+| `PRICING_API_REGION` | pricing-collector | `us-east-1` | Pricing API region |
+| `DATA_BUCKET` | pricing-collector, config_loader | None | S3 data bucket name |
+| `CONFIG_BUCKET` | config_loader | None | S3 config bucket (priority over DATA_BUCKET) |
+| `S3_BUCKET` | config_loader | None | S3 bucket fallback |
+| `ENVIRONMENT` | All (via SAM globals) | `dev` | Deployment environment |
+| `ANALYTICS_TABLE` | analytics | `bedrock-profiler-analytics-dev` | DynamoDB table name |
+| `ADMIN_GROUP` | analytics | `admins` | Cognito admin group name |
+| `ALLOWED_ORIGINS` | analytics | `*` | CORS allowed origins |
+
 
