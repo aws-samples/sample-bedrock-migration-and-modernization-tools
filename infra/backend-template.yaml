@@ -331,27 +331,6 @@ Resources:
                 - !Sub '${DataBucket.Arn}/*'
                 - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
-  # Model Enrichment
-  ModelEnricherFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub 'bedrock-profiler-model-enricher-${Environment}'
-      CodeUri: ../backend/lambdas/model-enricher/
-      Handler: handler.lambda_handler
-      Timeout: 120
-      MemorySize: 512
-      Policies:
-        - Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Action:
-                - s3:GetObject
-                - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
-
   # Wave 2: Mantle Collection
   MantleCollectorFunction:
     Type: AWS::Serverless::Function
@@ -501,7 +480,6 @@ Resources:
                   - !GetAtt FeatureCollectorFunction.Arn
                   - !GetAtt RegionDiscoveryFunction.Arn
                   - !GetAtt TokenSpecsCollectorFunction.Arn
-                  - !GetAtt ModelEnricherFunction.Arn
                   - !GetAtt FinalAggregatorFunction.Arn
                   - !GetAtt CopyToLatestFunction.Arn
                   - !GetAtt GapDetectionFunction.Arn
@@ -546,7 +524,6 @@ Resources:
         FeatureCollectorFunction: !GetAtt FeatureCollectorFunction.Arn
         RegionDiscoveryFunction: !GetAtt RegionDiscoveryFunction.Arn
         TokenSpecsCollectorFunction: !GetAtt TokenSpecsCollectorFunction.Arn
-        ModelEnricherFunction: !GetAtt ModelEnricherFunction.Arn
         FinalAggregatorFunction: !GetAtt FinalAggregatorFunction.Arn
         CopyToLatestFunction: !GetAtt CopyToLatestFunction.Arn
         GapDetectionFunction: !GetAtt GapDetectionFunction.Arn

@@ -980,6 +980,10 @@ def transform_model_to_schema(
         if "provisioned_throughput" in consumption_options:
             consumption_options.remove("provisioned_throughput")
 
+    # Get feature support and chat features from console metadata (extracted in model-extractor)
+    feature_support = console_meta.get("feature_support", {}) if console_meta else {}
+    chat_features = console_meta.get("chat_features", {}) if console_meta else {}
+
     return {
         "model_id": model_id,
         "model_arn": model.get("model_arn", ""),
@@ -998,6 +1002,8 @@ def transform_model_to_schema(
         "languages_supported": console_languages,
         "description": console_description,
         "short_description": console_short_description,
+        "feature_support": feature_support,
+        "chat_features": chat_features,
         "consumption_options": consumption_options,
         "cross_region_inference": cross_region,
         "is_mantle": mantle["supported"],

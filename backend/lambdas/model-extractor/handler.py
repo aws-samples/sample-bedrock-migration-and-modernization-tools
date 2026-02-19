@@ -165,7 +165,8 @@ def fetch_console_metadata(region: str) -> dict:
     Fetch extended model metadata via direct Bedrock REST API with SigV4 signing.
 
     Uses the x-console-consumer header to get consoleIDEMetadata which includes
-    context windows, descriptions, languages, and categories for ~53 models.
+    context windows, descriptions, languages, categories, feature support,
+    capabilities, and more.
 
     Returns dict mapping model_id -> metadata dict. Returns empty dict on any error.
     """
@@ -204,6 +205,11 @@ def fetch_console_metadata(region: str) -> dict:
 
             meta = {}
 
+            # Extract top-level fields
+            meta["model_family"] = model.get("modelFamily", "")
+            meta["guardrails_supported"] = model.get("guardrailsSupported", False)
+            meta["batch_supported"] = model.get("batchSupported", {})
+
             # Parse consoleIDEMetadata (JSON string field)
             console_ide_raw = model.get("consoleIDEMetadata")
             if console_ide_raw and isinstance(console_ide_raw, str):
@@ -224,24 +230,80 @@ def fetch_console_metadata(region: str) -> dict:
                     if desc.get("shortDescription"):
                         meta["short_description"] = desc["shortDescription"]
 
-                    # Languages (comma/and-separated string, e.g. "English, French and Other languages.")
+                    # Languages (comma/and-separated string)
                     lang_str = desc.get("supportedLanguages")
                     if lang_str and isinstance(lang_str, str):
-                        # Replace " and " with comma, strip trailing period
                         cleaned = lang_str.rstrip(".").replace(" and ", ", ")
                         meta["languages"] = [
                             l.strip() for l in cleaned.split(",") if l.strip()
                         ]
 
-                    # Use cases (semicolon or comma-separated string, may contain parenthetical examples)
+                    # Use cases (semicolon or comma-separated string)
                     use_str = desc.get("supportedUseCases")
                     if use_str and isinstance(use_str, str):
                         meta["use_cases"] = parse_use_cases(use_str)
 
+                    # Model attributes (capabilities from AWS)
+                    model_attrs = desc.get("modelAttributes")
+                    if model_attrs and isinstance(model_attrs, str):
+                        # Parse comma/semicolon separated attributes
+                        attrs = []
+                        for sep in [";", ","]:
+                            if sep in model_attrs:
+                                attrs = [a.strip() for a in model_attrs.split(sep) if a.strip()]
+                                break
+                        if not attrs:
+                            attrs = [model_attrs.strip()]
+                        meta["model_attributes"] = attrs
+
+                    # Release date (epoch timestamp)
+                    release_date = desc.get("releaseDate")
+                    if release_date:
+                        meta["release_date"] = release_date
+
+                    # Feature support (agent, knowledgeBase, flows, etc.)
+                    feature_support = console_ide.get("featureSupport", {})
+                    if feature_support:
+                        meta["feature_support"] = {
+                            "agent": feature_support.get("agent", {}),
+                            "knowledge_base": feature_support.get("knowledgeBase", {}),
+                            "flow": feature_support.get("flow", {}),
+                            "guardrails": feature_support.get("guardrails", {}),
+                            "prompt_caching": feature_support.get("explicitPromptCaching", {}),
+                            "intelligent_routing": feature_support.get("intelligentPromptRouting", {}),
+                            "model_evaluation": feature_support.get("modelEvaluation", {}),
+                            "prompt_management": feature_support.get("prompt", {}),
+                            "batch_inference": feature_support.get("batchInference", {}),
+                            "latency_optimized": feature_support.get("latencyOptimized", {}),
+                            "system_tools": feature_support.get("systemTool", {}).get("supportedSystemTools", []),
+                        }
+
+                    # Invoke chat features (function calling, citations, etc.)
+                    converse_meta = console_ide.get("converse", {})
+                    invoke_features = converse_meta.get("invokeChatFeatures", {})
+                    if invoke_features:
+                        meta["chat_features"] = {
+                            "function_calling": invoke_features.get("functionToolSupported", False),
+                            "function_calling_streaming": invoke_features.get("functionToolStreamSupported", False),
+                            "citations": invoke_features.get("citationsSupported", False),
+                            "documents": invoke_features.get("documentsSupported", False),
+                            "chat_history": invoke_features.get("chatHistorySupported", False),
+                            "system_role": invoke_features.get("systemRoleSupported", False),
+                            "reasoning": invoke_features.get("reasoningSupported", {}),
+                            "supported_image_types": invoke_features.get("userImageTypesSupported", []),
+                            "supported_video_types": invoke_features.get("userVideoTypesSupported", []),
+                            "supported_audio_types": invoke_features.get("userAudioTypesSupported", []),
+                            "supported_document_types": invoke_features.get("userPassthroughDocumentTypesSupported", []),
+                        }
+
+                    # Max tokens from console metadata
+                    if converse_meta.get("maxTokensMaximum"):
+                        meta["max_output_tokens"] = int(converse_meta["maxTokensMaximum"])
+
                 except (json.JSONDecodeError, TypeError):
                     pass
 
-            # Also extract from description object (available without console header for some)
+            # Fallback: extract from description object if not in consoleIDEMetadata
             desc_obj = model.get("description", {})
             if isinstance(desc_obj, dict):
                 if "max_context_window" not in meta:
@@ -251,9 +313,9 @@ def fetch_console_metadata(region: str) -> dict:
                         if parsed:
                             meta["max_context_window"] = parsed
 
-            # Extract max output tokens from converse object
+            # Fallback: extract max output tokens from top-level converse object
             converse = model.get("converse", {})
-            if isinstance(converse, dict):
+            if isinstance(converse, dict) and "max_output_tokens" not in meta:
                 max_tokens = converse.get("maxTokensMaximum")
                 if max_tokens and isinstance(max_tokens, (int, float)):
                     meta["max_output_tokens"] = int(max_tokens)
@@ -304,6 +366,7 @@ def process_model_data(raw_model: dict, region: str) -> dict:
         "model_arn": raw_model.get("modelArn", ""),
         "model_name": raw_model.get("modelName", ""),
         "model_provider": provider,
+        "model_family": "",  # Populated from console metadata
         # Capabilities from API (nested structure)
         "model_modalities": {
             "input_modalities": raw_model.get("inputModalities", []),
@@ -321,10 +384,22 @@ def process_model_data(raw_model: dict, region: str) -> dict:
         },
         # Regional information
         "regions_available": [region],
-        # Fields to be enhanced in later phases
-        "model_capabilities": [],
-        "model_use_cases": [],
-        "languages_supported": [],
+        # Capabilities and use cases - populated from console metadata
+        "model_capabilities": [],  # From modelAttributes
+        "model_use_cases": [],  # From supportedUseCases
+        "languages_supported": [],  # From supportedLanguages
+        # Feature support from API
+        "feature_support": {},  # Agent, KB, flows, guardrails, etc.
+        "chat_features": {},  # Function calling, citations, etc.
+        "guardrails_supported": False,
+        "batch_supported": {},
+        # Token specs
+        "max_context_window": None,
+        "max_output_tokens": None,
+        # Descriptions
+        "description": "",
+        "short_description": "",
+        # Other fields
         "consumption_options": [],
         "cross_region_inference": {},
         "documentation_links": get_documentation_links(model_id, provider),
@@ -348,7 +423,7 @@ def extract_models(bedrock_client: Any, region: str) -> list[dict]:
     Makes two calls:
     1. Standard boto3 list_foundation_models() for core model data
     2. Direct REST API with x-console-consumer header for extended metadata
-       (context windows, descriptions, languages, categories)
+       (context windows, descriptions, languages, capabilities, feature support)
 
     Returns list of model dictionaries with correct snake_case schema.
     """
@@ -380,18 +455,49 @@ def extract_models(bedrock_client: Any, region: str) -> list[dict]:
     except Exception as e:
         logger.warning(f"Unexpected error extracting models in {region}: {e}")
 
-    # Fetch console metadata (context windows, descriptions, etc.)
-    # This is a separate call that gracefully degrades on failure
+    # Fetch console metadata and populate model fields directly
     console_metadata = fetch_console_metadata(region)
     if console_metadata:
-        attached_count = 0
+        enriched_count = 0
         for model in models:
             model_id = model.get("model_id", "")
             if model_id in console_metadata:
-                model["console_metadata"] = console_metadata[model_id]
-                attached_count += 1
+                meta = console_metadata[model_id]
+                enriched_count += 1
+
+                # Populate model fields from console metadata
+                if meta.get("model_family"):
+                    model["model_family"] = meta["model_family"]
+                if meta.get("max_context_window"):
+                    model["max_context_window"] = meta["max_context_window"]
+                if meta.get("max_output_tokens"):
+                    model["max_output_tokens"] = meta["max_output_tokens"]
+                if meta.get("description"):
+                    model["description"] = meta["description"]
+                if meta.get("short_description"):
+                    model["short_description"] = meta["short_description"]
+                if meta.get("languages"):
+                    model["languages_supported"] = meta["languages"]
+                if meta.get("use_cases"):
+                    model["model_use_cases"] = meta["use_cases"]
+                if meta.get("model_attributes"):
+                    model["model_capabilities"] = meta["model_attributes"]
+                if meta.get("release_date"):
+                    model["model_lifecycle"]["release_date"] = meta["release_date"]
+                if meta.get("feature_support"):
+                    model["feature_support"] = meta["feature_support"]
+                if meta.get("chat_features"):
+                    model["chat_features"] = meta["chat_features"]
+                if meta.get("guardrails_supported"):
+                    model["guardrails_supported"] = meta["guardrails_supported"]
+                if meta.get("batch_supported"):
+                    model["batch_supported"] = meta["batch_supported"]
+
+                # Keep raw console_metadata for debugging/reference
+                model["console_metadata"] = meta
+
         logger.info(
-            f"Attached console metadata to {attached_count}/{len(models)} models in {region}"
+            f"Enriched {enriched_count}/{len(models)} models with console metadata in {region}"
         )
 
     return models

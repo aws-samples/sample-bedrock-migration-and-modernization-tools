@@ -22,9 +22,11 @@ import time
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Add lambdas to path
+# Add lambdas and shared layer to path
 LAMBDAS_DIR = Path(__file__).parent.parent / 'lambdas'
+SHARED_LAYER_DIR = Path(__file__).parent.parent / 'layers' / 'common' / 'python'
 sys.path.insert(0, str(LAMBDAS_DIR))
+sys.path.insert(0, str(SHARED_LAYER_DIR))
 
 # Output directory for test data
 OUTPUT_DIR = Path(__file__).parent / 'workflow_output'
@@ -264,15 +266,16 @@ def run_pricing_aggregator(output_dir: Path, pricing_results: list):
 
     print(f"  Total products: {len(all_products)}")
 
-    # Aggregate
-    aggregated = spec.aggregate_pricing(all_products)
+    # Aggregate - returns (providers_dict, metadata_stats)
+    providers_dict, metadata_stats = spec.aggregate_pricing(all_products)
 
     output_data = {
         'metadata': {
-            'providersCount': len(aggregated),
-            'totalProducts': len(all_products)
+            'providersCount': len(providers_dict),
+            'totalProducts': len(all_products),
+            **metadata_stats
         },
-        'providers': aggregated
+        'providers': providers_dict
     }
     output_path = output_dir / 'merged' / 'pricing.json'
     save_json(output_path, output_data)
@@ -346,25 +349,32 @@ def run_token_specs_collector(output_dir: Path, models_path: Path):
 
 
 def run_regional_availability(output_dir: Path, pricing_path: Path):
-    """Compute regional availability."""
+    """Compute regional availability from pricing data."""
     print("\n" + "="*60)
     print("WAVE 2B: Regional Availability")
     print("="*60)
 
-    sys.path.insert(0, str(LAMBDAS_DIR / 'regional-availability'))
-    from importlib import import_module
-    spec = import_module('regional-availability.handler')
-
     pricing_data = load_json(pricing_path)
-    availability = spec.compute_regional_availability(pricing_data)
 
-    print(f"  Regions with Bedrock: {len(availability['regions'])}")
-    print(f"  Models tracked: {len(availability['modelAvailability'])}")
+    # Extract regional availability from pricing data
+    all_regions = set()
+    model_availability = {}
+
+    for provider, provider_data in pricing_data.get('providers', {}).items():
+        for model_key, model_data in provider_data.items():
+            if isinstance(model_data, dict) and 'regions' in model_data:
+                regions = list(model_data['regions'].keys())
+                all_regions.update(regions)
+                # Map pricing model_key to availability
+                model_availability[model_key] = sorted(regions)
+
+    print(f"  Regions with Bedrock: {len(all_regions)}")
+    print(f"  Models tracked: {len(model_availability)}")
 
     output_data = {
-        'metadata': {'regionsWithBedrock': len(availability['regions'])},
-        'regions': availability['regions'],
-        'modelAvailability': availability['modelAvailability']
+        'metadata': {'regionsWithBedrock': len(all_regions)},
+        'regions': sorted(all_regions),
+        'modelAvailability': model_availability
     }
     output_path = output_dir / 'intermediate' / 'regional-availability.json'
     save_json(output_path, output_data)
@@ -387,13 +397,13 @@ def run_pricing_linker(output_dir: Path, pricing_path: Path, models_path: Path):
 
     result = spec.link_pricing_to_models(models_data, pricing_data)
 
-    print(f"  Models with pricing: {result['modelsWithPricing']}")
-    print(f"  Models without pricing: {result['modelsWithoutPricing']}")
+    print(f"  Models with pricing: {result['models_with_pricing']}")
+    print(f"  Models without pricing: {result['models_without_pricing']}")
 
     output_data = {
         'metadata': {
-            'modelsWithPricing': result['modelsWithPricing'],
-            'modelsWithoutPricing': result['modelsWithoutPricing']
+            'models_with_pricing': result['models_with_pricing'],
+            'models_without_pricing': result['models_without_pricing']
         },
         'providers': result['providers']
     }
@@ -401,6 +411,82 @@ def run_pricing_linker(output_dir: Path, pricing_path: Path, models_path: Path):
     save_json(output_path, output_data)
 
     return {'status': 'SUCCESS', 's3Key': str(output_path)}
+
+
+def run_final_aggregator(output_dir: Path, models_with_pricing_path: Path,
+                         token_specs_path: Path, pricing_path: Path, quota_results: list,
+                         availability_path: Path = None):
+    """Run final aggregation to produce the complete output."""
+    print("\n" + "="*60)
+    print("WAVE 3: Final Aggregation")
+    print("="*60)
+
+    sys.path.insert(0, str(LAMBDAS_DIR / 'final-aggregator'))
+    from importlib import import_module
+    spec = import_module('final-aggregator.handler')
+
+    # Load data
+    models_with_pricing = load_json(models_with_pricing_path)
+    token_specs = load_json(token_specs_path)
+    pricing_data = load_json(pricing_path)
+
+    # Build quotas by region
+    quotas_by_region = {}
+    for result in quota_results:
+        if result.get('status') == 'SUCCESS' and result.get('s3Key'):
+            region = result.get('region')
+            data = load_json(Path(result['s3Key']))
+            quotas_by_region[region] = data.get('quotas', [])
+
+    # Load regional availability if provided
+    if availability_path and availability_path.exists():
+        avail_data = load_json(availability_path)
+        regional_availability = {
+            'model_availability': avail_data.get('modelAvailability', {}),
+            'provisioned_availability': avail_data.get('provisionedAvailability', {})
+        }
+    else:
+        regional_availability = {'model_availability': {}, 'provisioned_availability': {}}
+    enriched_models = {}
+    features_by_region = {}
+    mantle_by_model = {}
+    collection_timestamp = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+
+    # Call build_final_models
+    final_providers = spec.build_final_models(
+        models_with_pricing=models_with_pricing,
+        regional_availability=regional_availability,
+        token_specs={'token_specs': token_specs.get('token_specs', {})},
+        quotas_by_region=quotas_by_region,
+        features_by_region=features_by_region,
+        enriched_models=enriched_models,
+        pricing_data=pricing_data,
+        collection_timestamp=collection_timestamp,
+        mantle_by_model=mantle_by_model,
+    )
+
+    total_models = sum(len(p['models']) for p in final_providers.values())
+    print(f"  Total models in final output: {total_models}")
+    print(f"  Providers: {len(final_providers)}")
+
+    # Save final models output
+    output_data = {
+        'metadata': {
+            'total_models': total_models,
+            'providers_count': len(final_providers),
+            'collection_timestamp': collection_timestamp,
+        },
+        'providers': final_providers
+    }
+    output_path = output_dir / 'final' / 'bedrock_models.json'
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    save_json(output_path, output_data)
+
+    # Save pricing output (copy from aggregated pricing)
+    pricing_output_path = output_dir / 'final' / 'bedrock_pricing.json'
+    save_json(pricing_output_path, pricing_data)
+
+    return {'status': 'SUCCESS', 's3Key': str(output_path), 'totalModels': total_models}
 
 
 def print_summary(output_dir: Path):
@@ -451,6 +537,15 @@ def main():
     token_specs = run_token_specs_collector(output_dir, models_path)
     availability = run_regional_availability(output_dir, pricing_path)
     pricing_linked = run_pricing_linker(output_dir, pricing_path, models_path)
+
+    # Wave 3: Final aggregation
+    token_specs_path = output_dir / 'intermediate' / 'token-specs.json'
+    availability_path = output_dir / 'intermediate' / 'regional-availability.json'
+    models_with_pricing_path = Path(pricing_linked['s3Key'])
+    final_result = run_final_aggregator(
+        output_dir, models_with_pricing_path, token_specs_path, pricing_path, quota_results,
+        availability_path=availability_path
+    )
 
     # Summary
     print_summary(output_dir)
