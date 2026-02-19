@@ -1143,17 +1143,7 @@ function ExpandableTagList({ label, items, maxVisible = 10, isLight }) {
   )
 }
 
-// Sub-feature labels for tooltips
-const subFeatureLabels = {
-  isStreamingSupported: 'Streaming',
-  isParsingSupported: 'Parsing',
-  isExternalSourcesSupported: 'External Sources',
-  baseModelSupported: 'Base Model',
-  crossRegionSupported: 'Cross-Region',
-  customModelSupported: 'Custom Model',
-}
-
-// Bedrock Features Section Component
+// Bedrock Features Section Component - dynamically displays all features from data
 function BedrockFeaturesSection({ featureSupport }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -1167,24 +1157,53 @@ function BedrockFeaturesSection({ featureSupport }) {
     )
   }
 
-  // Feature definitions with sub-feature keys for tooltip
-  const features = [
-    { key: 'agent', label: 'Agents', subKeys: ['isStreamingSupported'] },
-    { key: 'flow', label: 'Flows' },
-    { key: 'knowledge_base', label: 'Knowledge Base', subKeys: ['isParsingSupported', 'isExternalSourcesSupported'] },
-    { key: 'guardrails', label: 'Guardrails' },
-    { key: 'prompt_caching', label: 'Prompt Caching' },
-    { key: 'batch_inference', label: 'Batch Inference', subKeys: ['baseModelSupported', 'crossRegionSupported', 'customModelSupported'] },
-  ]
+  // Display labels for known feature keys (unknown keys will be auto-formatted)
+  const featureLabels = {
+    agent: 'Agents',
+    flow: 'Flows',
+    knowledge_base: 'Knowledge Base',
+    guardrails: 'Guardrails',
+    prompt_caching: 'Prompt Caching',
+    batch_inference: 'Batch Inference',
+    intelligent_routing: 'Intelligent Routing',
+    model_evaluation: 'Model Evaluation',
+    prompt_management: 'Prompt Management',
+    latency_optimized: 'Latency Optimized',
+    system_tools: 'System Tools',
+  }
 
-  // Check if any feature has actual data
-  const hasAnyData = features.some(feature => {
-    const data = featureSupport[feature.key]
-    if (!data || typeof data !== 'object') return false
-    return Object.keys(data).length > 0
+  // Display labels for sub-feature keys
+  const subFeatureLabels = {
+    isSupported: 'Supported',
+    isStreamingSupported: 'Streaming',
+    isParsingSupported: 'Parsing',
+    isExternalSourcesSupported: 'External Sources',
+    baseModelSupported: 'Base Model',
+    crossRegionSupported: 'Cross-Region',
+    customModelSupported: 'Custom Model',
+  }
+
+  // Auto-format unknown keys: snake_case -> Title Case
+  const formatKey = (key) => {
+    return key
+      .replace(/_/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/^./, str => str.toUpperCase())
+      .replace(/\bis\b/gi, '')
+      .replace(/\bSupported\b/gi, '')
+      .trim()
+  }
+
+  // Get all feature keys from the data
+  const featureKeys = Object.keys(featureSupport).filter(key => {
+    const data = featureSupport[key]
+    // Include if it's an object with properties, an array with items, or a boolean true
+    if (Array.isArray(data)) return data.length > 0
+    if (typeof data === 'object' && data !== null) return Object.keys(data).length > 0
+    return data === true
   })
 
-  if (!hasAnyData) {
+  if (featureKeys.length === 0) {
     return (
       <p className={cn('text-sm', isLight ? 'text-stone-500' : 'text-slate-400')}>
         No feature support data available
@@ -1194,30 +1213,50 @@ function BedrockFeaturesSection({ featureSupport }) {
 
   // Helper to check if feature is supported
   const isSupported = (data) => {
+    if (data === true) return true
+    if (Array.isArray(data)) return data.length > 0
     if (!data || typeof data !== 'object') return false
     if (data.isSupported === true) return true
     if (data.baseModelSupported === true) return true
     return Object.values(data).some(v => v === true)
   }
 
-  // Helper to get supported sub-features
-  const getSupportedSubFeatures = (data, subKeys) => {
-    if (!data || !subKeys) return []
-    return subKeys.filter(key => data[key] === true)
+  // Helper to get supported sub-features (boolean properties that are true)
+  const getSupportedSubFeatures = (data) => {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return []
+    return Object.entries(data)
+      .filter(([key, value]) => value === true && key !== 'isSupported')
+      .map(([key]) => key)
   }
+
+  // Sort features: supported first, then alphabetically
+  const sortedFeatureKeys = [...featureKeys].sort((a, b) => {
+    const aSupported = isSupported(featureSupport[a])
+    const bSupported = isSupported(featureSupport[b])
+    if (aSupported && !bSupported) return -1
+    if (!aSupported && bSupported) return 1
+    return a.localeCompare(b)
+  })
 
   return (
     <div className="flex flex-wrap gap-2">
-      {features.map(feature => {
-        const data = featureSupport[feature.key]
+      {sortedFeatureKeys.map(featureKey => {
+        const data = featureSupport[featureKey]
         const supported = isSupported(data)
-        const supportedSubFeatures = getSupportedSubFeatures(data, feature.subKeys)
-        const hasSubFeatures = supportedSubFeatures.length > 0
+        const label = featureLabels[featureKey] || formatKey(featureKey)
+
+        // Handle array features (like system_tools)
+        const isArrayFeature = Array.isArray(data)
+        const arrayItems = isArrayFeature ? data : []
+
+        // Get sub-features for object features
+        const supportedSubFeatures = getSupportedSubFeatures(data)
+        const hasDetails = supportedSubFeatures.length > 0 || arrayItems.length > 0
 
         const badge = (
           <div
             className={cn(
-              'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium',
+              'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium cursor-default',
               supported
                 ? isLight
                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
@@ -1228,38 +1267,51 @@ function BedrockFeaturesSection({ featureSupport }) {
             )}
           >
             {supported ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-            <span>{feature.label}</span>
-            {hasSubFeatures && (
+            <span>{label}</span>
+            {hasDetails && (
               <span className={cn(
                 'text-[10px]',
                 isLight ? 'text-emerald-600' : 'text-emerald-500'
               )}>
-                +{supportedSubFeatures.length}
+                +{isArrayFeature ? arrayItems.length : supportedSubFeatures.length}
               </span>
             )}
           </div>
         )
 
-        // Wrap with tooltip if there are sub-features to show
-        if (hasSubFeatures) {
+        // Wrap with tooltip if there are details to show
+        if (hasDetails) {
           return (
-            <Tooltip key={feature.key}>
+            <Tooltip key={featureKey}>
               <TooltipTrigger asChild>
                 {badge}
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-xs">
                 <div className="space-y-1">
-                  <p className="font-medium text-xs">{feature.label}</p>
+                  <p className="font-medium text-xs">{label}</p>
                   <div className="flex flex-wrap gap-1">
-                    {supportedSubFeatures.map(subKey => (
-                      <span
-                        key={subKey}
-                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300"
-                      >
-                        <Check className="h-2 w-2" />
-                        {subFeatureLabels[subKey] || subKey}
-                      </span>
-                    ))}
+                    {isArrayFeature ? (
+                      // Show array items (e.g., system tools)
+                      arrayItems.map((item, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300"
+                        >
+                          {typeof item === 'string' ? item : JSON.stringify(item)}
+                        </span>
+                      ))
+                    ) : (
+                      // Show sub-features
+                      supportedSubFeatures.map(subKey => (
+                        <span
+                          key={subKey}
+                          className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300"
+                        >
+                          <Check className="h-2 w-2" />
+                          {subFeatureLabels[subKey] || formatKey(subKey)}
+                        </span>
+                      ))
+                    )}
                   </div>
                 </div>
               </TooltipContent>
@@ -1267,7 +1319,7 @@ function BedrockFeaturesSection({ featureSupport }) {
           )
         }
 
-        return <div key={feature.key}>{badge}</div>
+        return <div key={featureKey}>{badge}</div>
       })}
     </div>
   )
