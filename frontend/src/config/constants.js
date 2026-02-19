@@ -189,6 +189,7 @@ export const consumptionLabels = {
   provisioned_throughput: 'Provisioned',
   batch: 'Batch',
   cross_region_inference: 'CRIS',
+  mantle: 'Mantle',
 }
 
 // Capability labels (prettify snake_case raw values)

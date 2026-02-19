@@ -697,6 +697,92 @@ function BatchInferenceSection({ batchData }) {
   )
 }
 
+// Mantle Inference Section with grouped regions
+function MantleInferenceSection({ mantleData }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+  const regions = mantleData.mantle_regions || []
+  const grouped = groupRegionsByGeo(regions)
+
+  return (
+    <div className="space-y-3">
+      {/* Status metrics */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Status</p>
+          <div className="flex items-center gap-1 mt-1">
+            {mantleData.supported ? (
+              <><Check className="h-4 w-4 text-emerald-500" /><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Supported</span></>
+            ) : (
+              <><X className="h-4 w-4 text-red-400" /><span className={cn('text-sm font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>Not Supported</span></>
+            )}
+          </div>
+        </div>
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Regions</p>
+          <p className={cn('text-lg font-bold', isLight ? 'text-violet-700' : 'text-violet-400')}>{regions.length}</p>
+        </div>
+      </div>
+
+      {/* Regions grouped by geography */}
+      {mantleData.supported && regions.length > 0 && (
+        <div className={cn(
+          'rounded-lg border overflow-hidden',
+          isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+        )}>
+          <button
+            className={cn(
+              'w-full flex items-center justify-between p-2 transition-colors',
+              isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
+            )}
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            <div className="flex items-center gap-2">
+              <Globe className={cn('h-4 w-4', isLight ? 'text-violet-600' : 'text-violet-400')} />
+              <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>Available Regions</span>
+              <Badge variant="info" className="text-xs">{regions.length} regions</Badge>
+            </div>
+            {isExpanded ? (
+              <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+            ) : (
+              <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+            )}
+          </button>
+          {isExpanded && (
+            <div className={cn('px-2 pb-2 pt-2 space-y-2 border-t', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+              {Object.entries(grouped).map(([geoKey, geoRegions]) => {
+                const geoInfo = geoGroups[geoKey] || { name: geoKey, icon: '🌐' }
+                return (
+                  <div key={geoKey}>
+                    <p className={cn('text-xs mb-1', isLight ? 'text-stone-600' : 'text-slate-300')}>
+                      {geoInfo.icon} {geoInfo.name} ({geoRegions.length})
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {geoRegions.sort().map(region => (
+                        <Badge key={region} variant="outline" className="text-xs">
+                          {regionDisplayNames[region] || region}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Endpoint pattern info */}
+      {mantleData.supported && mantleData.mantle_endpoint_pattern && (
+        <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+          Endpoint: <code className={cn('font-mono px-1 py-0.5 rounded', isLight ? 'bg-stone-100' : 'bg-white/[0.06]')}>{mantleData.mantle_endpoint_pattern}</code>
+        </p>
+      )}
+    </div>
+  )
+}
+
 function SpecsTab({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -705,13 +791,22 @@ function SpecsTab({ model }) {
   const inputModalities = model.model_modalities?.input_modalities || []
   const outputModalities = model.model_modalities?.output_modalities || []
   const capabilities = model.model_capabilities || []
-  const useCases = model.model_use_cases || []
+  const useCasesRaw = model.model_use_cases || []
+  const useCases = [...new Set(
+    useCasesRaw
+      .flatMap(uc => uc.includes(',') ? uc.split(',') : [uc])
+      .map(s => s.trim())
+      .map(s => s.replace(/^and\s+/i, ''))
+      .filter(s => s.length > 0 && s.length < 120)
+      .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+  )]
   const languages = model.languages_supported || []
   const documentationLinks = model.documentation_links || {}
   const regions = model.regions_available || []
   const streamingSupported = model.streaming_supported
   const crisData = model.cross_region_inference || {}
   const batchData = model.batch_inference_supported || {}
+  const mantleData = model.mantle_inference || {}
   const consumptionOptions = model.consumption_options || []
   const inferenceTypes = model.inference_types_supported || []
   const customizations = model.customization?.customization_supported || []
@@ -771,7 +866,7 @@ function SpecsTab({ model }) {
                   <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Use Cases</p>
                   <div className="flex flex-wrap gap-1.5">
                     {useCases.length > 0 ? useCases.map(uc => (
-                      <Badge key={uc} variant="outline" className="text-xs">{formatLabel(uc)}</Badge>
+                      <Badge key={uc} variant="secondary" className="text-xs">{formatLabel(uc)}</Badge>
                     )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>None specified</span>}
                   </div>
                 </div>
@@ -832,7 +927,8 @@ function SpecsTab({ model }) {
                         'batch': 'Batch',
                         'provisioned': 'Provisioned',
                         'provisioned_throughput': 'Provisioned Throughput',
-                        'cross_region_inference': 'Cross-Region Inference'
+                        'cross_region_inference': 'Cross-Region Inference',
+                        'mantle': 'Mantle Inference'
                       }
                       return (
                         <Badge key={opt} variant="info" className="text-xs">
@@ -881,6 +977,11 @@ function SpecsTab({ model }) {
             {/* Batch Inference Support */}
             <CollapsibleSection title="Batch Inference Support" icon={Package} defaultExpanded={true}>
               <BatchInferenceSection batchData={batchData} />
+            </CollapsibleSection>
+
+            {/* Mantle Inference Support */}
+            <CollapsibleSection title="Mantle Inference" icon={Cpu} defaultExpanded={true}>
+              <MantleInferenceSection mantleData={mantleData} />
             </CollapsibleSection>
           </div>
         </div>
@@ -1963,6 +2064,8 @@ export function ModelCardExpanded({
   const capabilities = model.model_capabilities || []
   const streamingSupported = model.streaming_supported
   const crisSupported = model.cross_region_inference?.supported
+  const mantleSupported = model.mantle_inference?.supported
+  const mantleRegions = model.mantle_inference?.mantle_regions || []
   const inputModalities = model.model_modalities?.input_modalities || []
   const outputModalities = model.model_modalities?.output_modalities || []
 
@@ -2125,6 +2228,14 @@ export function ModelCardExpanded({
                         <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>{regions.length}</p>
                       </div>
                     </div>
+                    {mantleRegions.length > 0 && (
+                      <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
+                        <div className="flex items-center justify-between">
+                          <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Mantle Regions</p>
+                          <p className={cn('text-lg font-bold', isLight ? 'text-violet-700' : 'text-violet-400')}>{mantleRegions.length}</p>
+                        </div>
+                      </div>
+                    )}
                     <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
                       <div className="flex items-center justify-between">
                         <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Capabilities</p>
@@ -2156,6 +2267,15 @@ export function ModelCardExpanded({
                       )}>
                         <Globe className="h-3.5 w-3.5" />
                         CRIS
+                      </span>
+                      <span className={cn(
+                        'inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
+                        mantleSupported
+                          ? isLight ? 'bg-violet-50 text-violet-700 border border-violet-200' : 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
+                          : isLight ? 'bg-stone-100 text-stone-400 border border-stone-200' : 'bg-white/[0.03] text-slate-500 border border-white/[0.06]'
+                      )}>
+                        <Cpu className="h-3.5 w-3.5" />
+                        Mantle
                       </span>
                     </div>
                   </div>
@@ -2253,7 +2373,7 @@ export function ModelCardExpanded({
                       <p className={cn('text-xs mb-2', isLight ? 'text-stone-500' : 'text-slate-400')}>Consumption</p>
                       <div className="flex flex-wrap gap-1">
                         {consumptionOptions.map(opt => {
-                          const labels = { 'on_demand': 'On-Demand', 'batch': 'Batch', 'provisioned': 'Provisioned', 'cross_region_inference': 'Cross-Region' }
+                          const labels = { 'on_demand': 'On-Demand', 'batch': 'Batch', 'provisioned': 'Provisioned', 'cross_region_inference': 'Cross-Region', 'mantle': 'Mantle' }
                           return <Badge key={opt} variant="info" className="text-[10px]">{labels[opt] || opt}</Badge>
                         })}
                       </div>

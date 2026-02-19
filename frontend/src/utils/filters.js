@@ -15,26 +15,132 @@ export function getRegionsForGeo(geoValue, awsRegionsList) {
 }
 
 /**
- * AWS Regions configuration
+ * Comprehensive region metadata derived from backend profiler-config.json region_locations.
+ * Maps region code → { label, geo } for all known AWS regions.
  */
-export const awsRegions = [
-  { value: 'us-east-1', label: 'N. Virginia (us-east-1)', geo: 'US' },
-  { value: 'us-east-2', label: 'Ohio (us-east-2)', geo: 'US' },
-  { value: 'us-west-1', label: 'N. California (us-west-1)', geo: 'US' },
-  { value: 'us-west-2', label: 'Oregon (us-west-2)', geo: 'US' },
-  { value: 'eu-west-1', label: 'Ireland (eu-west-1)', geo: 'EU' },
-  { value: 'eu-west-2', label: 'London (eu-west-2)', geo: 'EU' },
-  { value: 'eu-west-3', label: 'Paris (eu-west-3)', geo: 'EU' },
-  { value: 'eu-central-1', label: 'Frankfurt (eu-central-1)', geo: 'EU' },
-  { value: 'eu-north-1', label: 'Stockholm (eu-north-1)', geo: 'EU' },
-  { value: 'ap-northeast-1', label: 'Tokyo (ap-northeast-1)', geo: 'AP' },
-  { value: 'ap-northeast-2', label: 'Seoul (ap-northeast-2)', geo: 'AP' },
-  { value: 'ap-southeast-1', label: 'Singapore (ap-southeast-1)', geo: 'AP' },
-  { value: 'ap-southeast-2', label: 'Sydney (ap-southeast-2)', geo: 'AP' },
-  { value: 'ap-south-1', label: 'Mumbai (ap-south-1)', geo: 'AP' },
-  { value: 'ca-central-1', label: 'Canada (ca-central-1)', geo: 'CA' },
-  { value: 'sa-east-1', label: 'Sao Paulo (sa-east-1)', geo: 'SA' },
-]
+const REGION_META = {
+  'us-east-1': { label: 'N. Virginia', geo: 'US' },
+  'us-east-2': { label: 'Ohio', geo: 'US' },
+  'us-west-1': { label: 'N. California', geo: 'US' },
+  'us-west-2': { label: 'Oregon', geo: 'US' },
+  'eu-west-1': { label: 'Ireland', geo: 'EU' },
+  'eu-west-2': { label: 'London', geo: 'EU' },
+  'eu-west-3': { label: 'Paris', geo: 'EU' },
+  'eu-central-1': { label: 'Frankfurt', geo: 'EU' },
+  'eu-central-2': { label: 'Zurich', geo: 'EU' },
+  'eu-north-1': { label: 'Stockholm', geo: 'EU' },
+  'eu-south-1': { label: 'Milan', geo: 'EU' },
+  'eu-south-2': { label: 'Spain', geo: 'EU' },
+  'ap-northeast-1': { label: 'Tokyo', geo: 'AP' },
+  'ap-northeast-2': { label: 'Seoul', geo: 'AP' },
+  'ap-northeast-3': { label: 'Osaka', geo: 'AP' },
+  'ap-southeast-1': { label: 'Singapore', geo: 'AP' },
+  'ap-southeast-2': { label: 'Sydney', geo: 'AP' },
+  'ap-southeast-3': { label: 'Jakarta', geo: 'AP' },
+  'ap-southeast-4': { label: 'Melbourne', geo: 'AP' },
+  'ap-southeast-5': { label: 'Malaysia', geo: 'AP' },
+  'ap-southeast-6': { label: 'Auckland', geo: 'AP' },
+  'ap-southeast-7': { label: 'Thailand', geo: 'AP' },
+  'ap-south-1': { label: 'Mumbai', geo: 'AP' },
+  'ap-south-2': { label: 'Hyderabad', geo: 'AP' },
+  'ap-east-1': { label: 'Hong Kong', geo: 'AP' },
+  'ap-east-2': { label: 'Taipei', geo: 'AP' },
+  'ca-central-1': { label: 'Montreal', geo: 'CA' },
+  'ca-west-1': { label: 'Calgary', geo: 'CA' },
+  'sa-east-1': { label: 'Sao Paulo', geo: 'SA' },
+  'me-south-1': { label: 'Bahrain', geo: 'ME' },
+  'me-central-1': { label: 'UAE', geo: 'ME' },
+  'il-central-1': { label: 'Tel Aviv', geo: 'ME' },
+  'af-south-1': { label: 'Cape Town', geo: 'AF' },
+  'mx-central-1': { label: 'Mexico City', geo: 'SA' },
+}
+
+/**
+ * Auto-detect geo from region code prefix for unknown regions.
+ */
+const GEO_PREFIX_MAP = {
+  us: 'US', ca: 'CA', eu: 'EU', ap: 'AP', sa: 'SA',
+  me: 'ME', af: 'AF', il: 'ME', mx: 'SA', in: 'AP',
+}
+
+/**
+ * Geo sort order for consistent region ordering.
+ */
+const GEO_SORT_ORDER = { US: 0, EU: 1, AP: 2, CA: 3, SA: 4, ME: 5, AF: 6 }
+
+/**
+ * Build a region entry { value, label, geo } from a region code.
+ * Uses REGION_META for known regions, auto-generates for unknown ones.
+ */
+function buildRegionEntry(code) {
+  const meta = REGION_META[code]
+  if (meta) {
+    return { value: code, label: `${meta.label} (${code})`, geo: meta.geo }
+  }
+  // Unknown region — auto-detect geo from prefix
+  const prefix = code.split('-')[0]
+  const geo = GEO_PREFIX_MAP[prefix] || 'US'
+  // Generate a human-readable label from the code (e.g. "ap-southeast-8" → "Ap Southeast 8")
+  const label = code
+    .split('-')
+    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(' ')
+  return { value: code, label: `${label} (${code})`, geo }
+}
+
+/**
+ * Default AWS regions — fallback when no model data is available.
+ * Comprehensive list derived from REGION_META.
+ */
+export const DEFAULT_AWS_REGIONS = Object.keys(REGION_META)
+  .map(buildRegionEntry)
+  .sort((a, b) => {
+    const geoA = GEO_SORT_ORDER[a.geo] ?? 99
+    const geoB = GEO_SORT_ORDER[b.geo] ?? 99
+    if (geoA !== geoB) return geoA - geoB
+    return a.value.localeCompare(b.value)
+  })
+
+/**
+ * Backward-compatible alias — static list for consumers that don't have model data.
+ */
+export const awsRegions = DEFAULT_AWS_REGIONS
+
+/**
+ * Build a dynamic AWS regions list from model data.
+ * Extracts all unique regions from models[].regions_available and
+ * models[].cross_region_inference.source_regions, then returns sorted
+ * { value, label, geo } entries.
+ *
+ * Falls back to DEFAULT_AWS_REGIONS if models is empty.
+ */
+export function buildAwsRegionsFromModels(models) {
+  if (!models || !models.length) return DEFAULT_AWS_REGIONS
+
+  const regionCodes = new Set()
+  models.forEach(m => {
+    if (m.regions_available) {
+      m.regions_available.forEach(r => regionCodes.add(r))
+    }
+    if (m.cross_region_inference?.source_regions) {
+      m.cross_region_inference.source_regions.forEach(r => regionCodes.add(r))
+    }
+    if (m.mantle_inference?.mantle_regions) {
+      m.mantle_inference.mantle_regions.forEach(r => regionCodes.add(r))
+    }
+  })
+
+  if (!regionCodes.size) return DEFAULT_AWS_REGIONS
+
+  return [...regionCodes]
+    .map(buildRegionEntry)
+    .sort((a, b) => {
+      const geoA = GEO_SORT_ORDER[a.geo] ?? 99
+      const geoB = GEO_SORT_ORDER[b.geo] ?? 99
+      if (geoA !== geoB) return geoA - geoB
+      return a.value.localeCompare(b.value)
+    })
+}
 
 /**
  * Geographic region options
@@ -46,6 +152,8 @@ export const geoRegionOptions = [
   { value: 'AP', label: 'Asia Pacific' },
   { value: 'CA', label: 'Canada' },
   { value: 'SA', label: 'South America' },
+  { value: 'ME', label: 'Middle East' },
+  { value: 'AF', label: 'Africa' },
 ]
 
 /**
@@ -64,6 +172,15 @@ export const crisSupportOptions = [
   { value: 'All Models', label: 'All Models' },
   { value: 'CRIS Supported', label: 'CRIS Supported' },
   { value: 'CRIS Not Supported', label: 'Not Supported' },
+]
+
+/**
+ * Mantle support options
+ */
+export const mantleSupportOptions = [
+  { value: 'All Models', label: 'All Models' },
+  { value: 'Mantle Supported', label: 'Mantle Supported' },
+  { value: 'Mantle Not Supported', label: 'Not Supported' },
 ]
 
 /**
@@ -100,6 +217,15 @@ export const modalityOptions = [
 ]
 
 /**
+ * Added date filter options
+ */
+export const addedFilterOptions = [
+  { value: 'all', label: 'All Models' },
+  { value: 'last_update', label: 'Last Update' },
+  { value: 'last_month', label: 'Last Month' },
+]
+
+/**
  * Initial filter state
  */
 export const initialFilterState = {
@@ -117,6 +243,7 @@ export const initialFilterState = {
   customizations: [],
   languages: [],
   contextFilter: 'All Models',
+  mantleSupport: 'All Models',
 }
 
 /**
@@ -198,11 +325,17 @@ export function applyFilters(models, filters) {
 
   // Geographic region filter
   if (filters.geoRegion && filters.geoRegion !== 'All Regions') {
-    const prefixMap = { 'US': 'us-', 'EU': 'eu-', 'AP': 'ap-', 'CA': 'ca-', 'SA': 'sa-' }
+    const prefixMap = { 'US': 'us-', 'EU': 'eu-', 'AP': 'ap-', 'CA': 'ca-', 'SA': 'sa-', 'ME': 'me-', 'AF': 'af-' }
     const prefix = prefixMap[filters.geoRegion]
     if (prefix) {
       filtered = filtered.filter(m =>
-        m.regions_available?.some(r => r.startsWith(prefix))
+        m.regions_available?.some(r => {
+          if (r.startsWith(prefix)) return true
+          // Special cases: il- regions belong to ME geo, mx- regions belong to SA geo
+          if (filters.geoRegion === 'ME' && r.startsWith('il-')) return true
+          if (filters.geoRegion === 'SA' && r.startsWith('mx-')) return true
+          return false
+        })
       )
     }
   }
@@ -219,6 +352,14 @@ export function applyFilters(models, filters) {
   if (filters.crisSupport && filters.crisSupport !== 'All Models') {
     const supported = filters.crisSupport === 'CRIS Supported'
     filtered = filtered.filter(m => m.cross_region_inference?.supported === supported)
+  }
+
+  // Mantle support filter
+  if (filters.mantleSupport && filters.mantleSupport !== 'All Models') {
+    const supported = filters.mantleSupport === 'Mantle Supported'
+    filtered = filtered.filter(m =>
+      (m.mantle_inference?.supported || m.is_mantle || false) === supported
+    )
   }
 
   // Streaming support filter
@@ -315,6 +456,7 @@ export function countActiveFilters(filters) {
   if (filters.geoRegion && filters.geoRegion !== 'All Regions') count++
   if (filters.modelStatus && filters.modelStatus !== 'All Status') count++
   if (filters.crisSupport && filters.crisSupport !== 'All Models') count++
+  if (filters.mantleSupport && filters.mantleSupport !== 'All Models') count++
   if (filters.streamingSupport && filters.streamingSupport !== 'All Models') count++
   if (filters.consumptionOptions?.length > 0) count++
   if (filters.contextFilter && filters.contextFilter !== 'All Models') count++

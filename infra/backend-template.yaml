@@ -348,6 +348,30 @@ Resources:
                 - !Sub '${DataBucket.Arn}/*'
                 - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
+  # Wave 2: Mantle Collection
+  MantleCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-mantle-collector-${Environment}'
+      CodeUri: ../backend/lambdas/mantle-collector/
+      Handler: handler.lambda_handler
+      Timeout: 120
+      MemorySize: 256
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - bedrock-mantle:*
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+
   # Final Aggregation
   FinalAggregatorFunction:
     Type: AWS::Serverless::Function
@@ -478,6 +502,7 @@ Resources:
                   - !GetAtt CopyToLatestFunction.Arn
                   - !GetAtt GapDetectionFunction.Arn
                   - !GetAtt SelfHealingAgentFunction.Arn
+                  - !GetAtt MantleCollectorFunction.Arn
         - PolicyName: CloudWatchLogs
           PolicyDocument:
             Version: '2012-10-17'
@@ -522,6 +547,7 @@ Resources:
         CopyToLatestFunction: !GetAtt CopyToLatestFunction.Arn
         GapDetectionFunction: !GetAtt GapDetectionFunction.Arn
         SelfHealingAgentFunction: !GetAtt SelfHealingAgentFunction.Arn
+        MantleCollectorFunction: !GetAtt MantleCollectorFunction.Arn
       Role: !GetAtt StateMachineRole.Arn
       Logging:
         Destinations:

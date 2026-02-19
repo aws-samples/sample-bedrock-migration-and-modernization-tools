@@ -11,7 +11,7 @@ Parameters:
   AllowedOrigins:
     Type: String
     Default: '*'
-    Description: CORS allowed origins (e.g., https://d3oem6l61p8j11.cloudfront.net)
+    Description: CORS allowed origins (comma-separated, e.g., https://d3oem6l61p8j11.cloudfront.net,https://custom.domain.com)
 
   AdminGroup:
     Type: String
@@ -73,8 +73,7 @@ Resources:
     Properties:
       StageName: !Ref Environment
       CorsConfiguration:
-        AllowOrigins:
-          - !Ref AllowedOrigins
+        AllowOrigins: !Split [",", !Ref AllowedOrigins]
         AllowMethods:
           - GET
           - POST

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Globe, MapPin, Trophy, Map, ChevronDown, ChevronRight, Filter, Maximize2, Minimize2 } from 'lucide-react'
+import { Check, Globe, MapPin, Trophy, Map, ChevronDown, ChevronRight, Filter, Maximize2, Minimize2, Cpu } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -274,6 +274,11 @@ export function AvailabilityTab({ selectedModels, isLight }) {
       {/* CRIS Coverage — collapsible, column format */}
       {selectedModels.some(({ model }) => model.cross_region_inference?.supported) && (
         <CrisSection selectedModels={selectedModels} isLight={isLight} />
+      )}
+
+      {/* Mantle Inference — collapsible, column format */}
+      {selectedModels.some(({ model }) => model.mantle_inference?.supported || model.is_mantle) && (
+        <MantleSection selectedModels={selectedModels} isLight={isLight} />
       )}
 
       {/* Region comparison table */}
@@ -708,6 +713,204 @@ function CrisSection({ selectedModels, isLight }) {
                                       isLight
                                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                         : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                    )}
+                                  >
+                                    {info?.name || r}
+                                  </span>
+                                 )
+                              })}
+                            </div>
+                          )}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MantleSection({ selectedModels, isLight }) {
+  const [expanded, setExpanded] = useState(true)
+
+  const mantleCount = selectedModels.filter(({ model }) => model.mantle_inference?.supported || model.is_mantle).length
+
+  // Build region lookup: code → { name, geo }
+  const regionLookup = {}
+  awsRegions.forEach(r => {
+    regionLookup[r.value] = { name: friendlyName(r.label), geo: r.geo }
+  })
+
+  // Geo labels
+  const geoLabels = { US: 'United States', EU: 'Europe', AP: 'Asia Pacific', CA: 'Canada', SA: 'South America', ME: 'Middle East', AF: 'Africa' }
+
+  // Collect all Mantle regions and group by geo
+  const allMantleRegions = new Set()
+  selectedModels.forEach(({ model }) => {
+    (model.mantle_inference?.mantle_regions || []).forEach(r => allMantleRegions.add(r))
+  })
+
+  const geoGrouped = {}
+  allMantleRegions.forEach(region => {
+    const info = regionLookup[region]
+    const geo = info?.geo || 'Other'
+    if (!geoGrouped[geo]) geoGrouped[geo] = []
+    geoGrouped[geo].push(region)
+  })
+  // Sort regions within each geo
+  Object.values(geoGrouped).forEach(arr => arr.sort())
+
+  // Order geos consistently
+  const geoOrder = ['US', 'EU', 'AP', 'CA', 'SA', 'ME', 'AF', 'Other']
+  const sortedGeos = geoOrder.filter(g => geoGrouped[g])
+
+  return (
+    <div className={cn(
+      'rounded-lg border overflow-hidden',
+      isLight
+        ? 'bg-white/80 border-stone-200/80'
+        : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl'
+    )}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={cn(
+          'w-full px-4 py-2.5 flex items-center justify-between cursor-pointer transition-colors',
+          isLight ? 'hover:bg-stone-50' : 'hover:bg-white/5'
+        )}
+      >
+        <div className="flex items-center gap-2">
+          {expanded
+            ? <ChevronDown className={cn('h-3.5 w-3.5', isLight ? 'text-stone-400' : 'text-slate-500')} />
+            : <ChevronRight className={cn('h-3.5 w-3.5', isLight ? 'text-stone-400' : 'text-slate-500')} />
+          }
+          <Cpu className={cn('h-3.5 w-3.5', isLight ? 'text-purple-600' : 'text-purple-400')} />
+          <span className={cn('font-semibold text-xs', isLight ? 'text-stone-900' : 'text-white')}>
+            Mantle Inference
+          </span>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+            {mantleCount}/{selectedModels.length} supported
+          </Badge>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className={cn(
+                'border-t border-b',
+                isLight ? 'border-stone-200 bg-stone-50/50' : 'border-white/[0.06] bg-white/[0.02]'
+              )}>
+                <th className={cn(
+                  'px-5 py-2.5 text-left text-xs font-semibold min-w-[140px]',
+                  isLight ? 'text-stone-700' : 'text-slate-300'
+                )}>
+                  Attribute
+                </th>
+                {selectedModels.map(({ model }) => (
+                  <th key={model.model_id} className="px-3 py-2.5 text-center min-w-[100px]">
+                    <Badge className={cn(
+                      'text-[9px] mb-0.5',
+                      isLight ? 'text-[#faf9f5]' : 'text-white',
+                      providerColors[model.model_provider] || providerColors.default
+                    )}>
+                      {model.model_provider}
+                    </Badge>
+                    <p className={cn(
+                      'text-[10px] font-semibold line-clamp-1 max-w-[100px] mx-auto',
+                      isLight ? 'text-stone-700' : 'text-slate-300'
+                    )}>
+                      {model.model_name || model.model_id}
+                    </p>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {/* Supported row */}
+              <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-white/[0.04]')}>
+                <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                  Supported
+                </td>
+                {selectedModels.map(({ model }) => {
+                  const supported = model.mantle_inference?.supported || model.is_mantle || false
+                  return (
+                    <td key={model.model_id} className="px-3 py-2.5 text-center">
+                      {supported ? (
+                        <Check className="h-4 w-4 text-emerald-500 mx-auto" />
+                      ) : (
+                        <span className={cn('text-sm', isLight ? 'text-stone-300' : 'text-slate-600')}>--</span>
+                      )}
+                    </td>
+                  )
+                })}
+              </tr>
+
+              {/* Regions count row */}
+              <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-white/[0.04]')}>
+                <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                  Regions
+                </td>
+                {selectedModels.map(({ model }) => {
+                  const count = (model.mantle_inference?.mantle_regions || []).length
+                  return (
+                    <td key={model.model_id} className={cn(
+                      'px-3 py-2.5 text-center text-sm font-medium',
+                      isLight ? 'text-stone-900' : 'text-white'
+                    )}>
+                      {count || '--'}
+                    </td>
+                  )
+                })}
+              </tr>
+
+              {/* Geo group rows — each cell shows region badges */}
+              {sortedGeos.map(geo => {
+                const regions = geoGrouped[geo]
+                return (
+                  <tr key={geo} className={cn(
+                    'border-b last:border-b-0',
+                    isLight ? 'border-stone-100' : 'border-white/[0.04]'
+                  )}>
+                    <td className={cn('px-5 py-3 align-top', isLight ? 'text-stone-800' : 'text-slate-200')}>
+                      <div className="text-sm font-semibold">{geoLabels[geo] || geo}</div>
+                      <div className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                        {regions.length} region{regions.length !== 1 ? 's' : ''}
+                      </div>
+                    </td>
+                    {selectedModels.map(({ model }) => {
+                      const modelRegions = model.mantle_inference?.mantle_regions || []
+                      const supported = model.mantle_inference?.supported || model.is_mantle || false
+                      const matchingRegions = regions.filter(r => modelRegions.includes(r))
+
+                      return (
+                        <td key={model.model_id} className="px-2 py-3 align-top">
+                          {!supported ? (
+                            <div className="flex justify-center">
+                              <span className={cn('text-sm', isLight ? 'text-stone-300' : 'text-slate-600')}>--</span>
+                            </div>
+                          ) : matchingRegions.length === 0 ? (
+                            <div className="flex justify-center">
+                              <span className={cn('text-sm', isLight ? 'text-stone-300' : 'text-slate-600')}>--</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1 justify-center">
+                              {matchingRegions.map(r => {
+                                const info = regionLookup[r]
+                                return (
+                                  <span
+                                    key={r}
+                                    title={r}
+                                    className={cn(
+                                      'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium',
+                                      isLight
+                                        ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                        : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
                                     )}
                                   >
                                     {info?.name || r}

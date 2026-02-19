@@ -91,5 +91,16 @@ echo "=========================================="
 echo "Deployment complete!"
 echo "=========================================="
 echo "URL: ${CLOUDFRONT_URL}"
+
+# Show custom domain URL if configured
+CUSTOM_DOMAIN_URL=$(aws cloudformation describe-stacks \
+    --stack-name "$STACK_NAME" \
+    --region "$REGION" \
+    --query "Stacks[0].Outputs[?OutputKey=='CustomDomainURL'].OutputValue" \
+    --output text 2>/dev/null || echo "None")
+
+if [ -n "$CUSTOM_DOMAIN_URL" ] && [ "$CUSTOM_DOMAIN_URL" != "None" ]; then
+    echo "Custom domain: ${CUSTOM_DOMAIN_URL}"
+fi
 echo ""
 echo "Note: CloudFront cache invalidation may take a few minutes to propagate."

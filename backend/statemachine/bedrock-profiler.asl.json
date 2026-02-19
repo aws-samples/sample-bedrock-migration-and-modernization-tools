@@ -471,6 +471,65 @@
               "End": true
             }
           }
+        },
+        {
+          "StartAt": "CollectMantle",
+          "States": {
+            "CollectMantle": {
+              "Type": "Map",
+              "Comment": "Collect Mantle models from all regions in parallel",
+              "ItemsPath": "$.config.featureRegions",
+              "MaxConcurrency": 10,
+              "Parameters": {
+                "region.$": "$$.Map.Item.Value",
+                "s3Bucket.$": "$.config.s3Bucket",
+                "executionId.$": "$.executionId"
+              },
+              "Iterator": {
+                "StartAt": "InvokeMantleCollector",
+                "States": {
+                  "InvokeMantleCollector": {
+                    "Type": "Task",
+                    "Resource": "${MantleCollectorFunction}",
+                    "Parameters": {
+                      "region.$": "$.region",
+                      "s3Bucket.$": "$.s3Bucket",
+                      "s3Key.$": "States.Format('executions/{}/mantle/{}.json', $.executionId, $.region)"
+                    },
+                    "ResultPath": "$.result",
+                    "Retry": [
+                      {
+                        "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
+                        "IntervalSeconds": 3,
+                        "MaxAttempts": 3,
+                        "BackoffRate": 2
+                      }
+                    ],
+                    "Catch": [
+                      {
+                        "ErrorEquals": ["States.ALL"],
+                        "ResultPath": "$.error",
+                        "Next": "MantleCollectorFailed"
+                      }
+                    ],
+                    "TimeoutSeconds": 120,
+                    "End": true
+                  },
+                  "MantleCollectorFailed": {
+                    "Type": "Pass",
+                    "Parameters": {
+                      "status": "FAILED",
+                      "region.$": "$.region",
+                      "error.$": "$.error"
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "ResultPath": "$.mantleResults",
+              "End": true
+            }
+          }
         }
       ],
       "ResultPath": "$.wave2Results",
@@ -490,7 +549,8 @@
         "regionalAvailability.$": "$.wave2Results[1].result",
         "featureResults.$": "$.wave2Results[2].featureResults",
         "tokenSpecs.$": "$.wave2Results[3].result",
-        "enrichedModels.$": "$.wave2Results[4].result"
+        "enrichedModels.$": "$.wave2Results[4].result",
+        "mantleResults.$": "$.wave2Results[5].mantleResults"
       },
       "Next": "FinalAggregation"
     },
@@ -508,7 +568,8 @@
         "regionalAvailability.$": "$.regionalAvailability",
         "featureResults.$": "$.featureResults",
         "tokenSpecs.$": "$.tokenSpecs",
-        "enrichedModels.$": "$.enrichedModels"
+        "enrichedModels.$": "$.enrichedModels",
+        "mantleResults.$": "$.mantleResults"
       },
       "ResultPath": "$.finalResult",
       "Retry": [

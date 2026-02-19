@@ -78,7 +78,7 @@ body {
 .text-slate-300 { color: var(--color-text-secondary); }
 .text-slate-400 { color: var(--color-text-muted); }
 .text-slate-500 { color: var(--color-text-muted); }
-.text-white { color: var(--color-text-primary); }
+/* .text-white intentionally NOT overridden — must remain #ffffff for colored backgrounds (badges, toggles, chips) */
 
 /* Dark mode borders */
 .border-slate-800 { border-color: var(--color-border); }

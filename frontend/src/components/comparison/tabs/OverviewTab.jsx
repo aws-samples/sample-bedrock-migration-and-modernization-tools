@@ -87,11 +87,12 @@ function computeRadarScores(modelData) {
     // Availability: 2 regions = 1 point, max 10
     const regionScore = Math.min(d.regions.length / 2, 10)
 
-    // Features: Streaming +3, Batch +3, CRIS +4, max 10
+    // Features: Streaming +2.5, Batch +2.5, CRIS +2.5, Mantle +2.5, max 10
     let featureScore = 0
-    if (d.streamingSupported) featureScore += 3
-    if (d.batchSupported) featureScore += 3
-    if (d.crisSupported) featureScore += 4
+    if (d.streamingSupported) featureScore += 2.5
+    if (d.batchSupported) featureScore += 2.5
+    if (d.crisSupported) featureScore += 2.5
+    if (d.mantleSupported) featureScore += 2.5
     featureScore = Math.min(featureScore, 10)
 
     return {
@@ -291,6 +292,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
     const streamingSupported = model.streaming_supported || false
     const crisSupported = model.cross_region_inference?.supported || false
     const batchSupported = (model.consumption_options || []).includes('batch')
+    const mantleSupported = model.mantle_inference?.supported || model.is_mantle || false
     const hasLongContext = detectLongContext(pricing, region)
     const extendedContext = getExtendedContextWindow(model)
     const effectiveContextWindow = Math.max(contextWindow, extendedContext || 0)
@@ -310,6 +312,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
       streamingSupported,
       crisSupported,
       batchSupported,
+      mantleSupported,
       hasLongContext: hasLongContext || (extendedContext != null && extendedContext > contextWindow),
       useCasesCount,
       capabilitiesCount,
@@ -502,7 +505,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
                   { label: 'Cost Efficiency', desc: 'Lower pricing = higher score' },
                   { label: 'Context Window', desc: '100K tokens = 1 pt, incl. long-ctx (max 10)' },
                   { label: 'Availability', desc: '2 regions = 1 pt (max 10)' },
-                  { label: 'Features', desc: 'Stream +3, Batch +3, CRIS +4' },
+                  { label: 'Features', desc: 'Stream +2.5, Batch +2.5, CRIS +2.5, Mantle +2.5' },
                 ].map(({ label, desc }) => (
                   <div key={label}>
                     <span className={cn('font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>{label}</span>
@@ -622,6 +625,11 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
               <BooleanRow
                 label="Cross-Region (CRIS)"
                 values={modelData.map(d => d.crisSupported)}
+                isLight={isLight}
+              />
+              <BooleanRow
+                label="Mantle"
+                values={modelData.map(d => d.mantleSupported)}
                 isLight={isLight}
               />
               <BooleanRow

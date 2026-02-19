@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Star, GitCompare, ExternalLink, Globe, MessageSquare, Image, FileText, Video, Mic, Check, X, MapPin, Radio, ArrowRight, CheckCircle2, Copy, Search, Clock } from 'lucide-react'
+import { Star, GitCompare, ExternalLink, Globe, MessageSquare, Image, FileText, Video, Mic, Check, X, MapPin, Radio, ArrowRight, CheckCircle2, Copy, Search, Clock, Cpu } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -265,6 +265,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   const { inputPrice, outputPrice, pricingType, unitLabel, imagePrice, imagePrices, videoPrice, videoPrices } = pricingSummary
 
   const crisSupported = model.cross_region_inference?.supported || false
+  const mantleSupported = model.mantle_inference?.supported || model.is_mantle || false
   const streamingSupported = model.streaming_supported || false
   const consumptionOptions = model.consumption_options || []
   const providerColor = getProviderColor(model.model_provider)
@@ -401,6 +402,12 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 supported={crisSupported}
                 icon={Globe}
                 label={crisSupported ? "Cross-region inference" : "No cross-region"}
+                isLight={isLight}
+              />
+              <FeatureIndicator
+                supported={mantleSupported}
+                icon={Cpu}
+                label={mantleSupported ? "Mantle inference" : "No Mantle"}
                 isLight={isLight}
               />
               <InfoTooltip content={`Available in ${regions.length} AWS regions`}>

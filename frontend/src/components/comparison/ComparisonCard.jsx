@@ -1,4 +1,4 @@
-import { X, Globe, MessageSquare, Image, FileText, Video, Mic, Radio } from 'lucide-react'
+import { X, Globe, MessageSquare, Image, FileText, Video, Mic, Radio, Cpu } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -35,6 +35,7 @@ export function ComparisonCard({ model, onRemove }) {
   const isActive = model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE'
   const streamingSupported = model.streaming_supported || false
   const crisSupported = model.cross_region_inference?.supported || false
+  const mantleSupported = model.mantle_inference?.supported || model.is_mantle || false
 
   return (
     <Card className={cn(
@@ -148,6 +149,15 @@ export function ComparisonCard({ model, onRemove }) {
             )}>
               <Globe className="h-2.5 w-2.5" />
               CRIS
+            </span>
+          )}
+          {mantleSupported && (
+            <span className={cn(
+              'flex items-center gap-0.5 px-1 py-0.5 rounded',
+              isLight ? 'bg-purple-50 text-purple-600' : 'bg-purple-500/10 text-purple-400'
+            )}>
+              <Cpu className="h-2.5 w-2.5" />
+              Mantle
             </span>
           )}
         </div>

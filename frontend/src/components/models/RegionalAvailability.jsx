@@ -1,0 +1,818 @@
+import { useState, useMemo, useRef, useEffect, useCallback, Fragment } from 'react'
+import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, ChevronLeft, ChevronRight as ChevronRightIcon, Zap, Globe2, Cpu } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { useTheme } from '@/components/layout/ThemeProvider'
+import { useModels } from '@/hooks/useModels'
+import { cn } from '@/lib/utils'
+
+// Ordered region columns grouped by business geo: NAMER, EMEA, APAC, LATAM
+const REGION_COLUMNS = [
+  // NAMER
+  { code: 'us-east-1', short: 'USE1', label: 'N. Virginia', geo: 'NAMER' },
+  { code: 'us-east-2', short: 'USE2', label: 'Ohio', geo: 'NAMER' },
+  { code: 'us-west-2', short: 'USW2', label: 'Oregon', geo: 'NAMER' },
+  { code: 'us-west-1', short: 'USW1', label: 'N. California', geo: 'NAMER' },
+  { code: 'ca-central-1', short: 'CAC1', label: 'Montreal', geo: 'NAMER' },
+  { code: 'ca-west-1', short: 'CAW1', label: 'Calgary', geo: 'NAMER' },
+  // EMEA
+  { code: 'eu-west-1', short: 'EUW1', label: 'Ireland', geo: 'EMEA' },
+  { code: 'eu-west-2', short: 'EUW2', label: 'London', geo: 'EMEA' },
+  { code: 'eu-west-3', short: 'EUW3', label: 'Paris', geo: 'EMEA' },
+  { code: 'eu-central-1', short: 'EUC1', label: 'Frankfurt', geo: 'EMEA' },
+  { code: 'eu-central-2', short: 'EUC2', label: 'Zurich', geo: 'EMEA' },
+  { code: 'eu-north-1', short: 'EUN1', label: 'Stockholm', geo: 'EMEA' },
+  { code: 'eu-south-1', short: 'EUS1', label: 'Milan', geo: 'EMEA' },
+  { code: 'eu-south-2', short: 'EUS2', label: 'Spain', geo: 'EMEA' },
+  { code: 'me-south-1', short: 'MES1', label: 'Bahrain', geo: 'EMEA' },
+  { code: 'me-central-1', short: 'MEC1', label: 'UAE', geo: 'EMEA' },
+  { code: 'af-south-1', short: 'AFS1', label: 'Cape Town', geo: 'EMEA' },
+  { code: 'il-central-1', short: 'ILC1', label: 'Tel Aviv', geo: 'EMEA' },
+  // APAC
+  { code: 'ap-northeast-1', short: 'ANE1', label: 'Tokyo', geo: 'APAC' },
+  { code: 'ap-northeast-2', short: 'ANE2', label: 'Seoul', geo: 'APAC' },
+  { code: 'ap-northeast-3', short: 'ANE3', label: 'Osaka', geo: 'APAC' },
+  { code: 'ap-southeast-1', short: 'ASE1', label: 'Singapore', geo: 'APAC' },
+  { code: 'ap-southeast-2', short: 'ASE2', label: 'Sydney', geo: 'APAC' },
+  { code: 'ap-southeast-3', short: 'ASE3', label: 'Jakarta', geo: 'APAC' },
+  { code: 'ap-southeast-4', short: 'ASE4', label: 'Melbourne', geo: 'APAC' },
+  { code: 'ap-southeast-5', short: 'ASE5', label: 'Malaysia', geo: 'APAC' },
+  { code: 'ap-southeast-6', short: 'ASE6', label: 'Auckland', geo: 'APAC' },
+  { code: 'ap-southeast-7', short: 'ASE7', label: 'Thailand', geo: 'APAC' },
+  { code: 'ap-south-1', short: 'APS1', label: 'Mumbai', geo: 'APAC' },
+  { code: 'ap-south-2', short: 'APS2', label: 'Hyderabad', geo: 'APAC' },
+  { code: 'ap-east-1', short: 'APE1', label: 'Hong Kong', geo: 'APAC' },
+  { code: 'ap-east-2', short: 'APE2', label: 'Taipei', geo: 'APAC' },
+  // LATAM
+  { code: 'sa-east-1', short: 'SAE1', label: 'Sao Paulo', geo: 'LATAM' },
+  { code: 'mx-central-1', short: 'MXC1', label: 'Mexico City', geo: 'LATAM' },
+]
+
+const GEO_GROUPS = [
+  { id: 'NAMER', label: 'NAMER' },
+  { id: 'EMEA', label: 'EMEA' },
+  { id: 'APAC', label: 'APAC' },
+  { id: 'LATAM', label: 'LATAM' },
+]
+
+const GEO_LABELS = { NAMER: 'NAMER', EMEA: 'EMEA', APAC: 'APAC', LATAM: 'LATAM' }
+
+// Auto-detect business geo from region code prefix
+const REGION_PREFIX_GEO = {
+  us: 'NAMER', ca: 'NAMER',
+  eu: 'EMEA', me: 'EMEA', af: 'EMEA', il: 'EMEA',
+  ap: 'APAC', cn: 'APAC', in: 'APAC',
+  sa: 'LATAM', mx: 'LATAM',
+}
+
+// Lookup for known regions (fast path)
+const KNOWN_REGIONS = new Map(REGION_COLUMNS.map(r => [r.code, r]))
+
+/**
+ * Build a region entry for a code not in REGION_COLUMNS.
+ * Auto-detects geo from the prefix and generates a short code.
+ */
+function buildRegionEntry(code) {
+  const prefix = code.split('-')[0]
+  const geo = REGION_PREFIX_GEO[prefix] || 'EMEA'
+  // Generate 4-char short: prefix uppercase + first char of middle parts + number
+  const parts = code.split('-')
+  const mid = parts.slice(1, -1).map(s => s[0].toUpperCase()).join('')
+  const num = parts[parts.length - 1]
+  const raw = parts[0].toUpperCase() + mid + num
+  const short = raw.length > 4 ? raw.slice(0, 3) + num : raw
+  return { code, short, label: code, geo }
+}
+
+const MODEL_COL_WIDTH = 280
+const REGION_COL_WIDTH = 40
+
+/**
+ * Compute per-region availability for a model (on-demand + CRIS, no batch).
+ */
+function getRegionAvailability(model, regionCode) {
+  const regions = model.regions_available || []
+  const crisRegions = model.cross_region_inference?.source_regions || []
+  const mantleRegions = model.mantle_inference?.mantle_regions || []
+
+  const onDemand = regions.includes(regionCode)
+  const cris = crisRegions.includes(regionCode)
+  const mantle = mantleRegions.includes(regionCode)
+  const available = onDemand || cris || mantle
+
+  return { available, onDemand, cris, mantle }
+}
+
+/**
+ * Simple availability cell — check when available, dash when not.
+ * Hover tooltip shows On-Demand / CRIS breakdown.
+ */
+function AvailabilityCell({ model, regionCode, regionLabel, isLight }) {
+  const { available, onDemand, cris, mantle } = getRegionAvailability(model, regionCode)
+
+  if (!available) {
+    return (
+      <div className="w-4 h-4 flex items-center justify-center">
+        <Minus className={cn('w-2.5 h-2.5', isLight ? 'text-stone-300' : 'text-white/10')} strokeWidth={2} />
+      </div>
+    )
+  }
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex justify-center cursor-default">
+            <div className={cn(
+              'w-4 h-4 rounded-full flex items-center justify-center',
+              isLight ? 'bg-emerald-100' : 'bg-emerald-500/15'
+            )}>
+              <Check className={cn('w-2.5 h-2.5', isLight ? 'text-emerald-600' : 'text-emerald-400')} strokeWidth={3} />
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          sideOffset={6}
+          className={cn(
+            'px-3 py-2 text-xs z-50 max-w-[200px]',
+            isLight
+              ? 'bg-white border-stone-200 shadow-lg'
+              : 'bg-white/[0.06] backdrop-blur-xl border-white/[0.06] shadow-[0_4px_12px_rgba(0,0,0,0.3)] ring-1 ring-white/[0.03]'
+          )}
+        >
+          <div className={cn('font-medium mb-1', isLight ? 'text-stone-700' : 'text-[#e4e5e7]')}>
+            {regionLabel} ({regionCode})
+          </div>
+          <div className="space-y-0.5">
+            {onDemand && (
+              <div className="flex items-center gap-1.5">
+                <Zap className={cn('w-3 h-3', isLight ? 'text-emerald-500' : 'text-emerald-400')} strokeWidth={2} />
+                <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>On-Demand</span>
+              </div>
+            )}
+            {cris && (
+              <div className="flex items-center gap-1.5">
+                <Globe2 className={cn('w-3 h-3', isLight ? 'text-sky-500' : 'text-sky-400')} strokeWidth={2} />
+                <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Cross-Region (CRIS)</span>
+              </div>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+function ScrollButton({ direction, onClick, isLight, visible }) {
+  const isUp = direction === 'up'
+  const Icon = isUp ? ChevronsUp : ChevronsDown
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'fixed z-50 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200',
+        isUp ? 'bottom-20 right-6' : 'bottom-8 right-6',
+        visible ? 'opacity-100 scale-100' : 'opacity-30 scale-90 pointer-events-none',
+        isLight
+          ? 'bg-white/95 backdrop-blur-sm border border-stone-200 text-stone-500 hover:bg-stone-50 hover:text-stone-700 shadow-lg hover:shadow-xl'
+          : 'bg-[#1a1a1c]/90 backdrop-blur-xl border border-white/[0.08] text-[#9a9b9f] hover:bg-[#1a1a1c] hover:text-white shadow-[0_4px_16px_rgba(0,0,0,0.4)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.04]'
+      )}
+    >
+      <Icon className="w-4 h-4" />
+    </button>
+  )
+}
+
+function HScrollButton({ direction, onClick, isLight, visible }) {
+  const isLeft = direction === 'left'
+  const Icon = isLeft ? ChevronLeft : ChevronRightIcon
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'absolute z-40 w-6 h-14 rounded-full flex items-center justify-center transition-all duration-200',
+        'top-[40px]',
+        isLeft ? 'left-[262px]' : 'right-1',
+        visible ? 'opacity-90 hover:opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none',
+        isLight
+          ? 'bg-white/95 backdrop-blur-sm border border-stone-200 text-stone-400 hover:text-stone-700 shadow-lg'
+          : 'bg-[#1a1a1c]/90 backdrop-blur-xl border border-white/[0.08] text-[#6d6e72] hover:text-white shadow-[0_4px_12px_rgba(0,0,0,0.3)] ring-1 ring-white/[0.04]'
+      )}
+    >
+      <Icon className="w-3.5 h-3.5" />
+    </button>
+  )
+}
+
+export function RegionalAvailability() {
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+  const { models, loading, error } = useModels()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [collapsedProviders, setCollapsedProviders] = useState(new Set())
+  const [hoveredRegion, setHoveredRegion] = useState(null)
+  const [hoveredRow, setHoveredRow] = useState(null)
+
+  const [showMantleOnly, setShowMantleOnly] = useState(false)
+
+  const tableContainerRef = useRef(null)
+  const [scrollState, setScrollState] = useState({ atTop: true, atBottom: false, atLeft: true, atRight: false, scrollTop: 0 })
+  const [activeGeo, setActiveGeo] = useState(null) // null = show all geos
+
+  // Regions with data — known ones keep their order/labels, unknown ones auto-detected
+  const activeRegions = useMemo(() => {
+    if (!models.length) return REGION_COLUMNS
+    const usedRegions = new Set()
+    models.forEach(m => {
+      ;(m.regions_available || []).forEach(r => usedRegions.add(r))
+      ;(m.cross_region_inference?.source_regions || []).forEach(r => usedRegions.add(r))
+      ;(m.mantle_inference?.mantle_regions || []).forEach(r => usedRegions.add(r))
+    })
+
+    // Known regions that appear in the data (preserves defined order)
+    const known = REGION_COLUMNS.filter(r => usedRegions.has(r.code))
+    const knownCodes = new Set(known.map(r => r.code))
+
+    // Unknown regions — auto-detect geo from prefix, append at end of their geo group
+    const unknown = [...usedRegions]
+      .filter(code => !knownCodes.has(code))
+      .map(buildRegionEntry)
+
+    if (!unknown.length) return known
+
+    const result = [...known]
+    unknown.forEach(r => {
+      // Insert after the last region of the same geo
+      let insertIdx = result.length
+      for (let i = result.length - 1; i >= 0; i--) {
+        if (result[i].geo === r.geo) { insertIdx = i + 1; break }
+      }
+      result.splice(insertIdx, 0, r)
+    })
+    return result
+  }, [models])
+
+  // Visible regions — filtered by selected geo (null = all)
+  const visibleRegions = useMemo(() => {
+    if (!activeGeo) return activeRegions
+    return activeRegions.filter(r => r.geo === activeGeo)
+  }, [activeRegions, activeGeo])
+
+  // Which geos exist in the data
+  const geoIndex = useMemo(() => {
+    const idx = {}
+    activeRegions.forEach((r, i) => {
+      if (!(r.geo in idx)) idx[r.geo] = i
+    })
+    return idx
+  }, [activeRegions])
+
+  const availableGeos = useMemo(() =>
+    GEO_GROUPS.filter(g => g.id in geoIndex),
+    [geoIndex]
+  )
+
+  // Geo header cells with colspan spans (based on visible regions)
+  const geoHeaderCells = useMemo(() => {
+    const cells = []
+    let currentGeo = null
+    let span = 0
+    visibleRegions.forEach((r) => {
+      if (r.geo !== currentGeo) {
+        if (currentGeo !== null) cells.push({ geo: currentGeo, span })
+        currentGeo = r.geo
+        span = 1
+      } else {
+        span++
+      }
+    })
+    if (currentGeo !== null) cells.push({ geo: currentGeo, span })
+    return cells
+  }, [visibleRegions])
+
+  const groupedModels = useMemo(() => {
+    const q = searchQuery.toLowerCase()
+    const filtered = models.filter(m => {
+      if (q && !(
+        m.model_name?.toLowerCase().includes(q) ||
+        m.model_id?.toLowerCase().includes(q) ||
+        m.model_provider?.toLowerCase().includes(q)
+      )) return false
+      if (showMantleOnly && !(m.mantle_inference?.supported || m.is_mantle)) return false
+      return true
+    })
+
+    const grouped = {}
+    filtered.forEach(m => {
+      const provider = m.model_provider || 'Unknown'
+      if (!grouped[provider]) grouped[provider] = []
+      grouped[provider].push(m)
+    })
+
+    Object.values(grouped).forEach(arr =>
+      arr.sort((a, b) => (a.model_name || '').localeCompare(b.model_name || ''))
+    )
+
+    return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))
+  }, [models, searchQuery, showMantleOnly])
+
+  const totalFiltered = groupedModels.reduce((sum, [, models]) => sum + models.length, 0)
+
+  // Per-region coverage tier for column tinting
+  const regionCoverage = useMemo(() => {
+    if (!totalFiltered) return {}
+    const coverage = {}
+    activeRegions.forEach(r => {
+      let count = 0
+      groupedModels.forEach(([, providerModels]) => {
+        providerModels.forEach(m => {
+          if (getRegionAvailability(m, r.code).available) count++
+        })
+      })
+      const ratio = count / totalFiltered
+      coverage[r.code] = ratio >= 1 ? 'full' : ratio >= 0.5 ? 'high' : null
+    })
+    return coverage
+  }, [groupedModels, activeRegions, totalFiltered])
+
+  // Column tint via inset box-shadow (layers over bg without conflicting)
+  const getColumnTint = useCallback((regionCode) => {
+    const tier = regionCoverage[regionCode]
+    if (!tier) return ''
+    if (tier === 'full') {
+      return isLight
+        ? 'shadow-[inset_0_0_0_200px_rgb(16_185_129_/_0.07)]'
+        : 'shadow-[inset_0_0_0_200px_rgb(16_185_129_/_0.05)]'
+    }
+    return isLight
+      ? 'shadow-[inset_0_0_0_200px_rgb(245_158_11_/_0.05)]'
+      : 'shadow-[inset_0_0_0_200px_rgb(245_158_11_/_0.04)]'
+  }, [regionCoverage, isLight])
+
+  const toggleProvider = (provider) => {
+    setCollapsedProviders(prev => {
+      const next = new Set(prev)
+      next.has(provider) ? next.delete(provider) : next.add(provider)
+      return next
+    })
+  }
+
+  const updateScrollState = useCallback(() => {
+    // Vertical scroll tracking from window (page-level scroll)
+    const atTop = window.scrollY <= 50
+    const atBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 50
+
+    // Horizontal scroll tracking from table container
+    const el = tableContainerRef.current
+    const atLeft = !el || el.scrollLeft <= 10
+    const atRight = !el || el.scrollLeft + el.clientWidth >= el.scrollWidth - 10
+
+    setScrollState({ atTop, atBottom, atLeft, atRight, scrollTop: window.scrollY })
+  }, [])
+
+  useEffect(() => {
+    // Horizontal scroll tracking on table container
+    const el = tableContainerRef.current
+    if (el) {
+      el.addEventListener('scroll', updateScrollState, { passive: true })
+    }
+    // Vertical scroll tracking on window
+    window.addEventListener('scroll', updateScrollState, { passive: true })
+    updateScrollState()
+    return () => {
+      if (el) el.removeEventListener('scroll', updateScrollState)
+      window.removeEventListener('scroll', updateScrollState)
+    }
+  }, [updateScrollState])
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
+  const scrollToBottom = () => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })
+  const scrollLeftAction = () => {
+    const el = tableContainerRef.current
+    el?.scrollBy({ left: -REGION_COL_WIDTH * 6, behavior: 'smooth' })
+  }
+  const scrollRightAction = () => {
+    const el = tableContainerRef.current
+    el?.scrollBy({ left: REGION_COL_WIDTH * 6, behavior: 'smooth' })
+  }
+
+  const toggleGeo = (geoId) => {
+    setActiveGeo(prev => prev === geoId ? null : geoId)
+    // Reset horizontal scroll when changing filter
+    tableContainerRef.current?.scrollTo({ left: 0 })
+  }
+
+  // Helper: is this column the first of a new geo group?
+  const isGeoBreak = (i) => i > 0 && visibleRegions[i].geo !== visibleRegions[i - 1].geo
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className={cn('text-sm', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>Loading models...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-sm text-red-400">Failed to load models</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-full p-4 sm:p-6 gap-4 overflow-hidden">
+      {/* Header */}
+      <div className="flex-shrink-0">
+        <h1 className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-[#f0f1f3]')}>
+          Region Availability
+        </h1>
+        <p className={cn('text-sm mt-1', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>
+          Model availability across AWS regions at a glance
+        </p>
+      </div>
+
+      {/* Search + Legend + Geo pills */}
+      <div className="flex-shrink-0 flex flex-col gap-2">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className={cn(
+              'absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4',
+              isLight ? 'text-stone-400' : 'text-[#6d6e72]'
+            )} />
+            <Input
+              placeholder="Search models or providers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={cn(
+                'h-9 pl-9 pr-8 text-sm',
+                isLight
+                  ? 'bg-white border-stone-200 focus:border-amber-500'
+                  : 'bg-white/[0.03] border-white/[0.06] focus:border-[#1A9E7A] backdrop-blur-xl'
+              )}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className={cn(
+                  'absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full transition-colors',
+                  isLight ? 'hover:bg-stone-100' : 'hover:bg-white/[0.06]'
+                )}
+              >
+                <X className={cn('h-3.5 w-3.5', isLight ? 'text-stone-400' : 'text-[#6d6e72]')} />
+              </button>
+            )}
+          </div>
+
+          <div className={cn('text-xs tabular-nums flex-shrink-0', isLight ? 'text-stone-400' : 'text-[#9a9b9f]')}>
+            {totalFiltered} model{totalFiltered !== 1 ? 's' : ''} / {visibleRegions.length} regions
+          </div>
+        </div>
+
+        {/* Mantle + Geo filter pills */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Mantle toggle */}
+          <button
+            onClick={() => setShowMantleOnly(prev => !prev)}
+            className={cn(
+              'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border flex items-center gap-1',
+              showMantleOnly
+                ? isLight
+                  ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+                  : 'bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-600/20'
+                : isLight
+                  ? 'bg-white text-stone-500 border-stone-200 hover:border-violet-300 hover:text-violet-700'
+                  : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-violet-500/10 hover:text-violet-400 hover:border-violet-500/30'
+            )}
+          >
+            <Cpu className="w-3 h-3" />
+            Mantle
+          </button>
+
+          {/* Divider */}
+          <div className={cn('w-px h-5 mx-1', isLight ? 'bg-stone-200' : 'bg-white/[0.08]')} />
+
+          {/* Geo pills */}
+          <span className={cn('text-[10px] uppercase tracking-wider font-medium mr-1', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
+            Geo
+          </span>
+          <button
+            onClick={() => setActiveGeo(null)}
+            className={cn(
+              'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+              activeGeo === null
+                ? isLight
+                  ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+                  : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
+                : isLight
+                  ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+                  : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
+            )}
+          >
+            All
+          </button>
+          {availableGeos.map(geo => (
+            <button
+              key={geo.id}
+              onClick={() => toggleGeo(geo.id)}
+              className={cn(
+                'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+                activeGeo === geo.id
+                  ? isLight
+                    ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+                    : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
+                  : isLight
+                    ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+                    : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
+              )}
+            >
+              {geo.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table container with floating navigation */}
+      <div className="flex-1 relative min-h-0">
+        <div
+          ref={tableContainerRef}
+          className={cn(
+            'h-full overflow-auto rounded-xl backdrop-blur-xl',
+            isLight
+              ? 'border border-stone-200/60 bg-white/70 shadow-[0_2px_15px_-3px_rgba(120,113,108,0.08)] ring-1 ring-stone-100/50'
+              : 'border border-white/[0.06] bg-white/[0.03] shadow-[0_2px_15px_-3px_rgba(0,0,0,0.3)] ring-1 ring-white/[0.03]'
+          )}
+        >
+          <table className="w-max min-w-full border-collapse">
+            <thead>
+              {/* Row 1: Geo group headers */}
+              <tr>
+                <th
+                  rowSpan={2}
+                  className={cn(
+                    'sticky left-0 top-0 z-30 text-left text-[11px] font-semibold uppercase tracking-wider px-3',
+                    'w-[280px] min-w-[280px] max-w-[280px]',
+                    isLight
+                      ? 'bg-stone-50/90 backdrop-blur-sm text-stone-500 border-b border-r border-stone-200'
+                      : 'bg-white/[0.04] backdrop-blur-xl text-[#9a9b9f] border-b border-r border-white/[0.06]'
+                  )}
+                >
+                  Model
+                </th>
+                {geoHeaderCells.map((cell, gi) => (
+                  <th
+                    key={cell.geo}
+                    colSpan={cell.span}
+                    className={cn(
+                      'sticky top-0 z-20 text-center px-0 py-1.5 text-[10px] font-bold uppercase tracking-widest',
+                      isLight
+                        ? 'bg-stone-50/90 backdrop-blur-sm border-b border-stone-200'
+                        : 'bg-white/[0.04] backdrop-blur-xl border-b border-white/[0.06]',
+                      gi > 0 && (isLight ? 'border-l-2 border-l-stone-300' : 'border-l-2 border-l-white/[0.12]'),
+                      isLight ? 'text-amber-700' : 'text-[#1A9E7A]'
+                    )}
+                  >
+                    {GEO_LABELS[cell.geo]}
+                  </th>
+                ))}
+                {/* Spacer — absorbs remaining width */}
+                <th
+                  rowSpan={2}
+                  className={cn(
+                    'sticky top-0 z-20',
+                    isLight
+                      ? 'bg-stone-50/90 backdrop-blur-sm border-b border-stone-200'
+                      : 'bg-white/[0.04] backdrop-blur-xl border-b border-white/[0.06]'
+                  )}
+                />
+              </tr>
+
+              {/* Row 2: Individual region columns */}
+              <tr>
+                {visibleRegions.map((region, i) => (
+                  <th
+                    key={region.code}
+                    onMouseEnter={() => setHoveredRegion(region.code)}
+                    onMouseLeave={() => setHoveredRegion(null)}
+                    className={cn(
+                      'sticky top-[26px] z-20 text-center px-0 py-0 w-10 min-w-10',
+                      isLight
+                        ? 'bg-stone-50/90 backdrop-blur-sm border-b border-stone-200'
+                        : 'bg-white/[0.04] backdrop-blur-xl border-b border-white/[0.06]',
+                      isGeoBreak(i) && (isLight ? 'border-l-2 border-l-stone-300' : 'border-l-2 border-l-white/[0.12]'),
+                      hoveredRegion === region.code && (isLight ? 'bg-amber-50' : 'bg-[#1A9E7A]/[0.06]'),
+                      getColumnTint(region.code)
+                    )}
+                  >
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex flex-col items-center py-1.5 gap-0.5 cursor-default">
+                            <span className={cn(
+                              'text-[9px] font-bold leading-none',
+                              isLight ? 'text-stone-500' : 'text-[#c0c1c5]'
+                            )}>
+                              {region.short}
+                            </span>
+                            <span className={cn(
+                              'text-[7px] leading-none max-w-[38px] truncate',
+                              isLight ? 'text-stone-400' : 'text-[#6d6e72]'
+                            )}>
+                              {region.label}
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          sideOffset={4}
+                          className={cn(
+                            'px-2.5 py-1.5 text-xs z-50',
+                            isLight
+                              ? 'bg-white border-stone-200 shadow-lg'
+                              : 'bg-white/[0.06] backdrop-blur-xl border-white/[0.06] shadow-[0_4px_12px_rgba(0,0,0,0.3)] ring-1 ring-white/[0.03]'
+                          )}
+                        >
+                          <div className={cn('font-medium', isLight ? 'text-stone-700' : 'text-[#e4e5e7]')}>
+                            {region.label}
+                          </div>
+                          <div className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
+                            {region.code}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody>
+              {groupedModels.map(([provider, providerModels]) => {
+                const isCollapsed = collapsedProviders.has(provider)
+                const providerRegionCoverage = visibleRegions.map(r =>
+                  providerModels.some(m => getRegionAvailability(m, r.code).available)
+                )
+
+                return (
+                  <Fragment key={provider}>
+                    <tr
+                      className={cn(
+                        'cursor-pointer select-none',
+                        isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.02]'
+                      )}
+                      onClick={() => toggleProvider(provider)}
+                    >
+                      <td className={cn(
+                        'sticky left-0 z-10 px-3 py-2 font-semibold text-xs',
+                        isLight
+                          ? 'bg-stone-100/90 backdrop-blur-sm text-stone-700 border-b border-r border-stone-200'
+                          : 'bg-white/[0.06] backdrop-blur-xl text-[#e4e5e7] border-b border-r border-white/[0.06]'
+                      )}>
+                        <div className="flex items-center gap-2">
+                          {isCollapsed
+                            ? <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" />
+                            : <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" />
+                          }
+                          <span>{provider}</span>
+                          <Badge className={cn(
+                            'ml-1 text-[10px] px-1.5 py-0 border-0 font-normal',
+                            isLight ? 'bg-stone-200 text-stone-600' : 'bg-white/[0.06] text-[#9a9b9f]'
+                          )}>
+                            {providerModels.length}
+                          </Badge>
+                        </div>
+                      </td>
+                      {visibleRegions.map((region, i) => (
+                        <td
+                          key={region.code}
+                          className={cn(
+                            'text-center py-2',
+                            isLight
+                              ? 'bg-stone-100/90 border-b border-stone-200'
+                              : 'bg-white/[0.06] border-b border-white/[0.06]',
+                            isGeoBreak(i) && (isLight ? 'border-l-2 border-l-stone-300' : 'border-l-2 border-l-white/[0.12]'),
+                            hoveredRegion === region.code && (isLight ? 'bg-amber-50/50' : 'bg-[#1A9E7A]/[0.06]'),
+                            getColumnTint(region.code)
+                          )}
+                        >
+                          {providerRegionCoverage[i] && (
+                            <div className={cn(
+                              'w-2 h-2 rounded-full mx-auto',
+                              isLight ? 'bg-stone-300' : 'bg-white/[0.15]'
+                            )} />
+                          )}
+                        </td>
+                      ))}
+                      <td className={cn(
+                        isLight ? 'bg-stone-100/90 border-b border-stone-200' : 'bg-white/[0.06] border-b border-white/[0.06]'
+                      )} />
+                    </tr>
+
+                    {!isCollapsed && providerModels.map((model) => {
+                      const regions = model.regions_available || []
+                      const crisRegions = model.cross_region_inference?.source_regions || []
+                      const mantleRegions = model.mantle_inference?.mantle_regions || []
+                      const allRegions = new Set([...regions, ...crisRegions, ...mantleRegions])
+                      const regionCount = allRegions.size
+                      const isHovered = hoveredRow === model.model_id
+
+                      return (
+                        <tr
+                          key={model.model_id}
+                          onMouseEnter={() => setHoveredRow(model.model_id)}
+                          onMouseLeave={() => setHoveredRow(null)}
+                          className={cn(
+                            'transition-colors duration-75',
+                            isHovered
+                              ? isLight ? 'bg-amber-50/50' : 'bg-white/[0.03]'
+                              : ''
+                          )}
+                        >
+                          <td className={cn(
+                            'sticky left-0 z-10 px-3 py-1.5',
+                            isLight
+                              ? 'border-b border-r border-stone-100'
+                              : 'border-b border-r border-white/[0.03]',
+                            isHovered
+                              ? isLight ? 'bg-amber-50/80 backdrop-blur-sm' : 'bg-white/[0.05] backdrop-blur-xl'
+                              : isLight ? 'bg-white/90 backdrop-blur-sm' : 'bg-white/[0.02] backdrop-blur-xl'
+                          )}>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="min-w-0 flex-1">
+                                <div className={cn(
+                                  'text-xs font-medium truncate max-w-[200px]',
+                                  isLight ? 'text-stone-800' : 'text-[#e4e5e7]'
+                                )}>
+                                  {model.model_name}
+                                </div>
+                                <div className={cn(
+                                  'text-[10px] truncate max-w-[200px]',
+                                  isLight ? 'text-stone-400' : 'text-[#6d6e72]'
+                                )}>
+                                  {model.model_id?.split(':')[0]}
+                                </div>
+                              </div>
+                              <span className={cn(
+                                'text-[10px] tabular-nums flex-shrink-0',
+                                isLight ? 'text-stone-400' : 'text-[#6d6e72]'
+                              )}>
+                                {regionCount}
+                              </span>
+                            </div>
+                          </td>
+                          {visibleRegions.map((region, i) => (
+                            <td
+                              key={region.code}
+                              className={cn(
+                                'text-center py-1.5',
+                                isLight ? 'border-b border-stone-100' : 'border-b border-white/[0.03]',
+                                isGeoBreak(i) && (isLight ? 'border-l-2 border-l-stone-300' : 'border-l-2 border-l-white/[0.12]'),
+                                hoveredRegion === region.code && (isLight ? 'bg-amber-50/30' : 'bg-[#1A9E7A]/[0.04]'),
+                                isHovered && hoveredRegion === region.code && (isLight ? 'bg-amber-100/40' : 'bg-[#1A9E7A]/[0.08]'),
+                                getColumnTint(region.code)
+                              )}
+                            >
+                              <AvailabilityCell
+                                model={model}
+                                regionCode={region.code}
+                                regionLabel={region.label}
+                                isLight={isLight}
+                              />
+                            </td>
+                          ))}
+                          <td className={cn(
+                            isLight ? 'border-b border-stone-100' : 'border-b border-white/[0.03]'
+                          )} />
+                        </tr>
+                      )
+                    })}
+                  </Fragment>
+                )
+              })}
+            </tbody>
+          </table>
+
+          {groupedModels.length === 0 && (
+            <div className={cn(
+              'flex items-center justify-center py-16 text-sm',
+              isLight ? 'text-stone-400' : 'text-[#6d6e72]'
+            )}>
+              No models found matching &ldquo;{searchQuery}&rdquo;
+            </div>
+          )}
+        </div>
+
+        {/* Horizontal scroll buttons — left/right */}
+        <HScrollButton direction="left" onClick={scrollLeftAction} isLight={isLight} visible={!scrollState.atLeft} />
+        <HScrollButton direction="right" onClick={scrollRightAction} isLight={isLight} visible={!scrollState.atRight} />
+
+        {/* Vertical scroll buttons — up/down (fixed position) */}
+        <ScrollButton direction="up" onClick={scrollToTop} isLight={isLight} visible={!scrollState.atTop} />
+        <ScrollButton direction="down" onClick={scrollToBottom} isLight={isLight} visible={!scrollState.atBottom} />
+      </div>
+    </div>
+  )
+}

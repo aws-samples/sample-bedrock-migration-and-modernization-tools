@@ -247,6 +247,61 @@
         "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
         "provider_guide": "https://platform.stability.ai/docs"
       },
+      "DeepSeek": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+        "provider_guide": "https://api-docs.deepseek.com/"
+      },
+      "Google": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+        "provider_guide": "https://ai.google.dev/gemini-api/docs"
+      },
+      "Luma AI": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+        "provider_guide": "https://docs.lumalabs.ai/"
+      },
+      "MiniMax": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+        "provider_guide": "https://platform.minimaxi.com/document/introduction"
+      },
+      "Moonshot AI": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+        "provider_guide": "https://platform.moonshot.ai/docs"
+      },
+      "NVIDIA": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+        "provider_guide": "https://docs.nvidia.com/nim/"
+      },
+      "OpenAI": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+        "provider_guide": "https://platform.openai.com/docs"
+      },
+      "Qwen": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+        "provider_guide": "https://qwen.readthedocs.io/"
+      },
+      "TwelveLabs": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+        "provider_guide": "https://docs.twelvelabs.io/"
+      },
+      "Writer": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+        "provider_guide": "https://dev.writer.com/docs"
+      },
+      "Z.AI": {
+        "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+        "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+        "provider_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html"
+      },
       "nova": {
         "aws_bedrock_guide": "https://docs.aws.amazon.com/nova/latest/userguide/what-is-nova.html",
         "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
@@ -341,7 +396,11 @@
       "me-south-1": "Middle East (Bahrain)",
       "me-central-1": "Middle East (UAE)",
       "il-central-1": "Israel (Tel Aviv)",
-      "af-south-1": "Africa (Cape Town)"
+      "af-south-1": "Africa (Cape Town)",
+      "ap-east-2": "Asia Pacific (Taipei)",
+      "ap-southeast-6": "Asia Pacific (Auckland)",
+      "ap-southeast-7": "Asia Pacific (Thailand)",
+      "mx-central-1": "Mexico (Mexico City)"
     },
     "region_coordinates": {
       "us-east-1": {
@@ -523,6 +582,30 @@
         "lng": 18.4241,
         "name": "Cape Town",
         "geo": "AF"
+      },
+      "ap-east-2": {
+        "lat": 25.033,
+        "lng": 121.5654,
+        "name": "Taipei",
+        "geo": "AP"
+      },
+      "ap-southeast-6": {
+        "lat": -36.8485,
+        "lng": 174.7633,
+        "name": "Auckland",
+        "geo": "AP"
+      },
+      "ap-southeast-7": {
+        "lat": 13.7563,
+        "lng": 100.5018,
+        "name": "Bangkok",
+        "geo": "AP"
+      },
+      "mx-central-1": {
+        "lat": 19.4326,
+        "lng": -99.1332,
+        "name": "Mexico City",
+        "geo": "SA"
       }
     },
     "aws_regions": [
@@ -675,6 +758,26 @@
         "value": "af-south-1",
         "label": "Cape Town (af-south-1)",
         "geo": "AF"
+      },
+      {
+        "value": "ap-east-2",
+        "label": "Taipei (ap-east-2)",
+        "geo": "AP"
+      },
+      {
+        "value": "ap-southeast-6",
+        "label": "Auckland (ap-southeast-6)",
+        "geo": "AP"
+      },
+      {
+        "value": "ap-southeast-7",
+        "label": "Thailand (ap-southeast-7)",
+        "geo": "AP"
+      },
+      {
+        "value": "mx-central-1",
+        "label": "Mexico City (mx-central-1)",
+        "geo": "SA"
       }
     ],
     "geo_region_options": [

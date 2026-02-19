@@ -108,7 +108,8 @@
     "user_pool_idp_name": "bedrock-model-profiler-idp",
     "callback_urls": [
       "http://localhost:5173",
-      "https://d13th0vs8a20t3.cloudfront.net"
+      "https://d3oem6l61p8j11.cloudfront.net",
+      "https://bedrock-model-profiler.avelizf.people.aws.dev"
     ]
   }
 }

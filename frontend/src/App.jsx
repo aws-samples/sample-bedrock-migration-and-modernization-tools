@@ -5,10 +5,11 @@ import { Favorites } from '@/components/models/Favorites'
 import { ModelComparison } from '@/components/comparison/ModelComparison'
 import { AdminDashboard } from '@/components/admin/AdminDashboard'
 import { RegionRoadmap } from '@/components/admin/RegionRoadmap'
+import { RegionalAvailability } from '@/components/models/RegionalAvailability'
 import { AuthGate } from '@/auth/AuthGate'
 import { initAnalytics, trackEvent, shutdownAnalytics, setUserGeo } from '@/services/analytics'
 import { useAuthStore } from '@/stores/authStore'
-import { canViewRoadmap, canViewAnalytics } from '@/config/admin'
+import { canViewRoadmap, canViewAnalytics, canViewRegionalAvailability } from '@/config/admin'
 
 function App() {
   const prevSection = useRef(null)
@@ -58,6 +59,8 @@ function App() {
               )
             case 'admin':
               return isAuthenticated && canViewAnalytics(user) ? <AdminDashboard /> : <ModelExplorer />
+            case 'availability':
+              return isAuthenticated && canViewRegionalAvailability(user) ? <RegionalAvailability /> : <ModelExplorer />
             case 'roadmap':
               return isAuthenticated && canViewRoadmap(user) ? <RegionRoadmap /> : <ModelExplorer />
             default:

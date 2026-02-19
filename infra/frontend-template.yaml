@@ -19,8 +19,19 @@ Parameters:
     Description: AWS Account ID where the data bucket exists (for cross-account access)
     Default: ''
 
+  DomainName:
+    Type: String
+    Description: Custom domain name for the CloudFront distribution (e.g. bedrock-model-profiler.avelizf.people.aws.dev). Leave empty to skip custom domain setup.
+    Default: ''
+
+  HostedZoneId:
+    Type: String
+    Description: Route 53 Hosted Zone ID for the parent domain (required if DomainName is set)
+    Default: ''
+
 Conditions:
   UseDefaultDataBucket: !Equals [!Ref DataBucketName, '']
+  HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
 
 Resources:
   #############################################
@@ -84,6 +95,31 @@ Resources:
         SigningProtocol: sigv4
 
   #############################################
+  # CloudFront Function — redirect to custom domain
+  #############################################
+  DomainRedirectFunction:
+    Type: AWS::CloudFront::Function
+    Condition: HasCustomDomain
+    Properties:
+      Name: !Sub 'bedrock-profiler-domain-redirect-${Environment}'
+      AutoPublish: true
+      FunctionConfig:
+        Comment: !Sub 'Redirect CloudFront domain to ${DomainName}'
+        Runtime: cloudfront-js-2.0
+      FunctionCode: !Sub |
+        function handler(event) {
+          var host = event.request.headers.host.value;
+          if (host !== '${DomainName}') {
+            return {
+              statusCode: 301,
+              statusDescription: 'Moved Permanently',
+              headers: { location: { value: 'https://${DomainName}' + event.request.uri } }
+            };
+          }
+          return event.request;
+        }
+
+  #############################################
   # CloudFront Distribution
   #############################################
   CloudFrontDistribution:
@@ -95,6 +131,18 @@ Resources:
         DefaultRootObject: index.html
         HttpVersion: http2and3
         PriceClass: PriceClass_100
+
+        # Custom domain configuration (conditional)
+        Aliases: !If
+          - HasCustomDomain
+          - - !Ref DomainName
+          - !Ref 'AWS::NoValue'
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref Certificate
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - !Ref 'AWS::NoValue'
 
         # Origins
         Origins:
@@ -126,6 +174,11 @@ Resources:
           Compress: true
           CachePolicyId: !Ref FrontendCachePolicy
           ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+          FunctionAssociations: !If
+            - HasCustomDomain
+            - - EventType: viewer-request
+                FunctionARN: !GetAtt DomainRedirectFunction.FunctionARN
+            - !Ref 'AWS::NoValue'
 
         # Cache behavior for /latest/* - serve from data bucket
         CacheBehaviors:
@@ -137,6 +190,11 @@ Resources:
             Compress: true
             CachePolicyId: !Ref DataCachePolicy
             ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+            FunctionAssociations: !If
+              - HasCustomDomain
+              - - EventType: viewer-request
+                  FunctionARN: !GetAtt DomainRedirectFunction.FunctionARN
+              - !Ref 'AWS::NoValue'
 
         # Custom error responses for SPA routing
         CustomErrorResponses:
@@ -187,6 +245,46 @@ Resources:
             QueryStringBehavior: none
           EnableAcceptEncodingGzip: true
           EnableAcceptEncodingBrotli: true
+
+  #############################################
+  # ACM Certificate (DNS-validated, us-east-1)
+  #############################################
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: HasCustomDomain
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+
+  #############################################
+  # Route 53 DNS Record
+  #############################################
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: HasCustomDomain
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront's fixed hosted zone ID
+        EvaluateTargetHealth: false
+
+  DNSRecordIPv6:
+    Type: AWS::Route53::RecordSet
+    Condition: HasCustomDomain
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: AAAA
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront's fixed hosted zone ID
+        EvaluateTargetHealth: false
 
   #############################################
   # Security Headers Policy
@@ -245,3 +343,17 @@ Outputs:
       - UseDefaultDataBucket
       - !Sub 'bedrock-profiler-data-${AWS::AccountId}-${Environment}'
       - !Ref DataBucketName
+
+  CustomDomainURL:
+    Condition: HasCustomDomain
+    Description: Custom domain URL
+    Value: !Sub 'https://${DomainName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-CustomDomainURL'
+
+  CertificateArn:
+    Condition: HasCustomDomain
+    Description: ACM Certificate ARN
+    Value: !Ref Certificate
+    Export:
+      Name: !Sub '${AWS::StackName}-CertificateArn'

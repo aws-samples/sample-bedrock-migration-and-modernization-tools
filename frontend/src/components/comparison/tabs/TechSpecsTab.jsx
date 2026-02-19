@@ -104,6 +104,8 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       crisSupported: model.cross_region_inference?.supported || false,
       crisProfilesCount: model.cross_region_inference?.profiles_count || 0,
       crisSourceRegions: (model.cross_region_inference?.source_regions || []).length,
+      mantleSupported: model.mantle_inference?.supported || model.is_mantle || false,
+      mantleRegions: (model.mantle_inference?.mantle_regions || []).length,
       consumptionOptions: model.consumption_options || [],
       languages: model.languages_supported || [],
       capabilities: model.model_capabilities || [],
@@ -217,7 +219,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
   return (
     <div className="mt-4 space-y-3">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         <div className={cn(
           'px-3 py-2.5 rounded-lg border',
           isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
@@ -263,6 +265,18 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
           </div>
           <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>
             {specsData.filter(d => d.batchSupported).length}/{specsData.length}
+          </p>
+        </div>
+
+        <div className={cn(
+          'px-3 py-2.5 rounded-lg border',
+          isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
+        )}>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Mantle</span>
+          </div>
+          <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>
+            {specsData.filter(d => d.mantleSupported).length}/{specsData.length}
           </p>
         </div>
       </div>
@@ -383,6 +397,23 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
                       <Check className="h-4 w-4 text-emerald-500" />
                       <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
                         {d.batchRegions} regions{d.batchCoverage != null ? ` (${Math.round(d.batchCoverage)}%)` : ''}
+                      </span>
+                    </div>
+                  ) : (
+                    <X className="h-4 w-4 text-red-400/40 mx-auto" />
+                  )}
+                </td>
+              ))}
+            </SpecRow>
+
+            <SpecRow label="Mantle">
+              {specsData.map(d => (
+                <td key={d.model.model_id} className="px-3 py-2.5 text-center">
+                  {d.mantleSupported ? (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Check className="h-4 w-4 text-emerald-500" />
+                      <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                        {d.mantleRegions} regions
                       </span>
                     </div>
                   ) : (

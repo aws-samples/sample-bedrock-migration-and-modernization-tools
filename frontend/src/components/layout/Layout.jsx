@@ -8,7 +8,7 @@ export function Layout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <ThemeProvider defaultTheme="dark">
+    <ThemeProvider defaultTheme="light">
       <div className="flex h-screen bg-slate-950">
         <Sidebar
           activeSection={activeSection}

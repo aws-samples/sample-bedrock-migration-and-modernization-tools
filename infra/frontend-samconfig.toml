@@ -8,7 +8,7 @@ resolve_s3 = true
 s3_prefix = "bedrock-profiler-frontend-dev"
 region = "us-east-1"
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "Environment=\"dev\""
+parameter_overrides = "Environment=\"dev\" DomainName=\"bedrock-model-profiler.avelizf.people.aws.dev\" HostedZoneId=\"Z0121533RPWLN004K3KN\""
 confirm_changeset = true
 
 [dev.deploy.parameters]
@@ -17,7 +17,7 @@ resolve_s3 = true
 s3_prefix = "bedrock-profiler-frontend-dev"
 region = "us-east-1"
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "Environment=\"dev\""
+parameter_overrides = "Environment=\"dev\" DomainName=\"bedrock-model-profiler.avelizf.people.aws.dev\" HostedZoneId=\"Z0121533RPWLN004K3KN\""
 confirm_changeset = true
 
 [staging.deploy.parameters]
@@ -35,5 +35,5 @@ resolve_s3 = true
 s3_prefix = "bedrock-profiler-frontend-prod"
 region = "us-east-1"
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "Environment=\"prod\""
+parameter_overrides = "Environment=\"prod\" DomainName=\"bedrock-model-profiler.avelizf.people.aws.dev\" HostedZoneId=\"Z0121533RPWLN004K3KN\""
 confirm_changeset = true

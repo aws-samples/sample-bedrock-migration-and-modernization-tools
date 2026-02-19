@@ -9,12 +9,18 @@ ENVIRONMENT="${ENVIRONMENT:-dev}"
 REGION="${AWS_REGION:-us-east-1}"
 BACKEND_STACK="bedrock-profiler-${ENVIRONMENT}"
 FRONTEND_STACK="bedrock-profiler-frontend-${ENVIRONMENT}"
+DOMAIN_NAME="${DOMAIN_NAME:-}"
+HOSTED_ZONE_ID="${HOSTED_ZONE_ID:-}"
 
 echo "=========================================="
 echo "Bedrock Model Profiler - Infrastructure Setup"
 echo "=========================================="
 echo "Environment: ${ENVIRONMENT}"
 echo "Region: ${REGION}"
+if [ -n "$DOMAIN_NAME" ]; then
+    echo "Custom Domain: ${DOMAIN_NAME}"
+    echo "Hosted Zone ID: ${HOSTED_ZONE_ID}"
+fi
 echo ""
 
 # Check for required tools
@@ -56,11 +62,17 @@ cd "$SCRIPT_DIR/infra"
 
 sam build -t frontend-template.yaml
 
+# Build parameter overrides
+FRONTEND_PARAMS="Environment=${ENVIRONMENT}"
+if [ -n "$DOMAIN_NAME" ] && [ -n "$HOSTED_ZONE_ID" ]; then
+    FRONTEND_PARAMS="${FRONTEND_PARAMS} DomainName=${DOMAIN_NAME} HostedZoneId=${HOSTED_ZONE_ID}"
+fi
+
 sam deploy \
     --stack-name "$FRONTEND_STACK" \
     --region "$REGION" \
     --capabilities CAPABILITY_IAM \
-    --parameter-overrides "Environment=${ENVIRONMENT}" \
+    --parameter-overrides "$FRONTEND_PARAMS" \
     --no-confirm-changeset \
     --no-fail-on-empty-changeset
 
@@ -114,4 +126,15 @@ CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
 echo ""
 echo "Your application is now available at:"
 echo "${CLOUDFRONT_URL}"
+
+# Show custom domain URL if configured
+CUSTOM_DOMAIN_URL=$(aws cloudformation describe-stacks \
+    --stack-name "$FRONTEND_STACK" \
+    --region "$REGION" \
+    --query "Stacks[0].Outputs[?OutputKey=='CustomDomainURL'].OutputValue" \
+    --output text 2>/dev/null || echo "None")
+
+if [ -n "$CUSTOM_DOMAIN_URL" ] && [ "$CUSTOM_DOMAIN_URL" != "None" ]; then
+    echo "Custom domain: ${CUSTOM_DOMAIN_URL}"
+fi
 echo ""

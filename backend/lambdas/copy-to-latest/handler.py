@@ -2,6 +2,7 @@
 Copy to Latest Lambda
 
 Copies final outputs to the latest/ prefix for easy access.
+Preserves date_added for existing models and stamps new models with the current date.
 """
 
 import json
@@ -20,24 +21,88 @@ from shared import (
 )
 
 logger = logging.getLogger()
-logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
+logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 
 def get_s3_client():
-    return boto3.client('s3', config=RETRY_CONFIG)
+    return boto3.client("s3", config=RETRY_CONFIG)
 
 
 def copy_s3_object(s3_client: Any, bucket: str, source_key: str, dest_key: str) -> None:
     """Copy an S3 object to a new location."""
-    copy_source = {'Bucket': bucket, 'Key': source_key}
+    copy_source = {"Bucket": bucket, "Key": source_key}
     s3_client.copy_object(
         Bucket=bucket,
         CopySource=copy_source,
         Key=dest_key,
-        MetadataDirective='REPLACE',
-        ContentType='application/json'
+        MetadataDirective="REPLACE",
+        ContentType="application/json",
     )
     logger.info(f"Copied s3://{bucket}/{source_key} to s3://{bucket}/{dest_key}")
+
+
+def read_s3_json(s3_client: Any, bucket: str, key: str) -> dict:
+    """Read and parse a JSON file from S3. Returns empty dict on failure."""
+    try:
+        response = s3_client.get_object(Bucket=bucket, Key=key)
+        return json.loads(response["Body"].read().decode("utf-8"))
+    except Exception as e:
+        logger.warning(f"Could not read s3://{bucket}/{key}: {e}")
+        return {}
+
+
+def stamp_date_added(
+    s3_client: Any, bucket: str, new_models_key: str, latest_models_key: str
+) -> None:
+    """
+    Read both the new models file and the previous latest, then:
+    - For models that existed before: preserve their date_added
+    - For new models: set date_added to today's date (YYYY-MM-DD)
+    Write the updated data back to the new models file.
+    """
+    new_data = read_s3_json(s3_client, bucket, new_models_key)
+    if not new_data or "providers" not in new_data:
+        logger.warning(
+            "New models data is empty or has no providers; skipping date_added stamping"
+        )
+        return
+
+    # Build a lookup of existing model date_added from previous latest
+    previous_data = read_s3_json(s3_client, bucket, latest_models_key)
+    existing_dates = {}
+    if previous_data and "providers" in previous_data:
+        for provider_data in previous_data["providers"].values():
+            models = provider_data.get("models", {})
+            for model_id, model in models.items():
+                date_val = model.get("date_added")
+                if date_val:
+                    existing_dates[model_id] = date_val
+
+    today = time.strftime("%Y-%m-%d", time.gmtime())
+    new_count = 0
+    preserved_count = 0
+
+    for provider_data in new_data["providers"].values():
+        models = provider_data.get("models", {})
+        for model_id, model in models.items():
+            if model_id in existing_dates:
+                model["date_added"] = existing_dates[model_id]
+                preserved_count += 1
+            else:
+                model["date_added"] = today
+                new_count += 1
+
+    logger.info(
+        f"date_added stamping: {new_count} new models (stamped {today}), {preserved_count} preserved"
+    )
+
+    # Write the updated data back to the new models key (before the copy)
+    s3_client.put_object(
+        Bucket=bucket,
+        Key=new_models_key,
+        Body=json.dumps(new_data, indent=2),
+        ContentType="application/json",
+    )
 
 
 def lambda_handler(event: dict, context: Any) -> dict:
@@ -65,24 +130,24 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
     # Validate required parameters
     try:
-        validate_required_params(event, ['s3Bucket', 'executionId'], 'CopyToLatest')
+        validate_required_params(event, ["s3Bucket", "executionId"], "CopyToLatest")
     except ValidationError as e:
         return {
-            'status': 'FAILED',
-            'errorType': 'ValidationError',
-            'errorMessage': str(e)
+            "status": "FAILED",
+            "errorType": "ValidationError",
+            "errorMessage": str(e),
         }
 
-    s3_bucket = event['s3Bucket']
-    execution_id = parse_execution_id(event['executionId'])
-    final_result = event.get('finalResult', {})
-    dry_run = event.get('dryRun', False)
+    s3_bucket = event["s3Bucket"]
+    execution_id = parse_execution_id(event["executionId"])
+    final_result = event.get("finalResult", {})
+    dry_run = event.get("dryRun", False)
 
-    models_source_key = final_result.get('modelsS3Key')
-    pricing_source_key = final_result.get('pricingS3Key')
+    models_source_key = final_result.get("modelsS3Key")
+    pricing_source_key = final_result.get("pricingS3Key")
 
-    latest_models_key = 'latest/bedrock_models.json'
-    latest_pricing_key = 'latest/bedrock_pricing.json'
+    latest_models_key = "latest/bedrock_models.json"
+    latest_pricing_key = "latest/bedrock_pricing.json"
 
     logger.info(f"Copying final outputs to latest/")
 
@@ -90,28 +155,35 @@ def lambda_handler(event: dict, context: Any) -> dict:
         if not dry_run:
             s3_client = get_s3_client()
 
+            # Stamp date_added before copying to latest
+            if models_source_key:
+                stamp_date_added(
+                    s3_client, s3_bucket, models_source_key, latest_models_key
+                )
+
             # Copy models
             if models_source_key:
-                copy_s3_object(s3_client, s3_bucket, models_source_key, latest_models_key)
+                copy_s3_object(
+                    s3_client, s3_bucket, models_source_key, latest_models_key
+                )
 
             # Copy pricing
             if pricing_source_key:
-                copy_s3_object(s3_client, s3_bucket, pricing_source_key, latest_pricing_key)
+                copy_s3_object(
+                    s3_client, s3_bucket, pricing_source_key, latest_pricing_key
+                )
 
             # Also create a manifest file with execution info
             manifest = {
-                'lastUpdated': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-                'executionId': execution_id,
-                'files': {
-                    'models': latest_models_key,
-                    'pricing': latest_pricing_key
-                }
+                "lastUpdated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "executionId": execution_id,
+                "files": {"models": latest_models_key, "pricing": latest_pricing_key},
             }
             s3_client.put_object(
                 Bucket=s3_bucket,
-                Key='latest/manifest.json',
+                Key="latest/manifest.json",
                 Body=json.dumps(manifest, indent=2),
-                ContentType='application/json'
+                ContentType="application/json",
             )
         else:
             logger.info("Dry run - skipping copy")
@@ -119,16 +191,16 @@ def lambda_handler(event: dict, context: Any) -> dict:
         duration_ms = int((time.time() - start_time) * 1000)
 
         return {
-            'status': 'SUCCESS',
-            'latestModelsKey': latest_models_key,
-            'latestPricingKey': latest_pricing_key,
-            'durationMs': duration_ms
+            "status": "SUCCESS",
+            "latestModelsKey": latest_models_key,
+            "latestPricingKey": latest_pricing_key,
+            "durationMs": duration_ms,
         }
 
     except Exception as e:
         logger.error(f"Failed to copy to latest: {e}", exc_info=True)
         return {
-            'status': 'FAILED',
-            'errorType': type(e).__name__,
-            'errorMessage': str(e)
+            "status": "FAILED",
+            "errorType": type(e).__name__,
+            "errorMessage": str(e),
         }
