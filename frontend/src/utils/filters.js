@@ -166,13 +166,50 @@ export const modelStatusOptions = [
 ]
 
 /**
- * CRIS support options
+ * CRIS support options - includes geographic scopes
+ * Note: JP/AU grouped under APAC, CA and unknown scopes under Other
  */
 export const crisSupportOptions = [
   { value: 'All Models', label: 'All Models' },
-  { value: 'CRIS Supported', label: 'CRIS Supported' },
+  { value: 'GLOBAL', label: 'Global' },
+  { value: 'US', label: 'US' },
+  { value: 'EU', label: 'EU' },
+  { value: 'APAC', label: 'APAC' },
+  { value: 'OTHER', label: 'Other' },
   { value: 'CRIS Not Supported', label: 'Not Supported' },
 ]
+
+/**
+ * Normalize CRIS scope - groups related regions together
+ * - JP, AU, APAC → APAC
+ * - CA and unknown scopes → OTHER
+ */
+function normalizeCrisScope(scope) {
+  const upperScope = scope?.toUpperCase()
+  if (!upperScope) return 'OTHER'
+  if (upperScope === 'JP' || upperScope === 'AU' || upperScope === 'APAC') {
+    return 'APAC'
+  }
+  if (upperScope === 'GLOBAL' || upperScope === 'US' || upperScope === 'EU') {
+    return upperScope
+  }
+  // CA and any new/unknown scopes go to OTHER
+  return 'OTHER'
+}
+
+/**
+ * Helper to extract CRIS geographic scopes from a model
+ * Extracts scope dynamically from profile_id prefix (e.g., "us.anthropic..." -> "US")
+ * JP and AU are normalized to APAC
+ */
+export function getCrisGeoScopes(model) {
+  const profiles = model?.cross_region_inference?.profiles || []
+  return [...new Set(profiles.map(p => {
+    const profileId = p.profile_id || p.inference_profile_id
+    const prefix = profileId?.split('.')[0]
+    return normalizeCrisScope(prefix) || null
+  }).filter(Boolean))]
+}
 
 /**
  * Mantle support options
@@ -348,10 +385,18 @@ export function applyFilters(models, filters) {
     )
   }
 
-  // CRIS support filter
+  // CRIS support filter - supports geographic scope filtering
   if (filters.crisSupport && filters.crisSupport !== 'All Models') {
-    const supported = filters.crisSupport === 'CRIS Supported'
-    filtered = filtered.filter(m => m.cross_region_inference?.supported === supported)
+    if (filters.crisSupport === 'CRIS Not Supported') {
+      filtered = filtered.filter(m => !m.cross_region_inference?.supported)
+    } else {
+      // Filter by geographic scope (GLOBAL, US, EU, APAC)
+      filtered = filtered.filter(m => {
+        if (!m.cross_region_inference?.supported) return false
+        const scopes = getCrisGeoScopes(m)
+        return scopes.includes(filters.crisSupport)
+      })
+    }
   }
 
   // Mantle support filter

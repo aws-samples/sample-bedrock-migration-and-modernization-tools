@@ -256,7 +256,11 @@ function ToggleGroup({ label, options, value, onChange, isLight }) {
 
 const crisToggleOptions = [
   { value: 'All Models', label: 'All' },
-  { value: 'CRIS Supported', label: 'Yes' },
+  { value: 'GLOBAL', label: 'Global' },
+  { value: 'US', label: 'US' },
+  { value: 'EU', label: 'EU' },
+  { value: 'APAC', label: 'APAC' },
+  { value: 'OTHER', label: 'Other' },
   { value: 'CRIS Not Supported', label: 'No' },
 ]
 
@@ -354,9 +358,10 @@ export function ModelFilters({
     }
 
     if (filters.crisSupport !== 'All Models') {
+      const crisLabel = filters.crisSupport === 'CRIS Not Supported' ? 'No' : filters.crisSupport
       chips.push({
         key: 'cris',
-        label: `CRIS: ${filters.crisSupport === 'CRIS Supported' ? 'Yes' : 'No'}`,
+        label: `CRIS: ${crisLabel}`,
         onRemove: () => updateFilter('crisSupport', 'All Models')
       })
     }

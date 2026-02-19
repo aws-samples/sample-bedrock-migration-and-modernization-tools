@@ -9,6 +9,7 @@ import { useTheme } from '@/components/layout/ThemeProvider'
 import { useComparisonStore } from '@/stores/comparisonStore'
 import { providerColors, consumptionLabels, getContextSizeCategory } from '@/config/constants'
 import { trackEvent } from '@/services/analytics'
+import { getCrisGeoScopes } from '@/utils/filters'
 
 // Tooltip wrapper with close delay so content stays readable
 function InfoTooltip({ children, content, side = "bottom", sideOffset = 4 }) {
@@ -265,6 +266,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   const { inputPrice, outputPrice, pricingType, unitLabel, imagePrice, imagePrices, videoPrice, videoPrices } = pricingSummary
 
   const crisSupported = model.cross_region_inference?.supported || false
+  const crisGeoScopes = getCrisGeoScopes(model)
   const mantleSupported = model.mantle_inference?.supported || model.is_mantle || false
   const streamingSupported = model.streaming_supported || false
   const consumptionOptions = model.consumption_options || []
@@ -398,12 +400,34 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 label={streamingSupported ? "Streaming supported" : "No streaming"}
                 isLight={isLight}
               />
-              <FeatureIndicator
-                supported={crisSupported}
-                icon={Globe}
-                label={crisSupported ? "Cross-region inference" : "No cross-region"}
-                isLight={isLight}
-              />
+              <InfoTooltip
+                content={crisSupported && crisGeoScopes.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <p className="font-medium">Cross-region inference</p>
+                    <div className="flex flex-wrap gap-1">
+                      {crisGeoScopes.map(scope => (
+                        <span key={scope} className="text-[10px] font-semibold px-1.5 py-0.5 bg-white/20 rounded">
+                          {scope}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : crisSupported ? "Cross-region inference" : "No cross-region"}
+              >
+                <div className={cn(
+                  'flex items-center gap-0.5 cursor-default',
+                  crisSupported
+                    ? isLight ? 'text-emerald-600' : 'text-emerald-400'
+                    : isLight ? 'text-stone-300' : 'text-slate-600'
+                )}>
+                  <Globe className="h-3.5 w-3.5" />
+                  {crisSupported ? (
+                    <Check className="h-2.5 w-2.5" />
+                  ) : (
+                    <X className="h-2.5 w-2.5" />
+                  )}
+                </div>
+              </InfoTooltip>
               <FeatureIndicator
                 supported={mantleSupported}
                 icon={Cpu}

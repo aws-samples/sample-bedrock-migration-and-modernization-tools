@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio } from 'lucide-react'
+import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Bot, BookOpen, Workflow, Shield, Clock, Route, BarChart3, Wrench } from 'lucide-react'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import {
   Dialog,
@@ -411,72 +411,238 @@ function OnDemandAvailabilitySection({ model }) {
   )
 }
 
-// Cross-Region Inference Section with profiles grouped by source region
-function CrossRegionInferenceSection({ crisData }) {
-  const [expandedRegions, setExpandedRegions] = useState({})
+// Regions that support Application Inference Profiles (user-created profiles for tagging/routing)
+const APP_PROFILE_SUPPORTED_REGIONS = [
+  'ap-northeast-1', 'ap-northeast-2', 'ap-south-1', 'ap-southeast-1', 'ap-southeast-2',
+  'ca-central-1',
+  'eu-central-1', 'eu-west-1', 'eu-west-2', 'eu-west-3',
+  'sa-east-1',
+  'us-east-1', 'us-east-2', 'us-gov-east-1', 'us-west-2'
+]
+
+// Application Inference Profile Section
+function ApplicationInferenceProfileSection({ regionsAvailable }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
+  const [showAllRegions, setShowAllRegions] = useState(false)
 
-  // Calculate stats
-  const profiles = crisData.profiles || []
-  const sourceRegions = crisData.source_regions || []
+  // Calculate which regions support app profiles for this model
+  const modelRegions = regionsAvailable || []
+  const supportedRegions = modelRegions.filter(r => APP_PROFILE_SUPPORTED_REGIONS.includes(r))
+  const isSupported = supportedRegions.length > 0
 
-  // Separate global endpoints from regional ones
-  const globalProfilesMap = new Map() // Map profile_id -> { profile, regions: [] }
-  const regionalProfiles = []
-
-  for (const profile of profiles) {
-    // Check if this is a global endpoint (profile name contains 'global')
-    const isGlobal = profile.profile_name?.toLowerCase().includes('global') ||
-                     profile.type?.toLowerCase() === 'global'
-    if (isGlobal) {
-      // Group by profile_id to deduplicate, collecting all regions
-      const existingEntry = globalProfilesMap.get(profile.profile_id)
-      if (existingEntry) {
-        if (profile.source_region && !existingEntry.regions.includes(profile.source_region)) {
-          existingEntry.regions.push(profile.source_region)
-        }
-      } else {
-        globalProfilesMap.set(profile.profile_id, {
-          profile,
-          regions: profile.source_region ? [profile.source_region] : []
-        })
-      }
-    } else {
-      regionalProfiles.push(profile)
-    }
-  }
-
-  // Convert map to array for rendering
-  const globalProfiles = Array.from(globalProfilesMap.values())
-
-  // Group regional profiles by source_region
-  const profilesByRegion = {}
-  for (const profile of regionalProfiles) {
-    const region = profile.source_region
-    if (!profilesByRegion[region]) {
-      profilesByRegion[region] = []
-    }
-    profilesByRegion[region].push(profile)
-  }
-
-  // Get unique profile count
-  const uniqueProfileIds = new Set(profiles.map(p => p.profile_id))
-
-  // Group regions by geography
+  // Group supported regions by geography
   const regionsByGeo = { 'US': [], 'EU': [], 'APAC': [], 'Other': [] }
-  for (const region of Object.keys(profilesByRegion)) {
+  for (const region of supportedRegions) {
     if (region.startsWith('us-')) regionsByGeo['US'].push(region)
     else if (region.startsWith('eu-')) regionsByGeo['EU'].push(region)
     else if (region.startsWith('ap-')) regionsByGeo['APAC'].push(region)
+    else if (region.startsWith('ca-') || region.startsWith('sa-')) regionsByGeo['Other'].push(region)
     else regionsByGeo['Other'].push(region)
   }
 
-  const toggleRegion = (key) => {
-    setExpandedRegions(prev => ({ ...prev, [key]: !prev[key] }))
+  const geoIcons = { 'US': '🇺🇸', 'EU': '🇪🇺', 'APAC': '🌏', 'Other': '🌎' }
+
+  return (
+    <div className="space-y-3">
+      {/* Status and count */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Status</p>
+          <div className="flex items-center gap-1 mt-1">
+            {isSupported ? (
+              <><Check className="h-4 w-4 text-emerald-500" /><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Available</span></>
+            ) : (
+              <><X className="h-4 w-4 text-red-400" /><span className={cn('text-sm font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>Not Available</span></>
+            )}
+          </div>
+        </div>
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Supported Regions</p>
+          <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{supportedRegions.length}</p>
+        </div>
+      </div>
+
+      {/* Description */}
+      <div className={cn('rounded p-3', isLight ? 'bg-amber-50 border border-amber-200' : 'bg-[#1A9E7A]/10 border border-[#1A9E7A]/20')}>
+        <p className={cn('text-xs', isLight ? 'text-amber-800' : 'text-[#1A9E7A]')}>
+          Application inference profiles let you create custom profiles for this model to:
+        </p>
+        <ul className={cn('text-xs mt-1.5 space-y-0.5', isLight ? 'text-amber-700' : 'text-[#1A9E7A]/80')}>
+          <li>• Tag requests for cost allocation & tracking</li>
+          <li>• Organize usage by application or team</li>
+          <li>• Apply custom routing rules</li>
+        </ul>
+      </div>
+
+      {/* Supported regions by geography */}
+      {isSupported && (
+        <div className="space-y-2">
+          <p className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>
+            Available in {supportedRegions.length} regions
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {['US', 'EU', 'APAC', 'Other'].map(geoKey => {
+              const geoRegions = regionsByGeo[geoKey]
+              if (geoRegions.length === 0) return null
+              return (
+                <div
+                  key={geoKey}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs',
+                    isLight ? 'bg-stone-100 border border-stone-200' : 'bg-white/[0.06] border border-white/[0.06]'
+                  )}
+                >
+                  <span>{geoIcons[geoKey]}</span>
+                  <span className={cn('font-medium', isLight ? 'text-stone-700' : 'text-white')}>{geoKey}</span>
+                  <span className={cn(isLight ? 'text-stone-500' : 'text-slate-400')}>({geoRegions.length})</span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Expandable region list */}
+          <button
+            onClick={() => setShowAllRegions(!showAllRegions)}
+            className={cn(
+              'text-xs flex items-center gap-1 transition-colors',
+              isLight ? 'text-amber-600 hover:text-amber-700' : 'text-[#1A9E7A] hover:text-[#1A9E7A]/80'
+            )}
+          >
+            {showAllRegions ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {showAllRegions ? 'Hide region details' : 'Show all regions'}
+          </button>
+
+          {showAllRegions && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {supportedRegions.sort().map(region => (
+                <Badge key={region} variant="secondary" className="text-[10px]">
+                  {regionDisplayNames[region] || region}
+                  <span className={cn('ml-1 font-mono', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                    ({region})
+                  </span>
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Not supported message */}
+      {!isSupported && (
+        <p className={cn('text-sm', isLight ? 'text-stone-500' : 'text-slate-400')}>
+          This model is not available in any regions that support application inference profiles.
+        </p>
+      )}
+    </div>
+  )
+}
+
+// Cross-Region Inference Section grouped by geographic scope
+function CrossRegionInferenceSection({ crisData }) {
+  const [expandedScopes, setExpandedScopes] = useState({})
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+
+  const profiles = crisData.profiles || []
+  const sourceRegions = crisData.source_regions || []
+
+  // Helper to get profile fields (handles both field naming conventions)
+  const getProfileId = (p) => p.profile_id || p.inference_profile_id
+  const getProfileName = (p) => p.profile_name || p.inference_profile_name
+  const getSourceRegion = (p) => p.source_region || p.region
+
+  // Extract geographic scope prefix from profile ID (e.g., "us" from "us.anthropic.claude...")
+  const getScopePrefix = (profile) => {
+    const profileId = getProfileId(profile)
+    return profileId?.split('.')[0]?.toLowerCase() || null
   }
 
-  const geoInfo = { 'US': '🇺🇸', 'EU': '🇪🇺', 'APAC': '🌏', 'Other': '📍' }
+  // Parse routing regions from description field
+  // e.g., "Routes requests to Claude in us-east-1, us-east-2 and us-west-2." -> ["us-east-1", "us-east-2", "us-west-2"]
+  const parseRoutingRegions = (description) => {
+    if (!description) return []
+    // Match region patterns like us-east-1, eu-west-2, ap-northeast-1, etc.
+    const regionPattern = /[a-z]{2,4}-[a-z]+-\d/g
+    const matches = description.match(regionPattern)
+    return matches ? [...new Set(matches)] : []
+  }
+
+  // Group profiles by profile_id, collecting source_region → routing mappings
+  // Each source region can route to different destinations!
+  const profilesMap = new Map()
+  for (const profile of profiles) {
+    const profileId = getProfileId(profile)
+    if (!profileId) continue
+
+    const existing = profilesMap.get(profileId)
+    const sourceRegion = getSourceRegion(profile)
+    const routingRegions = parseRoutingRegions(profile.description)
+
+    if (existing) {
+      // Add source region with its specific routing destinations
+      if (sourceRegion && !existing.routingBySource[sourceRegion]) {
+        existing.routingBySource[sourceRegion] = routingRegions
+      }
+    } else {
+      profilesMap.set(profileId, {
+        profile,
+        scopePrefix: getScopePrefix(profile),
+        // Map of source_region → destination_regions
+        routingBySource: sourceRegion ? { [sourceRegion]: routingRegions } : {}
+      })
+    }
+  }
+
+  // Normalize scope - group related regions together
+  // JP, AU, APAC → APAC; CA and unknown → OTHER
+  const normalizeScope = (scope) => {
+    const upperScope = scope?.toUpperCase()
+    if (!upperScope) return 'OTHER'
+    if (upperScope === 'JP' || upperScope === 'AU' || upperScope === 'APAC') {
+      return 'APAC'
+    }
+    if (upperScope === 'GLOBAL' || upperScope === 'US' || upperScope === 'EU') {
+      return upperScope
+    }
+    // CA and any new/unknown scopes go to OTHER
+    return 'OTHER'
+  }
+
+  // Group by scope prefix dynamically (with normalization)
+  const profilesByScope = {}
+  for (const [profileId, data] of profilesMap) {
+    const scope = normalizeScope(data.scopePrefix)
+    if (!profilesByScope[scope]) {
+      profilesByScope[scope] = []
+    }
+    profilesByScope[scope].push(data)
+  }
+
+  // Get available scopes sorted (global first, then alphabetically)
+  const availableScopes = Object.keys(profilesByScope).sort((a, b) => {
+    if (a === 'GLOBAL') return -1
+    if (b === 'GLOBAL') return 1
+    return a.localeCompare(b)
+  })
+
+  // Dynamic scope display info
+  const getScopeDisplay = (scope) => {
+    const icons = {
+      'GLOBAL': '🌐', 'US': '🇺🇸', 'EU': '🇪🇺', 'APAC': '🌏', 'OTHER': '🌎'
+    }
+    const labels = {
+      'GLOBAL': 'Global', 'US': 'United States', 'EU': 'Europe', 'APAC': 'Asia Pacific', 'OTHER': 'Other Regions'
+    }
+    return {
+      icon: icons[scope] || '📍',
+      label: labels[scope] || scope
+    }
+  }
+
+  const toggleScope = (key) => {
+    setExpandedScopes(prev => ({ ...prev, [key]: !prev[key] }))
+  }
 
   return (
     <div className="space-y-3">
@@ -493,124 +659,31 @@ function CrossRegionInferenceSection({ crisData }) {
           </div>
         </div>
         <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Total Profiles</p>
-          <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{crisData.profiles_count || profiles.length}</p>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Geographic Scopes</p>
+          <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{availableScopes.length}</p>
         </div>
         <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
           <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Source Regions</p>
-          <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{sourceRegions.length || Object.keys(profilesByRegion).length}</p>
+          <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{sourceRegions.length}</p>
         </div>
         <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
           <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Unique Endpoints</p>
-          <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{uniqueProfileIds.size}</p>
+          <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{profilesMap.size}</p>
         </div>
       </div>
 
-      {/* CRIS Endpoints grouped by source region */}
-      {crisData.supported && profiles.length > 0 && (
+      {/* CRIS Endpoints grouped by geographic scope */}
+      {crisData.supported && availableScopes.length > 0 && (
         <div className="space-y-3">
-          <p className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>CRIS Endpoints by Source Region</p>
+          <p className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>CRIS Endpoints by Geographic Scope</p>
 
-          {/* Global Endpoints Group */}
-          {globalProfiles.length > 0 && (
-            <div className={cn(
-              'rounded-lg border overflow-hidden',
-              isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
-            )}>
-              <button
-                className={cn(
-                  'w-full flex items-center justify-between p-3 transition-colors',
-                  isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
-                )}
-                onClick={() => toggleRegion('geo_Global')}
-              >
-                <div className="flex items-center gap-2">
-                  <span>🌐</span>
-                  <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>Global Endpoints</span>
-                  <Badge variant="info" className="text-xs">{globalProfiles.length} endpoints</Badge>
-                </div>
-                {expandedRegions['geo_Global'] ? (
-                  <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
-                ) : (
-                  <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
-                )}
-              </button>
-              {expandedRegions['geo_Global'] && (
-                <div className={cn('px-3 pb-3 pt-3 border-t space-y-2', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
-                  {globalProfiles.map(({ profile, regions }, idx) => (
-                    <div key={`${profile.profile_id}-${idx}`} className={cn(
-                      'rounded p-2',
-                      isLight ? 'bg-stone-50 border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]'
-                    )}>
-                      <p className={cn('text-sm font-medium', isLight ? 'text-stone-900' : 'text-white')}>
-                        {profile.profile_name}
-                      </p>
-                      <CopyableText
-                        text={profile.profile_id}
-                        isLight={isLight}
-                        className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500 hover:text-stone-700' : 'text-[#c0c1c5] hover:text-white')}
-                      />
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="secondary" className="text-[10px]">{profile.type || 'inference'}</Badge>
-                      </div>
-                      {profile.description && (
-                        <p className={cn('text-xs mt-1.5', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                          {profile.description}
-                        </p>
-                      )}
-                      {regions.length > 0 && (
-                        <div className="mt-2">
-                          <div className="flex flex-wrap gap-1">
-                            {regions.sort().map(region => (
-                              <Tooltip key={region} delayDuration={200}>
-                                <TooltipTrigger asChild>
-                                  <Badge variant="secondary" className="text-[10px] cursor-default">
-                                    {regionDisplayNames[region] || region}
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" sideOffset={4}>
-                                  <p className="font-mono text-xs">{region}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Regional Endpoints by Geography */}
-          {['US', 'EU', 'APAC', 'Other'].map(geoKey => {
-            const geoRegions = regionsByGeo[geoKey]
-            if (geoRegions.length === 0) return null
-            const isGeoExpanded = expandedRegions[`geo_${geoKey}`]
-
-            // Group endpoints by profile_id within this geo, collecting all regions
-            const geoEndpointsMap = new Map()
-            for (const region of geoRegions) {
-              const regionProfiles = profilesByRegion[region] || []
-              for (const profile of regionProfiles) {
-                const existing = geoEndpointsMap.get(profile.profile_id)
-                if (existing) {
-                  if (!existing.regions.includes(region)) {
-                    existing.regions.push(region)
-                  }
-                } else {
-                  geoEndpointsMap.set(profile.profile_id, {
-                    profile,
-                    regions: [region]
-                  })
-                }
-              }
-            }
-            const geoEndpoints = Array.from(geoEndpointsMap.values())
+          {availableScopes.map(scopeKey => {
+            const scopeDisplay = getScopeDisplay(scopeKey)
+            const scopeProfiles = profilesByScope[scopeKey]
+            const isExpanded = expandedScopes[scopeKey]
 
             return (
-              <div key={geoKey} className={cn(
+              <div key={scopeKey} className={cn(
                 'rounded-lg border overflow-hidden',
                 isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
               )}>
@@ -619,63 +692,94 @@ function CrossRegionInferenceSection({ crisData }) {
                     'w-full flex items-center justify-between p-3 transition-colors',
                     isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
                   )}
-                  onClick={() => toggleRegion(`geo_${geoKey}`)}
+                  onClick={() => toggleScope(scopeKey)}
                 >
                   <div className="flex items-center gap-2">
-                    <span>{geoInfo[geoKey]}</span>
-                    <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{geoKey} Regions</span>
-                    <Badge variant="secondary" className="text-xs">{geoRegions.length} regions</Badge>
-                    <Badge variant="info" className="text-xs">{geoEndpoints.length} endpoints</Badge>
+                    <span>{scopeDisplay.icon}</span>
+                    <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
+                      {scopeDisplay.label}
+                    </span>
+                    <Badge variant="info" className="text-xs">{scopeProfiles.length} endpoint{scopeProfiles.length !== 1 ? 's' : ''}</Badge>
                   </div>
-                  {isGeoExpanded ? (
+                  {isExpanded ? (
                     <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
                   ) : (
                     <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
                   )}
                 </button>
-                {isGeoExpanded && (
+                {isExpanded && (
                   <div className={cn('px-3 pb-3 pt-3 border-t space-y-2', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
-                    {geoEndpoints.map(({ profile, regions }, idx) => (
-                      <div key={`${profile.profile_id}-${idx}`} className={cn(
-                        'rounded p-2',
-                        isLight ? 'bg-stone-50 border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]'
-                      )}>
-                        <p className={cn('text-sm font-medium', isLight ? 'text-stone-900' : 'text-white')}>
-                          {profile.profile_name}
-                        </p>
-                        <CopyableText
-                          text={profile.profile_id}
-                          isLight={isLight}
-                          className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500 hover:text-stone-700' : 'text-[#c0c1c5] hover:text-white')}
-                        />
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="secondary" className="text-[10px]">{profile.type || 'inference'}</Badge>
-                        </div>
-                        {profile.description && (
-                          <p className={cn('text-xs mt-1.5', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                            {profile.description}
+                    {scopeProfiles.map(({ profile, routingBySource }, idx) => {
+                      const sourceRegionsList = Object.keys(routingBySource).sort()
+                      return (
+                        <div key={`${getProfileId(profile)}-${idx}`} className={cn(
+                          'rounded p-2',
+                          isLight ? 'bg-stone-50 border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]'
+                        )}>
+                          <p className={cn('text-sm font-medium', isLight ? 'text-stone-900' : 'text-white')}>
+                            {getProfileName(profile)}
                           </p>
-                        )}
-                        {regions.length > 0 && (
-                          <div className="mt-2">
-                            <div className="flex flex-wrap gap-1">
-                              {regions.sort().map(region => (
-                                <Tooltip key={region} delayDuration={200}>
-                                  <TooltipTrigger asChild>
-                                    <Badge variant="secondary" className="text-[10px] cursor-default">
-                                      {regionDisplayNames[region] || region}
-                                    </Badge>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="bottom" sideOffset={4}>
-                                    <p className="font-mono text-xs">{region}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              ))}
+                          <CopyableText
+                            text={getProfileId(profile)}
+                            isLight={isLight}
+                            className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500 hover:text-stone-700' : 'text-[#c0c1c5] hover:text-white')}
+                          />
+                          {profile.status && profile.status !== 'ACTIVE' && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="destructive" className="text-[10px]">{profile.status}</Badge>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+
+                          {/* Source → Destination routing table */}
+                          {sourceRegionsList.length > 0 && (
+                            <div className="mt-3">
+                              <p className={cn('text-[10px] mb-2 font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>
+                                Routing by Source Region ({sourceRegionsList.length} sources)
+                              </p>
+                              <div className="space-y-1.5">
+                                {sourceRegionsList.map(sourceRegion => {
+                                  const destinations = routingBySource[sourceRegion] || []
+                                  return (
+                                    <div key={sourceRegion} className={cn(
+                                      'flex items-start gap-2 text-[10px] p-1.5 rounded',
+                                      isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.04]'
+                                    )}>
+                                      <Tooltip delayDuration={200}>
+                                        <TooltipTrigger asChild>
+                                          <Badge variant="secondary" className="text-[10px] cursor-default shrink-0">
+                                            {regionDisplayNames[sourceRegion] || sourceRegion}
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left" sideOffset={4}>
+                                          <p className="font-mono text-xs">{sourceRegion}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                      <span className={cn('shrink-0', isLight ? 'text-stone-400' : 'text-slate-500')}>→</span>
+                                      <div className="flex flex-wrap gap-1">
+                                        {destinations.length > 0 ? destinations.sort().map(dest => (
+                                          <Tooltip key={dest} delayDuration={200}>
+                                            <TooltipTrigger asChild>
+                                              <Badge variant="info" className="text-[10px] cursor-default">
+                                                {regionDisplayNames[dest] || dest}
+                                              </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" sideOffset={4}>
+                                              <p className="font-mono text-xs">{dest}</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        )) : (
+                                          <span className={cn('italic', isLight ? 'text-stone-400' : 'text-slate-500')}>All supported regions</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -985,6 +1089,190 @@ function AvailabilitySummary({ model }) {
   )
 }
 
+// Expandable tag list component - shows first N items with "+X more" button
+function ExpandableTagList({ label, items, maxVisible = 10, isLight }) {
+  const [expanded, setExpanded] = useState(false)
+
+  if (!items || items.length === 0) {
+    return (
+      <div>
+        <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>{label}</p>
+        <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>None specified</span>
+      </div>
+    )
+  }
+
+  const visibleItems = expanded ? items : items.slice(0, maxVisible)
+  const remainingCount = items.length - maxVisible
+
+  return (
+    <div>
+      <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {visibleItems.map(item => (
+          <Badge key={item} variant="secondary" className="text-xs">{formatLabel(item)}</Badge>
+        ))}
+        {remainingCount > 0 && !expanded && (
+          <button
+            onClick={() => setExpanded(true)}
+            className={cn(
+              'inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium transition-colors',
+              isLight
+                ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200'
+                : 'bg-[#1A9E7A]/20 text-[#1A9E7A] hover:bg-[#1A9E7A]/30 border border-[#1A9E7A]/30'
+            )}
+          >
+            +{remainingCount} more
+          </button>
+        )}
+        {expanded && remainingCount > 0 && (
+          <button
+            onClick={() => setExpanded(false)}
+            className={cn(
+              'inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium transition-colors',
+              isLight
+                ? 'bg-stone-100 text-stone-600 hover:bg-stone-200 border border-stone-200'
+                : 'bg-white/10 text-slate-400 hover:bg-white/15 border border-white/10'
+            )}
+          >
+            Show less
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Sub-feature labels for tooltips
+const subFeatureLabels = {
+  isStreamingSupported: 'Streaming',
+  isParsingSupported: 'Parsing',
+  isExternalSourcesSupported: 'External Sources',
+  baseModelSupported: 'Base Model',
+  crossRegionSupported: 'Cross-Region',
+  customModelSupported: 'Custom Model',
+}
+
+// Bedrock Features Section Component
+function BedrockFeaturesSection({ featureSupport }) {
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+
+  // Guard against missing or invalid feature_support
+  if (!featureSupport || typeof featureSupport !== 'object') {
+    return (
+      <p className={cn('text-sm', isLight ? 'text-stone-500' : 'text-slate-400')}>
+        No feature support data available
+      </p>
+    )
+  }
+
+  // Feature definitions with sub-feature keys for tooltip
+  const features = [
+    { key: 'agent', label: 'Agents', subKeys: ['isStreamingSupported'] },
+    { key: 'flow', label: 'Flows' },
+    { key: 'knowledge_base', label: 'Knowledge Base', subKeys: ['isParsingSupported', 'isExternalSourcesSupported'] },
+    { key: 'guardrails', label: 'Guardrails' },
+    { key: 'prompt_caching', label: 'Prompt Caching' },
+    { key: 'batch_inference', label: 'Batch Inference', subKeys: ['baseModelSupported', 'crossRegionSupported', 'customModelSupported'] },
+  ]
+
+  // Check if any feature has actual data
+  const hasAnyData = features.some(feature => {
+    const data = featureSupport[feature.key]
+    if (!data || typeof data !== 'object') return false
+    return Object.keys(data).length > 0
+  })
+
+  if (!hasAnyData) {
+    return (
+      <p className={cn('text-sm', isLight ? 'text-stone-500' : 'text-slate-400')}>
+        No feature support data available
+      </p>
+    )
+  }
+
+  // Helper to check if feature is supported
+  const isSupported = (data) => {
+    if (!data || typeof data !== 'object') return false
+    if (data.isSupported === true) return true
+    if (data.baseModelSupported === true) return true
+    return Object.values(data).some(v => v === true)
+  }
+
+  // Helper to get supported sub-features
+  const getSupportedSubFeatures = (data, subKeys) => {
+    if (!data || !subKeys) return []
+    return subKeys.filter(key => data[key] === true)
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {features.map(feature => {
+        const data = featureSupport[feature.key]
+        const supported = isSupported(data)
+        const supportedSubFeatures = getSupportedSubFeatures(data, feature.subKeys)
+        const hasSubFeatures = supportedSubFeatures.length > 0
+
+        const badge = (
+          <div
+            className={cn(
+              'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium',
+              supported
+                ? isLight
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                : isLight
+                  ? 'bg-stone-100 text-stone-400 border border-stone-200'
+                  : 'bg-white/[0.06] text-slate-500 border border-white/[0.06]'
+            )}
+          >
+            {supported ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+            <span>{feature.label}</span>
+            {hasSubFeatures && (
+              <span className={cn(
+                'text-[10px]',
+                isLight ? 'text-emerald-600' : 'text-emerald-500'
+              )}>
+                +{supportedSubFeatures.length}
+              </span>
+            )}
+          </div>
+        )
+
+        // Wrap with tooltip if there are sub-features to show
+        if (hasSubFeatures) {
+          return (
+            <Tooltip key={feature.key}>
+              <TooltipTrigger asChild>
+                {badge}
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                <div className="space-y-1">
+                  <p className="font-medium text-xs">{feature.label}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {supportedSubFeatures.map(subKey => (
+                      <span
+                        key={subKey}
+                        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300"
+                      >
+                        <Check className="h-2 w-2" />
+                        {subFeatureLabels[subKey] || subKey}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )
+        }
+
+        return <div key={feature.key}>{badge}</div>
+      })}
+    </div>
+  )
+}
+
 function SpecsTab({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -1010,7 +1298,6 @@ function SpecsTab({ model }) {
   const batchData = model.batch_inference_supported || {}
   const mantleData = model.mantle_inference || {}
   const consumptionOptions = model.consumption_options || []
-  const inferenceTypes = model.inference_types_supported || []
   const customizations = model.customization?.customization_supported || []
   const lifecycleStatus = model.model_lifecycle?.status || model.model_status || 'Unknown'
 
@@ -1056,22 +1343,18 @@ function SpecsTab({ model }) {
             {/* Capabilities & Use Cases */}
             <CollapsibleSection title="Capabilities & Use Cases" icon={Cpu} defaultExpanded={true}>
               <div className="space-y-3">
-                <div>
-                  <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Capabilities</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {capabilities.length > 0 ? capabilities.map(cap => (
-                      <Badge key={cap} variant="secondary" className="text-xs">{formatLabel(cap)}</Badge>
-                    )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>None specified</span>}
-                  </div>
-                </div>
-                <div>
-                  <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Use Cases</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {useCases.length > 0 ? useCases.map(uc => (
-                      <Badge key={uc} variant="secondary" className="text-xs">{formatLabel(uc)}</Badge>
-                    )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>None specified</span>}
-                  </div>
-                </div>
+                <ExpandableTagList
+                  label="Capabilities"
+                  items={capabilities}
+                  maxVisible={8}
+                  isLight={isLight}
+                />
+                <ExpandableTagList
+                  label="Use Cases"
+                  items={useCases}
+                  maxVisible={8}
+                  isLight={isLight}
+                />
               </div>
             </CollapsibleSection>
 
@@ -1140,16 +1423,6 @@ function SpecsTab({ model }) {
                     }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>Not specified</span>}
                   </div>
                 </div>
-                {inferenceTypes.length > 0 && (
-                  <div>
-                    <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Inference Types</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {inferenceTypes.map(type => (
-                        <Badge key={type} variant="secondary" className="text-xs">{type}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 {customizations.length > 0 && (
                   <div>
                     <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Customizations</p>
@@ -1162,6 +1435,13 @@ function SpecsTab({ model }) {
                 )}
               </div>
             </CollapsibleSection>
+
+            {/* Bedrock Features */}
+            {model.feature_support && (
+              <CollapsibleSection title="Bedrock Features" icon={Layers} defaultExpanded={true}>
+                <BedrockFeaturesSection featureSupport={model.feature_support} />
+              </CollapsibleSection>
+            )}
           </div>
 
           {/* Right Column */}
@@ -1186,6 +1466,11 @@ function SpecsTab({ model }) {
             {/* Cross-Region Inference */}
             <CollapsibleSection title="Cross-Region Inference" icon={Globe} defaultExpanded={false}>
               <CrossRegionInferenceSection crisData={crisData} />
+            </CollapsibleSection>
+
+            {/* Application Inference Profiles */}
+            <CollapsibleSection title="Application Inference Profiles" icon={Layers} defaultExpanded={false}>
+              <ApplicationInferenceProfileSection regionsAvailable={regions} />
             </CollapsibleSection>
 
             {/* Batch Inference Support */}
