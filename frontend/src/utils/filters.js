@@ -263,6 +263,81 @@ export const addedFilterOptions = [
 ]
 
 /**
+ * Sort options for model explorer
+ */
+export const sortOptions = [
+  { value: 'newest', label: 'Newest First' },
+  { value: 'name-asc', label: 'Name A-Z' },
+  { value: 'name-desc', label: 'Name Z-A' },
+  { value: 'provider-asc', label: 'Provider A-Z' },
+  { value: 'context-desc', label: 'Context Window (Largest)' },
+  { value: 'context-asc', label: 'Context Window (Smallest)' },
+  { value: 'price-input-asc', label: 'Price: Input (Low-High)' },
+  { value: 'price-output-asc', label: 'Price: Output (Low-High)' },
+]
+
+/**
+ * Sort models by the specified sort option
+ * @param {Array} models - Array of models to sort
+ * @param {string} sortBy - Sort option value
+ * @param {Function} getPricingForModel - Function to get pricing for a model
+ * @param {string} preferredRegion - Preferred region for pricing lookup
+ * @returns {Array} Sorted models array
+ */
+export function sortModels(models, sortBy, getPricingForModel, preferredRegion) {
+  if (!sortBy || sortBy === 'default') return models
+
+  const sorted = [...models]
+
+  const getPrice = (model, type) => {
+    if (!getPricingForModel) return null
+    const pricing = getPricingForModel(model, preferredRegion)
+    if (!pricing) return null
+    return type === 'input' ? pricing.input_price : pricing.output_price
+  }
+
+  sorted.sort((a, b) => {
+    switch (sortBy) {
+      case 'newest': {
+        const dateA = a.model_lifecycle?.release_date || 0
+        const dateB = b.model_lifecycle?.release_date || 0
+        return dateB - dateA // Newest first (higher timestamp first)
+      }
+      case 'name-asc':
+        return (a.model_name || '').localeCompare(b.model_name || '')
+      case 'name-desc':
+        return (b.model_name || '').localeCompare(a.model_name || '')
+      case 'provider-asc':
+        return (a.model_provider || '').localeCompare(b.model_provider || '')
+      case 'context-desc': {
+        const ctxA = a.converse_data?.context_window || 0
+        const ctxB = b.converse_data?.context_window || 0
+        return ctxB - ctxA // Largest first
+      }
+      case 'context-asc': {
+        const ctxA = a.converse_data?.context_window || 0
+        const ctxB = b.converse_data?.context_window || 0
+        return ctxA - ctxB // Smallest first
+      }
+      case 'price-input-asc': {
+        const priceA = getPrice(a, 'input') ?? Infinity
+        const priceB = getPrice(b, 'input') ?? Infinity
+        return priceA - priceB
+      }
+      case 'price-output-asc': {
+        const priceA = getPrice(a, 'output') ?? Infinity
+        const priceB = getPrice(b, 'output') ?? Infinity
+        return priceA - priceB
+      }
+      default:
+        return 0
+    }
+  })
+
+  return sorted
+}
+
+/**
  * Initial filter state
  */
 export const initialFilterState = {

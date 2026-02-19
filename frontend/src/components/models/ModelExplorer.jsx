@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Loader2, LayoutGrid } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Loader2, LayoutGrid, ArrowUpDown } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -17,7 +16,7 @@ import { useModels } from '@/hooks/useModels'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import { useComparisonStore } from '@/stores/comparisonStore'
 import { useFavoritesStore } from '@/stores/favoritesStore'
-import { applyFilters, initialFilterState } from '@/utils/filters'
+import { applyFilters, initialFilterState, sortOptions, sortModels } from '@/utils/filters'
 import { cn } from '@/lib/utils'
 
 const gridColumnOptions = [
@@ -36,15 +35,17 @@ export function ModelExplorer() {
 
   // Local state
   const [filters, setFilters] = useState(initialFilterState)
+  const [sortBy, setSortBy] = useState('newest')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [columnsPerRow, setColumnsPerRow] = useState(4)
   const [selectedModel, setSelectedModel] = useState(null)
 
-  // Filter models based on all filters
+  // Filter and sort models
   const filteredModels = useMemo(() => {
-    return applyFilters(models, filters)
-  }, [models, filters])
+    const filtered = applyFilters(models, filters)
+    return sortModels(filtered, sortBy, getPricingForModel, filters.primaryRegion)
+  }, [models, filters, sortBy, getPricingForModel])
 
   // Paginate
   const totalPages = Math.ceil(filteredModels.length / pageSize)
@@ -137,24 +138,50 @@ export function ModelExplorer() {
           )}
         </div>
 
-        {/* Grid columns selector - hidden on mobile */}
-        <div className="hidden md:flex items-center gap-2">
-          <LayoutGrid className="h-4 w-4 text-slate-400" />
-          <Select
-            value={columnsPerRow.toString()}
-            onValueChange={(v) => setColumnsPerRow(parseInt(v))}
-          >
-            <SelectTrigger className="w-[120px] h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {gridColumnOptions.map(opt => (
-                <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Sort and grid controls */}
+        <div className="flex items-center gap-3">
+          {/* Sort dropdown */}
+          <div className="flex items-center gap-2">
+            <ArrowUpDown className={cn('h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-400')} />
+            <Select value={sortBy} onValueChange={(v) => { setSortBy(v); setCurrentPage(1) }}>
+              <SelectTrigger className={cn(
+                'w-[180px] h-8 text-xs',
+                isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+              )}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Grid columns selector - hidden on mobile */}
+          <div className="hidden md:flex items-center gap-2">
+            <LayoutGrid className={cn('h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-400')} />
+            <Select
+              value={columnsPerRow.toString()}
+              onValueChange={(v) => setColumnsPerRow(parseInt(v))}
+            >
+              <SelectTrigger className={cn(
+                'w-[120px] h-8 text-xs',
+                isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+              )}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {gridColumnOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
