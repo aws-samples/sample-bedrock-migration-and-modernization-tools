@@ -229,6 +229,23 @@ def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
     }
 
 
+def build_provisioned_throughput(model_id: str, provisioned_availability: dict) -> dict:
+    """Build provisioned throughput availability object for a model."""
+    regions = provisioned_availability.get(model_id, [])
+    # Also try fuzzy matching similar to find_matching_availability
+    if not regions:
+        base_id = model_id.split(":")[0]
+        for key in provisioned_availability:
+            if key.startswith(base_id):
+                regions = provisioned_availability[key]
+                break
+    return {
+        "supported": len(regions) > 0,
+        "provisioned_regions": sorted(regions) if regions else [],
+        "total_provisioned_regions": len(regions),
+    }
+
+
 def _normalize_for_quota_matching(name: str) -> str:
     """
     Normalize a model name or quota model reference for exact matching.
@@ -678,6 +695,7 @@ def transform_model_to_schema(
     pricing_data: dict,
     collection_timestamp: str,
     mantle_by_model: dict,
+    provisioned_throughput: dict = None,
 ) -> dict:
     """
     Merge model data from all sources into final schema.
@@ -842,10 +860,12 @@ def transform_model_to_schema(
         model_id, pricing_data, upstream_pricing_ref, regions_for_coverage
     )
 
-    # Note: batch and CRIS regions are kept separate from regions_available.
-    # - regions_available = on-demand + pricing-discovered regions only
+    # Availability types are kept separate:
+    # - regions_available = on-demand regions (direct model invocation)
+    # - cross_region_inference.source_regions = CRIS source regions
     # - batch_inference_supported.supported_regions = batch-capable regions
-    # - cross_region_inference.source_regions = CRIS-capable regions
+    # - provisioned_throughput.provisioned_regions = provisioned throughput regions
+    # - mantle_inference.mantle_regions = Mantle engine regions
     # Coverage percentage: batch regions relative to on-demand regions
     if batch_inference.get("supported") and regional_availability:
         batch_regs = len(batch_inference.get("supported_regions", []))
@@ -933,6 +953,33 @@ def transform_model_to_schema(
             "customization_options": {},
         }
 
+    # Compute consumption options and provisioned throughput independently
+    consumption_options = get_consumption_options(
+        model.get("inference_types_supported", []),
+        pricing_data,
+        upstream_pricing_ref,
+        mantle_supported=mantle["supported"],
+    )
+    resolved_provisioned = (
+        provisioned_throughput
+        if provisioned_throughput
+        else {
+            "supported": False,
+            "provisioned_regions": [],
+            "total_provisioned_regions": 0,
+        }
+    )
+
+    # Reconcile consumption_options with actual provisioned throughput data.
+    # Pricing data may claim provisioned pricing for models that have NO
+    # provisioned variants in the API, causing a badge/detail mismatch.
+    if resolved_provisioned.get("supported"):
+        if "provisioned_throughput" not in consumption_options:
+            consumption_options.append("provisioned_throughput")
+    else:
+        if "provisioned_throughput" in consumption_options:
+            consumption_options.remove("provisioned_throughput")
+
     return {
         "model_id": model_id,
         "model_arn": model.get("model_arn", ""),
@@ -951,15 +998,11 @@ def transform_model_to_schema(
         "languages_supported": console_languages,
         "description": console_description,
         "short_description": console_short_description,
-        "consumption_options": get_consumption_options(
-            model.get("inference_types_supported", []),
-            pricing_data,
-            upstream_pricing_ref,
-            mantle_supported=mantle["supported"],
-        ),
+        "consumption_options": consumption_options,
         "cross_region_inference": cross_region,
         "is_mantle": mantle["supported"],
         "mantle_inference": mantle,
+        "provisioned_throughput": resolved_provisioned,
         "documentation_links": documentation_links,
         "model_pricing": model_pricing,
         "model_service_quotas": model_quotas,
@@ -1072,6 +1115,9 @@ def build_final_models(
     enriched_providers = enriched_models.get("providers", {})
     # Upstream uses snake_case: model_availability
     model_availability = regional_availability.get("model_availability", {})
+    provisioned_availability_data = regional_availability.get(
+        "provisioned_availability", {}
+    )
     # Upstream uses snake_case: token_specs
     token_specs_data = token_specs.get("token_specs", {})
 
@@ -1092,6 +1138,11 @@ def build_final_models(
                 enriched_providers.get(provider, {}).get("models", {}).get(model_id, {})
             )
 
+            # Build provisioned throughput data
+            provisioned = build_provisioned_throughput(
+                model_id, provisioned_availability_data
+            )
+
             # Transform to expected schema
             transformed = transform_model_to_schema(
                 model_id=model_id,
@@ -1104,6 +1155,7 @@ def build_final_models(
                 pricing_data=pricing_data,
                 collection_timestamp=collection_timestamp,
                 mantle_by_model=mantle_by_model,
+                provisioned_throughput=provisioned,
             )
 
             result_providers[provider]["models"][model_id] = transformed

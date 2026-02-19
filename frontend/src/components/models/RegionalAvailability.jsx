@@ -105,8 +105,37 @@ function getRegionAvailability(model, regionCode) {
 }
 
 /**
+ * Derive color tokens for the availability cell based on type.
+ * On-Demand (with or without CRIS/Mantle) → emerald/green
+ * CRIS-only (no on-demand) → sky/blue
+ * Mantle-only (no on-demand, no CRIS) → violet/purple
+ */
+function getAvailabilityColors(onDemand, cris, mantle, isLight) {
+  if (onDemand) {
+    // On-Demand present (possibly combined with CRIS/Mantle) → green
+    return {
+      bg: isLight ? 'bg-emerald-100' : 'bg-emerald-500/15',
+      icon: isLight ? 'text-emerald-600' : 'text-emerald-400',
+    }
+  }
+  if (cris) {
+    // CRIS-only (possibly combined with Mantle, but no on-demand) → blue
+    return {
+      bg: isLight ? 'bg-sky-100' : 'bg-sky-500/15',
+      icon: isLight ? 'text-sky-600' : 'text-sky-400',
+    }
+  }
+  // Mantle-only → violet
+  return {
+    bg: isLight ? 'bg-violet-100' : 'bg-violet-500/15',
+    icon: isLight ? 'text-violet-600' : 'text-violet-400',
+  }
+}
+
+/**
  * Simple availability cell — check when available, dash when not.
- * Hover tooltip shows On-Demand / CRIS breakdown.
+ * Hover tooltip shows On-Demand / CRIS / Mantle breakdown.
+ * Checkmark color reflects the availability type.
  */
 function AvailabilityCell({ model, regionCode, regionLabel, isLight }) {
   const { available, onDemand, cris, mantle } = getRegionAvailability(model, regionCode)
@@ -119,6 +148,8 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight }) {
     )
   }
 
+  const colors = getAvailabilityColors(onDemand, cris, mantle, isLight)
+
   return (
     <TooltipProvider delayDuration={150}>
       <Tooltip>
@@ -126,9 +157,9 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight }) {
           <div className="flex justify-center cursor-default">
             <div className={cn(
               'w-4 h-4 rounded-full flex items-center justify-center',
-              isLight ? 'bg-emerald-100' : 'bg-emerald-500/15'
+              colors.bg
             )}>
-              <Check className={cn('w-2.5 h-2.5', isLight ? 'text-emerald-600' : 'text-emerald-400')} strokeWidth={3} />
+              <Check className={cn('w-2.5 h-2.5', colors.icon)} strokeWidth={3} />
             </div>
           </div>
         </TooltipTrigger>
@@ -156,6 +187,12 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight }) {
               <div className="flex items-center gap-1.5">
                 <Globe2 className={cn('w-3 h-3', isLight ? 'text-sky-500' : 'text-sky-400')} strokeWidth={2} />
                 <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Cross-Region (CRIS)</span>
+              </div>
+            )}
+            {mantle && (
+              <div className="flex items-center gap-1.5">
+                <Cpu className={cn('w-3 h-3', isLight ? 'text-violet-500' : 'text-violet-400')} strokeWidth={2} />
+                <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Mantle</span>
               </div>
             )}
           </div>

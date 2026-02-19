@@ -296,9 +296,6 @@ function RegionalAvailabilityGrouped({ regions }) {
 
   return (
     <div className="space-y-2">
-      <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>
-        Available in {regions.length} regions across {Object.keys(grouped).length} geographic areas
-      </p>
       {Object.entries(grouped).map(([groupKey, groupRegions]) => {
         const groupInfo = geoGroups[groupKey] || { name: groupKey, icon: '🌐' }
         const isExpanded = expandedGroups[groupKey]
@@ -340,6 +337,76 @@ function RegionalAvailabilityGrouped({ regions }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// On-Demand Availability section with model ID highlight, stats, and geo-grouped regions
+function OnDemandAvailabilitySection({ model }) {
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+  const regions = model.regions_available || []
+  const grouped = groupRegionsByGeo(regions)
+  const geoCount = Object.keys(grouped).length
+  const modelId = model.model_id
+
+  return (
+    <div className="space-y-3">
+      {/* Model ID highlight bar */}
+      {modelId && (
+        <div className={cn(
+          'rounded-lg p-3 border',
+          isLight ? 'bg-white border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]'
+        )}>
+          <div className="flex items-center justify-between">
+            <CopyableText
+              text={modelId}
+              isLight={isLight}
+              className={cn('text-sm font-mono', isLight ? 'text-stone-700 hover:text-stone-900' : 'text-[#c0c1c5] hover:text-white')}
+            />
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <Badge variant="secondary" className="text-[10px]">ON_DEMAND</Badge>
+          </div>
+          <p className={cn('text-xs mt-1.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
+            Direct model invocation in supported regions.
+          </p>
+        </div>
+      )}
+
+      {/* Summary stats bar */}
+      <div className={cn('grid gap-2', regions.length > 0 ? 'grid-cols-3' : 'grid-cols-1')}>
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Status</p>
+          <div className="flex items-center gap-1 mt-1">
+            {regions.length > 0 ? (
+              <><Check className="h-4 w-4 text-emerald-500" /><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Supported</span></>
+            ) : (
+              <><X className="h-4 w-4 text-red-400" /><span className={cn('text-sm font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>Not Available</span></>
+            )}
+          </div>
+        </div>
+        {regions.length > 0 && (
+          <>
+            <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+              <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Total Regions</p>
+              <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{regions.length}</p>
+            </div>
+            <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+              <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Geographies</p>
+              <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{geoCount}</p>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Geo-grouped region display */}
+      {regions.length > 0 && (
+        <div>
+          <p className={cn('text-xs font-medium mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Regions by Geography</p>
+          <RegionalAvailabilityGrouped regions={regions} />
+        </div>
+      )}
     </div>
   )
 }
@@ -576,9 +643,11 @@ function CrossRegionInferenceSection({ crisData }) {
                         <p className={cn('text-sm font-medium', isLight ? 'text-stone-900' : 'text-white')}>
                           {profile.profile_name}
                         </p>
-                        <p className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500' : 'text-slate-300')}>
-                          {profile.profile_id}
-                        </p>
+                        <CopyableText
+                          text={profile.profile_id}
+                          isLight={isLight}
+                          className={cn('text-xs font-mono mt-0.5', isLight ? 'text-stone-500 hover:text-stone-700' : 'text-[#c0c1c5] hover:text-white')}
+                        />
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="secondary" className="text-[10px]">{profile.type || 'inference'}</Badge>
                         </div>
@@ -612,6 +681,54 @@ function CrossRegionInferenceSection({ crisData }) {
               </div>
             )
           })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Provisioned Throughput Section with grouped regions
+function ProvisionedThroughputSection({ provisionedData }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+  const regions = provisionedData.provisioned_regions || []
+  const grouped = groupRegionsByGeo(regions)
+  const geoCount = Object.keys(grouped).length
+
+  return (
+    <div className="space-y-3">
+      {/* Summary stats bar */}
+      <div className={cn('grid gap-2', regions.length > 0 ? 'grid-cols-3' : 'grid-cols-1')}>
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Status</p>
+          <div className="flex items-center gap-1 mt-1">
+            {provisionedData.supported ? (
+              <><Check className="h-4 w-4 text-emerald-500" /><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Supported</span></>
+            ) : (
+              <><X className="h-4 w-4 text-red-400" /><span className={cn('text-sm font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>Not Available</span></>
+            )}
+          </div>
+        </div>
+        {regions.length > 0 && (
+          <>
+            <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+              <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Total Regions</p>
+              <p className={cn('text-lg font-bold', isLight ? 'text-amber-600' : 'text-amber-400')}>{provisionedData.total_provisioned_regions ?? regions.length}</p>
+            </div>
+            <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+              <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Geographies</p>
+              <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{geoCount}</p>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Geo-grouped region display */}
+      {regions.length > 0 && (
+        <div>
+          <p className={cn('text-xs font-medium mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Regions by Geography</p>
+          <RegionalAvailabilityGrouped regions={regions} />
         </div>
       )}
     </div>
@@ -779,6 +896,91 @@ function MantleInferenceSection({ mantleData }) {
           Endpoint: <code className={cn('font-mono px-1 py-0.5 rounded', isLight ? 'bg-stone-100' : 'bg-white/[0.06]')}>{mantleData.mantle_endpoint_pattern}</code>
         </p>
       )}
+    </div>
+  )
+}
+
+// Compact availability summary showing all 5 inference types
+function AvailabilitySummary({ model }) {
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+
+  const regions = model.regions_available || []
+  const crisData = model.cross_region_inference || {}
+  const batchData = model.batch_inference_supported || {}
+  const provisionedData = model.provisioned_throughput || {}
+  const mantleData = model.mantle_inference || {}
+
+  const types = [
+    {
+      label: 'On-Demand',
+      supported: regions.length > 0,
+      count: model.total_regions_available ?? regions.length,
+    },
+    {
+      label: 'Cross-Region (CRIS)',
+      supported: !!crisData.supported,
+      count: crisData.source_regions?.length ?? crisData.profiles_count ?? 0,
+    },
+    {
+      label: 'Batch',
+      supported: !!batchData.supported,
+      count: batchData.supported_regions?.length ?? 0,
+    },
+    {
+      label: 'Provisioned',
+      supported: !!provisionedData.supported,
+      count: provisionedData.total_provisioned_regions ?? provisionedData.provisioned_regions?.length ?? 0,
+    },
+    {
+      label: 'Mantle',
+      supported: !!mantleData.supported,
+      count: mantleData.total_mantle_regions ?? mantleData.mantle_regions?.length ?? 0,
+    },
+  ]
+
+  return (
+    <div className="space-y-1.5">
+      {types.map(({ label, supported, count }) => (
+        <div
+          key={label}
+          className={cn(
+            'flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs',
+            isLight
+              ? 'bg-white border border-stone-200'
+              : 'bg-white/[0.02] border border-white/[0.06]'
+          )}
+        >
+          <span className={cn(
+            'font-medium',
+            isLight ? 'text-stone-700' : 'text-[#e4e5e7]'
+          )}>
+            {label}
+          </span>
+          <div className="flex items-center gap-2">
+            {supported && count > 0 && (
+              <span className={cn(
+                'text-[10px] font-mono tabular-nums',
+                isLight ? 'text-stone-500' : 'text-slate-400'
+              )}>
+                {count} {count === 1 ? 'region' : 'regions'}
+              </span>
+            )}
+            <span className={cn(
+              'inline-flex items-center justify-center w-[18px] h-[18px] rounded-full text-[10px]',
+              supported
+                ? isLight
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-emerald-500/15 text-emerald-400'
+                : isLight
+                  ? 'bg-stone-100 text-stone-400'
+                  : 'bg-white/[0.06] text-slate-500'
+            )}>
+              {supported ? <Check className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" />}
+            </span>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -964,23 +1166,35 @@ function SpecsTab({ model }) {
 
           {/* Right Column */}
           <div className="space-y-4">
-            {/* Regional Availability */}
-            <CollapsibleSection title="Regional Availability" icon={Globe} defaultExpanded={true}>
-              <RegionalAvailabilityGrouped regions={regions} />
+            {/* Availability Summary */}
+            <CollapsibleSection title="Availability Overview" icon={Globe} defaultExpanded={true}>
+              <AvailabilitySummary model={model} />
             </CollapsibleSection>
 
+            {/* On-Demand Availability */}
+            <CollapsibleSection title="On-Demand Availability" icon={Globe} defaultExpanded={false}>
+              <OnDemandAvailabilitySection model={model} />
+            </CollapsibleSection>
+
+            {/* Provisioned Throughput */}
+            {(model.provisioned_throughput?.supported || model.provisioned_throughput?.provisioned_regions?.length > 0) && (
+              <CollapsibleSection title="Provisioned Throughput" icon={Zap} defaultExpanded={false}>
+                <ProvisionedThroughputSection provisionedData={model.provisioned_throughput} />
+              </CollapsibleSection>
+            )}
+
             {/* Cross-Region Inference */}
-            <CollapsibleSection title="Cross-Region Inference" icon={Globe} defaultExpanded={true}>
+            <CollapsibleSection title="Cross-Region Inference" icon={Globe} defaultExpanded={false}>
               <CrossRegionInferenceSection crisData={crisData} />
             </CollapsibleSection>
 
             {/* Batch Inference Support */}
-            <CollapsibleSection title="Batch Inference Support" icon={Package} defaultExpanded={true}>
+            <CollapsibleSection title="Batch Inference Support" icon={Package} defaultExpanded={false}>
               <BatchInferenceSection batchData={batchData} />
             </CollapsibleSection>
 
             {/* Mantle Inference Support */}
-            <CollapsibleSection title="Mantle Inference" icon={Cpu} defaultExpanded={true}>
+            <CollapsibleSection title="Mantle Inference" icon={Cpu} defaultExpanded={false}>
               <MantleInferenceSection mantleData={mantleData} />
             </CollapsibleSection>
           </div>

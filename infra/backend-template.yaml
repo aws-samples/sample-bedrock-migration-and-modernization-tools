@@ -257,6 +257,10 @@ Resources:
           Statement:
             - Effect: Allow
               Action:
+                - bedrock:ListFoundationModels
+              Resource: '*'
+            - Effect: Allow
+              Action:
                 - s3:GetObject
                 - s3:PutObject
               Resource: !If
