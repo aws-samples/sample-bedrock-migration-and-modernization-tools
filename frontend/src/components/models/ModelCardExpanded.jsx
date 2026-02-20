@@ -2319,7 +2319,10 @@ function CollapsiblePricingRegion({ region, pricing, category, defaultExpanded =
                 _price: item.price,
                 _unit: item.unit || 'per 1K tokens',
                 _raw: item.description,
-              }))} isLight={isLight} />
+              })).sort((a, b) => {
+                const typeOrder = { input: 0, output: 1, other: 2 }
+                return (typeOrder[a._type] ?? 2) - (typeOrder[b._type] ?? 2)
+              })} isLight={isLight} />
             ) : (
               <p className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-300')}>No pricing available</p>
             )}
@@ -2524,6 +2527,10 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
                             _unit: item.unit_label || `per ${item.unit || 'unit'}`,
                             _raw: item.description || item.dimension,
                           }
+                        }).sort((a, b) => {
+                          // Sort order: input first, then output, then other
+                          const typeOrder = { input: 0, output: 1, other: 2 }
+                          return (typeOrder[a._type] ?? 2) - (typeOrder[b._type] ?? 2)
                         })} isLight={isLight} />
                       </div>
                     ))}
