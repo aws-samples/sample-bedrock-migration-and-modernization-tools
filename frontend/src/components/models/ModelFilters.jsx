@@ -85,10 +85,10 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'flex items-center justify-between rounded-md border transition-colors w-full h-8 px-2.5 py-1 text-xs',
+          'flex items-center justify-between rounded-md border transition-colors w-full h-9 px-2.5 py-1 text-sm',
           isLight
-            ? 'bg-white border-stone-200 text-stone-900 hover:border-stone-300'
-            : 'bg-[#25262b] border-[#373a40] text-[#e4e5e7] hover:border-[#4a4d54]'
+            ? 'bg-transparent border-stone-300 text-stone-700 hover:border-stone-400'
+            : 'bg-[#1a1b1e] border-[#373a40] text-[#e4e5e7] hover:border-[#4a4d54]'
         )}
       >
         <span className={cn(
@@ -205,7 +205,7 @@ function FilterSelect({ label, value, onChange, options, isLight }) {
     <div>
       <p className={cn('text-[11px] mb-1 font-medium', isLight ? 'text-stone-500' : 'text-[#6d6e72]')}>{label}</p>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-8 text-xs">
+        <SelectTrigger className="h-9 text-sm">
           <SelectValue>{displayText}</SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -220,39 +220,6 @@ function FilterSelect({ label, value, onChange, options, isLight }) {
   )
 }
 
-// Toggle button group for binary filters
-function ToggleGroup({ label, options, value, onChange, isLight }) {
-  return (
-    <div>
-      <p className={cn('text-[11px] mb-1 font-medium', isLight ? 'text-stone-500' : 'text-[#6d6e72]')}>{label}</p>
-      <div className={cn(
-        'inline-flex rounded-md border overflow-hidden',
-        isLight ? 'border-stone-200' : 'border-[#373a40]'
-      )}>
-        {options.map((opt, i) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className={cn(
-              'px-2.5 py-1.5 text-[11px] font-medium transition-colors',
-              i > 0 && (isLight ? 'border-l border-stone-200' : 'border-l border-[#373a40]'),
-              value === opt.value
-                ? isLight
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-[#1A9E7A] text-white'
-                : isLight
-                  ? 'bg-white text-stone-500 hover:bg-stone-50'
-                  : 'bg-[#25262b] text-[#9a9b9f] hover:bg-[#2c2d32]'
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 const crisToggleOptions = [
   { value: 'All Models', label: 'All' },
@@ -609,43 +576,41 @@ export function ModelFilters({
           {/* Divider */}
           <div className={cn('my-2.5 border-t', isLight ? 'border-stone-200/60' : 'border-[#2c2d32]/60')} />
 
-          {/* Row 3: Feature toggles + languages */}
-          <div className="flex flex-wrap items-end gap-4">
-            <ToggleGroup
+          {/* Row 3: Feature filters + languages */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2.5">
+            <FilterSelect
               label="Cross-Region (CRIS)"
-              options={crisToggleOptions}
               value={filters.crisSupport}
               onChange={(v) => updateFilter('crisSupport', v)}
+              options={crisToggleOptions}
               isLight={isLight}
             />
 
-            <ToggleGroup
+            <FilterSelect
               label="Streaming"
-              options={streamingToggleOptions}
               value={filters.streamingSupport}
               onChange={(v) => updateFilter('streamingSupport', v)}
+              options={streamingToggleOptions}
               isLight={isLight}
             />
 
-            <ToggleGroup
+            <FilterSelect
               label="Mantle"
-              options={mantleToggleOptions}
               value={filters.mantleSupport}
               onChange={(v) => updateFilter('mantleSupport', v)}
+              options={mantleToggleOptions}
               isLight={isLight}
             />
 
             {availableLanguages.length > 0 && (
-              <div className="flex-1 min-w-[140px]">
-                <MultiSelectDropdown
-                  label="Languages"
-                  options={availableLanguages}
-                  selected={filters.languages}
-                  onChange={(v) => updateFilter('languages', v)}
-                  placeholder="All languages"
-                  isLight={isLight}
-                />
-              </div>
+              <MultiSelectDropdown
+                label="Languages"
+                options={availableLanguages}
+                selected={filters.languages}
+                onChange={(v) => updateFilter('languages', v)}
+                placeholder="All languages"
+                isLight={isLight}
+              />
             )}
           </div>
         </div>
