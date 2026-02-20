@@ -166,13 +166,50 @@ export const modelStatusOptions = [
 ]
 
 /**
- * CRIS support options
+ * CRIS support options - includes geographic scopes
+ * Note: JP/AU grouped under APAC, CA and unknown scopes under Other
  */
 export const crisSupportOptions = [
   { value: 'All Models', label: 'All Models' },
-  { value: 'CRIS Supported', label: 'CRIS Supported' },
+  { value: 'GLOBAL', label: 'Global' },
+  { value: 'US', label: 'US' },
+  { value: 'EU', label: 'EU' },
+  { value: 'APAC', label: 'APAC' },
+  { value: 'OTHER', label: 'Other' },
   { value: 'CRIS Not Supported', label: 'Not Supported' },
 ]
+
+/**
+ * Normalize CRIS scope - groups related regions together
+ * - JP, AU, APAC → APAC
+ * - CA and unknown scopes → OTHER
+ */
+function normalizeCrisScope(scope) {
+  const upperScope = scope?.toUpperCase()
+  if (!upperScope) return 'OTHER'
+  if (upperScope === 'JP' || upperScope === 'AU' || upperScope === 'APAC') {
+    return 'APAC'
+  }
+  if (upperScope === 'GLOBAL' || upperScope === 'US' || upperScope === 'EU') {
+    return upperScope
+  }
+  // CA and any new/unknown scopes go to OTHER
+  return 'OTHER'
+}
+
+/**
+ * Helper to extract CRIS geographic scopes from a model
+ * Extracts scope dynamically from profile_id prefix (e.g., "us.anthropic..." -> "US")
+ * JP and AU are normalized to APAC
+ */
+export function getCrisGeoScopes(model) {
+  const profiles = model?.cross_region_inference?.profiles || []
+  return [...new Set(profiles.map(p => {
+    const profileId = p.profile_id || p.inference_profile_id
+    const prefix = profileId?.split('.')[0]
+    return normalizeCrisScope(prefix) || null
+  }).filter(Boolean))]
+}
 
 /**
  * Mantle support options
@@ -224,6 +261,81 @@ export const addedFilterOptions = [
   { value: 'last_update', label: 'Last Update' },
   { value: 'last_month', label: 'Last Month' },
 ]
+
+/**
+ * Sort options for model explorer
+ */
+export const sortOptions = [
+  { value: 'newest', label: 'Newest First' },
+  { value: 'name-asc', label: 'Name A-Z' },
+  { value: 'name-desc', label: 'Name Z-A' },
+  { value: 'provider-asc', label: 'Provider A-Z' },
+  { value: 'context-desc', label: 'Context Window (Largest)' },
+  { value: 'context-asc', label: 'Context Window (Smallest)' },
+  { value: 'price-input-asc', label: 'Price: Input (Low-High)' },
+  { value: 'price-output-asc', label: 'Price: Output (Low-High)' },
+]
+
+/**
+ * Sort models by the specified sort option
+ * @param {Array} models - Array of models to sort
+ * @param {string} sortBy - Sort option value
+ * @param {Function} getPricingForModel - Function to get pricing for a model
+ * @param {string} preferredRegion - Preferred region for pricing lookup
+ * @returns {Array} Sorted models array
+ */
+export function sortModels(models, sortBy, getPricingForModel, preferredRegion) {
+  if (!sortBy || sortBy === 'default') return models
+
+  const sorted = [...models]
+
+  const getPrice = (model, type) => {
+    if (!getPricingForModel) return null
+    const pricing = getPricingForModel(model, preferredRegion)
+    if (!pricing) return null
+    return type === 'input' ? pricing.input_price : pricing.output_price
+  }
+
+  sorted.sort((a, b) => {
+    switch (sortBy) {
+      case 'newest': {
+        const dateA = a.model_lifecycle?.release_date || 0
+        const dateB = b.model_lifecycle?.release_date || 0
+        return dateB - dateA // Newest first (higher timestamp first)
+      }
+      case 'name-asc':
+        return (a.model_name || '').localeCompare(b.model_name || '')
+      case 'name-desc':
+        return (b.model_name || '').localeCompare(a.model_name || '')
+      case 'provider-asc':
+        return (a.model_provider || '').localeCompare(b.model_provider || '')
+      case 'context-desc': {
+        const ctxA = a.converse_data?.context_window || 0
+        const ctxB = b.converse_data?.context_window || 0
+        return ctxB - ctxA // Largest first
+      }
+      case 'context-asc': {
+        const ctxA = a.converse_data?.context_window || 0
+        const ctxB = b.converse_data?.context_window || 0
+        return ctxA - ctxB // Smallest first
+      }
+      case 'price-input-asc': {
+        const priceA = getPrice(a, 'input') ?? Infinity
+        const priceB = getPrice(b, 'input') ?? Infinity
+        return priceA - priceB
+      }
+      case 'price-output-asc': {
+        const priceA = getPrice(a, 'output') ?? Infinity
+        const priceB = getPrice(b, 'output') ?? Infinity
+        return priceA - priceB
+      }
+      default:
+        return 0
+    }
+  })
+
+  return sorted
+}
 
 /**
  * Initial filter state
@@ -348,10 +460,18 @@ export function applyFilters(models, filters) {
     )
   }
 
-  // CRIS support filter
+  // CRIS support filter - supports geographic scope filtering
   if (filters.crisSupport && filters.crisSupport !== 'All Models') {
-    const supported = filters.crisSupport === 'CRIS Supported'
-    filtered = filtered.filter(m => m.cross_region_inference?.supported === supported)
+    if (filters.crisSupport === 'CRIS Not Supported') {
+      filtered = filtered.filter(m => !m.cross_region_inference?.supported)
+    } else {
+      // Filter by geographic scope (GLOBAL, US, EU, APAC)
+      filtered = filtered.filter(m => {
+        if (!m.cross_region_inference?.supported) return false
+        const scopes = getCrisGeoScopes(m)
+        return scopes.includes(filters.crisSupport)
+      })
+    }
   }
 
   // Mantle support filter

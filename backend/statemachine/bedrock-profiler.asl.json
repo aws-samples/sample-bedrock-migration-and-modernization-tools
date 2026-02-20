@@ -447,32 +447,6 @@
           }
         },
         {
-          "StartAt": "EnrichModels",
-          "States": {
-            "EnrichModels": {
-              "Type": "Task",
-              "Resource": "${ModelEnricherFunction}",
-              "Comment": "Enrich models with capabilities, use cases, and documentation links",
-              "Parameters": {
-                "s3Bucket.$": "$.config.s3Bucket",
-                "executionId.$": "$.executionId",
-                "modelsS3Key.$": "$.modelsMerged.s3Key"
-              },
-              "ResultPath": "$.result",
-              "Retry": [
-                {
-                  "ErrorEquals": ["States.ALL"],
-                  "IntervalSeconds": 5,
-                  "MaxAttempts": 3,
-                  "BackoffRate": 2
-                }
-              ],
-              "TimeoutSeconds": 120,
-              "End": true
-            }
-          }
-        },
-        {
           "StartAt": "CollectMantle",
           "States": {
             "CollectMantle": {
@@ -538,7 +512,7 @@
 
     "PrepareAggregation": {
       "Type": "Pass",
-      "Comment": "Restructure all results for final aggregation",
+      "Comment": "Restructure all results for final aggregation. Note: enrichedModels removed - capabilities now come from model-extractor directly",
       "Parameters": {
         "executionId.$": "$.executionId",
         "config.$": "$.config",
@@ -549,8 +523,8 @@
         "regionalAvailability.$": "$.wave2Results[1].result",
         "featureResults.$": "$.wave2Results[2].featureResults",
         "tokenSpecs.$": "$.wave2Results[3].result",
-        "enrichedModels.$": "$.wave2Results[4].result",
-        "mantleResults.$": "$.wave2Results[5].mantleResults"
+        "enrichedModels": {},
+        "mantleResults.$": "$.wave2Results[4].mantleResults"
       },
       "Next": "FinalAggregation"
     },
