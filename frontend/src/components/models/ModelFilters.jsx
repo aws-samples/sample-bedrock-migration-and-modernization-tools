@@ -202,7 +202,7 @@ function ToggleGroup({ label, options, value, onChange, isLight }) {
     <div>
       <p className={cn('text-[11px] mb-1.5 font-medium', isLight ? 'text-stone-500' : 'text-[#6d6e72]')}>{label}</p>
       <div className={cn(
-        'inline-flex rounded-md border overflow-hidden h-9',
+        'inline-flex rounded-md border overflow-hidden h-8',
         isLight ? 'border-stone-300' : 'border-[#373a40]'
       )}>
         {options.map((opt, i) => (
@@ -211,7 +211,7 @@ function ToggleGroup({ label, options, value, onChange, isLight }) {
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              'px-3 py-1.5 text-sm font-medium transition-colors',
+              'px-2.5 py-1 text-xs font-medium transition-colors',
               i > 0 && (isLight ? 'border-l border-stone-300' : 'border-l border-[#373a40]'),
               value === opt.value
                 ? isLight
