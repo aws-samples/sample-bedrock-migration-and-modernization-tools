@@ -144,10 +144,7 @@ export function ModelExplorer() {
           <div className="flex items-center gap-2">
             <ArrowUpDown className={cn('h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-400')} />
             <Select value={sortBy} onValueChange={(v) => { setSortBy(v); setCurrentPage(1) }}>
-              <SelectTrigger className={cn(
-                'w-[180px] h-8 text-xs',
-                isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
-              )}>
+              <SelectTrigger className="w-[180px] h-9 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -167,10 +164,7 @@ export function ModelExplorer() {
               value={columnsPerRow.toString()}
               onValueChange={(v) => setColumnsPerRow(parseInt(v))}
             >
-              <SelectTrigger className={cn(
-                'w-[120px] h-8 text-xs',
-                isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
-              )}>
+              <SelectTrigger className="w-[120px] h-9 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

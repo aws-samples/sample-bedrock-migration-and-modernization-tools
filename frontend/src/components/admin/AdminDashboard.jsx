@@ -18,7 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { Calendar as CalendarPicker } from '@/components/ui/calendar'
 import { format } from 'date-fns'
-import { pctChange, fmt, exportCsv, COUNTRY_COORDS, CHART_COLORS, LIGHT_CHART_COLORS, getWinnerDisplay } from './utils/dashboardUtils'
+import { pctChange, fmt, exportCsv, COUNTRY_COORDS, CHART_COLORS, LIGHT_CHART_COLORS } from './utils/dashboardUtils'
 
 const PRESETS = [
   { label: 'Today', days: 1 },
@@ -109,12 +109,6 @@ export function AdminDashboard() {
   const todayEntry = useMemo(() =>
     timeSeries.find(d => d.date === period.end),
     [timeSeries, period.end]
-  )
-
-  // Memoize winner display
-  const winnerDisplay = useMemo(() =>
-    getWinnerDisplay(summary.comparisonWinner),
-    [summary.comparisonWinner]
   )
 
   // Memoize section data (currently computed inline in JSX)
@@ -715,35 +709,6 @@ export function AdminDashboard() {
 
         {/* ═══ CONTENT TAB ═══ */}
         <TabsContent value="content" className="space-y-5 mt-4">
-          {/* Comparison Winner */}
-          {winnerDisplay && (
-            <div className={cn(cardCls, 'relative overflow-hidden')}>
-              <div className="flex items-center gap-3">
-                <div className={cn('p-3 rounded-xl', isLight ? 'bg-amber-50' : 'bg-[#1A9E7A]/10')}>
-                  <GitCompare className={cn('h-6 w-6', accent)} />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className={cn('text-sm font-semibold', isLight ? 'text-stone-700' : 'text-slate-300')}>
-                      Most Compared Model
-                    </h3>
-                    <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium',
-                      isLight ? 'bg-amber-100 text-amber-700' : 'bg-[#1A9E7A]/20 text-[#1A9E7A]')}>
-                      Winner
-                    </span>
-                  </div>
-                  <p className={cn('text-lg font-bold mt-1', isLight ? 'text-stone-900' : 'text-white')}>
-                    {winnerDisplay.displayName}
-                  </p>
-                  <p className={cn('text-xs mt-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                    {winnerDisplay.count} comparisons
-                    ({winnerDisplay.percentage}% of all)
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Feature KPIs */}
           <div className="grid grid-cols-3 gap-3">
             <KpiCard icon={MousePointerClick} label="Detail Opens"
