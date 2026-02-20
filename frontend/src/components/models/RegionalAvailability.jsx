@@ -464,7 +464,7 @@ export function RegionalAvailability() {
       {/* Header */}
       <div className="flex-shrink-0">
         <h1 className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-[#f0f1f3]')}>
-          Region Availability
+          Regional Availability
         </h1>
         <p className={cn('text-sm mt-1', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>
           Model availability across AWS regions at a glance

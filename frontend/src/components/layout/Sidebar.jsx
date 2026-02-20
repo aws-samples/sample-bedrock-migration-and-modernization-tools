@@ -115,7 +115,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
   const navigationItems = useMemo(() => {
     const items = [...baseNavigationItems]
     if (isAuthenticated && canViewRegionalAvailability(user)) {
-      items.push({ id: 'availability', label: 'Region Availability', icon: Globe2, badge: getSectionBadge(user, 'availability') })
+      items.push({ id: 'availability', label: 'Regional Availability', icon: Globe2, badge: getSectionBadge(user, 'availability') })
     }
     if (isAuthenticated && canViewRoadmap(user)) {
       items.push({ id: 'roadmap', label: 'Region Roadmap', icon: Map, badge: getSectionBadge(user, 'roadmap') })

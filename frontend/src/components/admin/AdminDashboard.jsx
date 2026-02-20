@@ -725,14 +725,14 @@ export function AdminDashboard() {
               sparkData={timeSeries.map(d => d.favoriteToggles)} isLight={isLight} />
           </div>
 
-          {/* Region Availability */}
+          {/* Regional Availability */}
           {(summary.regionCounts?.length > 0 || summary.totalRegions > 0) && (
             <div className={cardCls}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Globe className={cn('h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-500')} />
                   <h3 className={cn('text-sm font-semibold', isLight ? 'text-stone-700' : 'text-slate-300')}>
-                    Region Availability
+                    Regional Availability
                   </h3>
                 </div>
                 <span className={cn('text-xs px-2 py-0.5 rounded-full',

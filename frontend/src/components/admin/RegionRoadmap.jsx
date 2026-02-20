@@ -928,7 +928,7 @@ export function RegionRoadmap() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-white')}>
-            Region Availability & Roadmap
+            Regional Availability & Roadmap
           </h1>
           <p className={cn('text-xs mt-1', isLight ? 'text-stone-500' : 'text-[#6d6e72]')}>
             Last updated: {roadmapData.lastUpdated}
