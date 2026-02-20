@@ -265,15 +265,15 @@ body {
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.15s ease-out;
 }
 
 .animate-slide-in {
-  animation: slideIn 0.3s ease-out;
+  animation: slideIn 0.15s ease-out;
 }
 
 .animate-slide-down {
-  animation: slideDown 0.2s ease-out;
+  animation: slideDown 0.1s ease-out;
 }
 
 /* ============================================
@@ -509,7 +509,7 @@ button:focus,
 .theme-transition *,
 .theme-transition *::before,
 .theme-transition *::after {
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
+  transition: background-color 0.08s ease, border-color 0.08s ease, color 0.08s ease !important;
 }
 
 /* ============================================
@@ -562,7 +562,7 @@ button:focus,
 /* View Transitions API: smooth cross-fade between themes */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 300ms;
+  animation-duration: 100ms;
   animation-timing-function: ease-in-out;
 }
 
@@ -571,5 +571,5 @@ button:focus,
 .theme-transitioning *,
 .theme-transitioning *::before,
 .theme-transitioning *::after {
-  transition: background-color 300ms ease, color 300ms ease, border-color 300ms ease, box-shadow 300ms ease, fill 300ms ease !important;
+  transition: background-color 100ms ease, color 100ms ease, border-color 100ms ease, box-shadow 100ms ease, fill 100ms ease !important;
 }

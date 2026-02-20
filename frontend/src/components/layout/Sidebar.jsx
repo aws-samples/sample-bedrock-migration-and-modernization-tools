@@ -45,8 +45,7 @@ function NavButton({ item, isActive, isLight, collapsed, mobileMenuOpen, onClick
     <button
       onClick={onClick}
       className={cn(
-        'w-full flex items-center rounded-lg transition-all duration-200 text-left group',
-        isCollapsedDesktop ? 'justify-center px-0 py-2.5 gap-0' : 'px-3 py-2.5 gap-3',
+        'w-full flex items-center rounded-lg transition-all duration-200 text-left group px-3 py-2.5 gap-3',
         isActive
           ? isLight
             ? 'bg-amber-700 text-[#faf9f5] shadow-sm'
@@ -65,7 +64,7 @@ function NavButton({ item, isActive, isLight, collapsed, mobileMenuOpen, onClick
             : 'text-[#6d6e72] group-hover:text-[#c0c1c5]'
       )} />
       <div className={cn(
-        'flex items-center min-w-0 overflow-hidden transition-all duration-300 ease-in-out',
+        'flex items-center min-w-0 overflow-hidden transition-all duration-150 ease-in-out',
         isCollapsedDesktop ? 'w-0 opacity-0 flex-none' : 'w-auto opacity-100 flex-1'
       )}>
         <span className="text-[13px] font-medium whitespace-nowrap">{item.label}</span>
@@ -135,16 +134,15 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
     <>
       {/* Header */}
       <div className={cn(
-        'flex items-center p-4 min-h-[68px] transition-all duration-300',
-        collapsed && !mobileMenuOpen ? 'justify-center gap-0' : 'gap-3',
+        'flex items-center p-4 min-h-[68px] transition-all duration-150 gap-3',
       )}>
         <BedrockIcon className={cn(
-          'flex-shrink-0 transition-all duration-300',
+          'flex-shrink-0 transition-all duration-150',
           collapsed && !mobileMenuOpen ? 'h-8 w-8' : 'h-9 w-9',
           isLight ? 'text-amber-700' : 'text-[#1A9E7A]'
         )} />
         <div className={cn(
-          'overflow-hidden transition-all duration-300 ease-in-out',
+          'overflow-hidden transition-all duration-150 ease-in-out',
           collapsed && !mobileMenuOpen ? 'w-0 opacity-0 flex-none' : 'w-auto opacity-100'
         )}>
           <span className={cn(
@@ -179,8 +177,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
 
       {/* Navigation */}
       <nav className={cn(
-        'flex-1 space-y-0.5 overflow-y-auto',
-        collapsed && !mobileMenuOpen ? 'px-2 py-3' : 'px-3 py-3'
+        'flex-1 space-y-0.5 overflow-y-auto px-3 py-3',
       )}>
         {navigationItems.map((item) => (
           <NavButton
@@ -201,8 +198,8 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={cn(
-            'w-full flex items-center rounded-lg transition-all duration-200 hidden lg:flex',
-            collapsed && !mobileMenuOpen ? 'justify-center py-2 gap-0' : 'px-3 py-2 gap-3',
+            'w-full flex items-center rounded-lg transition-all duration-200 hidden lg:flex py-2',
+            collapsed && !mobileMenuOpen ? 'justify-center px-0 gap-0' : 'px-3 gap-3',
             isLight
               ? 'text-stone-500 hover:bg-stone-100 hover:text-stone-700'
               : 'text-[#6d6e72] hover:bg-[#2c2d32] hover:text-[#c0c1c5]'
@@ -214,7 +211,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
             <PanelLeftClose className="h-4 w-4 flex-shrink-0" />
           )}
           <div className={cn(
-            'overflow-hidden transition-all duration-300 ease-in-out',
+            'overflow-hidden transition-all duration-150 ease-in-out',
             collapsed && !mobileMenuOpen ? 'w-0 opacity-0 flex-none' : 'w-auto opacity-100'
           )}>
             <span className="text-[12px] font-medium whitespace-nowrap">Collapse</span>
@@ -229,11 +226,11 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
 
         {/* Theme & Version row */}
         <div className={cn(
-          'flex items-center transition-all duration-300',
-          collapsed && !mobileMenuOpen ? 'justify-center gap-0' : 'justify-between gap-2'
+          'flex items-center transition-all duration-150',
+          collapsed && !mobileMenuOpen ? 'justify-center' : 'justify-between gap-2',
         )}>
           <div className={cn(
-            'overflow-hidden transition-all duration-300 ease-in-out',
+            'overflow-hidden transition-all duration-150 ease-in-out',
             collapsed && !mobileMenuOpen ? 'w-0 opacity-0 flex-none' : 'w-auto opacity-100'
           )}>
             <span className={cn(
@@ -254,8 +251,8 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          'hidden lg:flex flex-col h-screen border-r overflow-hidden transition-all duration-300 ease-in-out',
-          collapsed ? 'w-[60px]' : 'w-60',
+          'hidden lg:flex flex-col h-screen border-r overflow-hidden transition-all duration-150 ease-in-out',
+          collapsed ? 'w-[68px]' : 'w-60',
           isLight
             ? 'bg-white/80 border-stone-200/80 backdrop-blur-xl'
             : 'bg-[#141517]/95 border-[#2c2d32]/60 backdrop-blur-xl'
@@ -273,7 +270,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
           />
           <aside
             className={cn(
-              'absolute left-0 top-0 bottom-0 w-72 flex flex-col border-r transition-transform duration-300',
+              'absolute left-0 top-0 bottom-0 w-72 flex flex-col border-r transition-transform duration-150',
               isLight
                 ? 'bg-white border-stone-200'
                 : 'bg-[#141517] border-[#2c2d32]'
