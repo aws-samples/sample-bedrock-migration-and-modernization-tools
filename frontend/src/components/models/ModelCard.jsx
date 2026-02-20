@@ -220,7 +220,7 @@ const modalityDescriptions = {
 
 // Consumption option descriptions
 const consumptionDescriptions = {
-  on_demand: 'Pay per use',
+  on_demand: 'In Region',
   provisioned: 'Reserved capacity',
   batch: 'Batch processing',
   cross_region_inference: 'Cross-region routing',

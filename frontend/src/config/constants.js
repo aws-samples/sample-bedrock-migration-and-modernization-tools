@@ -184,7 +184,7 @@ export function getContextSizeCategory(contextWindow) {
 
 // Consumption option labels
 export const consumptionLabels = {
-  on_demand: 'On-Demand',
+  on_demand: 'In Region',
   provisioned: 'Provisioned',
   provisioned_throughput: 'Provisioned',
   batch: 'Batch',

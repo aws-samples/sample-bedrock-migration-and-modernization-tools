@@ -189,7 +189,7 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight }) {
             {onDemand && (
               <div className="flex items-center gap-1.5">
                 <Zap className={cn('w-3 h-3', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')} strokeWidth={2} />
-                <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>On-Demand</span>
+                <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>In Region</span>
               </div>
             )}
             {cris && (

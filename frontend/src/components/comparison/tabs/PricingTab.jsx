@@ -21,9 +21,9 @@ function formatImagePrice(price) {
 
 // Simplify pricing group names for display
 const groupLabels = {
-  'On-Demand': 'On-Demand',
-  'On-Demand Global': 'On-Demand (Global/CRIS)',
-  'On-Demand Long Context': 'On-Demand Long Context',
+  'On-Demand': 'In Region',
+  'On-Demand Global': 'In Region (Global/CRIS)',
+  'On-Demand Long Context': 'In Region Long Context',
   'On-Demand Long Context Global': 'Long Context (Global/CRIS)',
   'Batch': 'Batch',
   'Batch Global': 'Batch (Global/CRIS)',

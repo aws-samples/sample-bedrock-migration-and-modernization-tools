@@ -1057,7 +1057,7 @@ function AvailabilitySummary({ model }) {
 
   const types = [
     {
-      label: 'On-Demand',
+      label: 'In Region',
       supported: regions.length > 0,
       count: model.total_regions_available ?? regions.length,
     },
@@ -1500,7 +1500,7 @@ function SpecsTab({ model }) {
                   <div className="flex flex-wrap gap-1.5">
                     {consumptionOptions.length > 0 ? consumptionOptions.map(opt => {
                       const labels = {
-                        'on_demand': 'On-Demand',
+                        'on_demand': 'In Region',
                         'batch': 'Batch',
                         'provisioned': 'Provisioned',
                         'provisioned_throughput': 'Provisioned Throughput',
@@ -1544,7 +1544,7 @@ function SpecsTab({ model }) {
             </CollapsibleSection>
 
             {/* On-Demand Availability */}
-            <CollapsibleSection title="On-Demand Availability" icon={Globe} defaultExpanded={false}>
+            <CollapsibleSection title="In Region Availability" icon={Globe} defaultExpanded={false}>
               <OnDemandAvailabilitySection model={model} />
             </CollapsibleSection>
 
@@ -1656,7 +1656,7 @@ function CollapsibleRegion({ region, quotas, defaultExpanded = false, showAdjust
 
 // Quota category definitions
 const quotaCategories = {
-  on_demand: { name: 'On-Demand Inference', icon: '🚀', color: 'text-emerald-500' },
+  on_demand: { name: 'In Region Inference', icon: '🚀', color: 'text-emerald-500' },
   cross_region: { name: 'Cross-Region Inference', icon: '🌍', color: 'text-blue-500' },
   batch: { name: 'Batch Inference', icon: '📦', color: 'text-purple-500' },
   provisioned: { name: 'Provisioned Throughput', icon: '⚡', color: 'text-amber-500' },
@@ -2052,7 +2052,7 @@ function QuotasTab({ model }) {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Left Column */}
           <div className="space-y-4">
-            {renderCategorySection('on_demand', 'On-Demand Inference', Zap)}
+            {renderCategorySection('on_demand', 'In Region Inference', Zap)}
             {renderCategorySection('batch', 'Batch Inference', Layers)}
           </div>
 
@@ -2380,9 +2380,9 @@ function CollapsiblePricingRegion({ region, pricing, category, defaultExpanded =
 
 // Pricing group icons and labels
 const pricingGroupInfo = {
-  'On-Demand': { icon: '🚀', label: 'On-Demand' },
-  'On-Demand Global': { icon: '🌐', label: 'On-Demand Global' },
-  'On-Demand Long Context': { icon: '📚', label: 'On-Demand Long Context' },
+  'On-Demand': { icon: '🚀', label: 'In Region' },
+  'On-Demand Global': { icon: '🌐', label: 'In Region (Global/CRIS)' },
+  'On-Demand Long Context': { icon: '📚', label: 'In Region Long Context' },
   'Batch': { icon: '📦', label: 'Batch' },
   'Batch Global': { icon: '🌍', label: 'Batch Global' },
   'Batch Long Context': { icon: '📖', label: 'Batch Long Context' },
@@ -2976,7 +2976,7 @@ export function ModelCardExpanded({
                       <p className={cn('text-xs mb-2', isLight ? 'text-stone-500' : 'text-slate-400')}>Consumption</p>
                       <div className="flex flex-wrap gap-1">
                         {consumptionOptions.map(opt => {
-                          const labels = { 'on_demand': 'On-Demand', 'batch': 'Batch', 'provisioned': 'Provisioned', 'cross_region_inference': 'Cross-Region', 'mantle': 'Mantle' }
+                          const labels = { 'on_demand': 'In Region', 'batch': 'Batch', 'provisioned': 'Provisioned', 'cross_region_inference': 'Cross-Region', 'mantle': 'Mantle' }
                           return <Badge key={opt} variant="info" className="text-[10px]">{labels[opt] || opt}</Badge>
                         })}
                       </div>
