@@ -197,6 +197,39 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
   )
 }
 
+function ToggleGroup({ label, options, value, onChange, isLight }) {
+  return (
+    <div>
+      <p className={cn('text-[11px] mb-1.5 font-medium', isLight ? 'text-stone-500' : 'text-[#6d6e72]')}>{label}</p>
+      <div className={cn(
+        'inline-flex rounded-md border overflow-hidden h-9',
+        isLight ? 'border-stone-300' : 'border-[#373a40]'
+      )}>
+        {options.map((opt, i) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              'px-3 py-1.5 text-sm font-medium transition-colors',
+              i > 0 && (isLight ? 'border-l border-stone-300' : 'border-l border-[#373a40]'),
+              value === opt.value
+                ? isLight
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-[#1A9E7A] text-white'
+                : isLight
+                  ? 'bg-transparent text-stone-500 hover:bg-stone-50'
+                  : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function FilterSelect({ label, value, onChange, options, isLight }) {
   const selectedOption = options.find(opt => opt.value === value)
   const displayText = selectedOption?.label || value
@@ -526,7 +559,7 @@ export function ModelFilters({
           {/* Divider */}
           <div className={cn('my-2.5 border-t', isLight ? 'border-stone-200/60' : 'border-[#2c2d32]/60')} />
 
-          {/* Row 2: Content & capability filters */}
+          {/* Row 2: Content & feature filters */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2.5">
             {availableUseCases.length > 0 && (
               <MultiSelectDropdown
@@ -550,13 +583,13 @@ export function ModelFilters({
               />
             )}
 
-            {availableConsumptionOptions.length > 0 && (
+            {availableLanguages.length > 0 && (
               <MultiSelectDropdown
-                label="Consumption"
-                options={availableConsumptionOptions}
-                selected={filters.consumptionOptions}
-                onChange={(v) => updateFilter('consumptionOptions', v)}
-                placeholder="All options"
+                label="Languages"
+                options={availableLanguages}
+                selected={filters.languages}
+                onChange={(v) => updateFilter('languages', v)}
+                placeholder="All languages"
                 isLight={isLight}
               />
             )}
@@ -576,8 +609,19 @@ export function ModelFilters({
           {/* Divider */}
           <div className={cn('my-2.5 border-t', isLight ? 'border-stone-200/60' : 'border-[#2c2d32]/60')} />
 
-          {/* Row 3: Feature filters + languages */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2.5">
+          {/* Row 3: Infrastructure & availability filters */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2.5 items-end">
+            {availableConsumptionOptions.length > 0 && (
+              <MultiSelectDropdown
+                label="Consumption"
+                options={availableConsumptionOptions}
+                selected={filters.consumptionOptions}
+                onChange={(v) => updateFilter('consumptionOptions', v)}
+                placeholder="All options"
+                isLight={isLight}
+              />
+            )}
+
             <FilterSelect
               label="Cross-Region (CRIS)"
               value={filters.crisSupport}
@@ -586,32 +630,21 @@ export function ModelFilters({
               isLight={isLight}
             />
 
-            <FilterSelect
+            <ToggleGroup
               label="Streaming"
+              options={streamingToggleOptions}
               value={filters.streamingSupport}
               onChange={(v) => updateFilter('streamingSupport', v)}
-              options={streamingToggleOptions}
               isLight={isLight}
             />
 
-            <FilterSelect
+            <ToggleGroup
               label="Mantle"
+              options={mantleToggleOptions}
               value={filters.mantleSupport}
               onChange={(v) => updateFilter('mantleSupport', v)}
-              options={mantleToggleOptions}
               isLight={isLight}
             />
-
-            {availableLanguages.length > 0 && (
-              <MultiSelectDropdown
-                label="Languages"
-                options={availableLanguages}
-                selected={filters.languages}
-                onChange={(v) => updateFilter('languages', v)}
-                placeholder="All languages"
-                isLight={isLight}
-              />
-            )}
           </div>
         </div>
       )}
