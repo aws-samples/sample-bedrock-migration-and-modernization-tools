@@ -507,12 +507,40 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
             : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl'
         )}>
           <div className={cn(
-            'px-4 py-2.5 border-b flex items-center gap-2',
+            'px-4 py-2.5 border-b flex items-center justify-between',
             isLight ? 'bg-stone-50/60 border-stone-200' : 'bg-white/[0.02] border-white/[0.06]'
           )}>
             <h3 className={cn('font-semibold text-xs', isLight ? 'text-stone-900' : 'text-white')}>
               Model Comparison Radar
             </h3>
+            <div className={cn(
+              'inline-flex rounded-md border overflow-hidden h-6',
+              isLight ? 'border-stone-300' : 'border-[#373a40]'
+            )}>
+              <button
+                onClick={() => setScoringMode('global')}
+                className={cn(
+                  'px-2 py-0.5 text-[10px] font-medium transition-colors',
+                  scoringMode === 'global'
+                    ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                    : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                )}
+              >
+                Global
+              </button>
+              <button
+                onClick={() => setScoringMode('relative')}
+                className={cn(
+                  'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
+                  isLight ? 'border-stone-300' : 'border-[#373a40]',
+                  scoringMode === 'relative'
+                    ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                    : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                )}
+              >
+                Relative
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3">
@@ -590,49 +618,18 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
         </div>
       )}
 
-      {/* Scoring Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowScoringInfo(!showScoringInfo)}
-            className={cn(
-              'flex items-center gap-1 text-xs rounded-md px-2 py-1 transition-colors',
-              isLight ? 'text-stone-400 hover:text-stone-600 hover:bg-stone-100' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-            )}
-          >
-            <Info className="h-3.5 w-3.5" />
-            <span>Scoring (0–10 scale)</span>
-          </button>
-        </div>
-        
-        <div className={cn(
-          'inline-flex rounded-md border overflow-hidden h-7',
-          isLight ? 'border-stone-300' : 'border-[#373a40]'
-        )}>
-          <button
-            onClick={() => setScoringMode('global')}
-            className={cn(
-              'px-2.5 py-1 text-[11px] font-medium transition-colors',
-              scoringMode === 'global'
-                ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
-                : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-            )}
-          >
-            Global
-          </button>
-          <button
-            onClick={() => setScoringMode('relative')}
-            className={cn(
-              'px-2.5 py-1 text-[11px] font-medium transition-colors border-l',
-              isLight ? 'border-stone-300' : 'border-[#373a40]',
-              scoringMode === 'relative'
-                ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
-                : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-            )}
-          >
-            Relative
-          </button>
-        </div>
+      {/* Scoring Info */}
+      <div className="flex items-center">
+        <button
+          onClick={() => setShowScoringInfo(!showScoringInfo)}
+          className={cn(
+            'flex items-center gap-1 text-xs rounded-md px-2 py-1 transition-colors',
+            isLight ? 'text-stone-400 hover:text-stone-600 hover:bg-stone-100' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+          )}
+        >
+          <Info className="h-3.5 w-3.5" />
+          <span>Scoring (0–10 scale)</span>
+        </button>
       </div>
 
       {/* Scoring Info Panel (collapsible) */}
