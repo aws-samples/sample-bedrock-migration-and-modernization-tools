@@ -121,7 +121,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
       items.push({ id: 'roadmap', label: 'Region Roadmap', icon: Map, badge: getSectionBadge(user, 'roadmap') })
     }
     if (isAuthenticated && canViewAnalytics(user)) {
-      items.push({ id: 'admin', label: 'Analytics', icon: BarChart3, badge: getSectionBadge(user, 'admin') })
+      items.push({ id: 'admin', label: 'Usage', icon: BarChart3, badge: getSectionBadge(user, 'admin') })
     }
     return items
   }, [isAuthenticated, user])

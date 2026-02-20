@@ -29,6 +29,36 @@ const PRESETS = [
 
 const REALTIME_REFRESH_MS = 300_000 // 5 minutes
 
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+
+function fillDateGaps(data, startDate, endDate) {
+  if (!startDate || !endDate) return data
+  const dataMap = new Map(data.map(d => [d.date, d]))
+  const filled = []
+  const current = new Date(startDate + 'T00:00:00')
+  const end = new Date(endDate + 'T00:00:00')
+  while (current <= end) {
+    const dateStr = current.toISOString().slice(0, 10)
+    filled.push(dataMap.get(dateStr) || { date: dateStr, views: 0, uniqueUsers: 0 })
+    current.setDate(current.getDate() + 1)
+  }
+  return filled
+}
+
+function formatChartDate(dateStr, rangeDays) {
+  const d = new Date(dateStr + 'T00:00:00')
+  const month = MONTHS[d.getMonth()]
+  const day = d.getDate()
+  if (rangeDays <= 7) return `${DAYS[d.getDay()]} ${day}`
+  return `${month} ${day}`
+}
+
+function formatTooltipDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00')
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
+}
+
 export function AdminDashboard() {
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -111,21 +141,19 @@ export function AdminDashboard() {
     return breakdown.filter((_, i) => i % step === 0 || i === breakdown.length - 1)
   }, [data?.cognito?.dailyBreakdown])
 
-  // Merge analytics views with Cognito user data for Overview chart
+  // Merge analytics views with unique visitors for Overview chart
   const overviewChartData = useMemo(() => {
     const analyticsMap = new Map(chartTimeSeries.map(d => [d.date, d]))
-    const cognitoMap = new Map((data?.cognito?.dailyBreakdown || []).map(d => [d.date, d]))
-    
-    // Get all unique dates
-    const allDates = [...new Set([...analyticsMap.keys(), ...cognitoMap.keys()])].sort()
-    
-    return allDates.map(date => ({
+    const allDates = [...new Set([...analyticsMap.keys()])].sort()
+
+    const merged = allDates.map(date => ({
       date,
       views: analyticsMap.get(date)?.views || 0,
-      totalUsers: cognitoMap.get(date)?.totalUsers || 0,
-      newUsers: cognitoMap.get(date)?.newUsers || 0,
+      uniqueUsers: analyticsMap.get(date)?.uniqueUsers || 0,
     }))
-  }, [chartTimeSeries, data?.cognito?.dailyBreakdown])
+
+    return fillDateGaps(merged, period?.start, period?.end)
+  }, [chartTimeSeries, period?.start, period?.end])
 
   const accent = isLight ? 'text-amber-600' : 'text-[#1A9E7A]'
   const accentBg = isLight ? 'bg-amber-600' : 'bg-[#1A9E7A]'
@@ -209,7 +237,7 @@ export function AdminDashboard() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <BarChart3 className={cn('h-6 w-6', accent)} />
-          <h1 className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-white')}>Analytics</h1>
+          <h1 className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-white')}>Usage</h1>
           {period.start && (
             <span className={cn('text-xs px-2 py-0.5 rounded-full', isLight ? 'bg-stone-100 text-stone-500' : 'bg-slate-800 text-slate-400')}>
               {period.start === period.end ? period.start : `${period.start} — ${period.end}`}
@@ -386,17 +414,43 @@ export function AdminDashboard() {
                 <ComposedChart data={overviewChartData}>
                   <defs>
                     <linearGradient id="viewsGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={c1} stopOpacity={0.25} />
-                      <stop offset="95%" stopColor={c1} stopOpacity={0} />
+                      <stop offset="5%" stopColor={c1} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={c1} stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: axisColor }} tickFormatter={(d) => d.slice(5)} />
-                  <YAxis tick={{ fontSize: 11, fill: axisColor }} />
-                  <Tooltip {...tooltipProps} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11, fill: axisColor }}
+                    tickFormatter={(d) => formatChartDate(d, period?.days || 30)}
+                    interval={overviewChartData.length <= 7 ? 0 : overviewChartData.length <= 14 ? 1 : overviewChartData.length <= 31 ? 4 : overviewChartData.length <= 90 ? 9 : 'preserveStartEnd'}
+                  />
+                  <YAxis yAxisId="left" tick={{ fontSize: 11, fill: axisColor }} />
+                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: axisColor }} />
+                  <Tooltip
+                    {...tooltipProps}
+                    labelFormatter={(label) => formatTooltipDate(label)}
+                  />
                   <Legend iconSize={10} wrapperStyle={legendStyle} formatter={legendFormatter} />
-                  <Bar dataKey="views" name="Views" fill={c1} fillOpacity={0.75} radius={[4, 4, 0, 0]} />
-                  <Line type="monotone" dataKey="totalUsers" name="Total Users" stroke={c2} strokeWidth={2} dot={false} />
+                  <Area
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="views"
+                    name="Page Views"
+                    stroke={c1}
+                    strokeWidth={2}
+                    fill="url(#viewsGrad)"
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="uniqueUsers"
+                    name="Unique Visitors"
+                    stroke={c2}
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 2 }}
+                  />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : <EmptyState isLight={isLight} />}
@@ -494,6 +548,8 @@ export function AdminDashboard() {
           {/* World Map + Country List — Cognito users only */}
           {(() => {
             const cognitoCountries = data?.cognito?.usersByCountry || []
+            const knownCountries = cognitoCountries.filter(cc => cc.id !== 'Unknown')
+            const unknownEntry = cognitoCountries.find(cc => cc.id === 'Unknown')
             const maxUsers = cognitoCountries.length > 0 ? Math.max(...cognitoCountries.map(c => c.count), 1) : 1
             return (
               <div className="grid lg:grid-cols-5 gap-5">
@@ -538,11 +594,11 @@ export function AdminDashboard() {
                 <div className={cn(cardCls, 'lg:col-span-2')}>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className={cn('text-sm font-semibold', isLight ? 'text-stone-700' : 'text-slate-300')}>Countries</h3>
-                    <span className={cn('text-xs', isLight ? 'text-stone-400' : 'text-slate-500')}>{cognitoCountries.length} total</span>
+                    <span className={cn('text-xs', isLight ? 'text-stone-400' : 'text-slate-500')}>{knownCountries.length} total</span>
                   </div>
                   <div className="space-y-1 max-h-[310px] overflow-y-auto pr-1">
                     <PaginatedList
-                      items={cognitoCountries}
+                      items={knownCountries}
                       pageSize={10}
                       isLight={isLight}
                       renderItem={(cc, i) => (
@@ -561,7 +617,22 @@ export function AdminDashboard() {
                         </div>
                       )}
                     />
-                    {cognitoCountries.length === 0 && <EmptyState isLight={isLight} />}
+                    {unknownEntry && (
+                      <div className={cn('flex items-center gap-2 py-1.5 px-2 rounded-lg mt-2 border-t', isLight ? 'border-stone-100' : 'border-slate-800')}>
+                        <span className={cn('text-xs italic w-4', isLight ? 'text-stone-300' : 'text-slate-600')}>—</span>
+                        <span className={cn('text-xs italic', isLight ? 'text-stone-400' : 'text-slate-500')}>Unknown</span>
+                        <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: isLight ? '#e7e5e4' : '#1e293b' }}>
+                          <div className="h-full rounded-full transition-all opacity-40" style={{
+                            width: `${(unknownEntry.count / maxUsers) * 100}%`,
+                            backgroundColor: c1,
+                          }} />
+                        </div>
+                        <span className={cn('text-xs tabular-nums italic', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                          {unknownEntry.count} (no country set)
+                        </span>
+                      </div>
+                    )}
+                    {knownCountries.length === 0 && !unknownEntry && <EmptyState isLight={isLight} />}
                   </div>
                 </div>
               </div>

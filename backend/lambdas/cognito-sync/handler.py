@@ -119,50 +119,6 @@ def _normalize_country_code(code):
     return code
 
 
-# Email domain to country code mapping (Amazon regional domains)
-EMAIL_DOMAIN_COUNTRY = {
-    "amazon.com": "US",
-    "amazon.co.uk": "GB",
-    "amazon.de": "DE",
-    "amazon.fr": "FR",
-    "amazon.es": "ES",
-    "amazon.it": "IT",
-    "amazon.co.jp": "JP",
-    "amazon.cn": "CN",
-    "amazon.in": "IN",
-    "amazon.com.br": "BR",
-    "amazon.com.mx": "MX",
-    "amazon.com.au": "AU",
-    "amazon.ca": "CA",
-    "amazon.nl": "NL",
-    "amazon.pl": "PL",
-    "amazon.se": "SE",
-    "amazon.sg": "SG",
-    "amazon.ae": "AE",
-    "amazon.sa": "SA",
-    "amazon.eg": "EG",
-    "amazon.ie": "IE",
-    "amazon.lu": "LU",
-}
-
-
-def _extract_country_from_email(email):
-    """Extract country code from email domain.
-
-    For Amazon employees, the email domain indicates their country:
-    - avelizf@amazon.es → ES
-    - john@amazon.com → US
-    - hans@amazon.de → DE
-
-    Returns 2-letter country code or empty string if not recognized.
-    """
-    if not email or "@" not in email:
-        return ""
-
-    domain = email.split("@")[-1].lower()
-    return EMAIL_DOMAIN_COUNTRY.get(domain, "")
-
-
 def lambda_handler(event, context):
     """Main handler — sync Cognito users to DynamoDB cache."""
     if not USER_POOL_ID:
@@ -269,7 +225,7 @@ def _list_all_users():
                     "lastModified": user.get("UserLastModifiedDate"),
                     "locale": attrs.get("locale", ""),
                     "country": _normalize_country_code(attrs.get("custom:country", ""))
-                    or _extract_country_from_email(attrs.get("email", "")),
+                    or "Unknown",
                 }
             )
 
@@ -287,7 +243,7 @@ def _compute_summary(users, today):
     - totalUsers: all confirmed or federated (enabled) users
     - newUsersToday: users whose dateCreated (from identities) is today
     - returningUsersToday: users whose dateCreated is before today
-    - usersByCountry: from custom:country or locale attribute
+    - usersByCountry: from custom:country attribute only ("Unknown" excluded from counts)
     """
     total = 0
     new_today = 0
@@ -317,17 +273,9 @@ def _compute_summary(users, today):
             else:
                 returning_today += 1
 
-        # Country from custom attribute or locale
+        # Country from custom:country attribute (already resolved in _list_all_users)
         country = user.get("country") or ""
-        if not country and user.get("locale"):
-            # locale is like 'en-US' — extract country code
-            locale = user["locale"]
-            if "-" in locale:
-                country = locale.split("-")[-1].upper()
-            elif "_" in locale:
-                country = locale.split("_")[-1].upper()
-
-        if country:
+        if country and country != "Unknown":
             by_country[country] = by_country.get(country, 0) + 1
 
     return {
