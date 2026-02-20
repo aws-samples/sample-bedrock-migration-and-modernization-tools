@@ -742,51 +742,79 @@ function CrossRegionInferenceSection({ crisData }) {
                             </div>
                           )}
 
-                          {/* Source → Destination routing table */}
+                          {/* Source regions display */}
                           {sourceRegionsList.length > 0 && (
                             <div className="mt-3">
-                              <p className={cn('text-[10px] mb-2 font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                                Routing by Source Region ({sourceRegionsList.length} sources)
-                              </p>
-                              <div className="space-y-1.5">
-                                {sourceRegionsList.map(sourceRegion => {
-                                  const destinations = routingBySource[sourceRegion] || []
-                                  return (
-                                    <div key={sourceRegion} className={cn(
-                                      'flex items-start gap-2 text-[10px] p-1.5 rounded',
-                                      isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.04]'
-                                    )}>
-                                      <Tooltip delayDuration={200}>
+                              {scopeKey === 'GLOBAL' ? (
+                                <>
+                                  <p className={cn('text-[10px] mb-2 font-medium', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                                    Source Regions ({sourceRegionsList.length})
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {sourceRegionsList.map(sourceRegion => (
+                                      <Tooltip key={sourceRegion} delayDuration={200}>
                                         <TooltipTrigger asChild>
-                                          <Badge variant="secondary" className="text-[10px] cursor-default shrink-0">
+                                          <Badge variant="secondary" className="text-[10px] cursor-default">
                                             {regionDisplayNames[sourceRegion] || sourceRegion}
                                           </Badge>
                                         </TooltipTrigger>
-                                        <TooltipContent side="left" sideOffset={4}>
+                                        <TooltipContent side="bottom" sideOffset={4}>
                                           <p className="font-mono text-xs">{sourceRegion}</p>
                                         </TooltipContent>
                                       </Tooltip>
-                                      <span className={cn('shrink-0', isLight ? 'text-stone-400' : 'text-slate-500')}>→</span>
-                                      <div className="flex flex-wrap gap-1">
-                                        {destinations.length > 0 ? destinations.sort().map(dest => (
-                                          <Tooltip key={dest} delayDuration={200}>
+                                    ))}
+                                  </div>
+                                  <p className={cn('text-[10px] mt-2 italic flex items-center gap-1', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                                    <Globe className="h-3 w-3" />
+                                    All source regions route to all supported destination regions
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className={cn('text-[10px] mb-2 font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>
+                                    Routing by Source Region ({sourceRegionsList.length} sources)
+                                  </p>
+                                  <div className="space-y-1.5">
+                                    {sourceRegionsList.map(sourceRegion => {
+                                      const destinations = routingBySource[sourceRegion] || []
+                                      return (
+                                        <div key={sourceRegion} className={cn(
+                                          'flex items-start gap-2 text-[10px] p-1.5 rounded',
+                                          isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.04]'
+                                        )}>
+                                          <Tooltip delayDuration={200}>
                                             <TooltipTrigger asChild>
-                                              <Badge variant="info" className="text-[10px] cursor-default">
-                                                {regionDisplayNames[dest] || dest}
+                                              <Badge variant="secondary" className="text-[10px] cursor-default shrink-0">
+                                                {regionDisplayNames[sourceRegion] || sourceRegion}
                                               </Badge>
                                             </TooltipTrigger>
-                                            <TooltipContent side="bottom" sideOffset={4}>
-                                              <p className="font-mono text-xs">{dest}</p>
+                                            <TooltipContent side="left" sideOffset={4}>
+                                              <p className="font-mono text-xs">{sourceRegion}</p>
                                             </TooltipContent>
                                           </Tooltip>
-                                        )) : (
-                                          <span className={cn('italic', isLight ? 'text-stone-400' : 'text-slate-500')}>All supported regions</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
+                                          <span className={cn('shrink-0', isLight ? 'text-stone-400' : 'text-slate-500')}>→</span>
+                                          <div className="flex flex-wrap gap-1">
+                                            {destinations.length > 0 ? destinations.sort().map(dest => (
+                                              <Tooltip key={dest} delayDuration={200}>
+                                                <TooltipTrigger asChild>
+                                                  <Badge variant="info" className="text-[10px] cursor-default">
+                                                    {regionDisplayNames[dest] || dest}
+                                                  </Badge>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom" sideOffset={4}>
+                                                  <p className="font-mono text-xs">{dest}</p>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            )) : (
+                                              <span className={cn('italic', isLight ? 'text-stone-400' : 'text-slate-500')}>All supported regions</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>

@@ -495,11 +495,23 @@ export function useModels() {
     const activeCount = models.filter(m => (m.model_lifecycle?.status || m.model_status) === 'ACTIVE').length
     const legacyCount = models.filter(m => (m.model_lifecycle?.status || m.model_status) === 'LEGACY').length
 
-    // Count unique regions
+    // Count unique regions (all region types)
     const regions = new Set()
     models.forEach(m => {
       if (m.regions_available) {
         m.regions_available.forEach(r => regions.add(r))
+      }
+      if (m.cross_region_inference?.source_regions) {
+        m.cross_region_inference.source_regions.forEach(r => regions.add(r))
+      }
+      if (m.batch_inference_supported?.supported_regions) {
+        m.batch_inference_supported.supported_regions.forEach(r => regions.add(r))
+      }
+      if (m.provisioned_throughput?.provisioned_regions) {
+        m.provisioned_throughput.provisioned_regions.forEach(r => regions.add(r))
+      }
+      if (m.mantle_inference?.mantle_regions) {
+        m.mantle_inference.mantle_regions.forEach(r => regions.add(r))
       }
     })
 
