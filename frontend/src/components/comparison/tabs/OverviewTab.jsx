@@ -498,74 +498,6 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
         </div>
       </div>
 
-      {/* Scoring Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowScoringInfo(!showScoringInfo)}
-            className={cn(
-              'flex items-center gap-1 text-xs rounded-md px-2 py-1 transition-colors',
-              isLight ? 'text-stone-400 hover:text-stone-600 hover:bg-stone-100' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-            )}
-          >
-            <Info className="h-3.5 w-3.5" />
-            <span>Scoring (0–10 scale)</span>
-          </button>
-        </div>
-        
-        <div className={cn(
-          'inline-flex rounded-md border overflow-hidden h-7',
-          isLight ? 'border-stone-300' : 'border-[#373a40]'
-        )}>
-          <button
-            onClick={() => setScoringMode('global')}
-            className={cn(
-              'px-2.5 py-1 text-[11px] font-medium transition-colors',
-              scoringMode === 'global'
-                ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
-                : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-            )}
-          >
-            Global
-          </button>
-          <button
-            onClick={() => setScoringMode('relative')}
-            className={cn(
-              'px-2.5 py-1 text-[11px] font-medium transition-colors border-l',
-              isLight ? 'border-stone-300' : 'border-[#373a40]',
-              scoringMode === 'relative'
-                ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
-                : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-            )}
-          >
-            Relative
-          </button>
-        </div>
-      </div>
-
-      {/* Scoring Info Panel (collapsible) */}
-      {showScoringInfo && (
-        <div className={cn(
-          'rounded-lg border p-4 text-xs space-y-2',
-          isLight ? 'bg-stone-50 border-stone-200 text-stone-600' : 'bg-white/[0.02] border-white/[0.06] text-slate-400'
-        )}>
-          <p className={cn('font-semibold text-sm mb-2', isLight ? 'text-stone-700' : 'text-slate-300')}>
-            How Scoring Works
-          </p>
-          <p>Each model is scored on 4 dimensions (0–10 scale each, max total 40):</p>
-          <div className="space-y-1.5 mt-2">
-            <div><span className="font-medium">Cost Efficiency</span> — Lower price per token = higher score. Cheapest model scores 10, most expensive scores 0. Models without pricing data score 0.</div>
-            <div><span className="font-medium">Context Window</span> — Larger context = higher score. The model with the largest context window scores 10, others proportionally.</div>
-            <div><span className="font-medium">Availability</span> — More regions = higher score. The model available in the most regions scores 10, others proportionally.</div>
-            <div><span className="font-medium">Features</span> — More features = higher score. Counts: Streaming, Batch, Cross-Region Inference (CRIS), and Mantle support.</div>
-          </div>
-          <div className={cn('mt-3 pt-2 border-t', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
-            <p><span className="font-medium">Global mode</span> — Scores are relative to ALL {allModels?.length || 0} models in the catalog. Consistent across comparisons.</p>
-            <p><span className="font-medium">Relative mode</span> — Scores are relative to only the models being compared. Best in the group always scores 10.</p>
-          </div>
-        </div>
-      )}
-
       {/* Radar Chart */}
       {modelData.length >= 2 && (
         <div className={cn(
@@ -654,6 +586,74 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                 })}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scoring Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowScoringInfo(!showScoringInfo)}
+            className={cn(
+              'flex items-center gap-1 text-xs rounded-md px-2 py-1 transition-colors',
+              isLight ? 'text-stone-400 hover:text-stone-600 hover:bg-stone-100' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+            )}
+          >
+            <Info className="h-3.5 w-3.5" />
+            <span>Scoring (0–10 scale)</span>
+          </button>
+        </div>
+        
+        <div className={cn(
+          'inline-flex rounded-md border overflow-hidden h-7',
+          isLight ? 'border-stone-300' : 'border-[#373a40]'
+        )}>
+          <button
+            onClick={() => setScoringMode('global')}
+            className={cn(
+              'px-2.5 py-1 text-[11px] font-medium transition-colors',
+              scoringMode === 'global'
+                ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+            )}
+          >
+            Global
+          </button>
+          <button
+            onClick={() => setScoringMode('relative')}
+            className={cn(
+              'px-2.5 py-1 text-[11px] font-medium transition-colors border-l',
+              isLight ? 'border-stone-300' : 'border-[#373a40]',
+              scoringMode === 'relative'
+                ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+            )}
+          >
+            Relative
+          </button>
+        </div>
+      </div>
+
+      {/* Scoring Info Panel (collapsible) */}
+      {showScoringInfo && (
+        <div className={cn(
+          'rounded-lg border p-4 text-xs space-y-2',
+          isLight ? 'bg-stone-50 border-stone-200 text-stone-600' : 'bg-white/[0.02] border-white/[0.06] text-slate-400'
+        )}>
+          <p className={cn('font-semibold text-sm mb-2', isLight ? 'text-stone-700' : 'text-slate-300')}>
+            How Scoring Works
+          </p>
+          <p>Each model is scored on 4 dimensions (0–10 scale each, max total 40):</p>
+          <div className="space-y-1.5 mt-2">
+            <div><span className="font-medium">Cost Efficiency</span> — Lower price per token = higher score. Cheapest model scores 10, most expensive scores 0. Models without pricing data score 0.</div>
+            <div><span className="font-medium">Context Window</span> — Larger context = higher score. The model with the largest context window scores 10, others proportionally.</div>
+            <div><span className="font-medium">Availability</span> — More regions = higher score. The model available in the most regions scores 10, others proportionally.</div>
+            <div><span className="font-medium">Features</span> — More features = higher score. Counts: Streaming, Batch, Cross-Region Inference (CRIS), and Mantle support.</div>
+          </div>
+          <div className={cn('mt-3 pt-2 border-t', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+            <p><span className="font-medium">Global mode</span> — Scores are relative to ALL {allModels?.length || 0} models in the catalog. Consistent across comparisons.</p>
+            <p><span className="font-medium">Relative mode</span> — Scores are relative to only the models being compared. Best in the group always scores 10.</p>
           </div>
         </div>
       )}
