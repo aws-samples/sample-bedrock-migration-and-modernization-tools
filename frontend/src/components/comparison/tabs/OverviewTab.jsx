@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy, Info, DollarSign, Globe } from 'lucide-react'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts'
 import { Badge } from '@/components/ui/badge'
@@ -67,34 +67,39 @@ function getExtendedContextWindow(model) {
   return maxContext > 0 ? maxContext : null
 }
 
-// Radar scoring (matching Streamlit methodology, 0-10 scale)
-function computeRadarScores(modelData) {
-  // Find max cost for normalization
-  const allCosts = modelData
-    .map(d => ((d.inputPrice || 0) + (d.outputPrice || 0)))
-    .filter(c => c > 0)
-  const maxCost = allCosts.length > 0 ? Math.max(...allCosts) : 1
-
+// Radar scoring (0-10 scale, benchmarked against global or relative set)
+function computeRadarScores(modelData, benchmarks) {
+  const { maxContext, maxRegions, maxFeatures, maxCost } = benchmarks
+  
   return modelData.map(d => {
     // Cost Efficiency: lower price = higher score (0-10)
+    // Score = 10 × (1 - modelCost / maxCost). Cheapest = 10, most expensive = 0
     const totalCost = (d.inputPrice || 0) + (d.outputPrice || 0)
-    const costScore = totalCost > 0 ? 10 - (totalCost / maxCost * 10) : 5
-
-    // Context Window: use effective context (with long-context), 100K tokens = 1 pt, max 10
+    const costScore = totalCost > 0 && maxCost > 0
+      ? 10 * (1 - totalCost / maxCost)
+      : 0  // No pricing data = 0 (unknown, not mid-range)
+    
+    // Context Window: relative to the max context window
     const effectiveCtx = d.effectiveContextWindow || d.contextWindow
-    const contextScore = effectiveCtx > 0 ? Math.min(effectiveCtx / 100000, 10) : 2
-
-    // Availability: 2 regions = 1 point, max 10
-    const regionScore = Math.min(d.regions.length / 2, 10)
-
-    // Features: Streaming +2.5, Batch +2.5, CRIS +2.5, Mantle +2.5, max 10
-    let featureScore = 0
-    if (d.streamingSupported) featureScore += 2.5
-    if (d.batchSupported) featureScore += 2.5
-    if (d.crisSupported) featureScore += 2.5
-    if (d.mantleSupported) featureScore += 2.5
-    featureScore = Math.min(featureScore, 10)
-
+    const contextScore = effectiveCtx > 0 && maxContext > 0
+      ? Math.min(10 * (effectiveCtx / maxContext), 10)
+      : 0
+    
+    // Availability: relative to the model with most regions
+    const regionScore = maxRegions > 0
+      ? Math.min(10 * (d.regions.length / maxRegions), 10)
+      : 0
+    
+    // Features: relative to the max features count
+    let featureCount = 0
+    if (d.streamingSupported) featureCount++
+    if (d.batchSupported) featureCount++
+    if (d.crisSupported) featureCount++
+    if (d.mantleSupported) featureCount++
+    const featureScore = maxFeatures > 0
+      ? Math.min(10 * (featureCount / maxFeatures), 10)
+      : 0
+    
     return {
       name: d.model.model_name || d.model.model_id,
       costScore: Math.round(costScore * 10) / 10,
@@ -280,7 +285,10 @@ function RadarTooltip({ active, payload, label, isLight }) {
   )
 }
 
-export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
+export function OverviewTab({ selectedModels, getPricingForModel, allModels, isLight }) {
+  const [scoringMode, setScoringMode] = useState('global') // 'global' or 'relative'
+  const [showScoringInfo, setShowScoringInfo] = useState(false)
+
   const modelData = selectedModels.map(({ model, region }) => {
     const pricing = getPricingForModel?.(model, region)
     const contextWindow = model.converse_data?.context_window || 0
@@ -321,8 +329,65 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
     }
   })
 
+  // Global benchmarks from ALL models in the catalog
+  const globalBenchmarks = useMemo(() => {
+    if (!allModels || allModels.length === 0) return null
+    
+    let maxContext = 0
+    let maxRegions = 0
+    let maxFeatures = 0
+    
+    allModels.forEach(m => {
+      // Context window
+      const ctx = m.converse_data?.context_window || 0
+      const extCtx = getExtendedContextWindow(m)
+      const effectiveCtx = Math.max(ctx, extCtx || 0)
+      if (effectiveCtx > maxContext) maxContext = effectiveCtx
+      
+      // Regions
+      const regionCount = (m.regions_available || []).length
+      if (regionCount > maxRegions) maxRegions = regionCount
+      
+      // Features count
+      let features = 0
+      if (m.streaming_supported) features++
+      if ((m.consumption_options || []).includes('batch')) features++
+      if (m.cross_region_inference?.supported) features++
+      if (m.mantle_inference?.supported || m.is_mantle) features++
+      if (features > maxFeatures) maxFeatures = features
+    })
+    
+    // Max cost from the comparison set (we don't have pricing for all models easily)
+    const allCosts = modelData
+      .map(d => ((d.inputPrice || 0) + (d.outputPrice || 0)))
+      .filter(c => c > 0)
+    const maxCost = allCosts.length > 0 ? Math.max(...allCosts) : 1
+    
+    return { maxContext, maxRegions, maxFeatures: Math.max(maxFeatures, 1), maxCost }
+  }, [allModels, modelData])
+
+  // Relative benchmarks from only the compared models
+  const relativeBenchmarks = useMemo(() => {
+    const allCosts = modelData.map(d => ((d.inputPrice || 0) + (d.outputPrice || 0))).filter(c => c > 0)
+    const maxCost = allCosts.length > 0 ? Math.max(...allCosts) : 1
+    const maxContext = Math.max(...modelData.map(d => d.effectiveContextWindow || d.contextWindow), 1)
+    const maxRegions = Math.max(...modelData.map(d => d.regions.length), 1)
+    let maxFeatures = 0
+    modelData.forEach(d => {
+      let f = 0
+      if (d.streamingSupported) f++
+      if (d.batchSupported) f++
+      if (d.crisSupported) f++
+      if (d.mantleSupported) f++
+      if (f > maxFeatures) maxFeatures = f
+    })
+    return { maxContext, maxRegions, maxFeatures: Math.max(maxFeatures, 1), maxCost }
+  }, [modelData])
+
+  const activeBenchmarks = scoringMode === 'global' && globalBenchmarks ? globalBenchmarks : relativeBenchmarks
+
   // Radar chart data
-  const radarScores = useMemo(() => computeRadarScores(modelData), [modelData])
+  const radarScores = useMemo(() => computeRadarScores(modelData, activeBenchmarks), [modelData, activeBenchmarks])
 
   const radarChartData = useMemo(() => {
     const axes = ['Context Window', 'Cost Efficiency', 'Availability', 'Features']
@@ -433,6 +498,74 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
         </div>
       </div>
 
+      {/* Scoring Controls */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowScoringInfo(!showScoringInfo)}
+            className={cn(
+              'flex items-center gap-1 text-xs rounded-md px-2 py-1 transition-colors',
+              isLight ? 'text-stone-400 hover:text-stone-600 hover:bg-stone-100' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+            )}
+          >
+            <Info className="h-3.5 w-3.5" />
+            <span>Scoring (0–10 scale)</span>
+          </button>
+        </div>
+        
+        <div className={cn(
+          'inline-flex rounded-md border overflow-hidden h-7',
+          isLight ? 'border-stone-300' : 'border-[#373a40]'
+        )}>
+          <button
+            onClick={() => setScoringMode('global')}
+            className={cn(
+              'px-2.5 py-1 text-[11px] font-medium transition-colors',
+              scoringMode === 'global'
+                ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+            )}
+          >
+            Global
+          </button>
+          <button
+            onClick={() => setScoringMode('relative')}
+            className={cn(
+              'px-2.5 py-1 text-[11px] font-medium transition-colors border-l',
+              isLight ? 'border-stone-300' : 'border-[#373a40]',
+              scoringMode === 'relative'
+                ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+            )}
+          >
+            Relative
+          </button>
+        </div>
+      </div>
+
+      {/* Scoring Info Panel (collapsible) */}
+      {showScoringInfo && (
+        <div className={cn(
+          'rounded-lg border p-4 text-xs space-y-2',
+          isLight ? 'bg-stone-50 border-stone-200 text-stone-600' : 'bg-white/[0.02] border-white/[0.06] text-slate-400'
+        )}>
+          <p className={cn('font-semibold text-sm mb-2', isLight ? 'text-stone-700' : 'text-slate-300')}>
+            How Scoring Works
+          </p>
+          <p>Each model is scored on 4 dimensions (0–10 scale each, max total 40):</p>
+          <div className="space-y-1.5 mt-2">
+            <div><span className="font-medium">Cost Efficiency</span> — Lower price per token = higher score. Cheapest model scores 10, most expensive scores 0. Models without pricing data score 0.</div>
+            <div><span className="font-medium">Context Window</span> — Larger context = higher score. The model with the largest context window scores 10, others proportionally.</div>
+            <div><span className="font-medium">Availability</span> — More regions = higher score. The model available in the most regions scores 10, others proportionally.</div>
+            <div><span className="font-medium">Features</span> — More features = higher score. Counts: Streaming, Batch, Cross-Region Inference (CRIS), and Mantle support.</div>
+          </div>
+          <div className={cn('mt-3 pt-2 border-t', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+            <p><span className="font-medium">Global mode</span> — Scores are relative to ALL {allModels?.length || 0} models in the catalog. Consistent across comparisons.</p>
+            <p><span className="font-medium">Relative mode</span> — Scores are relative to only the models being compared. Best in the group always scores 10.</p>
+          </div>
+        </div>
+      )}
+
       {/* Radar Chart */}
       {modelData.length >= 2 && (
         <div className={cn(
@@ -491,34 +624,9 @@ export function OverviewTab({ selectedModels, getPricingForModel, isLight }) {
               </ResponsiveContainer>
             </div>
 
-            {/* Scoring methodology */}
+            {/* Score summary per model */}
             <div className="px-4 py-3 lg:pr-6 overflow-y-auto" style={{ maxHeight: 380 }}>
-              <div className={cn(
-                'flex items-center gap-1.5 mb-2',
-                isLight ? 'text-stone-600' : 'text-slate-400'
-              )}>
-                <Info className="h-3.5 w-3.5" />
-                <span className="text-xs font-medium">Scoring (0-10 scale)</span>
-              </div>
-              <div className="space-y-2 text-[11px]">
-                {[
-                  { label: 'Cost Efficiency', desc: 'Lower pricing = higher score' },
-                  { label: 'Context Window', desc: '100K tokens = 1 pt, incl. long-ctx (max 10)' },
-                  { label: 'Availability', desc: '2 regions = 1 pt (max 10)' },
-                  { label: 'Features', desc: 'Stream +2.5, Batch +2.5, CRIS +2.5, Mantle +2.5' },
-                ].map(({ label, desc }) => (
-                  <div key={label}>
-                    <span className={cn('font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>{label}</span>
-                    <span className={cn('ml-1', isLight ? 'text-stone-400' : 'text-slate-500')}>— {desc}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Score summary per model */}
-              <div className={cn(
-                'mt-3 pt-3 border-t space-y-1.5',
-                isLight ? 'border-stone-200' : 'border-white/[0.06]'
-              )}>
+              <div className="space-y-1.5">
                 {radarScores.map((scores, idx) => {
                   const total = scores.costScore + scores.contextScore + scores.regionScore + scores.featureScore
                   return (
