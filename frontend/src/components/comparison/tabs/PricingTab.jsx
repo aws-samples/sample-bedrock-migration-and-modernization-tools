@@ -177,16 +177,16 @@ function PricingGroupSection({ groupName, rows, models, pricingByModel, isLight 
       </button>
 
       {expanded && (
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[400px]">
           <table className="w-full">
-            <thead>
+            <thead className="sticky top-0 z-20">
               <tr className={cn(
                 'border-t border-b',
-                isLight ? 'border-stone-200 bg-stone-50/60' : 'border-white/[0.06] bg-white/[0.02]'
+                isLight ? 'border-stone-200 bg-stone-50' : 'border-white/[0.06] bg-[#1a1b1e]'
               )}>
                 <th className={cn(
-                  'px-5 py-2.5 text-left text-sm font-semibold w-44 min-w-[140px]',
-                  isLight ? 'text-stone-700' : 'text-slate-300'
+                  'px-5 py-2.5 text-left text-sm font-semibold w-44 min-w-[140px] sticky left-0 z-30',
+                  isLight ? 'text-stone-700 bg-stone-50' : 'text-slate-300 bg-[#1a1b1e]'
                 )}>
                   Dimension
                 </th>
@@ -225,8 +225,8 @@ function PricingGroupSection({ groupName, rows, models, pricingByModel, isLight 
                     )}
                   >
                     <td className={cn(
-                      'px-5 py-3 text-sm font-medium',
-                      isLight ? 'text-stone-700' : 'text-slate-300'
+                      'px-5 py-3 text-sm font-medium sticky left-0 z-10',
+                      isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
                     )}>
                       <div>
                         {row.label}

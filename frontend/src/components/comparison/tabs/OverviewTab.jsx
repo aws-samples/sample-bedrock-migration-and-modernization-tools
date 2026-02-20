@@ -119,8 +119,8 @@ function MetricRow({ label, values, isLight, bestIndices = null }) {
       isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
-        'px-4 py-2.5 font-medium text-xs whitespace-nowrap',
-        isLight ? 'text-stone-700' : 'text-slate-300'
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10',
+        isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
       )}>
         {label}
       </td>
@@ -154,8 +154,8 @@ function ContextRow({ label, values, isLight, bestIndices = null }) {
       isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
-        'px-4 py-2.5 font-medium text-xs whitespace-nowrap',
-        isLight ? 'text-stone-700' : 'text-slate-300'
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10',
+        isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
       )}>
         {label}
       </td>
@@ -207,8 +207,8 @@ function BooleanRow({ label, values, isLight }) {
       isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
-        'px-4 py-2.5 font-medium text-xs whitespace-nowrap',
-        isLight ? 'text-stone-700' : 'text-slate-300'
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10',
+        isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
       )}>
         {label}
       </td>
@@ -232,8 +232,8 @@ function ModalitiesRow({ label, values, isLight, isOutput = false }) {
       isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
-        'px-4 py-2.5 font-medium text-xs whitespace-nowrap',
-        isLight ? 'text-stone-700' : 'text-slate-300'
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10',
+        isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
       )}>
         {label}
       </td>
@@ -662,16 +662,16 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
           ? 'bg-white/70 border-stone-200/60 backdrop-blur-xl'
           : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl'
       )}>
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[600px]">
           <table className="w-full">
-            <thead>
+            <thead className="sticky top-0 z-20">
               <tr className={cn(
                 'border-b-2',
-                isLight ? 'border-stone-200 bg-stone-50/60' : 'border-white/[0.06] bg-white/[0.02]'
+                isLight ? 'border-stone-200 bg-stone-50' : 'border-white/[0.06] bg-[#1a1b1e]'
               )}>
                 <th className={cn(
-                  'px-4 py-3 text-left text-xs font-semibold w-40 min-w-[130px]',
-                  isLight ? 'text-stone-900' : 'text-white'
+                  'px-4 py-3 text-left text-xs font-semibold w-40 min-w-[130px] sticky left-0 z-30',
+                  isLight ? 'text-stone-900 bg-stone-50' : 'text-white bg-[#1a1b1e]'
                 )}>
                   Feature
                 </th>

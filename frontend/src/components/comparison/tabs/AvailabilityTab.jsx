@@ -320,16 +320,16 @@ export function AvailabilityTab({ selectedModels, isLight }) {
           ))}
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[500px]">
           <table className="w-full">
-            <thead>
+            <thead className="sticky top-0 z-20">
               <tr className={cn(
                 'border-b-2',
-                isLight ? 'border-stone-200 bg-stone-50/60' : 'border-white/[0.06] bg-white/[0.02]'
+                isLight ? 'border-stone-200 bg-stone-50' : 'border-white/[0.06] bg-[#1a1b1e]'
               )}>
                 <th className={cn(
-                  'px-5 py-3 text-left text-sm font-semibold min-w-[200px]',
-                  isLight ? 'text-stone-900' : 'text-white'
+                  'px-5 py-3 text-left text-sm font-semibold min-w-[200px] sticky left-0 z-30',
+                  isLight ? 'text-stone-900 bg-stone-50' : 'text-white bg-[#1a1b1e]'
                 )}>
                   Region
                 </th>
@@ -476,7 +476,12 @@ function GeoSection({ group, collapsed, onToggle, selectedModels, commonRegions,
               isLight ? 'border-stone-100' : 'border-white/[0.04]'
             )}
           >
-            <td className="px-5 py-2.5">
+            <td className={cn(
+              'px-5 py-2.5 sticky left-0 z-10',
+              isCommon
+                ? isLight ? 'bg-emerald-50/30' : 'bg-emerald-500/5'
+                : isLight ? 'bg-white' : 'bg-[#1a1b1e]'
+            )}>
               <div className="flex items-center gap-2">
                 {isCommon && (
                   <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
@@ -583,21 +588,24 @@ function CrisSection({ selectedModels, isLight }) {
       </button>
 
       {expanded && (
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[400px]">
           <table className="w-full">
-            <thead>
+            <thead className="sticky top-0 z-20">
               <tr className={cn(
                 'border-t border-b',
-                isLight ? 'border-stone-200 bg-stone-50/50' : 'border-white/[0.06] bg-white/[0.02]'
+                isLight ? 'border-stone-200 bg-stone-50' : 'border-white/[0.06] bg-[#1a1b1e]'
               )}>
                 <th className={cn(
-                  'px-5 py-2.5 text-left text-xs font-semibold min-w-[140px]',
-                  isLight ? 'text-stone-700' : 'text-slate-300'
+                  'px-5 py-2.5 text-left text-xs font-semibold min-w-[140px] sticky left-0 z-30',
+                  isLight ? 'text-stone-700 bg-stone-50' : 'text-slate-300 bg-[#1a1b1e]'
                 )}>
                   Attribute
                 </th>
                 {selectedModels.map(({ model }) => (
-                  <th key={model.model_id} className="px-3 py-2.5 text-center min-w-[100px]">
+                  <th key={model.model_id} className={cn(
+                    'px-3 py-2.5 text-center min-w-[100px]',
+                    isLight ? 'bg-stone-50' : 'bg-[#1a1b1e]'
+                  )}>
                     <Badge className={cn(
                       'text-[9px] mb-0.5',
                       isLight ? 'text-[#faf9f5]' : 'text-white',
@@ -618,7 +626,7 @@ function CrisSection({ selectedModels, isLight }) {
             <tbody>
               {/* Supported row */}
               <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-white/[0.04]')}>
-                <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                <td className={cn('px-5 py-2.5 text-sm font-medium sticky left-0 z-10', isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]')}>
                   Supported
                 </td>
                 {selectedModels.map(({ model }) => {
@@ -637,7 +645,7 @@ function CrisSection({ selectedModels, isLight }) {
 
               {/* Profiles row */}
               <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-white/[0.04]')}>
-                <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                <td className={cn('px-5 py-2.5 text-sm font-medium sticky left-0 z-10', isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]')}>
                   Profiles
                 </td>
                 {selectedModels.map(({ model }) => {
@@ -655,7 +663,7 @@ function CrisSection({ selectedModels, isLight }) {
 
               {/* Source regions count row */}
               <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-white/[0.04]')}>
-                <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                <td className={cn('px-5 py-2.5 text-sm font-medium sticky left-0 z-10', isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]')}>
                   Source Regions
                 </td>
                 {selectedModels.map(({ model }) => {
@@ -679,7 +687,7 @@ function CrisSection({ selectedModels, isLight }) {
                     'border-b last:border-b-0',
                     isLight ? 'border-stone-100' : 'border-white/[0.04]'
                   )}>
-                    <td className={cn('px-5 py-3 align-top', isLight ? 'text-stone-800' : 'text-slate-200')}>
+                    <td className={cn('px-5 py-3 align-top sticky left-0 z-10', isLight ? 'text-stone-800 bg-white' : 'text-slate-200 bg-[#1a1b1e]')}>
                       <div className="text-sm font-semibold">{geoLabels[geo] || geo}</div>
                       <div className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
                         {regions.length} region{regions.length !== 1 ? 's' : ''}
@@ -799,21 +807,24 @@ function MantleSection({ selectedModels, isLight }) {
       </button>
 
       {expanded && (
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[400px]">
           <table className="w-full">
-            <thead>
+            <thead className="sticky top-0 z-20">
               <tr className={cn(
                 'border-t border-b',
-                isLight ? 'border-stone-200 bg-stone-50/50' : 'border-white/[0.06] bg-white/[0.02]'
+                isLight ? 'border-stone-200 bg-stone-50' : 'border-white/[0.06] bg-[#1a1b1e]'
               )}>
                 <th className={cn(
-                  'px-5 py-2.5 text-left text-xs font-semibold min-w-[140px]',
-                  isLight ? 'text-stone-700' : 'text-slate-300'
+                  'px-5 py-2.5 text-left text-xs font-semibold min-w-[140px] sticky left-0 z-30',
+                  isLight ? 'text-stone-700 bg-stone-50' : 'text-slate-300 bg-[#1a1b1e]'
                 )}>
                   Attribute
                 </th>
                 {selectedModels.map(({ model }) => (
-                  <th key={model.model_id} className="px-3 py-2.5 text-center min-w-[100px]">
+                  <th key={model.model_id} className={cn(
+                    'px-3 py-2.5 text-center min-w-[100px]',
+                    isLight ? 'bg-stone-50' : 'bg-[#1a1b1e]'
+                  )}>
                     <Badge className={cn(
                       'text-[9px] mb-0.5',
                       isLight ? 'text-[#faf9f5]' : 'text-white',
@@ -834,7 +845,7 @@ function MantleSection({ selectedModels, isLight }) {
             <tbody>
               {/* Supported row */}
               <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-white/[0.04]')}>
-                <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                <td className={cn('px-5 py-2.5 text-sm font-medium sticky left-0 z-10', isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]')}>
                   Supported
                 </td>
                 {selectedModels.map(({ model }) => {
@@ -853,7 +864,7 @@ function MantleSection({ selectedModels, isLight }) {
 
               {/* Regions count row */}
               <tr className={cn('border-b', isLight ? 'border-stone-100' : 'border-white/[0.04]')}>
-                <td className={cn('px-5 py-2.5 text-sm font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                <td className={cn('px-5 py-2.5 text-sm font-medium sticky left-0 z-10', isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]')}>
                   Regions
                 </td>
                 {selectedModels.map(({ model }) => {
@@ -877,7 +888,7 @@ function MantleSection({ selectedModels, isLight }) {
                     'border-b last:border-b-0',
                     isLight ? 'border-stone-100' : 'border-white/[0.04]'
                   )}>
-                    <td className={cn('px-5 py-3 align-top', isLight ? 'text-stone-800' : 'text-slate-200')}>
+                    <td className={cn('px-5 py-3 align-top sticky left-0 z-10', isLight ? 'text-stone-800 bg-white' : 'text-slate-200 bg-[#1a1b1e]')}>
                       <div className="text-sm font-semibold">{geoLabels[geo] || geo}</div>
                       <div className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
                         {regions.length} region{regions.length !== 1 ? 's' : ''}
