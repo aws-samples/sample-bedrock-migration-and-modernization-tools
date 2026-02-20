@@ -8,7 +8,7 @@ import 'leaflet/dist/leaflet.css'
 import {
   BarChart3, Eye, Users, UserCheck, Activity, RefreshCw, Loader2, AlertCircle,
   TrendingUp, TrendingDown, Minus, Download, Globe, MousePointerClick, Star,
-  GitCompare, ArrowUpRight, ArrowDownRight, Calendar, ChevronDown, Zap, Clock,
+  GitCompare, ArrowUpRight, ArrowDownRight, Calendar, ChevronDown, Clock, Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/layout/ThemeProvider'
@@ -18,7 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { Calendar as CalendarPicker } from '@/components/ui/calendar'
 import { format } from 'date-fns'
-import { pctChange, fmt, exportCsv, COUNTRY_COORDS, CHART_COLORS, LIGHT_CHART_COLORS } from './utils/dashboardUtils'
+import { pctChange, fmt, exportCsv, COUNTRY_COORDS, CHART_COLORS, LIGHT_CHART_COLORS, getWinnerDisplay } from './utils/dashboardUtils'
 
 const PRESETS = [
   { label: 'Today', days: 1 },
@@ -26,6 +26,8 @@ const PRESETS = [
   { label: '30d', days: 30 },
   { label: '90d', days: 90 },
 ]
+
+const REALTIME_REFRESH_MS = 300_000 // 5 minutes
 
 export function AdminDashboard() {
   const { theme } = useTheme()
@@ -40,6 +42,7 @@ export function AdminDashboard() {
   const [calendarRange, setCalendarRange] = useState(undefined)
   const [calendarOpen, setCalendarOpen] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -50,6 +53,7 @@ export function AdminDashboard() {
         : { days: preset }
       const result = await fetchDashboardData(opts, accessToken)
       setData(result)
+      setLastUpdated(new Date())
     } catch (err) {
       setError(err.message)
     } finally {
@@ -61,9 +65,67 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (!autoRefresh) return
-    const id = setInterval(loadData, 60000)
+    const id = setInterval(loadData, REALTIME_REFRESH_MS)
     return () => clearInterval(id)
   }, [autoRefresh, loadData])
+
+  // ── Destructure data (safe defaults for when data is null) ─────────────
+  const { summary = {}, previousPeriod = {}, timeSeries = [], hourlySeries = [], countries = [], regions = [], period = {} } = data || {}
+  const prev = previousPeriod
+
+  // ── Memoized computations (MUST be before any early returns) ───────────
+
+  // Memoize today's entry extraction
+  const todayEntry = useMemo(() =>
+    timeSeries.find(d => d.date === period.end),
+    [timeSeries, period.end]
+  )
+
+  // Memoize winner display
+  const winnerDisplay = useMemo(() =>
+    getWinnerDisplay(summary.comparisonWinner),
+    [summary.comparisonWinner]
+  )
+
+  // Memoize section data (currently computed inline in JSX)
+  const sectionData = useMemo(() =>
+    Object.entries(summary.sectionUsage || {})
+      .filter(([name]) => name !== 'admin')
+      .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }))
+      .sort((a, b) => b.value - a.value),
+    [summary.sectionUsage]
+  )
+
+  // Downsample time series for charts (max 90 points)
+  const chartTimeSeries = useMemo(() => {
+    if (timeSeries.length <= 90) return timeSeries
+    const step = Math.ceil(timeSeries.length / 90)
+    return timeSeries.filter((_, i) => i % step === 0 || i === timeSeries.length - 1)
+  }, [timeSeries])
+
+  // Cognito daily breakdown for user charts (from Cognito sync)
+  const cognitoTimeSeries = useMemo(() => {
+    const breakdown = data?.cognito?.dailyBreakdown || []
+    if (breakdown.length <= 90) return breakdown
+    const step = Math.ceil(breakdown.length / 90)
+    return breakdown.filter((_, i) => i % step === 0 || i === breakdown.length - 1)
+  }, [data?.cognito?.dailyBreakdown])
+
+  // Merge analytics views with Cognito user data for Overview chart
+  const overviewChartData = useMemo(() => {
+    const analyticsMap = new Map(chartTimeSeries.map(d => [d.date, d]))
+    const cognitoMap = new Map((data?.cognito?.dailyBreakdown || []).map(d => [d.date, d]))
+    
+    // Get all unique dates
+    const allDates = [...new Set([...analyticsMap.keys(), ...cognitoMap.keys()])].sort()
+    
+    return allDates.map(date => ({
+      date,
+      views: analyticsMap.get(date)?.views || 0,
+      totalUsers: cognitoMap.get(date)?.totalUsers || 0,
+      newUsers: cognitoMap.get(date)?.newUsers || 0,
+    }))
+  }, [chartTimeSeries, data?.cognito?.dailyBreakdown])
 
   const accent = isLight ? 'text-amber-600' : 'text-[#1A9E7A]'
   const accentBg = isLight ? 'bg-amber-600' : 'bg-[#1A9E7A]'
@@ -122,9 +184,6 @@ export function AdminDashboard() {
       </div>
     )
   }
-
-  const { summary = {}, previousPeriod = {}, timeSeries = [], hourlySeries = [], countries = [], regions = [], period = {} } = data || {}
-  const prev = previousPeriod
 
   const handlePreset = (days) => {
     setCustomRange(null)
@@ -230,9 +289,12 @@ export function AdminDashboard() {
 
           {/* Auto-refresh */}
           <button onClick={() => setAutoRefresh(!autoRefresh)}
-            className={cn('px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors flex items-center gap-1 backdrop-blur-sm',
-              autoRefresh ? cn(accentText, accentBg) : isLight ? 'text-stone-500 bg-stone-100/60 hover:bg-stone-200/60' : 'text-slate-400 bg-white/[0.04] hover:bg-white/[0.08]')}>
-            <Zap className="h-3 w-3" /> Live
+            className={cn('px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 backdrop-blur-sm',
+              autoRefresh 
+                ? cn(accentText, accentBg) 
+                : isLight ? 'text-stone-500 bg-stone-100/60 hover:bg-stone-200/60' : 'text-slate-400 bg-white/[0.04] hover:bg-white/[0.08]')}>
+            <Zap className="w-4 h-4" />
+            {autoRefresh ? 'Live' : 'Go Live'}
           </button>
 
           {/* CSV */}
@@ -249,7 +311,12 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      {/* Calendar date picker is now inline via Popover above */}
+      {/* Loading indicator during data refresh */}
+      {loading && data && (
+        <div className="fixed top-0 left-0 right-0 z-50">
+          <div className={cn('h-0.5', accentBg, 'animate-pulse')} />
+        </div>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="overview">
@@ -262,13 +329,50 @@ export function AdminDashboard() {
 
         {/* ═══ OVERVIEW TAB ═══ */}
         <TabsContent value="overview" className="space-y-5 mt-4">
-          {/* KPI Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* KPI Cards — 5 cards in responsive grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
             <KpiCard icon={Eye} label="Total Views" value={summary.totalViews} prev={prev.totalViews} sparkData={timeSeries.map(d => d.views)} isLight={isLight} />
-            <KpiCard icon={Users} label="Unique Users" value={summary.uniqueUsers} prev={prev.uniqueUsers} sparkData={timeSeries.map(d => d.uniqueUsers)} isLight={isLight} />
-            <KpiCard icon={UserCheck} label="New Users" value={summary.newUsers} prev={prev.newUsers} isLight={isLight} />
-            <KpiCard icon={TrendingUp} label="Returning" value={summary.returningUsers} prev={prev.returningUsers} isLight={isLight} />
+            <KpiCard icon={Users} label="Unique Users" value={data?.cognito?.uniqueUsers || 0} isLight={isLight} />
+            <KpiCard icon={UserCheck} label="New Users" value={data?.cognito?.newUsersInPeriod || 0} isLight={isLight} />
+            <KpiCard icon={TrendingUp} label="Returning" value={data?.cognito?.returningUsersInPeriod || 0} isLight={isLight} />
             <KpiCard icon={Activity} label="Active Today" value={summary.activeToday} isLight={isLight} />
+          </div>
+
+          {/* Engagement Metrics */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className={cn(cardCls, 'flex items-center gap-3 !p-3')}>
+              <div className={cn('p-2 rounded-lg', isLight ? 'bg-amber-50' : 'bg-[#1A9E7A]/10')}>
+                <TrendingUp className={cn('h-4 w-4', accent)} />
+              </div>
+              <div>
+                <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Views/User</p>
+                <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>
+                  {summary.viewsPerUser || 0}
+                </p>
+              </div>
+            </div>
+            <div className={cn(cardCls, 'flex items-center gap-3 !p-3')}>
+              <div className={cn('p-2 rounded-lg', isLight ? 'bg-amber-50' : 'bg-[#1A9E7A]/10')}>
+                <BarChart3 className={cn('h-4 w-4', accent)} />
+              </div>
+              <div>
+                <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Avg Daily Users</p>
+                <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>
+                  {fmt(summary.avgDailyUsers || 0)}
+                </p>
+              </div>
+            </div>
+            <div className={cn(cardCls, 'flex items-center gap-3 !p-3')}>
+              <div className={cn('p-2 rounded-lg', isLight ? 'bg-amber-50' : 'bg-[#1A9E7A]/10')}>
+                <MousePointerClick className={cn('h-4 w-4', accent)} />
+              </div>
+              <div>
+                <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Most Active</p>
+                <p className={cn('text-lg font-bold capitalize', isLight ? 'text-stone-900' : 'text-white')}>
+                  {summary.mostActiveSection || 'N/A'}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Usage Over Time */}
@@ -277,9 +381,9 @@ export function AdminDashboard() {
               <TrendingUp className={cn('h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-500')} />
               <h3 className={cn('text-sm font-semibold', isLight ? 'text-stone-700' : 'text-slate-300')}>Usage Over Time</h3>
             </div>
-            {timeSeries.length > 0 ? (
+            {overviewChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart data={timeSeries}>
+                <ComposedChart data={overviewChartData}>
                   <defs>
                     <linearGradient id="viewsGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={c1} stopOpacity={0.25} />
@@ -292,7 +396,7 @@ export function AdminDashboard() {
                   <Tooltip {...tooltipProps} />
                   <Legend iconSize={10} wrapperStyle={legendStyle} formatter={legendFormatter} />
                   <Bar dataKey="views" name="Views" fill={c1} fillOpacity={0.75} radius={[4, 4, 0, 0]} />
-                  <Line type="monotone" dataKey="uniqueUsers" name="Unique Users" stroke={c2} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="totalUsers" name="Total Users" stroke={c2} strokeWidth={2} dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             ) : <EmptyState isLight={isLight} />}
@@ -302,9 +406,7 @@ export function AdminDashboard() {
           <div className="grid md:grid-cols-2 gap-5">
             <div className={cardCls}>
               <h3 className={cn('text-sm font-semibold mb-4', isLight ? 'text-stone-700' : 'text-slate-300')}>Section Usage</h3>
-              {Object.keys(summary.sectionUsage || {}).filter(k => k !== 'admin').length > 0 ? (() => {
-                const sectionData = Object.entries(summary.sectionUsage).filter(([name]) => name !== 'admin').map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value })).sort((a, b) => b.value - a.value)
-                return (
+              {sectionData.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={sectionData} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
@@ -316,8 +418,7 @@ export function AdminDashboard() {
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
-                )
-              })() : <EmptyState isLight={isLight} />}
+              ) : <EmptyState isLight={isLight} />}
             </div>
 
             <div className={cardCls}>
@@ -349,88 +450,131 @@ export function AdminDashboard() {
 
         {/* ═══ AUDIENCE TAB ═══ */}
         <TabsContent value="audience" className="space-y-5 mt-4">
-          {/* Audience KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard icon={Users} label="Unique Users" value={summary.uniqueUsers} prev={prev.uniqueUsers} isLight={isLight} />
-            <KpiCard icon={UserCheck} label="New Users" value={summary.newUsers} prev={prev.newUsers} isLight={isLight} />
-            <KpiCard icon={TrendingUp} label="Returning" value={summary.returningUsers} prev={prev.returningUsers} isLight={isLight} />
-            <KpiCard icon={Activity} label="Avg Daily Views" value={Math.round(summary.avgDailyViews || 0)} prev={Math.round(prev.avgDailyViews || 0)} isLight={isLight} />
-          </div>
+          {/* Audience KPIs — 4 cards, all from Cognito data */}
+          {(() => {
+            const hasCognitoData = (data?.cognito?.totalRegistered || 0) > 0
 
-          {/* World Map + Country List */}
-          <div className="grid lg:grid-cols-5 gap-5">
-            <div className={cn(cardCls, 'lg:col-span-3')}>
-              <div className="flex items-center gap-2 mb-3">
-                <Globe className={cn('h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-500')} />
-                <h3 className={cn('text-sm font-semibold', isLight ? 'text-stone-700' : 'text-slate-300')}>
-                  Traffic by Country
-                </h3>
-              </div>
-              <div className="rounded-lg overflow-hidden" style={{ height: 340 }}>
-                <MapContainer center={[30, 0]} zoom={2} scrollWheelZoom={true} zoomControl={true}
-                  minZoom={2} maxBounds={[[-85, -180], [85, 180]]} maxBoundsViscosity={1.0}
-                  style={{ height: '100%', width: '100%', background: isLight ? '#faf9f5' : 'transparent' }}
-                  attributionControl={false}>
-                  <TileLayer
-                    url={isLight
-                      ? 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'
-                      : 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'}
-                  />
-                  {(summary.countryCounts || []).map((cc) => {
-                    const coords = COUNTRY_COORDS[cc.id]
-                    if (!coords) return null
-                    return (
-                      <CircleMarker key={cc.id} center={coords}
-                        radius={Math.max(5, Math.min(20, cc.count * 3))}
-                        pathOptions={{
-                          fillColor: c1,
-                          fillOpacity: 0.6,
-                          color: c1,
-                          weight: 1,
-                          opacity: 0.8,
-                        }}>
-                        <LeafletTooltip>{cc.id}: {cc.count} sessions</LeafletTooltip>
-                      </CircleMarker>
-                    )
-                  })}
-                </MapContainer>
-              </div>
-            </div>
+            if (!hasCognitoData) {
+              return (
+                <div className={cn(cardCls, 'flex flex-col items-center justify-center py-12')}>
+                  <Users className={cn('h-8 w-8 mb-3', isLight ? 'text-stone-300' : 'text-slate-600')} />
+                  <p className={cn('text-sm font-medium', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                    Cognito sync pending
+                  </p>
+                  <p className={cn('text-xs mt-1', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                    Audience data will appear after the Cognito sync runs.
+                  </p>
+                </div>
+              )
+            }
 
-            <div className={cn(cardCls, 'lg:col-span-2')}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className={cn('text-sm font-semibold', isLight ? 'text-stone-700' : 'text-slate-300')}>Countries</h3>
-                <span className={cn('text-xs', isLight ? 'text-stone-400' : 'text-slate-500')}>{countries.length} total</span>
+            const cognito = data.cognito
+            return (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <KpiCard icon={Users} label="Unique Users"
+                  value={cognito.uniqueUsers}
+                  subtitle="All registered users"
+                  isLight={isLight} />
+                <KpiCard icon={UserCheck} label="New Users"
+                  value={cognito.newUsersInPeriod}
+                  subtitle="Registered in period"
+                  isLight={isLight} />
+                <KpiCard icon={TrendingUp} label="Returning Users"
+                  value={cognito.returningUsersInPeriod}
+                  subtitle="Registered before period"
+                  isLight={isLight} />
+                <KpiCard icon={Activity} label="Avg Daily Users"
+                  value={cognito.avgDailyUsers}
+                  subtitle={`Over ${period.days || 1} days`}
+                  isLight={isLight} />
               </div>
-              <div className="space-y-1 max-h-[310px] overflow-y-auto pr-1">
-                {(summary.countryCounts || []).map((cc, i) => {
-                  const maxCount = (summary.countryCounts?.[0]?.count) || 1
-                  return (
-                    <div key={cc.id} className={cn('flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors', isLight ? 'hover:bg-stone-100/50' : 'hover:bg-white/[0.04]')}>
-                      <span className={cn('text-xs font-mono w-4 text-right', isLight ? 'text-stone-400' : 'text-slate-500')}>{i + 1}</span>
-                      <span className={cn('text-sm font-medium w-8', isLight ? 'text-stone-700' : 'text-slate-300')}>{cc.id}</span>
-                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: isLight ? '#e7e5e4' : '#1e293b' }}>
-                        <div className="h-full rounded-full transition-all" style={{
-                          width: `${(cc.count / maxCount) * 100}%`,
-                          backgroundColor: c1,
-                        }} />
-                      </div>
-                      <span className={cn('text-xs font-medium tabular-nums w-8 text-right', isLight ? 'text-stone-600' : 'text-slate-400')}>{cc.count}</span>
-                    </div>
-                  )
-                })}
-                {(summary.countryCounts || []).length === 0 && <EmptyState isLight={isLight} />}
+            )
+          })()}
+
+          {/* World Map + Country List — Cognito users only */}
+          {(() => {
+            const cognitoCountries = data?.cognito?.usersByCountry || []
+            const maxUsers = cognitoCountries.length > 0 ? Math.max(...cognitoCountries.map(c => c.count), 1) : 1
+            return (
+              <div className="grid lg:grid-cols-5 gap-5">
+                <div className={cn(cardCls, 'lg:col-span-3')}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Globe className={cn('h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-500')} />
+                    <h3 className={cn('text-sm font-semibold', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                      Users by Country
+                    </h3>
+                  </div>
+                  <div className="rounded-lg overflow-hidden" style={{ height: 340 }}>
+                    <MapContainer center={[30, 0]} zoom={2} scrollWheelZoom={true} zoomControl={true}
+                      minZoom={2} maxBounds={[[-85, -180], [85, 180]]} maxBoundsViscosity={1.0}
+                      style={{ height: '100%', width: '100%', background: isLight ? '#faf9f5' : 'transparent' }}
+                      attributionControl={false}>
+                      <TileLayer
+                        url={isLight
+                          ? 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'
+                          : 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'}
+                      />
+                      {cognitoCountries.map((cc) => {
+                        const coords = COUNTRY_COORDS[cc.id]
+                        if (!coords) return null
+                        return (
+                          <CircleMarker key={cc.id} center={coords}
+                            radius={Math.max(5, Math.min(25, Math.sqrt(cc.count) * 3))}
+                            pathOptions={{
+                              fillColor: c1,
+                              fillOpacity: 0.6,
+                              color: c1,
+                              weight: 1,
+                              opacity: 0.8,
+                            }}>
+                            <LeafletTooltip>{cc.id}: {cc.count} {cc.count === 1 ? 'user' : 'users'}</LeafletTooltip>
+                          </CircleMarker>
+                        )
+                      })}
+                    </MapContainer>
+                  </div>
+                </div>
+
+                <div className={cn(cardCls, 'lg:col-span-2')}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className={cn('text-sm font-semibold', isLight ? 'text-stone-700' : 'text-slate-300')}>Countries</h3>
+                    <span className={cn('text-xs', isLight ? 'text-stone-400' : 'text-slate-500')}>{cognitoCountries.length} total</span>
+                  </div>
+                  <div className="space-y-1 max-h-[310px] overflow-y-auto pr-1">
+                    <PaginatedList
+                      items={cognitoCountries}
+                      pageSize={10}
+                      isLight={isLight}
+                      renderItem={(cc, i) => (
+                        <div key={cc.id} className={cn('flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors', isLight ? 'hover:bg-stone-100/50' : 'hover:bg-white/[0.04]')}>
+                          <span className={cn('text-xs font-mono w-4 text-right', isLight ? 'text-stone-400' : 'text-slate-500')}>{i + 1}</span>
+                          <span className={cn('text-sm font-medium w-8', isLight ? 'text-stone-700' : 'text-slate-300')}>{cc.id}</span>
+                          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: isLight ? '#e7e5e4' : '#1e293b' }}>
+                            <div className="h-full rounded-full transition-all" style={{
+                              width: `${(cc.count / maxUsers) * 100}%`,
+                              backgroundColor: c1,
+                            }} />
+                          </div>
+                          <span className={cn('text-xs font-medium tabular-nums', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                            {fmt(cc.count)} {cc.count === 1 ? 'user' : 'users'}
+                          </span>
+                        </div>
+                      )}
+                    />
+                    {cognitoCountries.length === 0 && <EmptyState isLight={isLight} />}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            )
+          })()}
 
           {/* Users Over Time + New vs Returning Donut */}
           <div className="grid md:grid-cols-3 gap-5">
             <div className={cn(cardCls, 'md:col-span-2')}>
               <h3 className={cn('text-sm font-semibold mb-4', isLight ? 'text-stone-700' : 'text-slate-300')}>Users Over Time</h3>
-              {timeSeries.length > 0 ? (
+              {cognitoTimeSeries.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
-                  <AreaChart data={timeSeries}>
+                  <AreaChart data={cognitoTimeSeries}>
                     <defs>
                       <linearGradient id="newGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor={c2} stopOpacity={0.3} />
@@ -455,13 +599,13 @@ export function AdminDashboard() {
 
             <div className={cardCls}>
               <h3 className={cn('text-sm font-semibold mb-4', isLight ? 'text-stone-700' : 'text-slate-300')}>New vs Returning</h3>
-              {(summary.newUsers > 0 || summary.returningUsers > 0) ? (
+              {((data?.cognito?.newUsersInPeriod || 0) > 0 || (data?.cognito?.returningUsersInPeriod || 0) > 0) ? (
                 <div className="flex flex-col items-center">
                   <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
                       <Pie data={[
-                        { name: 'New', value: summary.newUsers || 0 },
-                        { name: 'Returning', value: summary.returningUsers || 0 },
+                        { name: 'New', value: data?.cognito?.newUsersInPeriod || 0 },
+                        { name: 'Returning', value: data?.cognito?.returningUsersInPeriod || 0 },
                       ]} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value">
                         <Cell fill={c2} />
                         <Cell fill={c1} />
@@ -472,11 +616,11 @@ export function AdminDashboard() {
                   <div className="flex gap-4 mt-2">
                     <div className="flex items-center gap-1.5">
                       <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c2 }} />
-                      <span className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>New {summary.newUsers || 0}</span>
+                      <span className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>New {data?.cognito?.newUsersInPeriod || 0}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c1 }} />
-                      <span className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Returning {summary.returningUsers || 0}</span>
+                      <span className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Returning {data?.cognito?.returningUsersInPeriod || 0}</span>
                     </div>
                   </div>
                 </div>
@@ -500,19 +644,90 @@ export function AdminDashboard() {
 
         {/* ═══ CONTENT TAB ═══ */}
         <TabsContent value="content" className="space-y-5 mt-4">
+          {/* Comparison Winner */}
+          {winnerDisplay && (
+            <div className={cn(cardCls, 'relative overflow-hidden')}>
+              <div className="flex items-center gap-3">
+                <div className={cn('p-3 rounded-xl', isLight ? 'bg-amber-50' : 'bg-[#1A9E7A]/10')}>
+                  <GitCompare className={cn('h-6 w-6', accent)} />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className={cn('text-sm font-semibold', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                      Most Compared Model
+                    </h3>
+                    <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium',
+                      isLight ? 'bg-amber-100 text-amber-700' : 'bg-[#1A9E7A]/20 text-[#1A9E7A]')}>
+                      Winner
+                    </span>
+                  </div>
+                  <p className={cn('text-lg font-bold mt-1', isLight ? 'text-stone-900' : 'text-white')}>
+                    {winnerDisplay.displayName}
+                  </p>
+                  <p className={cn('text-xs mt-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                    {winnerDisplay.count} comparisons
+                    ({winnerDisplay.percentage}% of all)
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Feature KPIs */}
           <div className="grid grid-cols-3 gap-3">
-            <KpiCard icon={MousePointerClick} label="Detail Opens" value={summary.featureUsage?.modelDetails || 0} prev={prev.featureUsage?.modelDetails || 0} sparkData={timeSeries.map(d => d.detailOpens)} isLight={isLight} />
-            <KpiCard icon={GitCompare} label="Comparisons" value={summary.featureUsage?.comparisons || 0} prev={prev.featureUsage?.comparisons || 0} sparkData={timeSeries.map(d => d.comparisonAdds)} isLight={isLight} />
-            <KpiCard icon={Star} label="Favorites" value={summary.featureUsage?.favorites || 0} prev={prev.featureUsage?.favorites || 0} sparkData={timeSeries.map(d => d.favoriteToggles)} isLight={isLight} />
+            <KpiCard icon={MousePointerClick} label="Detail Opens"
+              value={summary.featureUsage?.modelDetails || 0}
+              prev={prev.featureUsage?.modelDetails || 0}
+              sparkData={timeSeries.map(d => d.detailOpens)} isLight={isLight} />
+            <KpiCard icon={GitCompare} label="Comparison Adds"
+              value={summary.featureUsage?.comparisons || 0}
+              prev={prev.featureUsage?.comparisons || 0}
+              sparkData={timeSeries.map(d => d.comparisonAdds)} isLight={isLight} />
+            <KpiCard icon={Star} label="Favorites"
+              value={summary.featureUsage?.favorites || 0}
+              prev={prev.featureUsage?.favorites || 0}
+              sparkData={timeSeries.map(d => d.favoriteToggles)} isLight={isLight} />
           </div>
+
+          {/* Region Availability */}
+          {(summary.regionCounts?.length > 0 || summary.totalRegions > 0) && (
+            <div className={cardCls}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Globe className={cn('h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-500')} />
+                  <h3 className={cn('text-sm font-semibold', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                    Region Availability
+                  </h3>
+                </div>
+                <span className={cn('text-xs px-2 py-0.5 rounded-full',
+                  isLight ? 'bg-stone-100 text-stone-500' : 'bg-slate-800 text-slate-400')}>
+                  {summary.totalRegions || 0} regions
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                {(summary.regionCounts || []).slice(0, 12).map((rc) => (
+                  <div key={rc.id} className={cn(
+                    'flex items-center justify-between px-3 py-2 rounded-lg',
+                    isLight ? 'bg-stone-50/80' : 'bg-white/[0.03]'
+                  )}>
+                    <span className={cn('text-xs font-mono', isLight ? 'text-stone-700' : 'text-slate-300')}>
+                      {rc.id}
+                    </span>
+                    <span className={cn('text-xs font-medium tabular-nums', accent)}>
+                      {rc.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Feature Usage Over Time */}
           <div className={cardCls}>
             <h3 className={cn('text-sm font-semibold mb-4', isLight ? 'text-stone-700' : 'text-slate-300')}>Feature Usage Over Time</h3>
             {timeSeries.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={timeSeries}>
+                <BarChart data={chartTimeSeries}>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 11, fill: axisColor }} tickFormatter={(d) => d.slice(5)} />
                   <YAxis tick={{ fontSize: 11, fill: axisColor }} />
@@ -557,23 +772,60 @@ export function AdminDashboard() {
 
         {/* ═══ REALTIME TAB ═══ */}
         <TabsContent value="realtime" className="space-y-5 mt-4">
-          {/* Live indicator */}
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
-            </span>
-            <span className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>
-              Today — {autoRefresh ? 'auto-refreshing every 60s' : 'click Live to auto-refresh'}
-            </span>
+          {/* Live indicator — prominent banner */}
+          <div className={cn(
+              'flex items-center justify-between px-4 py-2.5 rounded-xl border',
+              autoRefresh 
+                  ? isLight ? 'bg-emerald-50/80 border-emerald-200/60' : 'bg-emerald-500/5 border-emerald-500/20'
+                  : isLight ? 'bg-stone-50/80 border-stone-200/60' : 'bg-white/[0.02] border-white/[0.06]'
+          )}>
+              <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-2.5 w-2.5">
+                      {autoRefresh && (
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                      )}
+                      <span className={cn(
+                          'relative inline-flex rounded-full h-2.5 w-2.5',
+                          autoRefresh ? 'bg-green-500' : isLight ? 'bg-stone-300' : 'bg-slate-600'
+                      )} />
+                  </span>
+                  <span className={cn('text-sm font-semibold', 
+                      autoRefresh 
+                          ? 'text-emerald-600' 
+                          : isLight ? 'text-stone-600' : 'text-slate-400'
+                  )}>
+                      {autoRefresh ? 'LIVE' : 'Paused'}
+                  </span>
+                  <span className={cn('text-xs', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                      {autoRefresh 
+                          ? 'Auto-refreshing every 5 minutes' 
+                          : 'Click Live button to enable auto-refresh'}
+                  </span>
+              </div>
+              <div className="flex items-center gap-3">
+                  {lastUpdated && (
+                      <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                          Last updated: {lastUpdated.toLocaleTimeString()}
+                      </span>
+                  )}
+                  <span className={cn('text-xs tabular-nums', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                      Today — {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                  </span>
+              </div>
           </div>
 
-          {/* Today KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCard icon={Eye} label="Views Today" value={summary.activeToday > 0 ? (timeSeries.find(d => d.date === period.end)?.views || 0) : 0} isLight={isLight} />
-            <KpiCard icon={Users} label="Users Today" value={summary.activeToday || 0} isLight={isLight} />
-            <KpiCard icon={MousePointerClick} label="Detail Opens" value={timeSeries.find(d => d.date === period.end)?.detailOpens || 0} isLight={isLight} />
-            <KpiCard icon={GitCompare} label="Comparisons" value={timeSeries.find(d => d.date === period.end)?.comparisonAdds || 0} isLight={isLight} />
+          {/* Today KPIs — 5 cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <KpiCard icon={Eye} label="Views Today" 
+                value={todayEntry?.views || 0} isLight={isLight} />
+            <KpiCard icon={Users} label="Users Today" 
+                value={summary.activeToday || 0} isLight={isLight} />
+            <KpiCard icon={MousePointerClick} label="Detail Opens" 
+                value={todayEntry?.detailOpens || 0} isLight={isLight} />
+            <KpiCard icon={GitCompare} label="Comparisons" 
+                value={todayEntry?.comparisonAdds || 0} isLight={isLight} />
+            <KpiCard icon={Star} label="Favorites" 
+                value={todayEntry?.favoriteToggles || 0} isLight={isLight} />
           </div>
 
           {/* Hourly Activity */}
@@ -599,7 +851,6 @@ export function AdminDashboard() {
 
           {/* Today's breakdown row */}
           {(() => {
-            const todayEntry = timeSeries.find(d => d.date === period.end)
             const todaySections = todayEntry?.sections || {}
             const todaySectionData = Object.entries(todaySections).filter(([k]) => k !== 'admin').map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value })).filter(d => d.value > 0)
             const todayFeatures = [
@@ -678,7 +929,28 @@ export function AdminDashboard() {
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
-function KpiCard({ icon: Icon, label, value, prev, sparkData, isLight }) {
+function PaginatedList({ items, renderItem, pageSize = 10, isLight }) {
+  const [showAll, setShowAll] = useState(false)
+  const displayed = showAll ? items : items.slice(0, pageSize)
+
+  return (
+    <>
+      {displayed.map(renderItem)}
+      {items.length > pageSize && (
+        <button
+          onClick={() => setShowAll(!showAll)}
+          className={cn('w-full py-2 text-xs font-medium text-center rounded-lg mt-1',
+            isLight ? 'text-stone-500 hover:bg-stone-50' : 'text-slate-400 hover:bg-white/[0.04]'
+          )}
+        >
+          {showAll ? 'Show less' : `Show all ${items.length}`}
+        </button>
+      )}
+    </>
+  )
+}
+
+function KpiCard({ icon: Icon, label, value, prev, sparkData, isLight, subtitle }) {
   const change = prev != null ? pctChange(value || 0, prev) : null
   const up = change > 0
   const down = change < 0
@@ -695,9 +967,16 @@ function KpiCard({ icon: Icon, label, value, prev, sparkData, isLight }) {
         <span className={cn('text-xs font-medium', isLight ? 'text-stone-500' : 'text-slate-400')}>{label}</span>
       </div>
       <div className="flex items-end justify-between">
-        <span className={cn('text-2xl font-bold tabular-nums', isLight ? 'text-stone-900' : 'text-white')}>
-          {fmt(value || 0)}
-        </span>
+        <div className="flex flex-col">
+          <span className={cn('text-2xl font-bold tabular-nums', isLight ? 'text-stone-900' : 'text-white')}>
+            {fmt(value || 0)}
+          </span>
+          {subtitle && (
+            <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
+              {subtitle}
+            </span>
+          )}
+        </div>
         {change != null && change !== 0 && (
           <span className={cn('flex items-center gap-0.5 text-xs font-medium',
             up ? 'text-emerald-600' : down ? 'text-red-500' : isLight ? 'text-stone-400' : 'text-slate-500')}>
@@ -727,27 +1006,32 @@ function Sparkline({ data, isLight }) {
   )
 }
 
-function RankedList({ items, isLight, colors, max = 8 }) {
+function RankedList({ items, isLight, colors, max = 20 }) {
   if (!items || items.length === 0) return <EmptyState isLight={isLight} />
   const palette = colors || CHART_COLORS
   const topCount = items[0]?.count || 1
   return (
     <div className="space-y-1 max-h-[280px] overflow-y-auto">
-      {items.slice(0, max).map((m, i) => (
-        <div key={m.id || m.modelId} className={cn('flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors', isLight ? 'hover:bg-stone-100/50' : 'hover:bg-white/[0.04]')}>
-          <span className={cn('text-xs font-mono w-4 text-right flex-shrink-0', isLight ? 'text-stone-400' : 'text-slate-500')}>{i + 1}</span>
-          <div className="flex-1 min-w-0">
-            <span className={cn('text-xs truncate block', isLight ? 'text-stone-700' : 'text-slate-300')}>{m.id || m.modelId}</span>
-            <div className="h-1.5 rounded-full mt-0.5 overflow-hidden" style={{ backgroundColor: isLight ? '#e7e5e4' : '#1e293b' }}>
-              <div className="h-full rounded-full transition-all" style={{
-                width: `${(m.count / topCount) * 100}%`,
-                backgroundColor: palette[i % palette.length],
-              }} />
+      <PaginatedList
+        items={items.slice(0, max)}
+        pageSize={10}
+        isLight={isLight}
+        renderItem={(m, i) => (
+          <div key={m.id || m.modelId} className={cn('flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors', isLight ? 'hover:bg-stone-100/50' : 'hover:bg-white/[0.04]')}>
+            <span className={cn('text-xs font-mono w-4 text-right flex-shrink-0', isLight ? 'text-stone-400' : 'text-slate-500')}>{i + 1}</span>
+            <div className="flex-1 min-w-0">
+              <span className={cn('text-xs truncate block', isLight ? 'text-stone-700' : 'text-slate-300')}>{m.id || m.modelId}</span>
+              <div className="h-1.5 rounded-full mt-0.5 overflow-hidden" style={{ backgroundColor: isLight ? '#e7e5e4' : '#1e293b' }}>
+                <div className="h-full rounded-full transition-all" style={{
+                  width: `${(m.count / topCount) * 100}%`,
+                  backgroundColor: palette[i % palette.length],
+                }} />
+              </div>
             </div>
+            <span className={cn('text-xs font-medium tabular-nums flex-shrink-0', isLight ? 'text-stone-900' : 'text-white')}>{m.count}</span>
           </div>
-          <span className={cn('text-xs font-medium tabular-nums flex-shrink-0', isLight ? 'text-stone-900' : 'text-white')}>{m.count}</span>
-        </div>
-      ))}
+        )}
+      />
     </div>
   )
 }

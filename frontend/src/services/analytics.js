@@ -86,7 +86,8 @@ function flush() {
 
   // Use sendBeacon for reliability on page unload, fetch otherwise
   if (document.visibilityState === 'hidden') {
-    navigator.sendBeacon(`${API_URL}/events`, payload)
+    const blob = new Blob([payload], { type: 'application/json' })
+    navigator.sendBeacon(`${API_URL}/events`, blob)
   } else {
     fetch(`${API_URL}/events`, {
       method: 'POST',

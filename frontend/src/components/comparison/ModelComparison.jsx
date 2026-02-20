@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { GitCompare, Trash2, ArrowLeft, BarChart3, Globe, DollarSign, Cpu, ChevronDown, ChevronUp, Plus, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -295,6 +295,17 @@ export function ModelComparison({ onNavigateToExplorer }) {
   const { selectedModels, removeModel, clearAll, addModel, isModelSelected } = useComparisonStore()
   const { models, getPricingForModel } = useModels()
 
+  // Track individual model removal with model metadata
+  const handleRemoveModel = useCallback((modelId) => {
+    const entry = selectedModels.find(m => m.model.model_id === modelId)
+    trackEvent('comparison_remove', {
+      modelId,
+      provider: entry?.model.model_provider,
+      section: 'comparison'
+    })
+    removeModel(modelId)
+  }, [selectedModels, removeModel])
+
   // Sort models by provider then by name for consistent display
   const sortedModels = useMemo(() =>
     [...selectedModels].sort((a, b) => {
@@ -427,7 +438,7 @@ export function ModelComparison({ onNavigateToExplorer }) {
               <ComparisonCard
                 key={model.model_id}
                 model={model}
-                onRemove={removeModel}
+                onRemove={handleRemoveModel}
               />
             ))}
           </div>

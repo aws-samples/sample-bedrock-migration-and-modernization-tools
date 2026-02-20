@@ -106,6 +106,8 @@ Resources:
           ANALYTICS_TABLE: !Ref AnalyticsTable
           ADMIN_GROUP: !Ref AdminGroup
           ALLOWED_ORIGINS: !Ref AllowedOrigins
+          USER_POOL_ID: !Ref CognitoUserPoolId
+          COGNITO_REGION: !Ref CognitoRegion
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -116,8 +118,16 @@ Resources:
                 - dynamodb:UpdateItem
                 - dynamodb:Query
                 - dynamodb:BatchWriteItem
+                - dynamodb:BatchGetItem
               Resource:
                 - !GetAtt AnalyticsTable.Arn
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:DescribeUserPool
+              Resource:
+                - !Sub 'arn:aws:cognito-idp:${CognitoRegion}:${AWS::AccountId}:userpool/${CognitoUserPoolId}'
       Events:
         PostEvents:
           Type: HttpApi
@@ -134,6 +144,47 @@ Resources:
             Path: /dashboard
             Method: GET
 
+  #############################################
+  # Cognito Sync Lambda Function
+  #############################################
+  CognitoSyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-cognito-sync-${Environment}'
+      CodeUri: ../backend/lambdas/cognito-sync/
+      Handler: handler.lambda_handler
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          ANALYTICS_TABLE: !Ref AnalyticsTable
+          USER_POOL_ID: !Ref CognitoUserPoolId
+          COGNITO_REGION: !Ref CognitoRegion
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:DescribeUserPool
+                - cognito-idp:ListUsers
+              Resource:
+                - !Sub 'arn:aws:cognito-idp:${CognitoRegion}:${AWS::AccountId}:userpool/${CognitoUserPoolId}'
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:Query
+                - dynamodb:BatchWriteItem
+              Resource:
+                - !GetAtt AnalyticsTable.Arn
+      Events:
+        DailySync:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 day)
+            Description: Daily Cognito user sync to DynamoDB cache
+            Enabled: true
+
 Outputs:
   AnalyticsApiUrl:
     Description: Analytics API endpoint URL
@@ -146,3 +197,7 @@ Outputs:
     Value: !Ref AnalyticsTable
     Export:
       Name: !Sub '${AWS::StackName}-TableName'
+
+  CognitoSyncFunctionArn:
+    Description: Cognito sync Lambda ARN
+    Value: !GetAtt CognitoSyncFunction.Arn

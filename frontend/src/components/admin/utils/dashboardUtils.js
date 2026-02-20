@@ -10,9 +10,76 @@ export function fmt(n) {
   return n.toLocaleString()
 }
 
+/**
+ * Format a number as a compact percentage string.
+ */
+export function fmtPct(value, total) {
+  if (!total || total === 0) return '0%'
+  return `${Math.round((value / total) * 100)}%`
+}
+
+/**
+ * Calculate engagement score (views per user per day).
+ */
+export function engagementScore(views, users, days) {
+  if (!users || !days) return 0
+  return Math.round((views / users / days) * 100) / 100
+}
+
+/**
+ * Merge analytics country counts with Cognito country data.
+ * Analytics = view counts per country, Cognito = registered users per country.
+ * Returns combined data for the Audience tab.
+ */
+export function mergeCountryData(analyticsCounts = [], cognitoCountries = []) {
+  const merged = new Map()
+
+  // Analytics data (view counts)
+  for (const { id, count } of analyticsCounts) {
+    if (!merged.has(id)) merged.set(id, { id, views: 0, users: 0 })
+    merged.get(id).views = count
+  }
+
+  // Cognito data (registered users)
+  for (const { id, count } of cognitoCountries) {
+    if (!merged.has(id)) merged.set(id, { id, views: 0, users: 0 })
+    merged.get(id).users = count
+  }
+
+  return [...merged.values()].sort((a, b) => (b.views + b.users) - (a.views + a.users))
+}
+
+/**
+ * Format region code for display (e.g., 'us-east-1' → 'US East 1').
+ */
+export function formatRegion(regionCode) {
+  if (!regionCode) return ''
+  return regionCode
+    .split('-')
+    .map((part, i) => i === 0 ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+/**
+ * Get comparison winner display data.
+ */
+export function getWinnerDisplay(winner) {
+  if (!winner) return null
+  return {
+    modelId: winner.modelId,
+    // Extract short name from model ID (e.g., 'anthropic.claude-3-sonnet' → 'Claude 3 Sonnet')
+    displayName: winner.modelId.split('.').pop()?.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || winner.modelId,
+    count: winner.comparisons,
+    total: winner.totalComparisons,
+    percentage: winner.totalComparisons > 0
+      ? Math.round((winner.comparisons / winner.totalComparisons) * 100)
+      : 0,
+  }
+}
+
 export function exportCsv(data) {
   if (!data?.timeSeries?.length) return
-  const cols = ['date', 'views', 'uniqueUsers', 'newUsers', 'detailOpens', 'comparisonAdds', 'favoriteToggles']
+  const cols = ['date', 'views', 'uniqueUsers', 'newUsers', 'returningUsers', 'detailOpens', 'comparisonAdds', 'favoriteToggles']
   const header = cols.join(',')
   const rows = data.timeSeries.map(r => cols.map(c => r[c] ?? '').join(','))
   const csv = [header, ...rows].join('\n')
