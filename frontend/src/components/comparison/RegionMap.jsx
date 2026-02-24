@@ -85,13 +85,21 @@ function MapBoundsUpdater({ markers }) {
   return null
 }
 
+// Helper to get all regions for a model (on-demand + CRIS + Mantle)
+function getAllModelRegions(model) {
+  const onDemand = model.on_demand_regions || []
+  const cris = model.cross_region_inference?.source_regions || []
+  const mantle = model.mantle_inference?.mantle_regions || []
+  return [...new Set([...onDemand, ...cris, ...mantle])]
+}
+
 export function RegionMap({ selectedModels, isLight, height = '350px' }) {
   // Build markers data: for each region, list which models are available
   const markersData = useMemo(() => {
     const regionModels = {}
 
     selectedModels.forEach(({ model }) => {
-      const regions = model.regions_available || []
+      const regions = getAllModelRegions(model)
       regions.forEach(regionCode => {
         if (!regionCoordinates[regionCode]) return
 
@@ -113,11 +121,11 @@ export function RegionMap({ selectedModels, isLight, height = '350px' }) {
   const commonRegions = useMemo(() => {
     if (selectedModels.length === 0) return new Set()
 
-    const allRegions = selectedModels[0].model.regions_available || []
+    const allRegions = getAllModelRegions(selectedModels[0].model)
     return new Set(
       allRegions.filter(region =>
         selectedModels.every(({ model }) =>
-          (model.regions_available || []).includes(region)
+          getAllModelRegions(model).includes(region)
         )
       )
     )

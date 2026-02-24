@@ -357,7 +357,7 @@ function RegionalAvailabilityGrouped({ regions }) {
 function OnDemandAvailabilitySection({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
-  const regions = model.regions_available || []
+  const regions = model.on_demand_regions || []
   const grouped = groupRegionsByGeo(regions)
   const geoCount = Object.keys(grouped).length
   const modelId = model.model_id
@@ -1071,7 +1071,7 @@ function AvailabilitySummary({ model }) {
   const isLight = theme === 'light'
 
   const isMantleOnly = model.mantle_only
-  const regions = model.regions_available || []
+  const regions = model.on_demand_regions || []
   const crisData = model.cross_region_inference || {}
   const batchData = model.batch_inference_supported || {}
   const provisionedData = model.provisioned_throughput || {}
@@ -1082,7 +1082,7 @@ function AvailabilitySummary({ model }) {
       label: 'In Region',
       // For Mantle-only models, In Region is not available
       supported: isMantleOnly ? false : ((model.on_demand_regions?.length > 0) || (regions.length > 0 && (model.inference_types_supported || []).includes('ON_DEMAND'))),
-      count: isMantleOnly ? 0 : (model.on_demand_regions?.length ?? model.total_regions_available ?? regions.length),
+      count: isMantleOnly ? 0 : (model.on_demand_regions?.length ?? model.total_on_demand_regions ?? regions.length),
     },
     {
       label: 'Cross-Region (CRIS)',
@@ -1516,7 +1516,7 @@ function SpecsTab({ model }) {
   )]
   const languages = model.languages_supported || []
   const documentationLinks = model.documentation_links || {}
-  const regions = model.regions_available || []
+  const regions = model.on_demand_regions || []
   const streamingSupported = model.streaming_supported
   const crisData = model.cross_region_inference || {}
   const batchData = model.batch_inference_supported || {}
@@ -2795,7 +2795,7 @@ export function ModelCardExpanded({
   const extendedContext = model.converse_data?.extended_context
   const hasExtendedContext = model.converse_data?.has_extended_context
   const maxOutput = model.converse_data?.max_output_tokens
-  const regions = model.regions_available || []
+  const regions = model.on_demand_regions || []
   const capabilities = model.model_capabilities || []
   const streamingSupported = model.streaming_supported
   const crisSupported = model.cross_region_inference?.supported
@@ -2967,12 +2967,18 @@ export function ModelCardExpanded({
                     <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-slate-400')}>
                       Availability
                     </h3>
-                    <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
-                      <div className="flex items-center justify-between">
-                        <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Regions</p>
-                        <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>{regions.length}</p>
-                      </div>
-                    </div>
+                    {(() => {
+                      const crisRegions = model.cross_region_inference?.source_regions || []
+                      const allRegions = new Set([...regions, ...crisRegions, ...mantleRegions])
+                      return (
+                        <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
+                          <div className="flex items-center justify-between">
+                            <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Regions</p>
+                            <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>{allRegions.size}</p>
+                          </div>
+                        </div>
+                      )
+                    })()}
                     {mantleRegions.length > 0 && (
                       <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
                         <div className="flex items-center justify-between">

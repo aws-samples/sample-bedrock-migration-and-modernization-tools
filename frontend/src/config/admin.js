@@ -22,6 +22,8 @@ export const canEditRoadmap = (user) => hasGroup(user, GROUPS.OPERATORS)
 
 export const canViewAnalytics = (user) => hasGroup(user, GROUPS.ADMINS)
 
+export const canViewChangelog = (user) => hasGroup(user, GROUPS.ADMINS)
+
 // --- Sidebar badge definitions ---
 
 const BADGES = {
@@ -49,6 +51,7 @@ const BADGES = {
  */
 export function getSectionBadge(user, sectionId) {
   if (sectionId === 'admin') return BADGES.ADM
+  if (sectionId === 'changelog') return BADGES.ADM
 
   if (sectionId === 'roadmap') {
     if (hasGroup(user, GROUPS.ADMINS)) return BADGES.ADM

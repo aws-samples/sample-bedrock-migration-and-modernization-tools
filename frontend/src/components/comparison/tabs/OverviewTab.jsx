@@ -285,6 +285,14 @@ function RadarTooltip({ active, payload, label, isLight }) {
   )
 }
 
+// Helper to get all regions for a model (on-demand + CRIS + Mantle)
+function getAllModelRegions(model) {
+  const onDemand = model.on_demand_regions || []
+  const cris = model.cross_region_inference?.source_regions || []
+  const mantle = model.mantle_inference?.mantle_regions || []
+  return [...new Set([...onDemand, ...cris, ...mantle])]
+}
+
 export function OverviewTab({ selectedModels, getPricingForModel, allModels, isLight }) {
   const [scoringMode, setScoringMode] = useState('global') // 'global' or 'relative'
   const [showScoringInfo, setShowScoringInfo] = useState(false)
@@ -295,7 +303,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
     const maxOutput = model.converse_data?.max_output_tokens || 0
     const inputModalities = model.model_modalities?.input_modalities || []
     const outputModalities = model.model_modalities?.output_modalities || []
-    const regions = model.regions_available || []
+    const regions = getAllModelRegions(model)
     const isActive = model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE'
     const streamingSupported = model.streaming_supported || false
     const crisSupported = model.cross_region_inference?.supported || false
@@ -344,8 +352,8 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
       const effectiveCtx = Math.max(ctx, extCtx || 0)
       if (effectiveCtx > maxContext) maxContext = effectiveCtx
       
-      // Regions
-      const regionCount = (m.regions_available || []).length
+      // Regions (total: on-demand + CRIS + Mantle)
+      const regionCount = getAllModelRegions(m).length
       if (regionCount > maxRegions) maxRegions = regionCount
       
       // Features count

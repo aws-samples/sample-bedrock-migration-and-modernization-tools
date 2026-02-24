@@ -106,7 +106,7 @@ const MODEL_COL_WIDTH = 280
  * Compute per-region availability for a model (on-demand + CRIS, no batch).
  */
 function getRegionAvailability(model, regionCode) {
-  const regions = model.regions_available || []
+  const regions = model.on_demand_regions || []
   const crisRegions = model.cross_region_inference?.source_regions || []
   const mantleRegions = model.mantle_inference?.mantle_regions || []
 
@@ -354,7 +354,7 @@ export function RegionalAvailability() {
     if (!models.length) return REGION_COLUMNS
     const usedRegions = new Set()
     models.forEach(m => {
-      ;(m.regions_available || []).forEach(r => usedRegions.add(r))
+      ;(m.on_demand_regions || []).forEach(r => usedRegions.add(r))
       ;(m.cross_region_inference?.source_regions || []).forEach(r => usedRegions.add(r))
       ;(m.mantle_inference?.mantle_regions || []).forEach(r => usedRegions.add(r))
     })
@@ -949,7 +949,7 @@ export function RegionalAvailability() {
                     </tr>
 
                     {!isCollapsed && providerModels.map((model) => {
-                      const regions = model.regions_available || []
+                      const regions = model.on_demand_regions || []
                       const crisRegions = model.cross_region_inference?.source_regions || []
                       const mantleRegions = model.mantle_inference?.mantle_regions || []
                       const allRegions = new Set([...regions, ...crisRegions, ...mantleRegions])

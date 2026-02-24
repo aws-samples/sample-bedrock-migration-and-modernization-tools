@@ -99,8 +99,12 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       batchSupported: isMantleOnly ? false : (model.batch_inference_supported?.supported || false),
       batchRegions: (model.batch_inference_supported?.supported_regions || []).length,
       batchCoverage: model.batch_inference_supported?.coverage_percentage,
-      // For Mantle-only models, show Mantle regions count instead of AWS regions
-      totalRegions: isMantleOnly ? mantleRegions.length : (model.total_regions_available || (model.regions_available || []).length),
+      // Total regions: on-demand + CRIS + Mantle
+      totalRegions: new Set([
+        ...(model.on_demand_regions || []),
+        ...(model.cross_region_inference?.source_regions || []),
+        ...mantleRegions
+      ]).size,
       // For Mantle-only models, show "Mantle Only" instead of empty inference types
       inferenceTypes: isMantleOnly ? ['MANTLE_ONLY'] : (model.inference_types_supported || []),
       isMantleOnly,

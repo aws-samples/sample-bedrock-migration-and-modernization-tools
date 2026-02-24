@@ -241,7 +241,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   const inputModalities = model.model_modalities?.input_modalities || []
   const outputModalities = model.model_modalities?.output_modalities || []
   const capabilities = model.model_capabilities || []
-  const regions = model.regions_available || []
+  const regions = model.on_demand_regions || []
   const isActive = model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE'
 
   // Get pricing from new pricing data source, fallback to old method
@@ -446,22 +446,19 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 isLight={isLight}
               />
               {(() => {
-                const isMantleOnly = model.mantle_only
+                const onDemandRegions = model.on_demand_regions || []
+                const crisRegions = model.cross_region_inference?.source_regions || []
                 const mantleRegions = model.mantle_inference?.mantle_regions || []
-                const displayRegionCount = isMantleOnly ? mantleRegions.length : regions.length
-                const regionTooltip = isMantleOnly 
-                  ? `Available in ${displayRegionCount} Mantle regions`
-                  : `Available in ${displayRegionCount} AWS regions`
+                const allRegions = new Set([...onDemandRegions, ...crisRegions, ...mantleRegions])
+                const totalRegionCount = allRegions.size
                 return (
-                  <InfoTooltip content={regionTooltip}>
+                  <InfoTooltip content={`Available in ${totalRegionCount} regions`}>
                     <div className={cn(
                       'flex items-center gap-1 text-xs cursor-default',
-                      isMantleOnly
-                        ? isLight ? 'text-violet-600' : 'text-violet-400'
-                        : isLight ? 'text-stone-500' : 'text-slate-300'
+                      isLight ? 'text-stone-500' : 'text-slate-300'
                     )}>
                       <MapPin className="h-3 w-3" />
-                      <span className="font-medium">{displayRegionCount}</span>
+                      <span className="font-medium">{totalRegionCount}</span>
                     </div>
                   </InfoTooltip>
                 )

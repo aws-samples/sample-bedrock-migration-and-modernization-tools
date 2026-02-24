@@ -1,0 +1,14 @@
+{
+  "lastUpdated": "2026-02-24",
+  "entries": [
+    {
+      "id": "2026-02-24-admin-changelog",
+      "date": "2026-02-24",
+      "type": "feature",
+      "title": "Admin Changelog Page",
+      "description": "Added a new admin-only changelog page where admins can document changes to the model profiler. Entries are stored in a JSON file and version-controlled.",
+      "author": "molivac",
+      "tags": ["admin", "ui"]
+    }
+  ]
+}

@@ -33,6 +33,14 @@ function friendlyName(label) {
   return label.replace(/\s*\(.*\)$/, '')
 }
 
+// Helper to get all regions for a model (on-demand + CRIS + Mantle)
+function getAllModelRegions(model) {
+  const onDemand = model.on_demand_regions || []
+  const cris = model.cross_region_inference?.source_regions || []
+  const mantle = model.mantle_inference?.mantle_regions || []
+  return [...new Set([...onDemand, ...cris, ...mantle])]
+}
+
 export function AvailabilityTab({ selectedModels, isLight }) {
   const [collapsedGeos, setCollapsedGeos] = useState(new Set())
   const [filterMode, setFilterMode] = useState('all')
@@ -44,42 +52,37 @@ export function AvailabilityTab({ selectedModels, isLight }) {
 
   const allRegions = new Set()
   selectedModels.forEach(({ model }) => {
-    // For Mantle-only models, don't add their (empty) regions_available
-    if (!model.mantle_only) {
-      (model.regions_available || []).forEach(r => allRegions.add(r))
-    }
+    getAllModelRegions(model).forEach(r => allRegions.add(r))
   })
 
   const modelCoverage = selectedModels.map(({ model }) => {
     const isMantleOnly = model.mantle_only
-    const regions = isMantleOnly ? [] : (model.regions_available || [])
+    const regions = getAllModelRegions(model)
     const mantleRegions = model.mantle_inference?.mantle_regions || []
     return {
       model,
       regions,
-      count: isMantleOnly ? mantleRegions.length : regions.length,
-      coverage: isMantleOnly 
-        ? 0 // Mantle-only models don't have AWS region coverage
-        : (allRegions.size > 0 ? (regions.length / allRegions.size * 100).toFixed(0) : 0),
+      count: regions.length,
+      coverage: allRegions.size > 0 ? (regions.length / allRegions.size * 100).toFixed(0) : 0,
       isMantleOnly,
       mantleRegions,
     }
   })
 
-  const maxCount = Math.max(...modelCoverage.filter(m => !m.isMantleOnly).map(m => m.count), 0)
-  const bestModels = modelCoverage.filter(m => !m.isMantleOnly && m.count === maxCount)
+  const maxCount = Math.max(...modelCoverage.map(m => m.count), 0)
+  const bestModels = modelCoverage.filter(m => m.count === maxCount)
 
   const commonRegions = [...allRegions].filter(region =>
-    selectedModels.filter(({ model }) => !model.mantle_only).every(({ model }) => (model.regions_available || []).includes(region))
+    selectedModels.every(({ model }) => getAllModelRegions(model).includes(region))
   )
 
   const diffRegions = [...allRegions].filter(region => {
-    const available = selectedModels.filter(({ model }) => !model.mantle_only && (model.regions_available || []).includes(region))
-    return available.length > 0 && available.length < selectedModels.filter(({ model }) => !model.mantle_only).length
+    const available = selectedModels.filter(({ model }) => getAllModelRegions(model).includes(region))
+    return available.length > 0 && available.length < selectedModels.length
   })
 
   const exclusiveCount = [...allRegions].filter(region => {
-    const available = selectedModels.filter(({ model }) => !model.mantle_only && (model.regions_available || []).includes(region))
+    const available = selectedModels.filter(({ model }) => getAllModelRegions(model).includes(region))
     return available.length === 1
   }).length
 
@@ -571,24 +574,7 @@ function GeoSection({ group, collapsed, onToggle, selectedModels, commonRegions,
               </div>
             </td>
             {selectedModels.map(({ model }) => {
-              const isMantleOnly = model.mantle_only
-              if (isMantleOnly) {
-                // For Mantle-only models, show a special indicator
-                return (
-                  <td key={model.model_id} className="px-3 py-2.5 text-center">
-                    <span className={cn(
-                      'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
-                      isLight
-                        ? 'bg-violet-50 text-violet-600 border border-violet-200'
-                        : 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
-                    )}>
-                      <Cpu className="h-3 w-3" />
-                      Mantle
-                    </span>
-                  </td>
-                )
-              }
-              const available = (model.regions_available || []).includes(region.value)
+              const available = getAllModelRegions(model).includes(region.value)
               return (
                 <td key={model.model_id} className="px-3 py-2.5 text-center">
                   {available ? (
@@ -734,13 +720,19 @@ function CrisSection({ selectedModels, isLight }) {
                   Profiles
                 </td>
                 {selectedModels.map(({ model }) => {
-                  const count = model.cross_region_inference?.profiles_count
+                  // Count unique profile IDs (same logic as ModelCardExpanded)
+                  const profiles = model.cross_region_inference?.profiles || []
+                  const uniqueEndpoints = new Set(
+                    profiles
+                      .map(p => p.profile_id || p.inference_profile_id)
+                      .filter(Boolean)
+                  ).size
                   return (
                     <td key={model.model_id} className={cn(
                       'px-3 py-2.5 text-center text-sm font-medium',
                       isLight ? 'text-stone-900' : 'text-white'
                     )}>
-                      {count || '--'}
+                      {uniqueEndpoints || '--'}
                     </td>
                   )
                 })}
