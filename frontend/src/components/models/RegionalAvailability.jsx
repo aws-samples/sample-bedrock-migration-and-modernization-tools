@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback, Fragment } from 'react'
-import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, ChevronsUpDown, Zap, Globe2, Cpu } from 'lucide-react'
+import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, ChevronsUpDown, Zap, Globe, Globe2, Cpu } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -85,6 +85,21 @@ function buildRegionEntry(code) {
   return { code, short, label: code, geo }
 }
 
+/**
+ * Normalize a CRIS profile prefix (e.g. 'us', 'eu', 'global') into a display scope.
+ */
+function normalizeCrisPrefix(prefix) {
+  const p = prefix.toLowerCase()
+  if (p === 'global') return 'Global'
+  if (p === 'us') return 'US'
+  if (p === 'eu') return 'EU'
+  if (p === 'apac') return 'APAC'
+  if (p === 'au') return 'AU'
+  if (p === 'jp') return 'JP'
+  if (p === 'ca') return 'CA'
+  return p.toUpperCase()  // Any future prefix: just uppercase it
+}
+
 const MODEL_COL_WIDTH = 280
 
 /**
@@ -95,7 +110,10 @@ function getRegionAvailability(model, regionCode) {
   const crisRegions = model.cross_region_inference?.source_regions || []
   const mantleRegions = model.mantle_inference?.mantle_regions || []
 
-  const onDemand = regions.includes(regionCode)
+  // Use on_demand_regions for per-region accuracy (falls back to old logic if not available)
+  const onDemandRegions = model.on_demand_regions || []
+  const supportsOnDemand = onDemandRegions.length > 0 || (model.inference_types_supported || []).includes('ON_DEMAND')
+  const onDemand = onDemandRegions.length > 0 ? onDemandRegions.includes(regionCode) : (supportsOnDemand && regions.includes(regionCode))
   const cris = crisRegions.includes(regionCode)
   const mantle = mantleRegions.includes(regionCode)
   const available = onDemand || cris || mantle
@@ -111,45 +129,41 @@ function getRegionAvailability(model, regionCode) {
  * Mantle-only → violet/purple
  */
 function getAvailabilityColors(onDemand, cris, mantle, isLight) {
-  const typeCount = (onDemand ? 1 : 0) + (cris ? 1 : 0) + (mantle ? 1 : 0)
-
-  if (typeCount > 1) {
-    // Multiple availability types → green
-    return {
-      bg: isLight ? 'bg-emerald-100' : 'bg-emerald-500/15',
-      icon: isLight ? 'text-emerald-600' : 'text-emerald-400',
-    }
-  }
-  if (onDemand) {
-    // On-Demand only → neutral stone
-    return {
-      bg: isLight ? 'bg-stone-100' : 'bg-white/[0.08]',
-      icon: isLight ? 'text-stone-500' : 'text-[#9a9b9f]',
-    }
-  }
-  if (cris) {
-    // CRIS-only → blue
-    return {
-      bg: isLight ? 'bg-sky-100' : 'bg-sky-500/15',
-      icon: isLight ? 'text-sky-600' : 'text-sky-400',
-    }
-  }
-  // Mantle-only → violet
   return {
-    bg: isLight ? 'bg-violet-100' : 'bg-violet-500/15',
-    icon: isLight ? 'text-violet-600' : 'text-violet-400',
+    bg: isLight ? 'bg-stone-200' : 'bg-white/10',
+    icon: isLight ? 'text-stone-600' : 'text-white/70',
   }
 }
 
 /**
  * Simple availability cell — check when available, dash when not.
- * Hover tooltip shows On-Demand / CRIS / Mantle breakdown.
- * Checkmark color reflects the availability type.
+ * Hover tooltip shows availability breakdown based on active filter:
+ * - 'all': shows all types (In Region / CRIS / Mantle)
+ * - 'in_region': shows only In Region info
+ * - 'cris': shows only CRIS info with scopes
+ * - 'mantle': shows only Mantle info
  */
-function AvailabilityCell({ model, regionCode, regionLabel, isLight }) {
+function AvailabilityCell({ model, regionCode, regionLabel, isLight, activeView }) {
   const { available, onDemand, cris, mantle } = getRegionAvailability(model, regionCode)
 
-  if (!available) {
+  // In specific views, only show relevant availability
+  let isAvailable, colors
+  if (activeView === 'in_region') {
+    isAvailable = onDemand
+    colors = isAvailable ? getAvailabilityColors(true, false, false, isLight) : null
+  } else if (activeView === 'cris') {
+    isAvailable = cris
+    colors = isAvailable ? getAvailabilityColors(false, true, false, isLight) : null
+  } else if (activeView === 'mantle') {
+    isAvailable = mantle
+    colors = isAvailable ? getAvailabilityColors(false, false, true, isLight) : null
+  } else {
+    // 'all' view: show combined
+    isAvailable = available
+    colors = isAvailable ? getAvailabilityColors(onDemand, cris, mantle, isLight) : null
+  }
+
+  if (!isAvailable) {
     return (
       <div className="w-4 h-4 flex items-center justify-center">
         <Minus className={cn('w-2.5 h-2.5', isLight ? 'text-stone-300' : 'text-white/10')} strokeWidth={2} />
@@ -157,7 +171,111 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight }) {
     )
   }
 
-  const colors = getAvailabilityColors(onDemand, cris, mantle, isLight)
+  // Build CRIS scopes helper (used in 'all' and 'cris' views)
+  const getCrisScopes = () => {
+    const profiles = model.cross_region_inference?.profiles || []
+    const scopes = new Set()
+    profiles.forEach(p => {
+      if (p.source_region === regionCode) {
+        const prefix = p.profile_id?.split('.')[0] || ''
+        const scope = prefix.toLowerCase()
+        if (scope === 'global') scopes.add('Global')
+        else if (scope === 'us') scopes.add('US')
+        else if (scope === 'eu') scopes.add('EU')
+        else if (scope === 'apac') scopes.add('APAC')
+        else if (scope === 'au') scopes.add('AU')
+        else if (scope === 'jp') scopes.add('JP')
+        else if (scope === 'ca') scopes.add('CA')
+        else if (scope) scopes.add(scope.toUpperCase())
+      }
+    })
+    
+    return [...scopes].sort((a, b) => {
+      const order = ['Global', 'US', 'EU', 'APAC', 'AU', 'JP', 'CA']
+      return (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 99 : order.indexOf(b))
+    })
+  }
+
+  // Render tooltip content based on active view
+  const renderTooltipContent = () => {
+    if (activeView === 'in_region') {
+      // Only show In Region info
+      return (
+        <div className="flex items-center gap-1.5">
+          <Zap className={cn('w-3 h-3', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')} strokeWidth={2} />
+          <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>In Region</span>
+        </div>
+      )
+    }
+    
+    if (activeView === 'cris') {
+      // Only show CRIS info with scopes
+      const scopeList = getCrisScopes()
+      if (scopeList.length === 0) {
+        return (
+          <div className="flex items-center gap-1.5">
+            <Globe2 className={cn('w-3 h-3', isLight ? 'text-sky-500' : 'text-sky-400')} strokeWidth={2} />
+            <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Cross-Region (CRIS)</span>
+          </div>
+        )
+      }
+      return (
+        <div className="flex items-center gap-1.5">
+          <Globe2 className={cn('w-3 h-3 flex-shrink-0', isLight ? 'text-sky-500' : 'text-sky-400')} strokeWidth={2} />
+          <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>
+            CRIS ({scopeList.join(', ')})
+          </span>
+        </div>
+      )
+    }
+    
+    if (activeView === 'mantle') {
+      // Only show Mantle info
+      return (
+        <div className="flex items-center gap-1.5">
+          <Cpu className={cn('w-3 h-3', isLight ? 'text-violet-500' : 'text-violet-400')} strokeWidth={2} />
+          <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Mantle</span>
+        </div>
+      )
+    }
+    
+    // 'all' view: show all available types
+    return (
+      <>
+        {onDemand && (
+          <div className="flex items-center gap-1.5">
+            <Zap className={cn('w-3 h-3', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')} strokeWidth={2} />
+            <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>In Region</span>
+          </div>
+        )}
+        {cris && (() => {
+          const scopeList = getCrisScopes()
+          if (scopeList.length === 0) {
+            return (
+              <div className="flex items-center gap-1.5">
+                <Globe2 className={cn('w-3 h-3', isLight ? 'text-sky-500' : 'text-sky-400')} strokeWidth={2} />
+                <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Cross-Region (CRIS)</span>
+              </div>
+            )
+          }
+          return (
+            <div className="flex items-center gap-1.5">
+              <Globe2 className={cn('w-3 h-3 flex-shrink-0', isLight ? 'text-sky-500' : 'text-sky-400')} strokeWidth={2} />
+              <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>
+                CRIS ({scopeList.join(', ')})
+              </span>
+            </div>
+          )
+        })()}
+        {mantle && (
+          <div className="flex items-center gap-1.5">
+            <Cpu className={cn('w-3 h-3', isLight ? 'text-violet-500' : 'text-violet-400')} strokeWidth={2} />
+            <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Mantle</span>
+          </div>
+        )}
+      </>
+    )
+  }
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -186,24 +304,7 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight }) {
             {regionLabel} ({regionCode})
           </div>
           <div className="space-y-0.5">
-            {onDemand && (
-              <div className="flex items-center gap-1.5">
-                <Zap className={cn('w-3 h-3', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')} strokeWidth={2} />
-                <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>In Region</span>
-              </div>
-            )}
-            {cris && (
-              <div className="flex items-center gap-1.5">
-                <Globe2 className={cn('w-3 h-3', isLight ? 'text-sky-500' : 'text-sky-400')} strokeWidth={2} />
-                <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Cross-Region (CRIS)</span>
-              </div>
-            )}
-            {mantle && (
-              <div className="flex items-center gap-1.5">
-                <Cpu className={cn('w-3 h-3', isLight ? 'text-violet-500' : 'text-violet-400')} strokeWidth={2} />
-                <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>Mantle</span>
-              </div>
-            )}
+            {renderTooltipContent()}
           </div>
         </TooltipContent>
       </Tooltip>
@@ -239,14 +340,14 @@ export function RegionalAvailability() {
   const { models, loading, error } = useModels()
   const [searchQuery, setSearchQuery] = useState('')
   const [collapsedProviders, setCollapsedProviders] = useState(new Set())
-  const [hoveredRegion, setHoveredRegion] = useState(null)
+  
   const [hoveredRow, setHoveredRow] = useState(null)
 
-  const [showMantleOnly, setShowMantleOnly] = useState(false)
+  const [activeView, setActiveView] = useState('all')
+  const [selectedGeos, setSelectedGeos] = useState(new Set())
 
   const tableContainerRef = useRef(null)
   const [scrollState, setScrollState] = useState({ atTop: true, atBottom: false, atLeft: true, atRight: false, scrollTop: 0 })
-  const [activeGeo, setActiveGeo] = useState(null) // null = show all geos
 
   // Regions with data — known ones keep their order/labels, unknown ones auto-detected
   const activeRegions = useMemo(() => {
@@ -281,11 +382,29 @@ export function RegionalAvailability() {
     return result
   }, [models])
 
-  // Visible regions — filtered by selected geo (null = all)
+  // Visible regions — filtered by selected geos (multi-select) or CRIS source regions
   const visibleRegions = useMemo(() => {
-    if (!activeGeo) return activeRegions
-    return activeRegions.filter(r => r.geo === activeGeo)
-  }, [activeRegions, activeGeo])
+    if (activeView === 'cris') {
+      // For CRIS view: show source regions, filtered by selected CRIS prefixes
+      const crisSourceRegions = new Set()
+      models.forEach(m => {
+        if (!m.cross_region_inference?.supported) return
+        const profiles = m.cross_region_inference?.profiles || []
+        profiles.forEach(p => {
+          const prefix = p.profile_id?.split('.')[0] || ''
+          const scope = normalizeCrisPrefix(prefix)
+          if (selectedGeos.size === 0 || selectedGeos.has(scope)) {
+            if (p.source_region) crisSourceRegions.add(p.source_region)
+          }
+        })
+      })
+      return activeRegions.filter(r => crisSourceRegions.has(r.code))
+    }
+
+    // For All/In Region/Mantle: filter by geo (multi-select)
+    if (selectedGeos.size === 0) return activeRegions
+    return activeRegions.filter(r => selectedGeos.has(r.geo))
+  }, [activeRegions, activeView, selectedGeos, models])
 
   // Which geos exist in the data
   const geoIndex = useMemo(() => {
@@ -300,6 +419,22 @@ export function RegionalAvailability() {
     GEO_GROUPS.filter(g => g.id in geoIndex),
     [geoIndex]
   )
+
+  // Available CRIS prefixes (computed dynamically from data)
+  const availableCrisPrefixes = useMemo(() => {
+    if (activeView !== 'cris') return []
+    const prefixes = new Set()
+    models.forEach(m => {
+      (m.cross_region_inference?.profiles || []).forEach(p => {
+        const prefix = p.profile_id?.split('.')[0] || ''
+        prefixes.add(normalizeCrisPrefix(prefix))
+      })
+    })
+    const order = ['Global', 'US', 'EU', 'APAC', 'AU', 'JP', 'CA']
+    return order.filter(p => prefixes.has(p)).concat(
+      [...prefixes].filter(p => !order.includes(p)).sort()
+    )
+  }, [models, activeView])
 
   // Geo header cells with colspan spans (based on visible regions)
   const geoHeaderCells = useMemo(() => {
@@ -327,7 +462,15 @@ export function RegionalAvailability() {
         m.model_id?.toLowerCase().includes(q) ||
         m.model_provider?.toLowerCase().includes(q)
       )) return false
-      if (showMantleOnly && !(m.mantle_inference?.supported || m.is_mantle)) return false
+      if (activeView === 'in_region') {
+        if (!(m.inference_types_supported || []).includes('ON_DEMAND')) return false
+      }
+      if (activeView === 'cris') {
+        if (!m.cross_region_inference?.supported) return false
+      }
+      if (activeView === 'mantle') {
+        if (!(m.mantle_inference?.supported || m.is_mantle)) return false
+      }
       return true
     })
 
@@ -343,7 +486,7 @@ export function RegionalAvailability() {
     )
 
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))
-  }, [models, searchQuery, showMantleOnly])
+  }, [models, searchQuery, activeView])
 
   const totalFiltered = groupedModels.reduce((sum, [, models]) => sum + models.length, 0)
 
@@ -355,14 +498,20 @@ export function RegionalAvailability() {
       let count = 0
       groupedModels.forEach(([, providerModels]) => {
         providerModels.forEach(m => {
-          if (getRegionAvailability(m, r.code).available) count++
+          const { available, onDemand, cris, mantle } = getRegionAvailability(m, r.code)
+          let isAvail
+          if (activeView === 'in_region') isAvail = onDemand
+          else if (activeView === 'cris') isAvail = cris
+          else if (activeView === 'mantle') isAvail = mantle
+          else isAvail = available
+          if (isAvail) count++
         })
       })
       const ratio = count / totalFiltered
       coverage[r.code] = ratio >= 1 ? 'full' : ratio >= 0.5 ? 'high' : null
     })
     return coverage
-  }, [groupedModels, activeRegions, totalFiltered])
+  }, [groupedModels, activeRegions, totalFiltered, activeView])
 
   // Column tint via inset box-shadow (layers over bg without conflicting)
   const getColumnTint = useCallback((regionCode) => {
@@ -434,9 +583,19 @@ export function RegionalAvailability() {
     if (main) main.scrollTo({ top: main.scrollHeight, behavior: 'smooth' })
   }
 
-  const toggleGeo = (geoId) => {
-    setActiveGeo(prev => prev === geoId ? null : geoId)
-    // Reset horizontal scroll when changing filter
+  const handleViewChange = (viewId) => {
+    setActiveView(viewId)
+    setSelectedGeos(new Set())
+    tableContainerRef.current?.scrollTo({ left: 0 })
+  }
+
+  const toggleGeoSelection = (id) => {
+    setSelectedGeos(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
     tableContainerRef.current?.scrollTo({ left: 0 })
   }
 
@@ -508,38 +667,48 @@ export function RegionalAvailability() {
           </div>
         </div>
 
-        {/* Mantle + Geo filter pills */}
+        {/* Primary view pills + Geo/CRIS prefix pills */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Mantle toggle */}
-          <button
-            onClick={() => setShowMantleOnly(prev => !prev)}
-            className={cn(
-              'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border flex items-center gap-1',
-              showMantleOnly
-                ? isLight
-                  ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
-                  : 'bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-600/20'
-                : isLight
-                  ? 'bg-white text-stone-500 border-stone-200 hover:border-violet-300 hover:text-violet-700'
-                  : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-violet-500/10 hover:text-violet-400 hover:border-violet-500/30'
-            )}
-          >
-            <Cpu className="w-3 h-3" />
-            Mantle
-          </button>
+          {/* Tier 1: Primary filter pills */}
+          {[
+            { id: 'all', label: 'All', icon: null },
+            { id: 'in_region', label: 'In Region', icon: Zap },
+            { id: 'cris', label: 'CRIS', icon: Globe },
+            { id: 'mantle', label: 'Mantle', icon: Cpu },
+          ].map(view => (
+            <button
+              key={view.id}
+              onClick={() => handleViewChange(view.id)}
+              className={cn(
+                'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border flex items-center gap-1',
+                activeView === view.id
+                  ? isLight
+                    ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+                    : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
+                  : isLight
+                    ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+                    : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
+              )}
+            >
+              {view.icon && <view.icon className="w-3 h-3" />}
+              {view.label}
+            </button>
+          ))}
 
           {/* Divider */}
           <div className={cn('w-px h-5 mx-1', isLight ? 'bg-stone-200' : 'bg-white/[0.08]')} />
 
-          {/* Geo pills */}
+          {/* Tier 2: Geo / CRIS prefix pills (multi-select) */}
           <span className={cn('text-[10px] uppercase tracking-wider font-medium mr-1', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
-            Geo
+            {activeView === 'cris' ? 'Scope' : 'Geo'}
           </span>
+
+          {/* "All" pill */}
           <button
-            onClick={() => setActiveGeo(null)}
+            onClick={() => { setSelectedGeos(new Set()); tableContainerRef.current?.scrollTo({ left: 0 }) }}
             className={cn(
               'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
-              activeGeo === null
+              selectedGeos.size === 0
                 ? isLight
                   ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
                   : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
@@ -550,24 +719,31 @@ export function RegionalAvailability() {
           >
             All
           </button>
-          {availableGeos.map(geo => (
-            <button
-              key={geo.id}
-              onClick={() => toggleGeo(geo.id)}
-              className={cn(
-                'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
-                activeGeo === geo.id
-                  ? isLight
-                    ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
-                    : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
-                  : isLight
-                    ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
-                    : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
-              )}
-            >
-              {geo.label}
-            </button>
-          ))}
+
+          {/* Dynamic pills based on view */}
+          {(activeView === 'cris' ? availableCrisPrefixes : availableGeos).map(item => {
+            const id = typeof item === 'string' ? item : item.id
+            const label = typeof item === 'string' ? item : item.label
+            const isSelected = selectedGeos.has(id)
+            return (
+              <button
+                key={id}
+                onClick={() => toggleGeoSelection(id)}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+                  isSelected
+                    ? isLight
+                      ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+                      : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
+                    : isLight
+                      ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+                      : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
+                )}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -650,15 +826,15 @@ export function RegionalAvailability() {
                 {visibleRegions.map((region, i) => (
                   <th
                     key={region.code}
-                    onMouseEnter={() => setHoveredRegion(region.code)}
-                    onMouseLeave={() => setHoveredRegion(null)}
+                    
+                    
                     className={cn(
                       'sticky top-[26px] z-20 text-center px-0 py-0 w-10 min-w-10',
                       isLight
                         ? 'bg-stone-50/90 backdrop-blur-sm border-b border-stone-200'
                         : 'bg-white/[0.04] backdrop-blur-xl border-b border-white/[0.06]',
                       isGeoBreak(i) && (isLight ? 'border-l-2 border-l-stone-300' : 'border-l-2 border-l-white/[0.12]'),
-                      hoveredRegion === region.code && (isLight ? 'bg-amber-50' : 'bg-[#1A9E7A]/[0.06]'),
+                      
                       getColumnTint(region.code)
                     )}
                   >
@@ -708,7 +884,13 @@ export function RegionalAvailability() {
               {groupedModels.map(([provider, providerModels]) => {
                 const isCollapsed = collapsedProviders.has(provider)
                 const providerRegionCoverage = visibleRegions.map(r =>
-                  providerModels.some(m => getRegionAvailability(m, r.code).available)
+                  providerModels.some(m => {
+                    const { available, onDemand, cris, mantle } = getRegionAvailability(m, r.code)
+                    if (activeView === 'in_region') return onDemand
+                    if (activeView === 'cris') return cris
+                    if (activeView === 'mantle') return mantle
+                    return available
+                  })
                 )
 
                 return (
@@ -749,7 +931,7 @@ export function RegionalAvailability() {
                               ? 'bg-stone-100/90 border-b border-stone-200'
                               : 'bg-white/[0.06] border-b border-white/[0.06]',
                             isGeoBreak(i) && (isLight ? 'border-l-2 border-l-stone-300' : 'border-l-2 border-l-white/[0.12]'),
-                            hoveredRegion === region.code && (isLight ? 'bg-amber-50/50' : 'bg-[#1A9E7A]/[0.06]'),
+                            
                             getColumnTint(region.code)
                           )}
                         >
@@ -825,8 +1007,8 @@ export function RegionalAvailability() {
                                 'text-center py-1.5',
                                 isLight ? 'border-b border-stone-100' : 'border-b border-white/[0.03]',
                                 isGeoBreak(i) && (isLight ? 'border-l-2 border-l-stone-300' : 'border-l-2 border-l-white/[0.12]'),
-                                hoveredRegion === region.code && (isLight ? 'bg-amber-50/30' : 'bg-[#1A9E7A]/[0.04]'),
-                                isHovered && hoveredRegion === region.code && (isLight ? 'bg-amber-100/40' : 'bg-[#1A9E7A]/[0.08]'),
+                                
+                                
                                 getColumnTint(region.code)
                               )}
                             >
@@ -835,6 +1017,7 @@ export function RegionalAvailability() {
                                 regionCode={region.code}
                                 regionLabel={region.label}
                                 isLight={isLight}
+                                activeView={activeView}
                               />
                             </td>
                           ))}

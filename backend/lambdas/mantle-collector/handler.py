@@ -11,6 +11,7 @@ import os
 import time
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 import boto3
@@ -111,6 +112,129 @@ def call_mantle_endpoint(region: str) -> list[dict]:
     ]
 
 
+def probe_responses_api(model_id: str, region: str) -> bool:
+    """Probe whether a Mantle model supports the Responses API.
+
+    Sends POST /v1/responses with {"model": model_id} (no input).
+    This is free — no tokens consumed. The response pattern tells us:
+    - HTTP 200 + error.code "invalid_prompt" = SUPPORTED (model accepted, input validation failed)
+    - HTTP 400 + error.code "validation_error" = NOT SUPPORTED
+    - HTTP 404 = model not found (shouldn't happen for known models)
+
+    Args:
+        model_id: The Mantle model ID to probe.
+        region: AWS region code.
+
+    Returns:
+        True if the model supports the Responses API, False otherwise.
+    """
+    host = MANTLE_ENDPOINT_PATTERN.format(region=region)
+    url = f"https://{host}/v1/responses"
+    body = json.dumps({"model": model_id}).encode("utf-8")
+
+    headers = {
+        "Content-Type": "application/json",
+        "Host": host,
+    }
+    aws_request = AWSRequest(method="POST", url=url, headers=headers, data=body)
+
+    credentials = _boto3_session.get_credentials().get_frozen_credentials()
+    signer = SigV4Auth(credentials, "bedrock", region)
+    signer.add_auth(aws_request)
+
+    signed_headers = dict(aws_request.headers)
+    req = urllib.request.Request(url, data=body, headers=signed_headers, method="POST")
+
+    try:
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SECONDS) as response:
+            response_body = json.loads(response.read().decode("utf-8"))
+            # HTTP 200 + error.code "invalid_prompt" → model supports Responses API
+            error_code = response_body.get("error", {}).get("code", "")
+            if error_code == "invalid_prompt":
+                return True
+            # HTTP 200 with no error or unexpected shape — treat as supported
+            # (the endpoint accepted the model, just rejected the empty input)
+            return True
+    except urllib.error.HTTPError as e:
+        try:
+            error_body = json.loads(e.read().decode("utf-8"))
+        except Exception:
+            logger.debug(
+                "Responses API probe for %s: HTTP %s, unreadable body",
+                model_id,
+                e.code,
+            )
+            return False
+
+        error_code = error_body.get("error", {}).get("code", "")
+
+        if e.code == 400 and error_code == "validation_error":
+            # Model does NOT support Responses API
+            return False
+        if e.code == 404 and error_code == "not_found_error":
+            # Model not found in Mantle (unexpected for known models)
+            logger.warning(
+                "Responses API probe: model %s not found (404) in %s",
+                model_id,
+                region,
+            )
+            return False
+
+        # Any other HTTP error — default to False
+        logger.debug(
+            "Responses API probe for %s: HTTP %s, error_code=%s",
+            model_id,
+            e.code,
+            error_code,
+        )
+        return False
+    except Exception as e:
+        logger.debug(
+            "Responses API probe for %s failed: %s: %s",
+            model_id,
+            type(e).__name__,
+            e,
+        )
+        return False
+
+
+def probe_all_responses_support(
+    model_ids: list[str], region: str, max_workers: int = 10
+) -> dict[str, bool]:
+    """Probe Responses API support for all models in parallel.
+
+    Args:
+        model_ids: List of Mantle model IDs to probe.
+        region: AWS region code.
+        max_workers: Maximum number of concurrent probe threads.
+
+    Returns:
+        Dict mapping model_id → True (supports Responses API) / False.
+    """
+    results: dict[str, bool] = {}
+
+    if not model_ids:
+        return results
+
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(model_ids))) as executor:
+        future_to_model = {
+            executor.submit(probe_responses_api, mid, region): mid for mid in model_ids
+        }
+        for future in as_completed(future_to_model):
+            model_id = future_to_model[future]
+            try:
+                results[model_id] = future.result()
+            except Exception as e:
+                logger.debug(
+                    "Responses API probe future failed for %s: %s",
+                    model_id,
+                    e,
+                )
+                results[model_id] = False
+
+    return results
+
+
 def lambda_handler(event: dict, context: Any) -> dict:
     """
     Lambda handler for Mantle model collection (single region).
@@ -166,6 +290,27 @@ def lambda_handler(event: dict, context: Any) -> dict:
         models = call_mantle_endpoint(region)
         logger.info(f"Mantle: {region} returned {len(models)} models")
 
+        # Probe Responses API support for each model
+        model_ids = [m["model_id"] for m in models]
+        probe_start = time.time()
+        responses_support = probe_all_responses_support(model_ids, region)
+        probe_duration_ms = int((time.time() - probe_start) * 1000)
+
+        supported_count = sum(1 for v in responses_support.values() if v)
+        logger.info(
+            "Responses API probe in %s: %d/%d models supported (took %dms)",
+            region,
+            supported_count,
+            len(model_ids),
+            probe_duration_ms,
+        )
+
+        # Enrich each model dict with Responses API support flag
+        for model in models:
+            model["supports_responses_api"] = responses_support.get(
+                model["model_id"], False
+            )
+
         output_data = {
             "metadata": {
                 "region": region,
@@ -174,6 +319,11 @@ def lambda_handler(event: dict, context: Any) -> dict:
                     "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
                 ),
                 "endpoint": MANTLE_ENDPOINT_PATTERN.format(region=region),
+                "responses_api_probe": {
+                    "probed": len(model_ids),
+                    "supported": supported_count,
+                    "duration_ms": probe_duration_ms,
+                },
             },
             "mantle_models": models,
         }

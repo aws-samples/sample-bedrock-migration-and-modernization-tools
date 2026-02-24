@@ -9,7 +9,7 @@ import logging
 import os
 import re
 import time
-from typing import Any
+from typing import Any, Optional
 
 from shared import (
     get_s3_client,
@@ -88,7 +88,7 @@ def aggregate_features(
 def aggregate_mantle(mantle_results: list[dict], s3_client: Any, bucket: str) -> dict:
     """Aggregate Mantle models from all regions.
 
-    Returns: { model_id: [region1, region2, ...] }
+    Returns: { model_id: {"regions": [region1, ...], "supports_responses_api": bool} }
     """
     mantle_by_model = {}
 
@@ -105,13 +105,25 @@ def aggregate_mantle(mantle_results: list[dict], s3_client: Any, bucket: str) ->
                     model_id = model.get("model_id", "")
                     if model_id:
                         if model_id not in mantle_by_model:
-                            mantle_by_model[model_id] = set()
-                        mantle_by_model[model_id].add(region)
+                            mantle_by_model[model_id] = {
+                                "regions": set(),
+                                "supports_responses_api": False,
+                            }
+                        mantle_by_model[model_id]["regions"].add(region)
+                        # If ANY region reports Responses API support, mark it
+                        if model.get("supports_responses_api", False):
+                            mantle_by_model[model_id]["supports_responses_api"] = True
             except S3ReadError as e:
                 logger.warning(f"Failed to read mantle data for {region}: {e}")
 
     # Convert sets to sorted lists
-    return {mid: sorted(list(regions)) for mid, regions in mantle_by_model.items()}
+    return {
+        mid: {
+            "regions": sorted(list(info["regions"])),
+            "supports_responses_api": info["supports_responses_api"],
+        }
+        for mid, info in mantle_by_model.items()
+    }
 
 
 def get_size_category(context_window: int) -> dict:
@@ -218,14 +230,120 @@ def build_cross_region_inference(model_id: str, features_by_region: dict) -> dic
     }
 
 
+def _normalize_for_mantle_match(model_id: str) -> str:
+    """Normalize a model ID for fuzzy Mantle matching."""
+    normalized = model_id.lower()
+    # Strip version suffixes
+    for suffix in [":0", ":1", ":2", "-v1", "-v2", "-v3"]:
+        if normalized.endswith(suffix):
+            normalized = normalized[: -len(suffix)]
+    # Strip -instruct/-it/-chat
+    for suffix in ["-instruct", "-it", "-chat"]:
+        if normalized.endswith(suffix):
+            normalized = normalized[: -len(suffix)]
+    return normalized
+
+
+def _is_prefix_match(shorter: str, longer: str) -> bool:
+    """Check if shorter is a prefix of longer, followed by a separator or end.
+
+    Prevents false matches like 'deepseek.v3' matching 'deepseek.v3.1'.
+    Only '-' and '_' count as separators; '.' is excluded because it appears
+    inside version numbers (v3.1) and would cause false positives.
+    """
+    if not longer.startswith(shorter):
+        return False
+    return len(longer) == len(shorter) or longer[len(shorter)] in ("-", "_")
+
+
 def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
-    """Build mantle_inference object for a model."""
-    regions = mantle_by_model.get(model_id, [])
+    """Build mantle_inference object for a model.
+
+    Uses fuzzy matching because the Mantle API (/v1/models) returns model IDs
+    in a different format than Bedrock's ListFoundationModels. Common differences:
+    - Missing version suffixes (-v1:0)
+    - -instruct vs -v1:0 suffixes
+    - Different provider prefixes (moonshotai vs moonshot)
+
+    mantle_by_model values are dicts: {"regions": [...], "supports_responses_api": bool}
+
+    Returns a dict with:
+    - supported: bool
+    - mantle_regions: list of regions
+    - total_mantle_regions: int
+    - mantle_endpoint_pattern: str
+    - matched_mantle_id: str or None (the Mantle model ID that was matched)
+    - supports_responses_api: bool
+    """
+    # 1. Exact match
+    mantle_info = mantle_by_model.get(model_id, {})
+    regions = mantle_info.get("regions", [])
+    if regions:
+        return {
+            "supported": True,
+            "mantle_regions": regions,
+            "total_mantle_regions": len(regions),
+            "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
+            "matched_mantle_id": model_id,
+            "supports_responses_api": mantle_info.get("supports_responses_api", False),
+        }
+
+    # 2. Fuzzy match: normalize both sides and compare
+    normalized_bedrock = _normalize_for_mantle_match(model_id)
+
+    for mantle_id, mantle_info in mantle_by_model.items():
+        mantle_regions = mantle_info.get("regions", [])
+        supports_responses_api = mantle_info.get("supports_responses_api", False)
+        normalized_mantle = _normalize_for_mantle_match(mantle_id)
+
+        # Direct normalized match
+        if normalized_bedrock == normalized_mantle:
+            return {
+                "supported": True,
+                "mantle_regions": mantle_regions,
+                "total_mantle_regions": len(mantle_regions),
+                "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
+                "matched_mantle_id": mantle_id,
+                "supports_responses_api": supports_responses_api,
+            }
+
+        # Prefix match — require separator boundary to prevent v3 matching v3.1
+        if _is_prefix_match(normalized_mantle, normalized_bedrock) or _is_prefix_match(
+            normalized_bedrock, normalized_mantle
+        ):
+            return {
+                "supported": True,
+                "mantle_regions": mantle_regions,
+                "total_mantle_regions": len(mantle_regions),
+                "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
+                "matched_mantle_id": mantle_id,
+                "supports_responses_api": supports_responses_api,
+            }
+
+        # Provider-agnostic match: compare after the first dot
+        bedrock_name = model_id.split(".", 1)[-1].lower() if "." in model_id else ""
+        mantle_name = mantle_id.split(".", 1)[-1].lower() if "." in mantle_id else ""
+        if bedrock_name and mantle_name:
+            norm_bedrock_name = _normalize_for_mantle_match(bedrock_name)
+            norm_mantle_name = _normalize_for_mantle_match(mantle_name)
+            if norm_bedrock_name == norm_mantle_name:
+                return {
+                    "supported": True,
+                    "mantle_regions": mantle_regions,
+                    "total_mantle_regions": len(mantle_regions),
+                    "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
+                    "matched_mantle_id": mantle_id,
+                    "supports_responses_api": supports_responses_api,
+                }
+
+    # No match found
     return {
-        "supported": len(regions) > 0,
-        "mantle_regions": regions,
-        "total_mantle_regions": len(regions),
+        "supported": False,
+        "mantle_regions": [],
+        "total_mantle_regions": 0,
         "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
+        "matched_mantle_id": None,
+        "supports_responses_api": False,
     }
 
 
@@ -275,6 +393,286 @@ def _normalize_for_quota_matching(name: str) -> str:
     # Collapse whitespace
     n = " ".join(n.split())
     return n
+
+
+# Mapping of Mantle model ID prefixes to provider display names
+# Used for creating stub entries for Mantle-only models
+MANTLE_PROVIDER_NAMES = {
+    "zai": "Zhipu AI",
+    "anthropic": "Anthropic",
+    "meta": "Meta",
+    "mistral": "Mistral AI",
+    "cohere": "Cohere",
+    "ai21": "AI21 Labs",
+    "amazon": "Amazon",
+    "stability": "Stability AI",
+    "deepseek": "DeepSeek",
+    "minimax": "MiniMax",
+    "moonshot": "Moonshot AI",
+    "moonshotai": "Moonshot AI",
+    "writer": "Writer",
+    "luma": "Luma AI",
+    "nvidia": "NVIDIA",
+    "qwen": "Alibaba Cloud",
+}
+
+# Explicit name overrides for Mantle model IDs where generic derivation doesn't work well
+# This covers edge cases like version-only names (deepseek.v3.1 → "DeepSeek V3.1")
+MANTLE_MODEL_NAME_OVERRIDES = {
+    "deepseek.v3.1": "DeepSeek V3.1",
+}
+
+
+# Known acronyms and abbreviations that should be all-uppercase
+_UPPERCASE_WORDS = {
+    "glm",
+    "gpt",
+    "llm",
+    "ai",
+    "xl",
+    "sd",
+    "sdxl",
+    "r1",
+    "v1",
+    "v2",
+    "v3",
+    "v4",
+}
+
+
+def _derive_model_name_from_id(mantle_id: str) -> str:
+    """
+    Derive a human-readable model name from a Mantle model ID.
+
+    Examples:
+        zai.glm-4.6 -> GLM 4.6
+        anthropic.claude-3-sonnet -> Claude 3 Sonnet
+        meta.llama-3-70b-instruct -> Llama 3 70B Instruct
+    """
+    # Extract the model part after the provider prefix
+    if "." in mantle_id:
+        model_part = mantle_id.split(".", 1)[1]
+    else:
+        model_part = mantle_id
+
+    # Replace hyphens with spaces
+    name = model_part.replace("-", " ")
+
+    # Title case each word, but handle special cases
+    words = name.split()
+    result_words = []
+    for word in words:
+        # Keep version numbers as-is (e.g., "4.6", "3.5")
+        if re.match(r"^\d+\.?\d*$", word):
+            result_words.append(word)
+        # Keep size indicators uppercase (e.g., "70b" -> "70B")
+        elif re.match(r"^\d+[bBkKmM]$", word):
+            result_words.append(word.upper())
+        # Keep known acronyms uppercase
+        elif word.lower() in _UPPERCASE_WORDS:
+            result_words.append(word.upper())
+        else:
+            result_words.append(word.title())
+
+    return " ".join(result_words)
+
+
+def _find_pricing_for_mantle_stub(
+    mantle_id: str, model_name: str, pricing_data: dict
+) -> Optional[dict]:
+    """Search pricing data for a Mantle-only model. Returns pricing_ref dict if found."""
+    providers = pricing_data.get("providers", {})
+    mantle_id_lower = mantle_id.lower()
+    model_name_lower = model_name.lower() if model_name else ""
+
+    for prov_name, prov_data in providers.items():
+        if not isinstance(prov_data, dict):
+            continue
+        for model_key, model_data in prov_data.items():
+            if not isinstance(model_data, dict) or "regions" not in model_data:
+                continue
+            key_lower = model_key.lower()
+            # Match by model_id or model name
+            if (
+                mantle_id_lower == key_lower
+                or mantle_id_lower in key_lower
+                or key_lower in mantle_id_lower
+            ):
+                return {
+                    "provider": prov_name,
+                    "model_key": model_key,
+                    "model_name": model_name,
+                }
+            if model_name_lower and (
+                model_name_lower in key_lower or key_lower in model_name_lower
+            ):
+                return {
+                    "provider": prov_name,
+                    "model_key": model_key,
+                    "model_name": model_name,
+                }
+    return None
+
+
+def create_mantle_only_stub(
+    mantle_id: str,
+    regions: list,
+    collection_timestamp: str,
+    supports_responses_api: bool = False,
+) -> dict:
+    """
+    Create a stub model entry for a Mantle-only model (not in Bedrock's ListFoundationModels).
+
+    These models exist in the Mantle API but have no corresponding Bedrock foundation model.
+    The stub provides minimal metadata to display the model in the UI.
+    """
+    # Extract provider prefix from model ID
+    provider_prefix = mantle_id.split(".")[0].lower() if "." in mantle_id else ""
+    provider_name = MANTLE_PROVIDER_NAMES.get(provider_prefix, "Unknown")
+
+    # Derive model name — check explicit overrides first, then generic derivation
+    model_name = MANTLE_MODEL_NAME_OVERRIDES.get(
+        mantle_id
+    ) or _derive_model_name_from_id(mantle_id)
+
+    # Build mantle_inference for the stub
+    mantle_inference = {
+        "supported": True,
+        "mantle_regions": regions,
+        "total_mantle_regions": len(regions),
+        "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
+        "supports_responses_api": supports_responses_api,
+    }
+
+    # Build api_support for Mantle-only model
+    mantle_apis = ["chat_completions"]
+    if supports_responses_api:
+        mantle_apis.append("responses_api")
+
+    api_support = {
+        "invoke_model": {
+            "supported": False,
+            "streaming": False,
+            "endpoint": "bedrock-runtime",
+        },
+        "converse": {
+            "supported": False,
+            "streaming": False,
+            "endpoint": "bedrock-runtime",
+            "features": {},
+        },
+        "chat_completions": {
+            "supported": True,
+            "endpoints": ["bedrock-runtime", "bedrock-mantle"],
+        },
+        "responses_api": {
+            "supported": supports_responses_api,
+            "endpoint": "bedrock-mantle",
+        },
+        "endpoints_supported": ["bedrock-mantle"],
+    }
+
+    endpoint_availability = {}
+    if regions:
+        endpoint_availability["bedrock_mantle"] = {
+            "regions": regions,
+            "apis": mantle_apis,
+        }
+
+    return {
+        "model_id": mantle_id,
+        "model_arn": "",
+        "model_name": model_name,
+        "model_provider": provider_name,
+        "model_modalities": {
+            "input_modalities": ["TEXT"],
+            "output_modalities": ["TEXT"],
+        },
+        "streaming_supported": True,
+        "customization": {
+            "customization_supported": [],
+            "customization_options": {},
+        },
+        "inference_types_supported": [],
+        "on_demand_regions": [],
+        "model_lifecycle": {"status": "ACTIVE", "release_date": ""},
+        "regions_available": [],
+        "model_capabilities": [],
+        "model_use_cases": [],
+        "languages_supported": [],
+        "description": "",
+        "short_description": "",
+        "feature_support": {},
+        "chat_features": {},
+        "consumption_options": ["mantle"],
+        "cross_region_inference": {
+            "supported": False,
+            "profiles_count": 0,
+            "source_regions": [],
+            "profiles": [],
+        },
+        "is_mantle": True,
+        "mantle_only": True,
+        "mantle_inference": mantle_inference,
+        "provisioned_throughput": {
+            "supported": False,
+            "provisioned_regions": [],
+            "total_provisioned_regions": 0,
+        },
+        "documentation_links": {
+            "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids-arns.html",
+            "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+        },
+        "model_pricing": {
+            "is_pricing_available": False,
+            "pricing_reference_id": mantle_id,
+            "pricing_file_reference": {
+                "provider": provider_name,
+                "model_key": mantle_id,
+                "model_name": model_name,
+            },
+            "pricing_summary": {
+                "integration_source": "mantle_only_stub",
+                "has_pricing_data": False,
+                "integration_timestamp": collection_timestamp,
+                "reference_based": False,
+            },
+        },
+        "model_service_quotas": {},
+        "collection_metadata": {
+            "first_discovered_at": collection_timestamp,
+            "first_discovered_in_region": regions[0] if regions else "unknown",
+            "api_source": "mantle_only",
+            "dual_region_collection": False,
+            "regions_collected_from": [],
+            "phase2_regional_discovery": False,
+            "regional_data_source": "mantle_api",
+        },
+        "regional_availability_source": "mantle_api",
+        "total_regions_available": 0,
+        "batch_inference_supported": {
+            "supported": False,
+            "supported_regions": [],
+            "coverage_percentage": 0.0,
+            "detection_method": "no_pricing_data",
+        },
+        "converse_data": {
+            "context_window": None,
+            "max_output_tokens": None,
+            "size_category": {"category": "Unknown", "color": "#6B7280", "tier": 0},
+            "verified": False,
+            "source": "unknown",
+            "litellm_verified": False,
+            "capabilities_count": 0,
+            "use_cases_count": 0,
+            "regions_count": 0,
+            "has_extended_context": False,
+        },
+        "has_pricing": False,
+        "has_quotas": False,
+        "api_support": api_support,
+        "endpoint_availability": endpoint_availability,
+    }
 
 
 # Known provider prefixes that appear in quota names but not in model names.
@@ -528,8 +926,8 @@ def get_consumption_options(
 ) -> list:
     """Determine consumption options from inference types and pricing data.
 
-    Always includes 'on_demand' if there's On-Demand pricing available.
-    Adds 'batch' if there's Batch pricing available.
+    'on_demand' is added ONLY when inference_types contains ON_DEMAND.
+    Pricing data adds 'batch' and 'provisioned_throughput' but NOT 'on_demand'.
     """
     options = set()
 
@@ -543,7 +941,8 @@ def get_consumption_options(
         if inf_type in type_mapping:
             options.add(type_mapping[inf_type])
 
-    # Check pricing data for additional consumption options
+    # Check pricing data for ADDITIONAL consumption options (batch, provisioned)
+    # NOTE: Do NOT add "on_demand" from pricing — that must come from inference_types only
     if pricing_data and pricing_ref:
         provider = pricing_ref.get("provider", "")
         model_key = pricing_ref.get("model_key", "")
@@ -557,10 +956,6 @@ def get_consumption_options(
                 # Check first available region for pricing groups
                 for region_data in model_pricing.get("regions", {}).values():
                     pricing_groups = region_data.get("pricing_groups", {})
-
-                    # Check for On-Demand pricing
-                    if any(g.startswith("On-Demand") for g in pricing_groups.keys()):
-                        options.add("on_demand")
 
                     # Check for Batch pricing
                     if any(g.startswith("Batch") for g in pricing_groups.keys()):
@@ -576,11 +971,7 @@ def get_consumption_options(
     if mantle_supported:
         options.add("mantle")
 
-    # Always include on_demand as a default if no other options found
-    if not options:
-        options.add("on_demand")
-
-    # Sort for consistent ordering: on_demand, batch, cross_region_inference, mantle, provisioned_throughput
+    # Sort for consistent ordering
     order = [
         "on_demand",
         "batch",
@@ -682,6 +1073,127 @@ def check_batch_inference(
         "coverage_percentage": round(coverage, 1),
         "detection_method": "pricing_data" if supported_regions else "no_pricing_data",
     }
+
+
+def build_api_support(
+    model: dict,
+    mantle_inference: dict,
+    is_mantle_only: bool = False,
+) -> dict:
+    """Build the unified api_support object for a model.
+
+    Derives API support from existing collected data:
+    - InvokeModel: all Bedrock models support it (not Mantle-only)
+    - Converse: inferred from chat_features (non-empty = supported)
+    - Chat Completions: inferred from mantle_inference.supported
+    - Responses API: from mantle_inference.supports_responses_api
+    """
+    chat_features = model.get("chat_features", {})
+
+    # InvokeModel: all Bedrock models support it, Mantle-only don't
+    invoke_supported = not is_mantle_only
+
+    # Converse: inferred from non-empty chat_features
+    converse_supported = bool(chat_features) and not is_mantle_only
+
+    # Chat Completions: if model is in Mantle
+    chat_completions_supported = mantle_inference.get("supported", False)
+
+    # Responses API: from the probe result
+    responses_api_supported = mantle_inference.get("supports_responses_api", False)
+
+    # Determine which endpoints this model is available on
+    endpoints = []
+    if invoke_supported:
+        endpoints.append("bedrock-runtime")
+    if chat_completions_supported:
+        endpoints.append("bedrock-mantle")
+
+    return {
+        "invoke_model": {
+            "supported": invoke_supported,
+            "streaming": model.get("streaming_supported", False),
+            "endpoint": "bedrock-runtime",
+        },
+        "converse": {
+            "supported": converse_supported,
+            "streaming": (
+                converse_supported
+                and (
+                    chat_features.get("function_calling_streaming", False)
+                    or model.get("streaming_supported", False)
+                )
+            ),
+            "endpoint": "bedrock-runtime",
+            "features": (
+                {
+                    "system_prompts": chat_features.get("system_role", False),
+                    "tool_use": chat_features.get("function_calling", False),
+                    "streaming_tool_use": chat_features.get(
+                        "function_calling_streaming", False
+                    ),
+                    "vision": bool(chat_features.get("supported_image_types")),
+                    "document_chat": chat_features.get("documents", False),
+                    "citations": chat_features.get("citations", False),
+                    "reasoning": (
+                        chat_features.get("reasoning", {}).get("embedded", False)
+                        if isinstance(chat_features.get("reasoning"), dict)
+                        else False
+                    ),
+                }
+                if converse_supported
+                else {}
+            ),
+        },
+        "chat_completions": {
+            "supported": chat_completions_supported,
+            "endpoints": (
+                ["bedrock-runtime", "bedrock-mantle"]
+                if chat_completions_supported
+                else []
+            ),
+        },
+        "responses_api": {
+            "supported": responses_api_supported,
+            "endpoint": "bedrock-mantle",
+        },
+        "endpoints_supported": endpoints,
+    }
+
+
+def build_endpoint_availability(
+    regional_availability: list,
+    mantle_inference: dict,
+    api_support: dict,
+) -> dict:
+    """Build endpoint_availability showing per-endpoint regional data."""
+    runtime_apis = []
+    if api_support.get("invoke_model", {}).get("supported"):
+        runtime_apis.append("invoke_model")
+    if api_support.get("converse", {}).get("supported"):
+        runtime_apis.append("converse")
+    if api_support.get("chat_completions", {}).get("supported"):
+        runtime_apis.append("chat_completions")
+
+    mantle_apis = []
+    if api_support.get("chat_completions", {}).get("supported"):
+        mantle_apis.append("chat_completions")
+    if api_support.get("responses_api", {}).get("supported"):
+        mantle_apis.append("responses_api")
+
+    result = {}
+    if regional_availability:
+        result["bedrock_runtime"] = {
+            "regions": regional_availability,
+            "apis": runtime_apis,
+        }
+    if mantle_inference.get("supported"):
+        result["bedrock_mantle"] = {
+            "regions": mantle_inference.get("mantle_regions", []),
+            "apis": mantle_apis,
+        }
+
+    return result
 
 
 def transform_model_to_schema(
@@ -984,6 +1496,22 @@ def transform_model_to_schema(
     feature_support = console_meta.get("feature_support", {}) if console_meta else {}
     chat_features = console_meta.get("chat_features", {}) if console_meta else {}
 
+    # Build unified API support and endpoint availability
+    # Pass a dict with the fields build_api_support needs (chat_features from console_meta,
+    # streaming_supported from the model)
+    api_support_model = {
+        "chat_features": chat_features,
+        "streaming_supported": model.get("streaming_supported", False),
+    }
+    api_support = build_api_support(api_support_model, mantle, is_mantle_only=False)
+    endpoint_availability = build_endpoint_availability(
+        regional_availability
+        if regional_availability
+        else model.get("regions_available", []),
+        mantle,
+        api_support,
+    )
+
     return {
         "model_id": model_id,
         "model_arn": model.get("model_arn", ""),
@@ -993,6 +1521,9 @@ def transform_model_to_schema(
         "streaming_supported": model.get("streaming_supported", False),
         "customization": customization,
         "inference_types_supported": model.get("inference_types_supported", []),
+        "on_demand_regions": regional_availability
+        if regional_availability
+        else model.get("on_demand_regions", []),
         "model_lifecycle": model_lifecycle,
         "regions_available": regional_availability
         if regional_availability
@@ -1007,6 +1538,7 @@ def transform_model_to_schema(
         "consumption_options": consumption_options,
         "cross_region_inference": cross_region,
         "is_mantle": mantle["supported"],
+        "mantle_only": False,
         "mantle_inference": mantle,
         "provisioned_throughput": resolved_provisioned,
         "documentation_links": documentation_links,
@@ -1021,6 +1553,8 @@ def transform_model_to_schema(
         "converse_data": converse_data,
         "has_pricing": has_pricing,
         "has_quotas": len(model_quotas) > 0,
+        "api_support": api_support,
+        "endpoint_availability": endpoint_availability,
     }
 
 
@@ -1116,7 +1650,11 @@ def build_final_models(
     collection_timestamp: str,
     mantle_by_model: dict,
 ) -> dict:
-    """Build the final comprehensive models structure in expected schema."""
+    """Build the final comprehensive models structure in expected schema.
+
+    Also creates stub entries for Mantle-only models (models that exist in the
+    Mantle API but not in Bedrock's ListFoundationModels).
+    """
     providers = models_with_pricing.get("providers", {})
     enriched_providers = enriched_models.get("providers", {})
     # Upstream uses snake_case: model_availability
@@ -1128,6 +1666,8 @@ def build_final_models(
     token_specs_data = token_specs.get("token_specs", {})
 
     result_providers = {}
+    # Track which Mantle model IDs have been matched to Bedrock models
+    matched_mantle_ids = set()
 
     for provider, provider_data in providers.items():
         result_providers[provider] = {"models": {}}
@@ -1164,7 +1704,63 @@ def build_final_models(
                 provisioned_throughput=provisioned,
             )
 
+            # Track matched Mantle model ID
+            mantle_inference = transformed.get("mantle_inference", {})
+            matched_id = mantle_inference.get("matched_mantle_id")
+            if matched_id:
+                matched_mantle_ids.add(matched_id)
+
             result_providers[provider]["models"][model_id] = transformed
+
+    # Identify unmatched Mantle models and create stubs for them
+    all_mantle_ids = set(mantle_by_model.keys())
+    unmatched_mantle_ids = all_mantle_ids - matched_mantle_ids
+
+    if unmatched_mantle_ids:
+        logger.info(
+            f"Found {len(unmatched_mantle_ids)} Mantle-only models (not in Bedrock): "
+            f"{sorted(unmatched_mantle_ids)}"
+        )
+
+        for mantle_id in unmatched_mantle_ids:
+            mantle_info = mantle_by_model.get(mantle_id, {})
+            regions = mantle_info.get("regions", [])
+            supports_responses_api = mantle_info.get("supports_responses_api", False)
+            stub = create_mantle_only_stub(
+                mantle_id, regions, collection_timestamp, supports_responses_api
+            )
+
+            # Try to enrich with pricing data
+            pricing_ref = _find_pricing_for_mantle_stub(
+                mantle_id, stub["model_name"], pricing_data
+            )
+            if pricing_ref:
+                stub["has_pricing"] = True
+                stub["model_pricing"]["is_pricing_available"] = True
+                stub["model_pricing"]["pricing_file_reference"] = pricing_ref
+                stub["model_pricing"]["pricing_summary"]["has_pricing_data"] = True
+                batch = check_batch_inference(mantle_id, pricing_data, pricing_ref)
+                if batch.get("supported"):
+                    stub["batch_inference_supported"] = batch
+                    if "batch" not in stub["consumption_options"]:
+                        stub["consumption_options"].append("batch")
+                logger.info(
+                    f"Enriched Mantle-only model {mantle_id} with pricing from "
+                    f"{pricing_ref['provider']}/{pricing_ref['model_key']}"
+                )
+
+            # Determine provider from the stub
+            provider_name = stub.get("model_provider", "Unknown")
+
+            # Ensure provider exists in result_providers
+            if provider_name not in result_providers:
+                result_providers[provider_name] = {"models": {}}
+
+            # Add the stub model
+            result_providers[provider_name]["models"][mantle_id] = stub
+            logger.debug(
+                f"Created Mantle-only stub for {mantle_id} under provider {provider_name}"
+            )
 
     return result_providers
 

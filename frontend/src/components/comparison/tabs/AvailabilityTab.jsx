@@ -38,35 +38,48 @@ export function AvailabilityTab({ selectedModels, isLight }) {
   const [filterMode, setFilterMode] = useState('all')
   const [mapFullscreen, setMapFullscreen] = useState(false)
 
+  // Check if any model is Mantle-only
+  const mantleOnlyModels = selectedModels.filter(({ model }) => model.mantle_only)
+  const hasMantleOnlyModels = mantleOnlyModels.length > 0
+
   const allRegions = new Set()
   selectedModels.forEach(({ model }) => {
-    (model.regions_available || []).forEach(r => allRegions.add(r))
-  })
-
-  const modelCoverage = selectedModels.map(({ model }) => {
-    const regions = model.regions_available || []
-    return {
-      model,
-      regions,
-      count: regions.length,
-      coverage: allRegions.size > 0 ? (regions.length / allRegions.size * 100).toFixed(0) : 0,
+    // For Mantle-only models, don't add their (empty) regions_available
+    if (!model.mantle_only) {
+      (model.regions_available || []).forEach(r => allRegions.add(r))
     }
   })
 
-  const maxCount = Math.max(...modelCoverage.map(m => m.count))
-  const bestModels = modelCoverage.filter(m => m.count === maxCount)
+  const modelCoverage = selectedModels.map(({ model }) => {
+    const isMantleOnly = model.mantle_only
+    const regions = isMantleOnly ? [] : (model.regions_available || [])
+    const mantleRegions = model.mantle_inference?.mantle_regions || []
+    return {
+      model,
+      regions,
+      count: isMantleOnly ? mantleRegions.length : regions.length,
+      coverage: isMantleOnly 
+        ? 0 // Mantle-only models don't have AWS region coverage
+        : (allRegions.size > 0 ? (regions.length / allRegions.size * 100).toFixed(0) : 0),
+      isMantleOnly,
+      mantleRegions,
+    }
+  })
+
+  const maxCount = Math.max(...modelCoverage.filter(m => !m.isMantleOnly).map(m => m.count), 0)
+  const bestModels = modelCoverage.filter(m => !m.isMantleOnly && m.count === maxCount)
 
   const commonRegions = [...allRegions].filter(region =>
-    selectedModels.every(({ model }) => (model.regions_available || []).includes(region))
+    selectedModels.filter(({ model }) => !model.mantle_only).every(({ model }) => (model.regions_available || []).includes(region))
   )
 
   const diffRegions = [...allRegions].filter(region => {
-    const available = selectedModels.filter(({ model }) => (model.regions_available || []).includes(region))
-    return available.length > 0 && available.length < selectedModels.length
+    const available = selectedModels.filter(({ model }) => !model.mantle_only && (model.regions_available || []).includes(region))
+    return available.length > 0 && available.length < selectedModels.filter(({ model }) => !model.mantle_only).length
   })
 
   const exclusiveCount = [...allRegions].filter(region => {
-    const available = selectedModels.filter(({ model }) => (model.regions_available || []).includes(region))
+    const available = selectedModels.filter(({ model }) => !model.mantle_only && (model.regions_available || []).includes(region))
     return available.length === 1
   }).length
 
@@ -103,6 +116,28 @@ export function AvailabilityTab({ selectedModels, isLight }) {
 
   return (
     <div className="mt-4 space-y-3">
+      {/* Mantle-only models notice */}
+      {hasMantleOnlyModels && (
+        <div className={cn(
+          'rounded-lg p-3 border',
+          isLight
+            ? 'bg-violet-50 border-violet-200'
+            : 'bg-violet-500/10 border border-violet-500/20'
+        )}>
+          <div className="flex items-center gap-2 mb-1">
+            <Cpu className={cn('h-4 w-4', isLight ? 'text-violet-600' : 'text-violet-400')} />
+            <span className={cn('text-sm font-medium', isLight ? 'text-violet-700' : 'text-violet-400')}>
+              Mantle-Only Models in Comparison
+            </span>
+          </div>
+          <p className={cn('text-xs', isLight ? 'text-violet-600' : 'text-violet-300')}>
+            {mantleOnlyModels.map(({ model }) => model.model_name || model.model_id).join(', ')} {mantleOnlyModels.length === 1 ? 'is' : 'are'} available 
+            exclusively via Mantle Inference and {mantleOnlyModels.length === 1 ? 'does' : 'do'} not have standard AWS region availability. 
+            See the Mantle Inference section below for {mantleOnlyModels.length === 1 ? 'its' : 'their'} regional coverage.
+          </p>
+        </div>
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <SummaryCard
@@ -184,8 +219,13 @@ export function AvailabilityTab({ selectedModels, isLight }) {
           </h3>
           <div className="space-y-3">
             {[...modelCoverage]
-              .sort((a, b) => b.count - a.count)
-              .map(({ model, count, coverage }) => (
+              .sort((a, b) => {
+                // Sort Mantle-only models to the end
+                if (a.isMantleOnly && !b.isMantleOnly) return 1
+                if (!a.isMantleOnly && b.isMantleOnly) return -1
+                return b.count - a.count
+              })
+              .map(({ model, count, coverage, isMantleOnly, mantleRegions }) => (
               <div key={model.model_id}>
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -202,36 +242,62 @@ export function AvailabilityTab({ selectedModels, isLight }) {
                     )}>
                       {model.model_name || model.model_id}
                     </span>
-                    {count === maxCount && (
+                    {!isMantleOnly && count === maxCount && maxCount > 0 && (
                       <Trophy className={cn(
                         'h-3 w-3 flex-shrink-0',
                         isLight ? 'text-amber-600' : 'text-[#1A9E7A]'
                       )} />
                     )}
+                    {isMantleOnly && (
+                      <span className={cn(
+                        'inline-flex items-center gap-0.5 px-1 py-0 rounded text-[9px] font-medium flex-shrink-0',
+                        isLight
+                          ? 'bg-violet-100 text-violet-600'
+                          : 'bg-violet-500/15 text-violet-400'
+                      )}>
+                        <Cpu className="h-2.5 w-2.5" />
+                        Mantle
+                      </span>
+                    )}
                   </div>
                   <span className={cn(
                     'text-xs font-semibold tabular-nums flex-shrink-0 ml-2',
-                    isLight ? 'text-stone-600' : 'text-slate-400'
+                    isMantleOnly
+                      ? isLight ? 'text-violet-600' : 'text-violet-400'
+                      : isLight ? 'text-stone-600' : 'text-slate-400'
                   )}>
                     {count}
-                    <span className={cn('font-normal ml-0.5', isLight ? 'text-stone-400' : 'text-slate-500')}>
-                      ({coverage}%)
-                    </span>
+                    {!isMantleOnly && (
+                      <span className={cn('font-normal ml-0.5', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                        ({coverage}%)
+                      </span>
+                    )}
                   </span>
                 </div>
                 <div className={cn(
                   'h-2 rounded-full overflow-hidden',
                   isLight ? 'bg-stone-200' : 'bg-white/[0.06]'
                 )}>
-                  <div
-                    className={cn(
-                      'h-full rounded-full transition-all duration-500',
-                      count === maxCount
-                        ? isLight ? 'bg-amber-500' : 'bg-[#1A9E7A]'
-                        : isLight ? 'bg-stone-400' : 'bg-slate-500'
-                    )}
-                    style={{ width: `${coverage}%` }}
-                  />
+                  {isMantleOnly ? (
+                    // For Mantle-only models, show a violet bar based on their Mantle regions
+                    <div
+                      className={cn(
+                        'h-full rounded-full transition-all duration-500',
+                        isLight ? 'bg-violet-400' : 'bg-violet-500'
+                      )}
+                      style={{ width: mantleRegions.length > 0 ? '100%' : '0%' }}
+                    />
+                  ) : (
+                    <div
+                      className={cn(
+                        'h-full rounded-full transition-all duration-500',
+                        count === maxCount && maxCount > 0
+                          ? isLight ? 'bg-amber-500' : 'bg-[#1A9E7A]'
+                          : isLight ? 'bg-stone-400' : 'bg-slate-500'
+                      )}
+                      style={{ width: `${coverage}%` }}
+                    />
+                  )}
                 </div>
               </div>
             ))}
@@ -464,7 +530,9 @@ function GeoSection({ group, collapsed, onToggle, selectedModels, commonRegions,
 
       {/* Region rows */}
       {!collapsed && group.regions.map(region => {
-        const isCommon = commonRegions.includes(region.value)
+        // Only consider non-Mantle-only models for common regions
+        const nonMantleOnlyModels = selectedModels.filter(({ model }) => !model.mantle_only)
+        const isCommon = nonMantleOnlyModels.length > 0 && commonRegions.includes(region.value)
         return (
           <tr
             key={region.value}
@@ -503,6 +571,23 @@ function GeoSection({ group, collapsed, onToggle, selectedModels, commonRegions,
               </div>
             </td>
             {selectedModels.map(({ model }) => {
+              const isMantleOnly = model.mantle_only
+              if (isMantleOnly) {
+                // For Mantle-only models, show a special indicator
+                return (
+                  <td key={model.model_id} className="px-3 py-2.5 text-center">
+                    <span className={cn(
+                      'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
+                      isLight
+                        ? 'bg-violet-50 text-violet-600 border border-violet-200'
+                        : 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
+                    )}>
+                      <Cpu className="h-3 w-3" />
+                      Mantle
+                    </span>
+                  </td>
+                )
+              }
               const available = (model.regions_available || []).includes(region.value)
               return (
                 <td key={model.model_id} className="px-3 py-2.5 text-center">

@@ -260,7 +260,10 @@ const crisToggleOptions = [
   { value: 'US', label: 'US' },
   { value: 'EU', label: 'EU' },
   { value: 'APAC', label: 'APAC' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'CA', label: 'Canada' },
+  { value: 'SA', label: 'S. America' },
+  { value: 'ME', label: 'Mid East' },
+  { value: 'AF', label: 'Africa' },
   { value: 'CRIS Not Supported', label: 'No' },
 ]
 
@@ -268,12 +271,6 @@ const streamingToggleOptions = [
   { value: 'All Models', label: 'All' },
   { value: 'Streaming Supported', label: 'Yes' },
   { value: 'Streaming Not Supported', label: 'No' },
-]
-
-const mantleToggleOptions = [
-  { value: 'All Models', label: 'All' },
-  { value: 'Mantle Supported', label: 'Yes' },
-  { value: 'Mantle Not Supported', label: 'No' },
 ]
 
 export function ModelFilters({
@@ -371,14 +368,6 @@ export function ModelFilters({
         key: 'streaming',
         label: `Streaming: ${filters.streamingSupport === 'Streaming Supported' ? 'Yes' : 'No'}`,
         onRemove: () => updateFilter('streamingSupport', 'All Models')
-      })
-    }
-
-    if (filters.mantleSupport !== 'All Models') {
-      chips.push({
-        key: 'mantle',
-        label: `Mantle: ${filters.mantleSupport === 'Mantle Supported' ? 'Yes' : 'No'}`,
-        onRemove: () => updateFilter('mantleSupport', 'All Models')
       })
     }
 
@@ -635,14 +624,6 @@ export function ModelFilters({
               options={streamingToggleOptions}
               value={filters.streamingSupport}
               onChange={(v) => updateFilter('streamingSupport', v)}
-              isLight={isLight}
-            />
-
-            <ToggleGroup
-              label="Mantle"
-              options={mantleToggleOptions}
-              value={filters.mantleSupport}
-              onChange={(v) => updateFilter('mantleSupport', v)}
               isLight={isLight}
             />
           </div>

@@ -361,11 +361,29 @@ function OnDemandAvailabilitySection({ model }) {
   const grouped = groupRegionsByGeo(regions)
   const geoCount = Object.keys(grouped).length
   const modelId = model.model_id
+  const isMantleOnly = model.mantle_only
 
   return (
     <div className="space-y-3">
+      {/* Mantle-only notice */}
+      {isMantleOnly && (
+        <div className={cn(
+          'rounded-lg p-3 border',
+          isLight
+            ? 'bg-violet-50 border-violet-200'
+            : 'bg-violet-500/10 border border-violet-500/20'
+        )}>
+          <p className={cn('text-sm font-medium', isLight ? 'text-violet-700' : 'text-violet-400')}>
+            Available via Mantle Inference only
+          </p>
+          <p className={cn('text-xs mt-1', isLight ? 'text-violet-600' : 'text-violet-300')}>
+            This model is not available for direct in-region invocation. Use Mantle Inference to access this model.
+          </p>
+        </div>
+      )}
+
       {/* Model ID highlight bar */}
-      {modelId && (
+      {modelId && !isMantleOnly && (
         <div className={cn(
           'rounded-lg p-3 border',
           isLight ? 'bg-white border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]'
@@ -378,7 +396,7 @@ function OnDemandAvailabilitySection({ model }) {
             />
           </div>
           <div className="flex items-center gap-2 mt-2">
-            <Badge variant="secondary" className="text-[10px]">ON_DEMAND</Badge>
+            <Badge variant="secondary" className="text-[10px]">IN_REGION</Badge>
           </div>
           <p className={cn('text-xs mt-1.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
             Direct model invocation in supported regions.
@@ -607,18 +625,19 @@ function CrossRegionInferenceSection({ crisData }) {
   }
 
   // Normalize scope - group related regions together
-  // JP, AU, APAC → APAC; CA and unknown → OTHER
+  // JP, AU, APAC → APAC; CA, SA, ME, AF returned as their own scopes
   const normalizeScope = (scope) => {
     const upperScope = scope?.toUpperCase()
-    if (!upperScope) return 'OTHER'
+    if (!upperScope) return 'UNKNOWN'
     if (upperScope === 'JP' || upperScope === 'AU' || upperScope === 'APAC') {
       return 'APAC'
     }
-    if (upperScope === 'GLOBAL' || upperScope === 'US' || upperScope === 'EU') {
+    if (upperScope === 'GLOBAL' || upperScope === 'US' || upperScope === 'EU' ||
+        upperScope === 'CA' || upperScope === 'SA' || upperScope === 'ME' || upperScope === 'AF') {
       return upperScope
     }
-    // CA and any new/unknown scopes go to OTHER
-    return 'OTHER'
+    // Unknown scopes — return as-is (uppercased)
+    return upperScope
   }
 
   // Group by scope prefix dynamically (with normalization)
@@ -641,10 +660,12 @@ function CrossRegionInferenceSection({ crisData }) {
   // Dynamic scope display info
   const getScopeDisplay = (scope) => {
     const icons = {
-      'GLOBAL': '🌐', 'US': '🇺🇸', 'EU': '🇪🇺', 'APAC': '🌏', 'OTHER': '🌎'
+      'GLOBAL': '🌐', 'US': '🇺🇸', 'EU': '🇪🇺', 'APAC': '🌏',
+      'CA': '🇨🇦', 'SA': '🌎', 'ME': '🌍', 'AF': '🌍'
     }
     const labels = {
-      'GLOBAL': 'Global', 'US': 'United States', 'EU': 'Europe', 'APAC': 'Asia Pacific', 'OTHER': 'Other Regions'
+      'GLOBAL': 'Global', 'US': 'United States', 'EU': 'Europe', 'APAC': 'Asia Pacific',
+      'CA': 'Canada', 'SA': 'South America', 'ME': 'Middle East', 'AF': 'Africa'
     }
     return {
       icon: icons[scope] || '📍',
@@ -1049,6 +1070,7 @@ function AvailabilitySummary({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
+  const isMantleOnly = model.mantle_only
   const regions = model.regions_available || []
   const crisData = model.cross_region_inference || {}
   const batchData = model.batch_inference_supported || {}
@@ -1058,46 +1080,68 @@ function AvailabilitySummary({ model }) {
   const types = [
     {
       label: 'In Region',
-      supported: regions.length > 0,
-      count: model.total_regions_available ?? regions.length,
+      // For Mantle-only models, In Region is not available
+      supported: isMantleOnly ? false : ((model.on_demand_regions?.length > 0) || (regions.length > 0 && (model.inference_types_supported || []).includes('ON_DEMAND'))),
+      count: isMantleOnly ? 0 : (model.on_demand_regions?.length ?? model.total_regions_available ?? regions.length),
     },
     {
       label: 'Cross-Region (CRIS)',
-      supported: !!crisData.supported,
-      count: crisData.source_regions?.length ?? crisData.profiles_count ?? 0,
+      // For Mantle-only models, CRIS is not available
+      supported: isMantleOnly ? false : !!crisData.supported,
+      count: isMantleOnly ? 0 : (crisData.source_regions?.length ?? crisData.profiles_count ?? 0),
     },
     {
       label: 'Batch',
-      supported: !!batchData.supported,
-      count: batchData.supported_regions?.length ?? 0,
+      // For Mantle-only models, Batch is not available
+      supported: isMantleOnly ? false : !!batchData.supported,
+      count: isMantleOnly ? 0 : (batchData.supported_regions?.length ?? 0),
     },
     {
       label: 'Provisioned',
-      supported: !!provisionedData.supported,
-      count: provisionedData.total_provisioned_regions ?? provisionedData.provisioned_regions?.length ?? 0,
+      // For Mantle-only models, Provisioned is not available
+      supported: isMantleOnly ? false : !!provisionedData.supported,
+      count: isMantleOnly ? 0 : (provisionedData.total_provisioned_regions ?? provisionedData.provisioned_regions?.length ?? 0),
     },
     {
       label: 'Mantle',
+      // Mantle is the primary option for Mantle-only models
       supported: !!mantleData.supported,
       count: mantleData.total_mantle_regions ?? mantleData.mantle_regions?.length ?? 0,
+      highlight: isMantleOnly, // Highlight Mantle for Mantle-only models
     },
   ]
 
   return (
     <div className="space-y-1.5">
-      {types.map(({ label, supported, count }) => (
+      {isMantleOnly && (
+        <div className={cn(
+          'px-2.5 py-1.5 rounded-md text-xs mb-2',
+          isLight
+            ? 'bg-violet-50 text-violet-700 border border-violet-200'
+            : 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
+        )}>
+          This model is available exclusively via Mantle Inference
+        </div>
+      )}
+      {types.map(({ label, supported, count, highlight }) => (
         <div
           key={label}
           className={cn(
             'flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs',
-            isLight
-              ? 'bg-white border border-stone-200'
-              : 'bg-white/[0.02] border border-white/[0.06]'
+            highlight
+              ? isLight
+                ? 'bg-violet-50 border border-violet-200'
+                : 'bg-violet-500/10 border border-violet-500/20'
+              : isLight
+                ? 'bg-white border border-stone-200'
+                : 'bg-white/[0.02] border border-white/[0.06]'
           )}
         >
           <span className={cn(
             'font-medium',
-            isLight ? 'text-stone-700' : 'text-[#e4e5e7]'
+            highlight
+              ? isLight ? 'text-violet-700' : 'text-violet-400'
+              : isLight ? 'text-stone-700' : 'text-[#e4e5e7]'
           )}>
             {label}
           </span>
@@ -1105,7 +1149,9 @@ function AvailabilitySummary({ model }) {
             {supported && count > 0 && (
               <span className={cn(
                 'text-[10px] font-mono tabular-nums',
-                isLight ? 'text-stone-500' : 'text-slate-400'
+                highlight
+                  ? isLight ? 'text-violet-600' : 'text-violet-300'
+                  : isLight ? 'text-stone-500' : 'text-slate-400'
               )}>
                 {count} {count === 1 ? 'region' : 'regions'}
               </span>
@@ -1113,9 +1159,13 @@ function AvailabilitySummary({ model }) {
             <span className={cn(
               'inline-flex items-center justify-center w-[18px] h-[18px] rounded-full text-[10px]',
               supported
-                ? isLight
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-emerald-500/15 text-emerald-400'
+                ? highlight
+                  ? isLight
+                    ? 'bg-violet-100 text-violet-700'
+                    : 'bg-violet-500/20 text-violet-400'
+                  : isLight
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-emerald-500/15 text-emerald-400'
                 : isLight
                   ? 'bg-stone-100 text-stone-400'
                   : 'bg-white/[0.06] text-slate-500'
@@ -1130,6 +1180,7 @@ function AvailabilitySummary({ model }) {
 }
 
 // Expandable tag list component - shows first N items with "+X more" button
+// Detects long-form capabilities (title: description) vs short tags automatically
 function ExpandableTagList({ label, items, maxVisible = 10, isLight }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -1142,6 +1193,87 @@ function ExpandableTagList({ label, items, maxVisible = 10, isLight }) {
     )
   }
 
+  // Detect if items are long descriptions (title: description format)
+  const isLongFormat = items.some(item => item.length > 80)
+
+  if (isLongFormat) {
+    // Parse "Title: Description" entries from items
+    // Items might be already split or could be one big string split on commas
+    const entries = []
+    const rawText = items.join(', ')
+
+    // Split on ". " followed by uppercase letter (sentence/category boundary)
+    const sentences = rawText.split(/\.\s+(?=[A-Z])/)
+    for (const sentence of sentences) {
+      const clean = sentence.trim().replace(/\.$/, '')
+      if (!clean) continue
+      const colonIdx = clean.indexOf(':')
+      if (colonIdx > 0 && colonIdx < 80) {
+        entries.push({
+          title: clean.slice(0, colonIdx).trim(),
+          description: clean.slice(colonIdx + 1).trim()
+        })
+      } else if (clean.length <= 80) {
+        entries.push({ title: clean, description: '' })
+      } else {
+        entries.push({ title: clean.slice(0, 80) + '...', description: '' })
+      }
+    }
+
+    const visibleEntries = expanded ? entries : entries.slice(0, 4)
+    const remainingCount = entries.length - 4
+
+    return (
+      <div>
+        <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>{label}</p>
+        <div className="space-y-2">
+          {visibleEntries.map((entry, i) => (
+            <div key={i} className={cn(
+              'rounded-md px-3 py-2 text-xs',
+              isLight ? 'bg-stone-100/80' : 'bg-white/[0.04]'
+            )}>
+              <span className={cn('font-medium', isLight ? 'text-stone-800' : 'text-slate-200')}>
+                {entry.title}
+              </span>
+              {entry.description && (
+                <span className={cn('ml-1', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                  — {entry.description}
+                </span>
+              )}
+            </div>
+          ))}
+          {remainingCount > 0 && !expanded && (
+            <button
+              onClick={() => setExpanded(true)}
+              className={cn(
+                'text-xs font-medium px-3 py-1 rounded-md transition-colors',
+                isLight
+                  ? 'text-amber-700 hover:bg-amber-50'
+                  : 'text-[#1A9E7A] hover:bg-[#1A9E7A]/10'
+              )}
+            >
+              +{remainingCount} more
+            </button>
+          )}
+          {expanded && entries.length > 4 && (
+            <button
+              onClick={() => setExpanded(false)}
+              className={cn(
+                'text-xs font-medium px-3 py-1 rounded-md transition-colors',
+                isLight
+                  ? 'text-stone-500 hover:bg-stone-100'
+                  : 'text-slate-500 hover:bg-white/5'
+              )}
+            >
+              Show less
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Short tags — original badge layout
   const visibleItems = expanded ? items : items.slice(0, maxVisible)
   const remainingCount = items.length - maxVisible
 
@@ -1165,14 +1297,14 @@ function ExpandableTagList({ label, items, maxVisible = 10, isLight }) {
             +{remainingCount} more
           </button>
         )}
-        {expanded && remainingCount > 0 && (
+        {expanded && items.length > maxVisible && (
           <button
             onClick={() => setExpanded(false)}
             className={cn(
               'inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium transition-colors',
               isLight
-                ? 'bg-stone-100 text-stone-600 hover:bg-stone-200 border border-stone-200'
-                : 'bg-white/10 text-slate-400 hover:bg-white/15 border border-white/10'
+                ? 'bg-stone-100 text-stone-500 hover:bg-stone-200 border border-stone-200'
+                : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/10'
             )}
           >
             Show less
@@ -2741,6 +2873,16 @@ export function ModelCardExpanded({
                 )}>
                   {isActive ? 'Active' : 'Legacy'}
                 </span>
+                {model.mantle_only && (
+                  <span className={cn(
+                    'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
+                    isLight
+                      ? 'bg-violet-100 text-violet-700 border border-violet-200'
+                      : 'bg-violet-500/15 text-violet-400 border border-violet-500/30'
+                  )}>
+                    Mantle Only
+                  </span>
+                )}
               </div>
               <div>
                 <h2 className={cn('text-lg font-semibold', isLight ? 'text-stone-900' : 'text-white')}>

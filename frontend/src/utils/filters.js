@@ -166,8 +166,8 @@ export const modelStatusOptions = [
 ]
 
 /**
- * CRIS support options - includes geographic scopes
- * Note: JP/AU grouped under APAC, CA and unknown scopes under Other
+ * CRIS support options - includes all geographic scopes
+ * Note: JP/AU grouped under APAC
  */
 export const crisSupportOptions = [
   { value: 'All Models', label: 'All Models' },
@@ -175,26 +175,30 @@ export const crisSupportOptions = [
   { value: 'US', label: 'US' },
   { value: 'EU', label: 'EU' },
   { value: 'APAC', label: 'APAC' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'CA', label: 'Canada' },
+  { value: 'SA', label: 'South America' },
+  { value: 'ME', label: 'Middle East' },
+  { value: 'AF', label: 'Africa' },
   { value: 'CRIS Not Supported', label: 'Not Supported' },
 ]
 
 /**
  * Normalize CRIS scope - groups related regions together
  * - JP, AU, APAC → APAC
- * - CA and unknown scopes → OTHER
+ * - CA, SA, ME, AF returned as their own scopes
  */
 function normalizeCrisScope(scope) {
   const upperScope = scope?.toUpperCase()
-  if (!upperScope) return 'OTHER'
+  if (!upperScope) return null
   if (upperScope === 'JP' || upperScope === 'AU' || upperScope === 'APAC') {
     return 'APAC'
   }
-  if (upperScope === 'GLOBAL' || upperScope === 'US' || upperScope === 'EU') {
+  if (upperScope === 'GLOBAL' || upperScope === 'US' || upperScope === 'EU' ||
+      upperScope === 'CA' || upperScope === 'SA' || upperScope === 'ME' || upperScope === 'AF') {
     return upperScope
   }
-  // CA and any new/unknown scopes go to OTHER
-  return 'OTHER'
+  // Unknown scopes — return as-is (uppercased)
+  return upperScope
 }
 
 /**
@@ -210,15 +214,6 @@ export function getCrisGeoScopes(model) {
     return normalizeCrisScope(prefix) || null
   }).filter(Boolean))]
 }
-
-/**
- * Mantle support options
- */
-export const mantleSupportOptions = [
-  { value: 'All Models', label: 'All Models' },
-  { value: 'Mantle Supported', label: 'Mantle Supported' },
-  { value: 'Mantle Not Supported', label: 'Not Supported' },
-]
 
 /**
  * Streaming support options
@@ -355,7 +350,6 @@ export const initialFilterState = {
   customizations: [],
   languages: [],
   contextFilter: 'All Models',
-  mantleSupport: 'All Models',
 }
 
 /**
@@ -474,14 +468,6 @@ export function applyFilters(models, filters) {
     }
   }
 
-  // Mantle support filter
-  if (filters.mantleSupport && filters.mantleSupport !== 'All Models') {
-    const supported = filters.mantleSupport === 'Mantle Supported'
-    filtered = filtered.filter(m =>
-      (m.mantle_inference?.supported || m.is_mantle || false) === supported
-    )
-  }
-
   // Streaming support filter
   if (filters.streamingSupport && filters.streamingSupport !== 'All Models') {
     const supported = filters.streamingSupport === 'Streaming Supported'
@@ -576,7 +562,6 @@ export function countActiveFilters(filters) {
   if (filters.geoRegion && filters.geoRegion !== 'All Regions') count++
   if (filters.modelStatus && filters.modelStatus !== 'All Status') count++
   if (filters.crisSupport && filters.crisSupport !== 'All Models') count++
-  if (filters.mantleSupport && filters.mantleSupport !== 'All Models') count++
   if (filters.streamingSupport && filters.streamingSupport !== 'All Models') count++
   if (filters.consumptionOptions?.length > 0) count++
   if (filters.contextFilter && filters.contextFilter !== 'All Models') count++

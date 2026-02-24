@@ -61,7 +61,7 @@ export function ComparisonCard({ model, onRemove }) {
 
       <CardContent className="p-2.5 flex flex-col gap-1.5">
         {/* Provider + Status row */}
-        <div className="flex items-center gap-1 pr-5">
+        <div className="flex items-center gap-1 pr-5 flex-wrap">
           <Badge className={cn(
             'text-[9px] font-medium px-1.5 py-0',
             isLight ? 'text-[#faf9f5]' : 'text-white',
@@ -69,6 +69,16 @@ export function ComparisonCard({ model, onRemove }) {
           )}>
             {model.model_provider}
           </Badge>
+          {model.mantle_only && (
+            <span className={cn(
+              'inline-flex items-center px-1.5 py-0 rounded-full text-[9px] font-semibold',
+              isLight
+                ? 'bg-violet-100 text-violet-700 border border-violet-200'
+                : 'bg-violet-500/15 text-violet-400 border border-violet-500/30'
+            )}>
+              Mantle Only
+            </span>
+          )}
           {isActive ? (
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" title="Active" />
           ) : (

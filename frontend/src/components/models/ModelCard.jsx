@@ -285,12 +285,24 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
       )}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 pb-2">
-          <Badge
-            className="text-[10px] font-semibold"
-            style={{ backgroundColor: providerColor, color: getContrastColor(providerColor) }}
-          >
-            {model.model_provider}
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            <Badge
+              className="text-[10px] font-semibold"
+              style={{ backgroundColor: providerColor, color: getContrastColor(providerColor) }}
+            >
+              {model.model_provider}
+            </Badge>
+            {model.mantle_only && (
+              <span className={cn(
+                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
+                isLight
+                  ? 'bg-violet-100 text-violet-700 border border-violet-200'
+                  : 'bg-violet-500/15 text-violet-400 border border-violet-500/30'
+              )}>
+                Mantle Only
+              </span>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             <StatusPill isActive={isActive} isLight={isLight} />
@@ -433,15 +445,27 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 label={mantleSupported ? "Mantle inference" : "No Mantle"}
                 isLight={isLight}
               />
-              <InfoTooltip content={`Available in ${regions.length} AWS regions`}>
-                <div className={cn(
-                  'flex items-center gap-1 text-xs cursor-default',
-                  isLight ? 'text-stone-500' : 'text-slate-300'
-                )}>
-                  <MapPin className="h-3 w-3" />
-                  <span className="font-medium">{regions.length}</span>
-                </div>
-              </InfoTooltip>
+              {(() => {
+                const isMantleOnly = model.mantle_only
+                const mantleRegions = model.mantle_inference?.mantle_regions || []
+                const displayRegionCount = isMantleOnly ? mantleRegions.length : regions.length
+                const regionTooltip = isMantleOnly 
+                  ? `Available in ${displayRegionCount} Mantle regions`
+                  : `Available in ${displayRegionCount} AWS regions`
+                return (
+                  <InfoTooltip content={regionTooltip}>
+                    <div className={cn(
+                      'flex items-center gap-1 text-xs cursor-default',
+                      isMantleOnly
+                        ? isLight ? 'text-violet-600' : 'text-violet-400'
+                        : isLight ? 'text-stone-500' : 'text-slate-300'
+                    )}>
+                      <MapPin className="h-3 w-3" />
+                      <span className="font-medium">{displayRegionCount}</span>
+                    </div>
+                  </InfoTooltip>
+                )
+              })()}
             </div>
           </div>
 

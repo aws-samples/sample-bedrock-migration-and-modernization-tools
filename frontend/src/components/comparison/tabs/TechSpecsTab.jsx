@@ -1,7 +1,7 @@
 import { Check, X, MessageSquare, Image, FileText, Video, Mic } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { providerColorClasses, consumptionLabels, capabilityLabels } from '@/config/constants'
+import { providerColorClasses, consumptionLabels } from '@/config/constants'
 
 const providerColors = providerColorClasses
 
@@ -61,27 +61,10 @@ function prettifyLabel(str) {
   return str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-// Prettify use case labels
-const useCaseLabels = {
-  api_integration: 'API Integration',
-  complex_analysis: 'Analysis',
-  content_creation: 'Content Creation',
-  content_moderation: 'Moderation',
-  conversational_ai: 'Conversational AI',
-  creative_writing: 'Creative Writing',
-  customer_support: 'Support',
-  decision_support: 'Decision Support',
-  document_analysis: 'Doc Analysis',
-  image_analysis: 'Image Analysis',
-  ocr: 'OCR',
-  problem_solving: 'Problem Solving',
-  product_cataloging: 'Cataloging',
-  summarization: 'Summarization',
-  tool_use: 'Tool Use',
-  translation: 'Translation',
-  virtual_assistants: 'Assistants',
-  visual_qa: 'Visual QA',
-  workflow_automation: 'Automation',
+const inferenceTypeLabels = {
+  'ON_DEMAND': 'In Region',
+  'INFERENCE_PROFILE': 'Inference Profile',
+  'MANTLE_ONLY': 'Mantle Only',
 }
 
 export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
@@ -91,6 +74,8 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
     const extendedContext = getExtendedContextWindow(model)
     const effectiveContext = Math.max(baseContext || 0, extendedContext || 0)
     const hasLongCtx = detectLongContext(pricing, region) || (extendedContext != null && extendedContext > (baseContext || 0))
+    const isMantleOnly = model.mantle_only
+    const mantleRegions = model.mantle_inference?.mantle_regions || []
     return {
       model,
       region,
@@ -101,23 +86,24 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       inputModalities: model.model_modalities?.input_modalities || [],
       outputModalities: model.model_modalities?.output_modalities || [],
       streamingSupported: model.streaming_supported || false,
-      crisSupported: model.cross_region_inference?.supported || false,
+      crisSupported: isMantleOnly ? false : (model.cross_region_inference?.supported || false),
       crisProfilesCount: model.cross_region_inference?.profiles_count || 0,
       crisSourceRegions: (model.cross_region_inference?.source_regions || []).length,
       mantleSupported: model.mantle_inference?.supported || model.is_mantle || false,
-      mantleRegions: (model.mantle_inference?.mantle_regions || []).length,
+      mantleRegions: mantleRegions.length,
       consumptionOptions: model.consumption_options || [],
       languages: model.languages_supported || [],
-      capabilities: model.model_capabilities || [],
-      useCases: model.model_use_cases || [],
       customizations: model.customization?.customization_supported || [],
       isActive: model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE',
       hasLongContext: hasLongCtx,
-      batchSupported: model.batch_inference_supported?.supported || false,
+      batchSupported: isMantleOnly ? false : (model.batch_inference_supported?.supported || false),
       batchRegions: (model.batch_inference_supported?.supported_regions || []).length,
       batchCoverage: model.batch_inference_supported?.coverage_percentage,
-      totalRegions: model.total_regions_available || (model.regions_available || []).length,
-      inferenceTypes: model.inference_types_supported || [],
+      // For Mantle-only models, show Mantle regions count instead of AWS regions
+      totalRegions: isMantleOnly ? mantleRegions.length : (model.total_regions_available || (model.regions_available || []).length),
+      // For Mantle-only models, show "Mantle Only" instead of empty inference types
+      inferenceTypes: isMantleOnly ? ['MANTLE_ONLY'] : (model.inference_types_supported || []),
+      isMantleOnly,
     }
   })
 
@@ -435,18 +421,6 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
               ))}
             </SpecRow>
 
-            <SpecRow label="Capabilities">
-              {specsData.map(d => (
-                <BadgesCell key={d.model.model_id} items={d.capabilities} maxShow={4} labelMap={capabilityLabels} />
-              ))}
-            </SpecRow>
-
-            <SpecRow label="Use Cases">
-              {specsData.map(d => (
-                <BadgesCell key={d.model.model_id} items={d.useCases} maxShow={3} labelMap={useCaseLabels} />
-              ))}
-            </SpecRow>
-
             <SpecRow label="Languages">
               {specsData.map(d => (
                 <td key={d.model.model_id} className={cn(
@@ -460,7 +434,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
 
             <SpecRow label="Inference Types">
               {specsData.map(d => (
-                <BadgesCell key={d.model.model_id} items={d.inferenceTypes} maxShow={2} />
+                <BadgesCell key={d.model.model_id} items={d.inferenceTypes} maxShow={2} labelMap={inferenceTypeLabels} />
               ))}
             </SpecRow>
 

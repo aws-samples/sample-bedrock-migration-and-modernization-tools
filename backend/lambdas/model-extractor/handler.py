@@ -160,6 +160,113 @@ def parse_use_cases(use_str: str) -> list:
     return result
 
 
+def _parse_model_attributes(raw: str) -> list[str]:
+    """Parse model attributes/capabilities from console metadata.
+
+    Handles multiple formats:
+    - Comma-separated short tags: "Text generation, Code generation"
+    - Semicolon-separated: "Text generation; Code generation"
+    - Long descriptions with sentences: "Category: Long description, more text. Another Category: ..."
+
+    Long text (>300 chars) skips comma/semicolon splitting entirely and goes
+    straight to sentence parsing, since long text is always a paragraph
+    description rather than a list of tags.
+    """
+    if not raw or not raw.strip():
+        return []
+
+    raw = raw.strip()
+    is_long_text = len(raw) > 300
+
+    # For short text, try delimiter-based splitting first
+    if not is_long_text:
+        # Try semicolon split first (most reliable delimiter)
+        if ";" in raw:
+            attrs = [a.strip() for a in raw.split(";") if a.strip()]
+            # If all results are short enough, use them
+            if all(len(a) <= 80 for a in attrs):
+                return _normalize_capabilities(attrs)
+
+        # Try comma split
+        if "," in raw:
+            attrs = [a.strip() for a in raw.split(",") if a.strip()]
+            # If all results are short (real tags), use them
+            if all(len(a) <= 80 for a in attrs):
+                return _normalize_capabilities(attrs)
+
+    # Long description format — try splitting on ". " (sentence boundaries)
+    # then extract the part before ":" as the capability name
+    capabilities = []
+    # Split on periods followed by uppercase letter (new sentence/category)
+    sentences = re.split(r"\.\s+(?=[A-Z])", raw)
+    for sentence in sentences:
+        sentence = sentence.strip().rstrip(".")
+        if not sentence:
+            continue
+        # If it has a "Category: description" format, extract the category
+        if ":" in sentence:
+            category = sentence.split(":", 1)[0].strip()
+            # Only use category if it's reasonably short (not a sentence itself)
+            if len(category) <= 80 and not any(c in category for c in [".", "!", "?"]):
+                capabilities.append(category)
+                continue
+        # Fallback: use the whole sentence if short enough
+        if len(sentence) <= 80:
+            capabilities.append(sentence)
+        else:
+            # Last resort: truncate to first clause
+            for delim in [":", ",", " - "]:
+                if delim in sentence:
+                    first_part = sentence.split(delim, 1)[0].strip()
+                    if len(first_part) <= 80:
+                        capabilities.append(first_part)
+                        break
+            else:
+                # Just truncate with ellipsis
+                capabilities.append(sentence[:77] + "...")
+
+    return _normalize_capabilities(
+        capabilities if capabilities else [raw[:80]] if len(raw) > 80 else [raw]
+    )
+
+
+def _normalize_capabilities(capabilities: list[str]) -> list[str]:
+    """Normalize and deduplicate a list of capability strings.
+
+    Applies the following transformations to each entry:
+    - Strip trailing periods
+    - Replace underscores with spaces
+    - Normalize unicode dashes (non-breaking hyphen, en-dash, em-dash) to ASCII hyphen
+    - Capitalize first letter if lowercase
+    - Collapse multiple spaces to a single space
+    - Deduplicate case-insensitively (first occurrence wins)
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+
+    for cap in capabilities:
+        # Strip trailing periods
+        cap = cap.strip().rstrip(".")
+        if not cap:
+            continue
+        # Replace underscores with spaces
+        cap = cap.replace("_", " ")
+        # Normalize unicode dashes to ASCII hyphen
+        cap = cap.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")
+        # Collapse multiple spaces to single space
+        cap = re.sub(r" {2,}", " ", cap)
+        # Capitalize first letter if lowercase
+        if cap[0].islower():
+            cap = cap[0].upper() + cap[1:]
+
+        lower = cap.lower()
+        if lower not in seen:
+            seen.add(lower)
+            result.append(cap)
+
+    return result
+
+
 def fetch_console_metadata(region: str) -> dict:
     """
     Fetch extended model metadata via direct Bedrock REST API with SigV4 signing.
@@ -246,15 +353,9 @@ def fetch_console_metadata(region: str) -> dict:
                     # Model attributes (capabilities from AWS)
                     model_attrs = desc.get("modelAttributes")
                     if model_attrs and isinstance(model_attrs, str):
-                        # Parse comma/semicolon separated attributes
-                        attrs = []
-                        for sep in [";", ","]:
-                            if sep in model_attrs:
-                                attrs = [a.strip() for a in model_attrs.split(sep) if a.strip()]
-                                break
-                        if not attrs:
-                            attrs = [model_attrs.strip()]
-                        meta["model_attributes"] = attrs
+                        attrs = _parse_model_attributes(model_attrs)
+                        if attrs:
+                            meta["model_attributes"] = attrs
 
                     # Release date (epoch timestamp)
                     release_date = desc.get("releaseDate")
@@ -269,13 +370,25 @@ def fetch_console_metadata(region: str) -> dict:
                             "knowledge_base": feature_support.get("knowledgeBase", {}),
                             "flow": feature_support.get("flow", {}),
                             "guardrails": feature_support.get("guardrails", {}),
-                            "prompt_caching": feature_support.get("explicitPromptCaching", {}),
-                            "intelligent_routing": feature_support.get("intelligentPromptRouting", {}),
-                            "model_evaluation": feature_support.get("modelEvaluation", {}),
+                            "prompt_caching": feature_support.get(
+                                "explicitPromptCaching", {}
+                            ),
+                            "intelligent_routing": feature_support.get(
+                                "intelligentPromptRouting", {}
+                            ),
+                            "model_evaluation": feature_support.get(
+                                "modelEvaluation", {}
+                            ),
                             "prompt_management": feature_support.get("prompt", {}),
-                            "batch_inference": feature_support.get("batchInference", {}),
-                            "latency_optimized": feature_support.get("latencyOptimized", {}),
-                            "system_tools": feature_support.get("systemTool", {}).get("supportedSystemTools", []),
+                            "batch_inference": feature_support.get(
+                                "batchInference", {}
+                            ),
+                            "latency_optimized": feature_support.get(
+                                "latencyOptimized", {}
+                            ),
+                            "system_tools": feature_support.get("systemTool", {}).get(
+                                "supportedSystemTools", []
+                            ),
                         }
 
                     # Invoke chat features (function calling, citations, etc.)
@@ -283,22 +396,44 @@ def fetch_console_metadata(region: str) -> dict:
                     invoke_features = converse_meta.get("invokeChatFeatures", {})
                     if invoke_features:
                         meta["chat_features"] = {
-                            "function_calling": invoke_features.get("functionToolSupported", False),
-                            "function_calling_streaming": invoke_features.get("functionToolStreamSupported", False),
-                            "citations": invoke_features.get("citationsSupported", False),
-                            "documents": invoke_features.get("documentsSupported", False),
-                            "chat_history": invoke_features.get("chatHistorySupported", False),
-                            "system_role": invoke_features.get("systemRoleSupported", False),
+                            "function_calling": invoke_features.get(
+                                "functionToolSupported", False
+                            ),
+                            "function_calling_streaming": invoke_features.get(
+                                "functionToolStreamSupported", False
+                            ),
+                            "citations": invoke_features.get(
+                                "citationsSupported", False
+                            ),
+                            "documents": invoke_features.get(
+                                "documentsSupported", False
+                            ),
+                            "chat_history": invoke_features.get(
+                                "chatHistorySupported", False
+                            ),
+                            "system_role": invoke_features.get(
+                                "systemRoleSupported", False
+                            ),
                             "reasoning": invoke_features.get("reasoningSupported", {}),
-                            "supported_image_types": invoke_features.get("userImageTypesSupported", []),
-                            "supported_video_types": invoke_features.get("userVideoTypesSupported", []),
-                            "supported_audio_types": invoke_features.get("userAudioTypesSupported", []),
-                            "supported_document_types": invoke_features.get("userPassthroughDocumentTypesSupported", []),
+                            "supported_image_types": invoke_features.get(
+                                "userImageTypesSupported", []
+                            ),
+                            "supported_video_types": invoke_features.get(
+                                "userVideoTypesSupported", []
+                            ),
+                            "supported_audio_types": invoke_features.get(
+                                "userAudioTypesSupported", []
+                            ),
+                            "supported_document_types": invoke_features.get(
+                                "userPassthroughDocumentTypesSupported", []
+                            ),
                         }
 
                     # Max tokens from console metadata
                     if converse_meta.get("maxTokensMaximum"):
-                        meta["max_output_tokens"] = int(converse_meta["maxTokensMaximum"])
+                        meta["max_output_tokens"] = int(
+                            converse_meta["maxTokensMaximum"]
+                        )
 
                 except (json.JSONDecodeError, TypeError):
                     pass
