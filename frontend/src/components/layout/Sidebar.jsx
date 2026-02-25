@@ -18,7 +18,7 @@ import { ThemeToggle } from './ThemeToggle'
 import { useTheme } from './ThemeProvider'
 import { BedrockIcon } from '@/components/icons/BedrockIcon'
 import { useAuthStore } from '@/stores/authStore'
-import { canViewRoadmap, canViewAnalytics, canViewRegionalAvailability, canViewChangelog, getSectionBadge } from '@/config/admin'
+import { canViewRoadmap, canViewAnalytics, canViewChangelog, getSectionBadge } from '@/config/admin'
 
 const baseNavigationItems = [
   {
@@ -114,8 +114,8 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
 
   const navigationItems = useMemo(() => {
     const items = [...baseNavigationItems]
-    if (isAuthenticated && canViewRegionalAvailability(user)) {
-      items.push({ id: 'availability', label: 'Regional Availability', icon: Globe2, badge: getSectionBadge(user, 'availability') })
+    if (isAuthenticated) {
+      items.push({ id: 'availability', label: 'Regional Availability', icon: Globe2 })
     }
     if (isAuthenticated && canViewRoadmap(user)) {
       items.push({ id: 'roadmap', label: 'Region Roadmap', icon: Map, badge: getSectionBadge(user, 'roadmap') })
