@@ -594,9 +594,8 @@ def create_mantle_only_stub(
             "customization_options": {},
         },
         "inference_types_supported": [],
-        "on_demand_regions": [],
+        "in_region": [],  # Mantle-only models have no ON_DEMAND availability
         "model_lifecycle": {"status": "ACTIVE", "release_date": ""},
-        "regions_available": [],
         "model_capabilities": [],
         "model_use_cases": [],
         "languages_supported": [],
@@ -649,7 +648,7 @@ def create_mantle_only_stub(
             "regional_data_source": "mantle_api",
         },
         "regional_availability_source": "mantle_api",
-        "total_regions_available": 0,
+        "total_in_region": 0,  # Mantle-only models have no ON_DEMAND availability
         "batch_inference_supported": {
             "supported": False,
             "supported_regions": [],
@@ -1362,23 +1361,18 @@ def transform_model_to_schema(
     upstream_pricing_ref = model_pricing_data.get("pricing_file_reference")
 
     # Check batch inference support - pass pricing reference and regional availability for accurate lookup
-    # Use fallback to model.regions_available if regional_availability is empty (same logic as total_regions_available)
-    regions_for_coverage = (
-        regional_availability
-        if regional_availability
-        else model.get("regions_available", [])
-    )
+    # regional_availability from regional-availability Lambda is the source of truth (no fallback)
     batch_inference = check_batch_inference(
-        model_id, pricing_data, upstream_pricing_ref, regions_for_coverage
+        model_id, pricing_data, upstream_pricing_ref, regional_availability
     )
 
     # Availability types are kept separate:
-    # - regions_available = on-demand regions (direct model invocation)
+    # - in_region = on-demand/in-region invocation (from regional-availability Lambda)
     # - cross_region_inference.source_regions = CRIS source regions
     # - batch_inference_supported.supported_regions = batch-capable regions
     # - provisioned_throughput.provisioned_regions = provisioned throughput regions
     # - mantle_inference.mantle_regions = Mantle engine regions
-    # Coverage percentage: batch regions relative to on-demand regions
+    # Coverage percentage: batch regions relative to in-region availability
     if batch_inference.get("supported") and regional_availability:
         batch_regs = len(batch_inference.get("supported_regions", []))
         total_regs = len(regional_availability)
@@ -1450,6 +1444,8 @@ def transform_model_to_schema(
         "regions_collected_from": existing_metadata.get("regions_collected_from", []),
         "phase2_regional_discovery": True,
         "regional_data_source": "api_discovery",
+        # extraction_regions: where model was found in ListFoundationModels API (audit/debug only)
+        "extraction_regions": model.get("extraction_regions", []),
     }
 
     # Get model lifecycle (already in snake_case)
@@ -1504,10 +1500,9 @@ def transform_model_to_schema(
         "streaming_supported": model.get("streaming_supported", False),
     }
     api_support = build_api_support(api_support_model, mantle, is_mantle_only=False)
+    # regional_availability from regional-availability Lambda is source of truth (no fallback)
     endpoint_availability = build_endpoint_availability(
-        regional_availability
-        if regional_availability
-        else model.get("regions_available", []),
+        regional_availability,
         mantle,
         api_support,
     )
@@ -1521,13 +1516,9 @@ def transform_model_to_schema(
         "streaming_supported": model.get("streaming_supported", False),
         "customization": customization,
         "inference_types_supported": model.get("inference_types_supported", []),
-        "on_demand_regions": regional_availability
-        if regional_availability
-        else model.get("on_demand_regions", []),
+        # in_region: actual ON_DEMAND availability from regional-availability Lambda (no fallback)
+        "in_region": regional_availability if regional_availability else [],
         "model_lifecycle": model_lifecycle,
-        "regions_available": regional_availability
-        if regional_availability
-        else model.get("regions_available", []),
         "model_capabilities": capabilities,
         "model_use_cases": console_use_cases,
         "languages_supported": console_languages,
@@ -1546,9 +1537,8 @@ def transform_model_to_schema(
         "model_service_quotas": model_quotas,
         "collection_metadata": collection_metadata,
         "regional_availability_source": "api_discovery",
-        "total_regions_available": len(regional_availability)
-        if regional_availability
-        else len(model.get("regions_available", [])),
+        # total_in_region: count of ON_DEMAND regions (no fallback to extraction data)
+        "total_in_region": len(regional_availability) if regional_availability else 0,
         "batch_inference_supported": batch_inference,
         "converse_data": converse_data,
         "has_pricing": has_pricing,

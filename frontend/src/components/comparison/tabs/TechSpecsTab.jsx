@@ -101,7 +101,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       batchCoverage: model.batch_inference_supported?.coverage_percentage,
       // Total regions: on-demand + CRIS + Mantle
       totalRegions: new Set([
-        ...(model.on_demand_regions || []),
+        ...(model.in_region || []),
         ...(model.cross_region_inference?.source_regions || []),
         ...mantleRegions
       ]).size,

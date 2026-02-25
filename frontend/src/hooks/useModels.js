@@ -498,8 +498,8 @@ export function useModels() {
     // Count unique regions (all region types)
     const regions = new Set()
     models.forEach(m => {
-      if (m.on_demand_regions) {
-        m.on_demand_regions.forEach(r => regions.add(r))
+      if (m.in_region) {
+        m.in_region.forEach(r => regions.add(r))
       }
       if (m.cross_region_inference?.source_regions) {
         m.cross_region_inference.source_regions.forEach(r => regions.add(r))

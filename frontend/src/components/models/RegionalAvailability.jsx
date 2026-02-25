@@ -103,17 +103,20 @@ function normalizeCrisPrefix(prefix) {
 const MODEL_COL_WIDTH = 280
 
 /**
- * Compute per-region availability for a model (on-demand + CRIS, no batch).
+ * Compute per-region availability for a model (on-demand + CRIS + Mantle).
+ *
+ * Data sources:
+ * - in_region: actual ON_DEMAND availability from regional-availability Lambda
+ * - cross_region_inference.source_regions: CRIS source regions
+ * - mantle_inference.mantle_regions: Mantle engine regions
  */
 function getRegionAvailability(model, regionCode) {
-  const regions = model.on_demand_regions || []
+  const inRegionList = model.in_region || []
   const crisRegions = model.cross_region_inference?.source_regions || []
   const mantleRegions = model.mantle_inference?.mantle_regions || []
 
-  // Use on_demand_regions for per-region accuracy (falls back to old logic if not available)
-  const onDemandRegions = model.on_demand_regions || []
-  const supportsOnDemand = onDemandRegions.length > 0 || (model.inference_types_supported || []).includes('ON_DEMAND')
-  const onDemand = onDemandRegions.length > 0 ? onDemandRegions.includes(regionCode) : (supportsOnDemand && regions.includes(regionCode))
+  // in_region is the source of truth for ON_DEMAND availability (no fallback)
+  const onDemand = inRegionList.includes(regionCode)
   const cris = crisRegions.includes(regionCode)
   const mantle = mantleRegions.includes(regionCode)
   const available = onDemand || cris || mantle
@@ -354,7 +357,7 @@ export function RegionalAvailability() {
     if (!models.length) return REGION_COLUMNS
     const usedRegions = new Set()
     models.forEach(m => {
-      ;(m.on_demand_regions || []).forEach(r => usedRegions.add(r))
+      ;(m.in_region || []).forEach(r => usedRegions.add(r))
       ;(m.cross_region_inference?.source_regions || []).forEach(r => usedRegions.add(r))
       ;(m.mantle_inference?.mantle_regions || []).forEach(r => usedRegions.add(r))
     })
@@ -463,7 +466,8 @@ export function RegionalAvailability() {
         m.model_provider?.toLowerCase().includes(q)
       )) return false
       if (activeView === 'in_region') {
-        if (!(m.inference_types_supported || []).includes('ON_DEMAND')) return false
+        // Use actual in_region availability, not declared inference_types_supported
+        if (!(m.in_region?.length > 0)) return false
       }
       if (activeView === 'cris') {
         if (!m.cross_region_inference?.supported) return false
@@ -965,7 +969,7 @@ export function RegionalAvailability() {
                     </tr>
 
                     {!isCollapsed && providerModels.map((model) => {
-                      const regions = model.on_demand_regions || []
+                      const regions = model.in_region || []
                       const crisRegions = model.cross_region_inference?.source_regions || []
                       const mantleRegions = model.mantle_inference?.mantle_regions || []
                       const allRegions = new Set([...regions, ...crisRegions, ...mantleRegions])

@@ -108,7 +108,7 @@ export const awsRegions = DEFAULT_AWS_REGIONS
 
 /**
  * Build a dynamic AWS regions list from model data.
- * Extracts all unique regions from models[].on_demand_regions and
+ * Extracts all unique regions from models[].in_region and
  * models[].cross_region_inference.source_regions, then returns sorted
  * { value, label, geo } entries.
  *
@@ -119,8 +119,8 @@ export function buildAwsRegionsFromModels(models) {
 
   const regionCodes = new Set()
   models.forEach(m => {
-    if (m.on_demand_regions) {
-      m.on_demand_regions.forEach(r => regionCodes.add(r))
+    if (m.in_region) {
+      m.in_region.forEach(r => regionCodes.add(r))
     }
     if (m.cross_region_inference?.source_regions) {
       m.cross_region_inference.source_regions.forEach(r => regionCodes.add(r))
@@ -435,7 +435,7 @@ export function applyFilters(models, filters) {
     const prefix = prefixMap[filters.geoRegion]
     if (prefix) {
       filtered = filtered.filter(m =>
-        m.on_demand_regions?.some(r => {
+        m.in_region?.some(r => {
           if (r.startsWith(prefix)) return true
           // Special cases: il- regions belong to ME geo, mx- regions belong to SA geo
           if (filters.geoRegion === 'ME' && r.startsWith('il-')) return true
@@ -538,12 +538,12 @@ export function applyFilters(models, filters) {
       // GEO selection - filter models available in ANY region within that geo
       const geoRegions = getRegionsForGeo(filters.primaryRegion, awsRegions)
       filtered = filtered.filter(m =>
-        geoRegions.some(region => m.on_demand_regions?.includes(region))
+        geoRegions.some(region => m.in_region?.includes(region))
       )
     } else {
       // Single region selection
       filtered = filtered.filter(m =>
-        m.on_demand_regions?.includes(filters.primaryRegion)
+        m.in_region?.includes(filters.primaryRegion)
       )
     }
   }

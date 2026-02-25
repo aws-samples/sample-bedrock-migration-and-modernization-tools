@@ -357,7 +357,7 @@ function RegionalAvailabilityGrouped({ regions }) {
 function OnDemandAvailabilitySection({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
-  const regions = model.on_demand_regions || []
+  const regions = model.in_region || []
   const grouped = groupRegionsByGeo(regions)
   const geoCount = Object.keys(grouped).length
   const modelId = model.model_id
@@ -1071,7 +1071,7 @@ function AvailabilitySummary({ model }) {
   const isLight = theme === 'light'
 
   const isMantleOnly = model.mantle_only
-  const regions = model.on_demand_regions || []
+  const regions = model.in_region || []
   const crisData = model.cross_region_inference || {}
   const batchData = model.batch_inference_supported || {}
   const provisionedData = model.provisioned_throughput || {}
@@ -1081,8 +1081,8 @@ function AvailabilitySummary({ model }) {
     {
       label: 'In Region',
       // For Mantle-only models, In Region is not available
-      supported: isMantleOnly ? false : ((model.on_demand_regions?.length > 0) || (regions.length > 0 && (model.inference_types_supported || []).includes('ON_DEMAND'))),
-      count: isMantleOnly ? 0 : (model.on_demand_regions?.length ?? model.total_on_demand_regions ?? regions.length),
+      supported: isMantleOnly ? false : ((model.in_region?.length > 0) || (regions.length > 0 && (model.inference_types_supported || []).includes('ON_DEMAND'))),
+      count: isMantleOnly ? 0 : (model.in_region?.length ?? model.total_in_region ?? regions.length),
     },
     {
       label: 'Cross-Region (CRIS)',
@@ -1516,7 +1516,7 @@ function SpecsTab({ model }) {
   )]
   const languages = model.languages_supported || []
   const documentationLinks = model.documentation_links || {}
-  const regions = model.on_demand_regions || []
+  const regions = model.in_region || []
   const streamingSupported = model.streaming_supported
   const crisData = model.cross_region_inference || {}
   const batchData = model.batch_inference_supported || {}
@@ -2795,7 +2795,7 @@ export function ModelCardExpanded({
   const extendedContext = model.converse_data?.extended_context
   const hasExtendedContext = model.converse_data?.has_extended_context
   const maxOutput = model.converse_data?.max_output_tokens
-  const regions = model.on_demand_regions || []
+  const regions = model.in_region || []
   const capabilities = model.model_capabilities || []
   const streamingSupported = model.streaming_supported
   const crisSupported = model.cross_region_inference?.supported

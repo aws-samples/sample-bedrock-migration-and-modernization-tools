@@ -241,7 +241,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   const inputModalities = model.model_modalities?.input_modalities || []
   const outputModalities = model.model_modalities?.output_modalities || []
   const capabilities = model.model_capabilities || []
-  const regions = model.on_demand_regions || []
+  const regions = model.in_region || []
   const isActive = model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE'
 
   // Get pricing from new pricing data source, fallback to old method
@@ -446,7 +446,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 isLight={isLight}
               />
               {(() => {
-                const onDemandRegions = model.on_demand_regions || []
+                const onDemandRegions = model.in_region || []
                 const crisRegions = model.cross_region_inference?.source_regions || []
                 const mantleRegions = model.mantle_inference?.mantle_regions || []
                 const allRegions = new Set([...onDemandRegions, ...crisRegions, ...mantleRegions])

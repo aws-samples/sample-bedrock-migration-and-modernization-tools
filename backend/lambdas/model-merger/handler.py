@@ -64,9 +64,12 @@ def merge_models(all_models: list[dict]) -> dict:
     by keeping only the base model.
 
     Preserves the snake_case schema and merges:
-    - regions_available: all regions where model exists
+    - extraction_regions: where model was discovered in API (audit/debug only)
     - inference_types_supported: aggregated across all regions
-    - on_demand_regions: only regions where ON_DEMAND is supported
+
+    Note: Actual ON_DEMAND availability (in_region) is determined by the
+    regional-availability Lambda, not here. This merger only tracks where
+    models were discovered in the API.
 
     Returns a provider-grouped structure:
     {
@@ -85,7 +88,6 @@ def merge_models(all_models: list[dict]) -> dict:
     variant_context_windows = {}
     variant_customizations = {}
     variant_inference_types = {}  # Track inference types from variants
-    variant_on_demand_regions = {}  # Track ON_DEMAND regions from variants
     variant_only_models = {}  # Track variants whose base model doesn't appear
 
     for model in all_models:
@@ -93,12 +95,9 @@ def merge_models(all_models: list[dict]) -> dict:
         if not model_id:
             continue
 
-        # Get the region(s) this model entry is from
-        model_regions = model.get("regions_available", [])
+        # Get the region(s) this model entry is from (extraction regions, not availability)
+        model_regions = model.get("extraction_regions", [])
         model_inference_types = model.get("inference_types_supported", [])
-        
-        # Determine if this model supports ON_DEMAND in its region(s)
-        has_on_demand = "ON_DEMAND" in model_inference_types
 
         # Get base model ID (remove context window suffixes like :18k, :200k)
         base_model_id = get_base_model_id(model_id)
@@ -125,12 +124,6 @@ def merge_models(all_models: list[dict]) -> dict:
                     variant_inference_types[base_model_id] = set()
                 variant_inference_types[base_model_id].update(model_inference_types)
 
-            # Track ON_DEMAND regions from variants
-            if has_on_demand:
-                if base_model_id not in variant_on_demand_regions:
-                    variant_on_demand_regions[base_model_id] = set()
-                variant_on_demand_regions[base_model_id].update(model_regions)
-
             # Track variant data in case base model doesn't exist
             if base_model_id not in variant_only_models:
                 variant_only_models[base_model_id] = model.copy()
@@ -141,23 +134,18 @@ def merge_models(all_models: list[dict]) -> dict:
             )
             continue
 
-        # Keep first occurrence or merge regions_available
+        # Keep first occurrence or merge extraction_regions
         if model_id not in models_by_id:
             models_by_id[model_id] = model.copy()
-            # Ensure regions_available is a list
-            if "regions_available" not in models_by_id[model_id]:
-                models_by_id[model_id]["regions_available"] = []
-            # Initialize on_demand_regions
-            if has_on_demand:
-                models_by_id[model_id]["on_demand_regions"] = list(model_regions)
-            else:
-                models_by_id[model_id]["on_demand_regions"] = []
+            # Ensure extraction_regions is a list
+            if "extraction_regions" not in models_by_id[model_id]:
+                models_by_id[model_id]["extraction_regions"] = []
         else:
-            # Merge regions_available
-            existing_regions = set(models_by_id[model_id].get("regions_available", []))
+            # Merge extraction_regions
+            existing_regions = set(models_by_id[model_id].get("extraction_regions", []))
             new_regions = set(model_regions)
             merged_regions = sorted(list(existing_regions | new_regions))
-            models_by_id[model_id]["regions_available"] = merged_regions
+            models_by_id[model_id]["extraction_regions"] = merged_regions
 
             # Merge inference_types_supported (critical: varies by region)
             existing_inference_types = set(
@@ -166,12 +154,6 @@ def merge_models(all_models: list[dict]) -> dict:
             new_inference_types = set(model_inference_types)
             merged_inference_types = sorted(list(existing_inference_types | new_inference_types))
             models_by_id[model_id]["inference_types_supported"] = merged_inference_types
-
-            # Merge on_demand_regions (only regions where ON_DEMAND is supported)
-            if has_on_demand:
-                existing_od_regions = set(models_by_id[model_id].get("on_demand_regions", []))
-                merged_od_regions = sorted(list(existing_od_regions | new_regions))
-                models_by_id[model_id]["on_demand_regions"] = merged_od_regions
 
             # Update collection_metadata.regions_collected_from
             existing_collected = set(
@@ -199,10 +181,8 @@ def merge_models(all_models: list[dict]) -> dict:
     for base_id, variant_model in variant_only_models.items():
         if base_id not in models_by_id:
             models_by_id[base_id] = variant_model
-            if "regions_available" not in models_by_id[base_id]:
-                models_by_id[base_id]["regions_available"] = []
-            if "on_demand_regions" not in models_by_id[base_id]:
-                models_by_id[base_id]["on_demand_regions"] = []
+            if "extraction_regions" not in models_by_id[base_id]:
+                models_by_id[base_id]["extraction_regions"] = []
             logger.info(f"Created base model from variant: {base_id}")
 
     # Attach variant context windows to base models
@@ -234,16 +214,6 @@ def merge_models(all_models: list[dict]) -> dict:
             merged = sorted(list(existing_inf_types | inf_types))
             models_by_id[model_id]["inference_types_supported"] = merged
             logger.info(f"Merged inference types for {model_id}: {merged}")
-
-    # Merge on_demand_regions from variants into base models
-    for model_id, od_regions in variant_on_demand_regions.items():
-        if model_id in models_by_id:
-            existing_od_regions = set(
-                models_by_id[model_id].get("on_demand_regions", [])
-            )
-            merged = sorted(list(existing_od_regions | od_regions))
-            models_by_id[model_id]["on_demand_regions"] = merged
-            logger.info(f"Merged on_demand_regions for {model_id}: {merged}")
 
     # Group by provider
     providers = {}

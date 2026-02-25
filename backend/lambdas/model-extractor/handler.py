@@ -517,8 +517,8 @@ def process_model_data(raw_model: dict, region: str) -> dict:
             "status": raw_model.get("modelLifecycle", {}).get("status", "UNKNOWN"),
             "release_date": "",
         },
-        # Regional information
-        "regions_available": [region],
+        # Extraction metadata (where model was discovered in API, not where it can be invoked)
+        "extraction_regions": [region],
         # Capabilities and use cases - populated from console metadata
         "model_capabilities": [],  # From modelAttributes
         "model_use_cases": [],  # From supportedUseCases

@@ -87,7 +87,7 @@ function MapBoundsUpdater({ markers }) {
 
 // Helper to get all regions for a model (on-demand + CRIS + Mantle)
 function getAllModelRegions(model) {
-  const onDemand = model.on_demand_regions || []
+  const onDemand = model.in_region || []
   const cris = model.cross_region_inference?.source_regions || []
   const mantle = model.mantle_inference?.mantle_regions || []
   return [...new Set([...onDemand, ...cris, ...mantle])]
