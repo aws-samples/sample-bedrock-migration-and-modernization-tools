@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback, Fragment } from 'react'
-import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, ChevronsUpDown, Zap, Globe, Globe2, Cpu } from 'lucide-react'
+import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, ChevronsUpDown, Zap, Globe, Globe2, Cpu, ExternalLink } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -130,8 +130,8 @@ function getRegionAvailability(model, regionCode) {
  */
 function getAvailabilityColors(onDemand, cris, mantle, isLight) {
   return {
-    bg: isLight ? 'bg-stone-200' : 'bg-white/10',
-    icon: isLight ? 'text-stone-600' : 'text-white/70',
+    bg: isLight ? 'bg-emerald-100' : 'bg-emerald-500/20',
+    icon: isLight ? 'text-emerald-600' : 'text-emerald-400',
   }
 }
 
@@ -619,15 +619,31 @@ export function RegionalAvailability() {
   }
 
   return (
-    <div className="flex flex-col h-full p-4 sm:p-6 gap-4 overflow-hidden">
+    <div className="flex flex-col h-[calc(100dvh-4.5rem)] p-4 sm:p-6 gap-4 overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0">
-        <h1 className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-[#f0f1f3]')}>
-          Regional Availability
-        </h1>
-        <p className={cn('text-sm mt-1', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>
-          Model availability across AWS regions at a glance
-        </p>
+      <div className="flex-shrink-0 flex items-start justify-between gap-4">
+        <div>
+          <h1 className={cn('text-xl font-bold', isLight ? 'text-stone-900' : 'text-[#f0f1f3]')}>
+            Regional Availability
+          </h1>
+          <p className={cn('text-sm mt-1', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')}>
+            Model availability across AWS regions at a glance
+          </p>
+        </div>
+        <a
+          href="https://bedrock-pfr-onboarding.rodzanto.people.aws.dev/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border whitespace-nowrap',
+            isLight
+              ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:border-amber-300'
+              : 'bg-[#1A9E7A]/10 text-[#1A9E7A] border-[#1A9E7A]/20 hover:bg-[#1A9E7A]/20 hover:border-[#1A9E7A]/30'
+          )}
+        >
+          See model onboarding and PFRs
+          <ExternalLink className="w-3 h-3" />
+        </a>
       </div>
 
       {/* Search + Legend + Geo pills */}
@@ -829,7 +845,7 @@ export function RegionalAvailability() {
                     
                     
                     className={cn(
-                      'sticky top-[26px] z-20 text-center px-0 py-0 w-10 min-w-10',
+                      'sticky top-[26px] z-20 text-center px-0 py-0 w-12 min-w-12',
                       isLight
                         ? 'bg-stone-50/90 backdrop-blur-sm border-b border-stone-200'
                         : 'bg-white/[0.04] backdrop-blur-xl border-b border-white/[0.06]',
@@ -843,14 +859,14 @@ export function RegionalAvailability() {
                         <TooltipTrigger asChild>
                           <div className="flex flex-col items-center py-1.5 gap-0.5 cursor-default">
                             <span className={cn(
-                              'text-[9px] font-bold leading-none',
-                              isLight ? 'text-stone-500' : 'text-[#c0c1c5]'
+                              'text-[11px] font-bold leading-none',
+                              isLight ? 'text-stone-800' : 'text-white'
                             )}>
                               {region.short}
                             </span>
                             <span className={cn(
-                              'text-[7px] leading-none max-w-[38px] truncate',
-                              isLight ? 'text-stone-400' : 'text-[#6d6e72]'
+                              'text-[9px] leading-none max-w-[42px] truncate',
+                              isLight ? 'text-stone-600' : 'text-[#9a9b9f]'
                             )}>
                               {region.label}
                             </span>
