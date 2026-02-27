@@ -379,14 +379,14 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
               ))}
             </SpecRow>
 
-            <SpecRow label="Batch Inference">
+            <SpecRow label="Mantle">
               {specsData.map(d => (
                 <td key={d.model.model_id} className="px-3 py-2.5 text-center">
-                  {d.batchSupported ? (
+                  {d.mantleSupported ? (
                     <div className="flex flex-col items-center gap-0.5">
                       <Check className="h-4 w-4 text-emerald-500" />
                       <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                        {d.batchRegions} regions{d.batchCoverage != null ? ` (${Math.round(d.batchCoverage)}%)` : ''}
+                        {d.mantleRegions} regions
                       </span>
                     </div>
                   ) : (
@@ -396,14 +396,14 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
               ))}
             </SpecRow>
 
-            <SpecRow label="Mantle">
+            <SpecRow label="Batch Inference">
               {specsData.map(d => (
                 <td key={d.model.model_id} className="px-3 py-2.5 text-center">
-                  {d.mantleSupported ? (
+                  {d.batchSupported ? (
                     <div className="flex flex-col items-center gap-0.5">
                       <Check className="h-4 w-4 text-emerald-500" />
                       <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                        {d.mantleRegions} regions
+                        {d.batchRegions} regions{d.batchCoverage != null ? ` (${Math.round(d.batchCoverage)}%)` : ''}
                       </span>
                     </div>
                   ) : (
