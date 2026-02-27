@@ -353,7 +353,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
                     {formatNumber(contextWindow)}
                     {hasExtendedContext && (
-                      <span className={cn('text-xs font-normal ml-1', isLight ? 'text-amber-500' : 'text-emerald-400')}>
+                      <span className={cn('ml-1', isLight ? 'text-amber-500' : 'text-emerald-400')}>
                         / {formatNumber(extendedContext)}
                       </span>
                     )}
