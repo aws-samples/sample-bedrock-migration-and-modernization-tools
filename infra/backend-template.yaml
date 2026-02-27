@@ -355,6 +355,26 @@ Resources:
                 - !Sub '${DataBucket.Arn}/*'
                 - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
 
+  # Wave 2: Lifecycle Collection
+  LifecycleCollectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-lifecycle-collector-${Environment}'
+      CodeUri: ../backend/lambdas/lifecycle-collector/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      MemorySize: 256
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !If
+                - CreateNewBucket
+                - !Sub '${DataBucket.Arn}/*'
+                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+
   # Final Aggregation
   FinalAggregatorFunction:
     Type: AWS::Serverless::Function
@@ -485,6 +505,7 @@ Resources:
                   - !GetAtt GapDetectionFunction.Arn
                   - !GetAtt SelfHealingAgentFunction.Arn
                   - !GetAtt MantleCollectorFunction.Arn
+                  - !GetAtt LifecycleCollectorFunction.Arn
         - PolicyName: CloudWatchLogs
           PolicyDocument:
             Version: '2012-10-17'
@@ -529,6 +550,7 @@ Resources:
         GapDetectionFunction: !GetAtt GapDetectionFunction.Arn
         SelfHealingAgentFunction: !GetAtt SelfHealingAgentFunction.Arn
         MantleCollectorFunction: !GetAtt MantleCollectorFunction.Arn
+        LifecycleCollectorFunction: !GetAtt LifecycleCollectorFunction.Arn
       Role: !GetAtt StateMachineRole.Arn
       Logging:
         Destinations:

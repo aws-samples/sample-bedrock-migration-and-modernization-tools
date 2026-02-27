@@ -1207,6 +1207,7 @@ def transform_model_to_schema(
     collection_timestamp: str,
     mantle_by_model: dict,
     provisioned_throughput: dict = None,
+    lifecycle_by_model: dict = None,
 ) -> dict:
     """
     Merge model data from all sources into final schema.
@@ -1453,6 +1454,31 @@ def transform_model_to_schema(
     if not model_lifecycle:
         model_lifecycle = {"status": "ACTIVE", "release_date": ""}
 
+    # Merge lifecycle data from scraper if available
+    if lifecycle_by_model:
+        lifecycle_info = lifecycle_by_model.get(model_id, {})
+        if lifecycle_info:
+            # Override status from scraped data (active, legacy, eol)
+            scraped_status = lifecycle_info.get("lifecycle_status")
+            if scraped_status:
+                model_lifecycle["status"] = scraped_status.upper()
+            # Add EOL date if available
+            eol_date = lifecycle_info.get("eol_date")
+            if eol_date:
+                model_lifecycle["eol_date"] = eol_date
+            # Add legacy date if available
+            legacy_date = lifecycle_info.get("legacy_date")
+            if legacy_date:
+                model_lifecycle["legacy_date"] = legacy_date
+            # Add recommended replacement if available
+            recommended_replacement = lifecycle_info.get("recommended_replacement")
+            if recommended_replacement:
+                model_lifecycle["recommended_replacement"] = recommended_replacement
+            # Add recommended model ID if available
+            recommended_model_id = lifecycle_info.get("model_id")
+            if recommended_model_id and recommended_model_id != model_id:
+                model_lifecycle["recommended_model_id"] = recommended_model_id
+
     # Get customization (already in snake_case)
     customization = model.get("customization", {})
     if not customization:
@@ -1639,6 +1665,7 @@ def build_final_models(
     pricing_data: dict,
     collection_timestamp: str,
     mantle_by_model: dict,
+    lifecycle_by_model: dict,
 ) -> dict:
     """Build the final comprehensive models structure in expected schema.
 
@@ -1692,6 +1719,7 @@ def build_final_models(
                 collection_timestamp=collection_timestamp,
                 mantle_by_model=mantle_by_model,
                 provisioned_throughput=provisioned,
+                lifecycle_by_model=lifecycle_by_model,
             )
 
             # Track matched Mantle model ID
@@ -1811,6 +1839,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
     token_specs_result = event.get("tokenSpecs", {})
     enriched_models_result = event.get("enrichedModels", {})
     mantle_results = event.get("mantleResults", [])
+    lifecycle_data_result = event.get("lifecycleData", {})
     dry_run = event.get("dryRun", False)
 
     models_output_key = f"executions/{execution_id}/final/bedrock_models.json"
@@ -1857,6 +1886,15 @@ def lambda_handler(event: dict, context: Any) -> dict:
                 else {}
             )
 
+            # Read lifecycle data
+            lifecycle_s3_key = lifecycle_data_result.get("s3Key")
+            lifecycle_data = (
+                read_from_s3(s3_client, s3_bucket, lifecycle_s3_key)
+                if lifecycle_s3_key
+                else {"models_by_id": {}}
+            )
+            lifecycle_by_model = lifecycle_data.get("models_by_id", {})
+
             # Aggregate quotas, features, and mantle data
             quotas_by_region = aggregate_quotas(quota_results, s3_client, s3_bucket)
             features_by_region = aggregate_features(
@@ -1875,6 +1913,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
                 pricing_data,
                 collection_timestamp,
                 mantle_by_model,
+                lifecycle_by_model,
             )
 
             # Calculate statistics

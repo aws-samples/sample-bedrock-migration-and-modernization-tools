@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback, Fragment } from 'react'
-import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUp, ChevronsDown, ChevronsUpDown, Zap, Globe, Globe2, Cpu, ExternalLink } from 'lucide-react'
+import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUpDown, Zap, Globe, Globe2, Cpu, ExternalLink } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -315,28 +315,6 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight, activeView 
   )
 }
 
-function ScrollButton({ direction, onClick, isLight, visible }) {
-  const isUp = direction === 'up'
-  const Icon = isUp ? ChevronsUp : ChevronsDown
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'fixed z-50 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200',
-        isUp ? 'bottom-20 right-6' : 'bottom-8 right-6',
-        visible ? 'opacity-100 scale-100' : 'opacity-50 scale-95',
-        isLight
-          ? 'bg-white/95 backdrop-blur-sm border border-stone-200 text-stone-500 hover:bg-stone-50 hover:text-stone-700 shadow-lg hover:shadow-xl'
-          : 'bg-[#1a1a1c]/90 backdrop-blur-xl border border-white/[0.08] text-[#9a9b9f] hover:bg-[#1a1a1c] hover:text-white shadow-[0_4px_16px_rgba(0,0,0,0.4)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.5)] ring-1 ring-white/[0.04]'
-      )}
-    >
-      <Icon className="w-4 h-4" />
-    </button>
-  )
-}
-
-
-
 export function RegionalAvailability() {
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -350,7 +328,6 @@ export function RegionalAvailability() {
   const [selectedGeos, setSelectedGeos] = useState(new Set())
 
   const tableContainerRef = useRef(null)
-  const [scrollState, setScrollState] = useState({ atTop: true, atBottom: false, atLeft: true, atRight: false, scrollTop: 0 })
 
   // Regions with data — known ones keep their order/labels, unknown ones auto-detected
   const activeRegions = useMemo(() => {
@@ -550,43 +527,6 @@ export function RegionalAvailability() {
     }
   }
 
-  const updateScrollState = useCallback(() => {
-    const main = document.querySelector('main')
-
-    // Vertical scroll tracking from <main> (the page-level scroll container)
-    const atTop = !main || main.scrollTop <= 50
-    const atBottom = !main || main.scrollTop + main.clientHeight >= main.scrollHeight - 50
-
-    setScrollState({ atTop, atBottom, atLeft: true, atRight: true, scrollTop: main ? main.scrollTop : 0 })
-  }, [])
-
-  useEffect(() => {
-    const el = tableContainerRef.current
-    const main = document.querySelector('main')
-    // Scroll on table container
-    if (el) {
-      el.addEventListener('scroll', updateScrollState, { passive: true })
-    }
-    // Vertical scroll on <main>
-    if (main) {
-      main.addEventListener('scroll', updateScrollState, { passive: true })
-    }
-    updateScrollState()
-    return () => {
-      if (el) el.removeEventListener('scroll', updateScrollState)
-      if (main) main.removeEventListener('scroll', updateScrollState)
-    }
-  }, [updateScrollState])
-
-  const scrollToTop = () => {
-    const main = document.querySelector('main')
-    if (main) main.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-  const scrollToBottom = () => {
-    const main = document.querySelector('main')
-    if (main) main.scrollTo({ top: main.scrollHeight, behavior: 'smooth' })
-  }
-
   const handleViewChange = (viewId) => {
     setActiveView(viewId)
     setSelectedGeos(new Set())
@@ -772,7 +712,7 @@ export function RegionalAvailability() {
         <div
           ref={tableContainerRef}
           className={cn(
-            'flex-1 min-w-0 h-full overflow-auto rounded-xl backdrop-blur-xl',
+            'h-full min-w-0 overflow-auto rounded-xl backdrop-blur-xl',
             isLight
               ? 'border border-stone-200/60 bg-white/70 shadow-[0_2px_15px_-3px_rgba(120,113,108,0.08)] ring-1 ring-stone-100/50'
               : 'border border-white/[0.06] bg-white/[0.03] shadow-[0_2px_15px_-3px_rgba(0,0,0,0.3)] ring-1 ring-white/[0.03]'
@@ -1063,9 +1003,6 @@ export function RegionalAvailability() {
           )}
         </div>
 
-        {/* Vertical scroll buttons — up/down (fixed position) */}
-        <ScrollButton direction="up" onClick={scrollToTop} isLight={isLight} visible={!scrollState.atTop} />
-        <ScrollButton direction="down" onClick={scrollToBottom} isLight={isLight} visible={!scrollState.atBottom} />
       </div>
     </div>
   )

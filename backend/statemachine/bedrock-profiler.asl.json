@@ -504,6 +504,45 @@
               "End": true
             }
           }
+        },
+        {
+          "StartAt": "CollectLifecycle",
+          "States": {
+            "CollectLifecycle": {
+              "Type": "Task",
+              "Resource": "${LifecycleCollectorFunction}",
+              "Parameters": {
+                "s3Bucket.$": "$.config.s3Bucket",
+                "s3Key.$": "States.Format('executions/{}/lifecycle/lifecycle.json', $.executionId)"
+              },
+              "ResultPath": "$.result",
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "IntervalSeconds": 5,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.error",
+                  "Next": "LifecycleCollectorFailed"
+                }
+              ],
+              "TimeoutSeconds": 90,
+              "End": true
+            },
+            "LifecycleCollectorFailed": {
+              "Type": "Pass",
+              "Parameters": {
+                "status": "FAILED",
+                "error.$": "$.error"
+              },
+              "End": true
+            }
+          }
         }
       ],
       "ResultPath": "$.wave2Results",
@@ -524,7 +563,8 @@
         "featureResults.$": "$.wave2Results[2].featureResults",
         "tokenSpecs.$": "$.wave2Results[3].result",
         "enrichedModels": {},
-        "mantleResults.$": "$.wave2Results[4].mantleResults"
+        "mantleResults.$": "$.wave2Results[4].mantleResults",
+        "lifecycleData.$": "$.wave2Results[5].result"
       },
       "Next": "FinalAggregation"
     },
@@ -543,7 +583,8 @@
         "featureResults.$": "$.featureResults",
         "tokenSpecs.$": "$.tokenSpecs",
         "enrichedModels.$": "$.enrichedModels",
-        "mantleResults.$": "$.mantleResults"
+        "mantleResults.$": "$.mantleResults",
+        "lifecycleData.$": "$.lifecycleData"
       },
       "ResultPath": "$.finalResult",
       "Retry": [

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 
 // Provider color mapping - using actual brand colors (Tailwind classes)
@@ -1065,7 +1066,15 @@ function MantleInferenceSection({ mantleData }) {
   )
 }
 
-// Compact availability summary showing all 5 inference types
+// Consumption option explanations for info popover
+const consumptionExplanations = {
+  'In Region': 'On-demand inference in a specific AWS region. Pay per token/request with no commitment.',
+  'Cross-Region (CRIS)': 'Cross-Region Inference Service routes requests to available capacity across regions for higher throughput.',
+  'Batch': 'Process large volumes of requests asynchronously at lower cost. Results delivered to S3.',
+  'Mantle': 'Managed inference endpoints with dedicated capacity and custom configurations.',
+}
+
+// Compact availability summary showing all 4 inference types (excluding Provisioned)
 function AvailabilitySummary({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -1074,7 +1083,6 @@ function AvailabilitySummary({ model }) {
   const regions = model.in_region || []
   const crisData = model.cross_region_inference || {}
   const batchData = model.batch_inference_supported || {}
-  const provisionedData = model.provisioned_throughput || {}
   const mantleData = model.mantle_inference || {}
 
   const types = [
@@ -1097,12 +1105,6 @@ function AvailabilitySummary({ model }) {
       count: isMantleOnly ? 0 : (batchData.supported_regions?.length ?? 0),
     },
     {
-      label: 'Provisioned',
-      // For Mantle-only models, Provisioned is not available
-      supported: isMantleOnly ? false : !!provisionedData.supported,
-      count: isMantleOnly ? 0 : (provisionedData.total_provisioned_regions ?? provisionedData.provisioned_regions?.length ?? 0),
-    },
-    {
       label: 'Mantle',
       // Mantle is the primary option for Mantle-only models
       supported: !!mantleData.supported,
@@ -1113,6 +1115,50 @@ function AvailabilitySummary({ model }) {
 
   return (
     <div className="space-y-1.5">
+      {/* Header with info button */}
+      <div className="flex items-center justify-between mb-2">
+        <span className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>
+          Availability
+        </span>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              className={cn(
+                'p-1 rounded-md transition-colors',
+                isLight
+                  ? 'hover:bg-stone-100 text-stone-400 hover:text-stone-600'
+                  : 'hover:bg-white/[0.06] text-slate-500 hover:text-slate-300'
+              )}
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            side="left"
+            align="start"
+            className={cn(
+              'w-72 p-3',
+              isLight ? 'bg-white border-stone-200' : 'bg-[#1c1d1f] border-white/[0.08]'
+            )}
+          >
+            <div className="space-y-2">
+              <h4 className={cn('text-xs font-semibold', isLight ? 'text-stone-700' : 'text-white')}>
+                Consumption Options
+              </h4>
+              {Object.entries(consumptionExplanations).map(([label, explanation]) => (
+                <div key={label} className="space-y-0.5">
+                  <div className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>
+                    {label}
+                  </div>
+                  <div className={cn('text-[11px]', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                    {explanation}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
       {isMantleOnly && (
         <div className={cn(
           'px-2.5 py-1.5 rounded-md text-xs mb-2',

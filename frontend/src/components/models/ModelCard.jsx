@@ -544,25 +544,6 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               )}
             </div>
 
-          {/* Consumption options */}
-          {consumptionOptions.filter(opt => opt !== 'cross_region_inference').length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {consumptionOptions.filter(opt => opt !== 'cross_region_inference').map(opt => (
-                <span
-                  key={opt}
-                  className={cn(
-                    'text-[10px] px-2 py-0.5 rounded-full font-medium',
-                    isLight
-                      ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                      : 'bg-[#1A9E7A]/10 text-[#1A9E7A] border border-[#1A9E7A]/20'
-                  )}
-                >
-                  {consumptionLabels[opt] || opt}
-                </span>
-              ))}
-            </div>
-          )}
-
           {/* Capabilities */}
           {capabilities.length > 0 && (
             <div className="flex flex-wrap gap-1">
