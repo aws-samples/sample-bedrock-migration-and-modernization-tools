@@ -351,11 +351,23 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 <div className="flex-1 text-center border-r border-current/10">
                   <p className={cn('text-[10px] uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-slate-400')}>Context</p>
                   <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
-                    {formatNumber(contextWindow)}
-                    {hasExtendedContext && (
-                      <span className={cn('ml-1', isLight ? 'text-amber-500' : 'text-emerald-400')}>
-                        / {formatNumber(extendedContext)}
-                      </span>
+                    {hasExtendedContext ? (
+                      <Tooltip delayDuration={200}>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">
+                            {formatNumber(contextWindow)}
+                            <span className={cn('ml-1', isLight ? 'text-amber-500' : 'text-emerald-400')}>
+                              → {formatNumber(extendedContext)}
+                            </span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+                          <p><strong>{formatNumber(contextWindow)}</strong> base context window</p>
+                          <p><strong>{formatNumber(extendedContext)}</strong> with extended context</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      formatNumber(contextWindow)
                     )}
                   </p>
                 </div>
