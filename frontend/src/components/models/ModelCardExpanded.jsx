@@ -16,6 +16,8 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/authStore'
+import { canViewQuotas } from '@/config/admin'
 
 // Provider color mapping - using actual brand colors (Tailwind classes)
 const providerColors = {
@@ -2797,6 +2799,8 @@ export function ModelCardExpanded({
   preferredRegion = 'us-east-1',
 }) {
   const [activeTab, setActiveTab] = useState('specs')
+  const user = useAuthStore(s => s.user)
+  const showQuotas = canViewQuotas(user)
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
@@ -3093,7 +3097,7 @@ export function ModelCardExpanded({
                 </>
               )}
 
-              {activeTab === 'quotas' && (
+              {showQuotas && activeTab === 'quotas' && (
                 <div className="space-y-3">
                   <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-slate-400')}>
                     Quota Summary
@@ -3159,9 +3163,11 @@ export function ModelCardExpanded({
                   <TabsTrigger value="specs" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
                     Technical Specs
                   </TabsTrigger>
-                  <TabsTrigger value="quotas" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
-                    Service Quotas
-                  </TabsTrigger>
+                  {showQuotas && (
+                    <TabsTrigger value="quotas" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
+                      Service Quotas
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="pricing" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
                     Pricing
                   </TabsTrigger>
@@ -3171,9 +3177,11 @@ export function ModelCardExpanded({
                   <SpecsTab model={model} />
                 </TabsContent>
 
-                <TabsContent value="quotas" className="flex-1 mt-0 min-h-0 overflow-hidden">
-                  <QuotasTab model={model} />
-                </TabsContent>
+                {showQuotas && (
+                  <TabsContent value="quotas" className="flex-1 mt-0 min-h-0 overflow-hidden">
+                    <QuotasTab model={model} />
+                  </TabsContent>
+                )}
 
                 <TabsContent value="pricing" className="flex-1 mt-0 min-h-0 overflow-hidden">
                   <PricingTab model={model} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} />
