@@ -38,7 +38,8 @@ function formatNumber(num) {
 
 function formatPrice(price) {
   if (price === null || price === undefined) return 'N/A'
-  return `$${price < 0.0001 ? price.toFixed(6) : price.toFixed(4)}`
+  if (price < 0.01) return `$${price.toFixed(4)}`
+  return `$${price.toFixed(2)}`
 }
 
 // Detect long-context support from pricing data
@@ -478,7 +479,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
             <span className={cn('text-[10px]', isLight ? 'text-emerald-700' : 'text-emerald-400')}>Cheapest Input</span>
           </div>
           <p className="text-lg font-bold text-emerald-600">
-            {minInputPrice !== null ? `$${minInputPrice < 0.01 ? minInputPrice.toFixed(4) : minInputPrice.toFixed(3)}` : '—'}
+            {minInputPrice !== null ? `$${minInputPrice < 0.01 ? minInputPrice.toFixed(4) : minInputPrice.toFixed(2)}` : '—'}
           </p>
           {inputPriceBestSet.size > 0 && (
             <p className={cn('text-[10px] truncate', isLight ? 'text-stone-400' : 'text-slate-500')}>
@@ -767,13 +768,13 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                 isLight={isLight}
               />
               <MetricRow
-                label="Input Price (1K)"
+                label="Input Price (1M)"
                 values={modelData.map(d => formatPrice(d.inputPrice))}
                 isLight={isLight}
                 bestIndices={inputPriceBestSet}
               />
               <MetricRow
-                label="Output Price (1K)"
+                label="Output Price (1M)"
                 values={modelData.map(d => formatPrice(d.outputPrice))}
                 isLight={isLight}
                 bestIndices={outputPriceBestSet}

@@ -521,17 +521,17 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   <div className="text-center">
                     <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>Input</p>
                     <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-[#f0f1f3]')}>
-                      ${inputPrice < 0.0001 ? inputPrice.toFixed(6) : inputPrice.toFixed(4)}
+                      ${inputPrice < 0.01 ? inputPrice.toFixed(4) : inputPrice.toFixed(2)}
                     </p>
                   </div>
                   <div className="text-center">
                     <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>Output</p>
                     <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-[#f0f1f3]')}>
-                      ${outputPrice !== null ? (outputPrice < 0.0001 ? outputPrice.toFixed(6) : outputPrice.toFixed(4)) : 'N/A'}
+                      ${outputPrice !== null ? (outputPrice < 0.01 ? outputPrice.toFixed(4) : outputPrice.toFixed(2)) : 'N/A'}
                     </p>
                   </div>
                   <p className={cn('col-span-2 text-center text-[10px] -mt-1', isLight ? 'text-stone-400' : 'text-slate-400')}>
-                    {unitLabel || 'per 1K tokens'}
+                    {unitLabel || 'per 1M tokens'}
                   </p>
                 </div>
               ) : (

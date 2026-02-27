@@ -408,11 +408,15 @@ function extractSummaryPricing(modelPricing, region = 'us-east-1') {
   if (inputPrice === null) inputPrice = flexInputPrice
   if (outputPrice === null) outputPrice = flexOutputPrice
 
+  // Convert from per-1K to per-1M for display
+  if (inputPrice !== null) inputPrice = inputPrice * 1000
+  if (outputPrice !== null) outputPrice = outputPrice * 1000
+
   return {
     inputPrice,
     outputPrice,
     pricingType: primaryPricingType,
-    unitLabel: primaryPricingType === 'token' ? 'per 1K tokens' : 'per unit',
+    unitLabel: primaryPricingType === 'token' ? 'per 1M tokens' : 'per unit',
     imagePrice: null,
     imagePrices: null,
     videoPrice: null,
