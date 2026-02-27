@@ -2059,6 +2059,8 @@ function QuotasTab({ model }) {
   for (const region of allRegions) {
     const regionQuotas = quotas[region] || []
     for (const quota of regionQuotas) {
+      // Skip per-day quotas (derived from per-minute, redundant)
+      if (/per\s+day/i.test(quota.quota_name || '')) continue
       const category = categorizeQuota(quota.quota_name || '')
       const geo = getGeoForRegion(region)
       if (!categorizedQuotas[category]) categorizedQuotas[category] = {}
@@ -2813,6 +2815,8 @@ export function ModelCardExpanded({
   for (const region of quotaRegions) {
     const regionQuotas = quotas[region] || []
     for (const quota of regionQuotas) {
+      // Skip per-day quotas (derived from per-minute, redundant)
+      if (/per\s+day/i.test(quota.quota_name || '')) continue
       totalQuotas++
       if (quota.adjustable) adjustableQuotas++
       quotaCategories.add(categorizeQuota(quota.quota_name || ''))
