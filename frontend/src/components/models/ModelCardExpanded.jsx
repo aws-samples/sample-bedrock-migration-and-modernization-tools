@@ -2169,6 +2169,17 @@ function QuotasTab({ model }) {
   return (
     <ScrollArea className="h-full">
       <div className="p-6">
+        {/* Internal banner */}
+        <div className={cn(
+          'flex items-start gap-2 px-3 py-2.5 rounded-lg text-xs mb-4',
+          isLight
+            ? 'bg-violet-50 text-violet-700 border border-violet-200'
+            : 'bg-violet-500/10 text-violet-300 border border-violet-500/20'
+        )}>
+          <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+          <span>These quotas are internal service quotas and may not reflect customer-facing limits.</span>
+        </div>
+
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative max-w-md">
