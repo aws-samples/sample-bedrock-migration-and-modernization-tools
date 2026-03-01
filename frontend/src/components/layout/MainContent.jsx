@@ -67,7 +67,7 @@ export function MainContent({ children, className, onMenuToggle }) {
         </div>
       </div>
 
-      <div className="relative h-full">
+      <div className="relative p-4 sm:p-6">
         {children}
       </div>
     </main>

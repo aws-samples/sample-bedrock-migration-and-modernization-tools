@@ -169,20 +169,81 @@ function CopyableModelId({ modelId, isLight }) {
   )
 }
 
-// Status pill component
-function StatusPill({ isActive, isLight }) {
+// Helper to get status styles for a given status value
+function getStatusStylesForValue(statusValue, isLight) {
+  const normalizedStatus = (statusValue || 'ACTIVE').toUpperCase()
+  switch (normalizedStatus) {
+    case 'ACTIVE':
+      return isLight
+        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+        : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+    case 'LEGACY':
+      return isLight
+        ? 'bg-amber-100 text-amber-700 border border-amber-200'
+        : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+    case 'EOL':
+      return isLight
+        ? 'bg-red-100 text-red-700 border border-red-200'
+        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+    case 'MIXED':
+      return isLight
+        ? 'bg-purple-100 text-purple-700 border border-purple-200'
+        : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+    default:
+      return isLight
+        ? 'bg-stone-100 text-stone-700 border border-stone-200'
+        : 'bg-white/10 text-slate-400 border border-white/20'
+  }
+}
+
+// Helper to get status label
+function getStatusLabelForValue(statusValue) {
+  const normalizedStatus = (statusValue || 'ACTIVE').toUpperCase()
+  switch (normalizedStatus) {
+    case 'ACTIVE': return 'Active'
+    case 'LEGACY': return 'Legacy'
+    case 'EOL': return 'EOL'
+    case 'MIXED': return 'Mixed'
+    default: return normalizedStatus
+  }
+}
+
+// Status pill component - handles both single status and MIXED status with multiple badges
+function StatusPill({ status, globalStatus, statusSummary, isLight }) {
+  // If global_status is MIXED and we have status_summary, render multiple badges
+  if (globalStatus === 'MIXED' && statusSummary) {
+    // Get statuses that have regions, in order: LEGACY, ACTIVE, EOL
+    const statusOrder = ['LEGACY', 'ACTIVE', 'EOL']
+    const activeStatuses = statusOrder.filter(s => statusSummary[s]?.length > 0)
+    
+    if (activeStatuses.length > 0) {
+      return (
+        <div className="flex items-center gap-1">
+          {activeStatuses.map(s => (
+            <div
+              key={s}
+              className={cn(
+                'px-1.5 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wide',
+                getStatusStylesForValue(s, isLight)
+              )}
+            >
+              {getStatusLabelForValue(s)}
+            </div>
+          ))}
+        </div>
+      )
+    }
+  }
+  
+  // Single status display (backward compatible)
+  const normalizedStatus = (status || 'ACTIVE').toUpperCase()
+  
   return (
     <div className={cn(
       'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide',
-      isActive
-        ? isLight
-          ? 'bg-emerald-100 text-emerald-700'
-          : 'bg-emerald-500/15 text-emerald-400'
-        : isLight
-          ? 'bg-amber-100 text-amber-700'
-          : 'bg-amber-500/15 text-amber-400'
+      getStatusStylesForValue(normalizedStatus, isLight)
     )}>
-      {isActive ? 'Active' : 'Legacy'}
+      {getStatusLabelForValue(normalizedStatus)}
     </div>
   )
 }
@@ -242,7 +303,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   const outputModalities = model.model_modalities?.output_modalities || []
   const capabilities = model.model_capabilities || []
   const regions = model.in_region || []
-  const isActive = model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE'
+  const lifecycleStatus = model.model_lifecycle?.status || model.model_status || 'ACTIVE'
 
   // Get pricing from new pricing data source, fallback to old method
   const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
@@ -305,7 +366,12 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
           </div>
 
           <div className="flex items-center gap-2">
-            <StatusPill isActive={isActive} isLight={isLight} />
+            <StatusPill 
+              status={lifecycleStatus} 
+              globalStatus={model.model_lifecycle?.global_status}
+              statusSummary={model.model_lifecycle?.status_summary}
+              isLight={isLight} 
+            />
             <button
               className={cn(
                 'p-1 rounded transition-colors',

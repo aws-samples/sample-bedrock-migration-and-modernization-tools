@@ -260,10 +260,12 @@ const crisToggleOptions = [
   { value: 'US', label: 'US' },
   { value: 'EU', label: 'EU' },
   { value: 'APAC', label: 'APAC' },
-  { value: 'CA', label: 'Canada' },
-  { value: 'SA', label: 'S. America' },
-  { value: 'ME', label: 'Mid East' },
-  { value: 'AF', label: 'Africa' },
+  { value: 'JP', label: 'JP' },
+  { value: 'AU', label: 'AU' },
+  { value: 'CA', label: 'CA' },
+  { value: 'SA', label: 'SA' },
+  { value: 'ME', label: 'ME' },
+  { value: 'AF', label: 'AF' },
   { value: 'CRIS Not Supported', label: 'No' },
 ]
 

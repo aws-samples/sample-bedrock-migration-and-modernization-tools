@@ -163,11 +163,13 @@ export const modelStatusOptions = [
   { value: 'All Status', label: 'All Status' },
   { value: 'ACTIVE', label: 'Active' },
   { value: 'LEGACY', label: 'Legacy' },
+  { value: 'EOL', label: 'End of Life' },
+  { value: 'MIXED', label: 'Mixed Status' },
 ]
 
 /**
  * CRIS support options - includes all geographic scopes
- * Note: JP/AU grouped under APAC
+ * Each scope matches exactly (JP, AU, APAC are separate)
  */
 export const crisSupportOptions = [
   { value: 'All Models', label: 'All Models' },
@@ -175,6 +177,8 @@ export const crisSupportOptions = [
   { value: 'US', label: 'US' },
   { value: 'EU', label: 'EU' },
   { value: 'APAC', label: 'APAC' },
+  { value: 'JP', label: 'Japan' },
+  { value: 'AU', label: 'Australia' },
   { value: 'CA', label: 'Canada' },
   { value: 'SA', label: 'South America' },
   { value: 'ME', label: 'Middle East' },
@@ -183,35 +187,16 @@ export const crisSupportOptions = [
 ]
 
 /**
- * Normalize CRIS scope - groups related regions together
- * - JP, AU, APAC → APAC
- * - CA, SA, ME, AF returned as their own scopes
- */
-function normalizeCrisScope(scope) {
-  const upperScope = scope?.toUpperCase()
-  if (!upperScope) return null
-  if (upperScope === 'JP' || upperScope === 'AU' || upperScope === 'APAC') {
-    return 'APAC'
-  }
-  if (upperScope === 'GLOBAL' || upperScope === 'US' || upperScope === 'EU' ||
-      upperScope === 'CA' || upperScope === 'SA' || upperScope === 'ME' || upperScope === 'AF') {
-    return upperScope
-  }
-  // Unknown scopes — return as-is (uppercased)
-  return upperScope
-}
-
-/**
  * Helper to extract CRIS geographic scopes from a model
  * Extracts scope dynamically from profile_id prefix (e.g., "us.anthropic..." -> "US")
- * JP and AU are normalized to APAC
+ * Returns exact scopes (uppercased) - JP, AU, APAC are separate
  */
 export function getCrisGeoScopes(model) {
   const profiles = model?.cross_region_inference?.profiles || []
   return [...new Set(profiles.map(p => {
     const profileId = p.profile_id || p.inference_profile_id
     const prefix = profileId?.split('.')[0]
-    return normalizeCrisScope(prefix) || null
+    return prefix?.toUpperCase() || null
   }).filter(Boolean))]
 }
 
@@ -446,12 +431,32 @@ export function applyFilters(models, filters) {
     }
   }
 
-  // Model status filter
+  // Model status filter - handles MIXED status models appearing in applicable filters
   if (filters.modelStatus && filters.modelStatus !== 'All Status') {
-    filtered = filtered.filter(m =>
-      m.model_lifecycle?.status === filters.modelStatus ||
-      m.model_status === filters.modelStatus
-    )
+    filtered = filtered.filter(m => {
+      const status = m.model_lifecycle?.status || m.model_status
+      const globalStatus = m.model_lifecycle?.global_status
+      const statusSummary = m.model_lifecycle?.status_summary
+      
+      // If filtering for MIXED, only include models with global_status === 'MIXED'
+      if (filters.modelStatus === 'MIXED') {
+        return globalStatus === 'MIXED'
+      }
+      
+      // For ACTIVE, LEGACY, EOL filters:
+      // Include if direct status matches OR if MIXED model has regions with that status
+      if (status === filters.modelStatus) {
+        return true
+      }
+      
+      // Check if this is a MIXED model that has regions with the filtered status
+      if (globalStatus === 'MIXED' && statusSummary) {
+        const regionsWithStatus = statusSummary[filters.modelStatus]
+        return regionsWithStatus && regionsWithStatus.length > 0
+      }
+      
+      return false
+    })
   }
 
   // CRIS support filter - supports geographic scope filtering

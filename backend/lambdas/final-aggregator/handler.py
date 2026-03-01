@@ -1208,6 +1208,7 @@ def transform_model_to_schema(
     mantle_by_model: dict,
     provisioned_throughput: dict = None,
     lifecycle_by_model: dict = None,
+    regional_lifecycle: dict = None,
 ) -> dict:
     """
     Merge model data from all sources into final schema.
@@ -1449,13 +1450,81 @@ def transform_model_to_schema(
         "extraction_regions": model.get("extraction_regions", []),
     }
 
-    # Get model lifecycle (already in snake_case)
+    # Get model lifecycle (already in snake_case from API)
     model_lifecycle = model.get("model_lifecycle", {})
     if not model_lifecycle:
         model_lifecycle = {"status": "ACTIVE", "release_date": ""}
 
-    # Merge lifecycle data from scraper if available
-    if lifecycle_by_model:
+    # Merge regional lifecycle data if available (new structure from lifecycle-collector)
+    regional_data = (regional_lifecycle or {}).get(model_id, {})
+    # Also try matching by model_name for models not found by model_id
+    # (some Legacy/EOL models in regional_lifecycle are keyed by model_name)
+    if not regional_data:
+        regional_data = (regional_lifecycle or {}).get(model.get("model_name", ""), {})
+
+    if regional_data:
+        # Build regional lifecycle structure
+        regional_status = regional_data.get("regional_status", {})
+        status_summary = regional_data.get("status_summary", {})
+
+        # Determine primary status (most restrictive: EOL > LEGACY > ACTIVE)
+        if status_summary.get("EOL"):
+            primary_status = "EOL"
+        elif status_summary.get("LEGACY"):
+            primary_status = "LEGACY"
+        else:
+            primary_status = "ACTIVE"
+
+        # Determine global status
+        statuses_present = [s for s, regions in status_summary.items() if regions]
+        if len(statuses_present) > 1:
+            global_status = "MIXED"
+        elif statuses_present:
+            global_status = statuses_present[0]
+        else:
+            global_status = model_lifecycle.get("status", "ACTIVE")
+
+        # Build the new model_lifecycle structure
+        model_lifecycle = {
+            "status": primary_status,  # Backward compatible - single status
+            "global_status": global_status,
+            "primary_status": primary_status,
+            "regional_status": regional_status,
+            "status_summary": status_summary,
+            "release_date": model_lifecycle.get("release_date", ""),
+        }
+
+        # Add recommended replacement info
+        if regional_data.get("recommended_replacement"):
+            model_lifecycle["recommended_replacement"] = regional_data[
+                "recommended_replacement"
+            ]
+        if regional_data.get("recommended_model_id"):
+            model_lifecycle["recommended_model_id"] = regional_data[
+                "recommended_model_id"
+            ]
+
+        # Add dates from the first LEGACY or EOL region (for backward compatibility)
+        for region, status_data in regional_status.items():
+            if status_data.get("status") in ["LEGACY", "EOL"]:
+                if status_data.get("legacy_date"):
+                    model_lifecycle["legacy_date"] = status_data["legacy_date"]
+                if status_data.get("eol_date"):
+                    model_lifecycle["eol_date"] = status_data["eol_date"]
+                if status_data.get("extended_access_date"):
+                    model_lifecycle["extended_access_date"] = status_data[
+                        "extended_access_date"
+                    ]
+                break
+
+        # Add launch_date from first ACTIVE region (for backward compatibility)
+        for region, status_data in regional_status.items():
+            if status_data.get("status") == "ACTIVE" and status_data.get("launch_date"):
+                model_lifecycle["launch_date"] = status_data["launch_date"]
+                break
+
+    # Fallback to old models_by_id if no regional data (backward compatibility)
+    elif lifecycle_by_model:
         lifecycle_info = lifecycle_by_model.get(model_id, {})
         if lifecycle_info:
             # Override status from scraped data (active, legacy, eol)
@@ -1666,6 +1735,7 @@ def build_final_models(
     collection_timestamp: str,
     mantle_by_model: dict,
     lifecycle_by_model: dict,
+    regional_lifecycle: dict = None,
 ) -> dict:
     """Build the final comprehensive models structure in expected schema.
 
@@ -1720,6 +1790,7 @@ def build_final_models(
                 mantle_by_model=mantle_by_model,
                 provisioned_throughput=provisioned,
                 lifecycle_by_model=lifecycle_by_model,
+                regional_lifecycle=regional_lifecycle,
             )
 
             # Track matched Mantle model ID
@@ -1891,9 +1962,10 @@ def lambda_handler(event: dict, context: Any) -> dict:
             lifecycle_data = (
                 read_from_s3(s3_client, s3_bucket, lifecycle_s3_key)
                 if lifecycle_s3_key
-                else {"models_by_id": {}}
+                else {"models_by_id": {}, "regional_lifecycle": {}}
             )
             lifecycle_by_model = lifecycle_data.get("models_by_id", {})
+            regional_lifecycle = lifecycle_data.get("regional_lifecycle", {})
 
             # Aggregate quotas, features, and mantle data
             quotas_by_region = aggregate_quotas(quota_results, s3_client, s3_bucket)
@@ -1914,6 +1986,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
                 collection_timestamp,
                 mantle_by_model,
                 lifecycle_by_model,
+                regional_lifecycle,
             )
 
             # Calculate statistics

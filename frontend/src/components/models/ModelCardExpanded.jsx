@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route, BarChart3, Wrench } from 'lucide-react'
+import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route, BarChart3, Wrench, AlertTriangle, AlertCircle } from 'lucide-react'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import {
   Dialog,
@@ -1543,6 +1543,390 @@ function BedrockFeaturesSection({ featureSupport }) {
   )
 }
 
+// Lifecycle Details Section Component
+function LifecycleDetailsSection({ model, isLight }) {
+  const [regionalDetailsExpanded, setRegionalDetailsExpanded] = useState(false)
+  
+  const lifecycle = model.model_lifecycle || {}
+  const status = lifecycle.status || model.model_status || 'ACTIVE'
+  const globalStatus = lifecycle.global_status
+  const primaryStatus = lifecycle.primary_status
+  const regionalStatus = lifecycle.regional_status
+  const statusSummary = lifecycle.status_summary
+  const releaseDate = lifecycle.release_date
+  const eolDate = lifecycle.eol_date
+  const legacyDate = lifecycle.legacy_date
+  const extendedAccessDate = lifecycle.extended_access_date
+  const recommendedReplacement = lifecycle.recommended_replacement
+  const recommendedModelId = lifecycle.recommended_model_id
+  
+  // Check if we have regional data
+  const hasRegionalData = globalStatus === 'MIXED' && regionalStatus && Object.keys(regionalStatus).length > 0
+  
+  // Helper to format timestamp to readable date
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return null
+    // If it's a number (Unix timestamp), convert to date
+    if (typeof timestamp === 'number') {
+      const date = new Date(timestamp * 1000)
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    }
+    // If it's already a string, return as-is
+    return timestamp
+  }
+  
+  // Helper to format date for regional display (shorter format)
+  const formatShortDate = (dateStr) => {
+    if (!dateStr) return null
+    // If it's a timestamp number
+    if (typeof dateStr === 'number') {
+      const date = new Date(dateStr * 1000)
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    }
+    // Try to parse and reformat string dates
+    try {
+      const date = new Date(dateStr)
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      }
+    } catch {
+      // If parsing fails, return as-is
+    }
+    return dateStr
+  }
+  
+  // Helper to get status styles
+  const getStatusStyles = (statusValue) => {
+    const normalizedStatus = (statusValue || 'ACTIVE').toUpperCase()
+    switch (normalizedStatus) {
+      case 'ACTIVE':
+        return isLight
+          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+          : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+      case 'LEGACY':
+        return isLight
+          ? 'bg-amber-100 text-amber-700 border border-amber-200'
+          : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+      case 'EOL':
+        return isLight
+          ? 'bg-red-100 text-red-700 border border-red-200'
+          : 'bg-red-500/20 text-red-400 border border-red-500/30'
+      case 'MIXED':
+        return isLight
+          ? 'bg-purple-100 text-purple-700 border border-purple-200'
+          : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+      default:
+        return isLight
+          ? 'bg-stone-100 text-stone-700 border border-stone-200'
+          : 'bg-white/10 text-slate-400 border border-white/20'
+    }
+  }
+  
+  const getStatusLabel = (statusValue) => {
+    const normalizedStatus = (statusValue || 'ACTIVE').toUpperCase()
+    switch (normalizedStatus) {
+      case 'ACTIVE': return 'Active'
+      case 'LEGACY': return 'Legacy'
+      case 'EOL': return 'End of Life'
+      case 'MIXED': return 'Mixed'
+      default: return normalizedStatus
+    }
+  }
+  
+  // Get status badge colors for summary badges
+  const getStatusBadgeStyles = (statusValue) => {
+    const normalizedStatus = (statusValue || 'ACTIVE').toUpperCase()
+    switch (normalizedStatus) {
+      case 'ACTIVE':
+        return isLight
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+          : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+      case 'LEGACY':
+        return isLight
+          ? 'bg-amber-50 text-amber-700 border-amber-200'
+          : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+      case 'EOL':
+        return isLight
+          ? 'bg-red-50 text-red-700 border-red-200'
+          : 'bg-red-500/15 text-red-400 border-red-500/30'
+      default:
+        return isLight
+          ? 'bg-stone-50 text-stone-600 border-stone-200'
+          : 'bg-white/5 text-slate-400 border-white/10'
+    }
+  }
+  
+  const formattedReleaseDate = formatTimestamp(releaseDate)
+  
+  // Get status order for display (LEGACY, ACTIVE, EOL)
+  const statusOrder = ['LEGACY', 'ACTIVE', 'EOL']
+  
+  return (
+    <div className="space-y-3">
+      {/* Status Section */}
+      <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+        <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Status</p>
+        
+        {hasRegionalData ? (
+          // Mixed status with compact inline summary
+          <div className="space-y-2">
+            {/* Compact inline status summary */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {statusOrder.map(statusKey => {
+                const regions = statusSummary?.[statusKey] || []
+                if (regions.length === 0) return null
+                
+                // Get status indicator color
+                const getStatusDotColor = (status) => {
+                  switch (status) {
+                    case 'ACTIVE': return isLight ? 'bg-emerald-500' : 'bg-emerald-400'
+                    case 'LEGACY': return isLight ? 'bg-amber-500' : 'bg-amber-400'
+                    case 'EOL': return isLight ? 'bg-red-500' : 'bg-red-400'
+                    default: return isLight ? 'bg-stone-400' : 'bg-slate-400'
+                  }
+                }
+                
+                const getStatusTextColor = (status) => {
+                  switch (status) {
+                    case 'ACTIVE': return isLight ? 'text-emerald-700' : 'text-emerald-400'
+                    case 'LEGACY': return isLight ? 'text-amber-700' : 'text-amber-400'
+                    case 'EOL': return isLight ? 'text-red-700' : 'text-red-400'
+                    default: return isLight ? 'text-stone-600' : 'text-slate-400'
+                  }
+                }
+                
+                const StatusIcon = statusKey === 'LEGACY' ? AlertTriangle : statusKey === 'EOL' ? AlertCircle : null
+                
+                return (
+                  <div key={statusKey} className="flex items-center gap-1.5">
+                    {StatusIcon ? (
+                      <StatusIcon className={cn('h-3 w-3', getStatusTextColor(statusKey))} />
+                    ) : (
+                      <span className={cn('w-2 h-2 rounded-full', getStatusDotColor(statusKey))} />
+                    )}
+                    <span className={cn('text-xs font-medium', getStatusTextColor(statusKey))}>
+                      {getStatusLabel(statusKey)}
+                    </span>
+                    <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                      in {regions.length} {regions.length === 1 ? 'region' : 'regions'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
+          // Single status (backward compatible)
+          <div className="flex items-center justify-between">
+            <span className={cn(
+              'px-2.5 py-1 rounded-full text-xs font-semibold',
+              getStatusStyles(status)
+            )}>
+              {getStatusLabel(status)}
+            </span>
+          </div>
+        )}
+      </div>
+      
+      {/* Regional Details (collapsible) */}
+      {hasRegionalData && (
+        <div className={cn(
+          'rounded-lg border overflow-hidden',
+          isLight ? 'bg-white border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]'
+        )}>
+          <button
+            className={cn(
+              'w-full flex items-center justify-between p-3 transition-colors',
+              isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.04]'
+            )}
+            onClick={() => setRegionalDetailsExpanded(!regionalDetailsExpanded)}
+          >
+            <div className="flex items-center gap-2">
+              <Globe className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+              <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
+                Regional Details
+              </span>
+              <Badge variant="secondary" className="text-[10px]">
+                {Object.keys(regionalStatus).length} regions
+              </Badge>
+            </div>
+            {regionalDetailsExpanded ? (
+              <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+            ) : (
+              <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+            )}
+          </button>
+          
+          {regionalDetailsExpanded && (
+            <div className={cn(
+              'px-3 pb-3 border-t space-y-3',
+              isLight ? 'border-stone-200' : 'border-white/[0.06]'
+            )}>
+              {/* Group regions by status */}
+              {statusOrder.map(statusKey => {
+                const regions = statusSummary?.[statusKey] || []
+                if (regions.length === 0) return null
+                
+                // Get status indicator styles
+                const getStatusIndicator = (status) => {
+                  switch (status) {
+                    case 'ACTIVE': return { icon: null, dotColor: isLight ? 'bg-emerald-500' : 'bg-emerald-400' }
+                    case 'LEGACY': return { icon: AlertTriangle, iconColor: isLight ? 'text-amber-600' : 'text-amber-400' }
+                    case 'EOL': return { icon: AlertCircle, iconColor: isLight ? 'text-red-600' : 'text-red-400' }
+                    default: return { icon: null, dotColor: isLight ? 'bg-stone-400' : 'bg-slate-400' }
+                  }
+                }
+                
+                const indicator = getStatusIndicator(statusKey)
+                const StatusIcon = indicator.icon
+                
+                return (
+                  <div key={statusKey} className="pt-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      {StatusIcon ? (
+                        <StatusIcon className={cn('h-3.5 w-3.5', indicator.iconColor)} />
+                      ) : (
+                        <span className={cn('w-2.5 h-2.5 rounded-full', indicator.dotColor)} />
+                      )}
+                      <span className={cn(
+                        'text-xs font-semibold',
+                        statusKey === 'ACTIVE' ? (isLight ? 'text-emerald-700' : 'text-emerald-400') :
+                        statusKey === 'LEGACY' ? (isLight ? 'text-amber-700' : 'text-amber-400') :
+                        statusKey === 'EOL' ? (isLight ? 'text-red-700' : 'text-red-400') :
+                        (isLight ? 'text-stone-700' : 'text-slate-300')
+                      )}>
+                        {getStatusLabel(statusKey)}
+                      </span>
+                      <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                        ({regions.length})
+                      </span>
+                    </div>
+                    
+                    <div className="grid gap-1">
+                      {regions.sort().map(region => {
+                        const regionData = regionalStatus[region] || {}
+                        const regionName = regionDisplayNames[region] || region
+                        
+                        // Collect date info for this region
+                        const dateInfo = []
+                        const regionStatus = regionData.status || 'ACTIVE'
+                        if (regionData.legacy_date && (regionStatus === 'LEGACY' || regionStatus === 'EOL')) {
+                          dateInfo.push({ label: 'Legacy', date: formatShortDate(regionData.legacy_date) })
+                        }
+                        if (regionData.eol_date && (regionStatus === 'LEGACY' || regionStatus === 'EOL')) {
+                          dateInfo.push({ label: 'EOL', date: formatShortDate(regionData.eol_date) })
+                        }
+                        
+                        return (
+                          <div
+                            key={region}
+                            className={cn(
+                              'flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-xs',
+                              isLight ? 'bg-stone-50/80' : 'bg-white/[0.02]'
+                            )}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={cn('font-medium', isLight ? 'text-stone-700' : 'text-slate-200')}>
+                                {regionName}
+                              </span>
+                              <span className={cn('font-mono text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                                {region}
+                              </span>
+                            </div>
+                            {dateInfo.length > 0 && (
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {dateInfo.map((info, idx) => (
+                                  <span
+                                    key={idx}
+                                    className={cn(
+                                      'text-[10px] px-1.5 py-0.5 rounded',
+                                      info.label === 'EOL'
+                                        ? (isLight ? 'bg-red-100 text-red-700' : 'bg-red-500/15 text-red-400')
+                                        : (isLight ? 'bg-amber-100 text-amber-700' : 'bg-amber-500/15 text-amber-400')
+                                    )}
+                                  >
+                                    {info.label}: {info.date}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Release Date */}
+      {formattedReleaseDate && (
+        <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Release Date</p>
+          <p className={cn('text-sm font-medium mt-1', isLight ? 'text-stone-800' : 'text-white')}>
+            {formattedReleaseDate}
+          </p>
+        </div>
+      )}
+      
+      {/* Legacy Date (only show if not mixed - backward compat for non-regional data) */}
+      {legacyDate && !hasRegionalData && (
+        <div className={cn('rounded-lg p-3 border', isLight ? 'bg-amber-50 border-amber-200' : 'bg-amber-500/10 border border-amber-500/20')}>
+          <p className={cn('text-xs', isLight ? 'text-amber-700' : 'text-amber-400')}>Legacy Date</p>
+          <p className={cn('text-sm font-medium mt-1', isLight ? 'text-amber-800' : 'text-amber-300')}>
+            {legacyDate}
+          </p>
+        </div>
+      )}
+      
+      {/* Extended Access Date (only show if not mixed - backward compat) */}
+      {extendedAccessDate && !hasRegionalData && (
+        <div className={cn('rounded-lg p-3 border', isLight ? 'bg-orange-50 border-orange-200' : 'bg-orange-500/10 border border-orange-500/20')}>
+          <p className={cn('text-xs', isLight ? 'text-orange-700' : 'text-orange-400')}>Public Extended Access Date</p>
+          <p className={cn('text-sm font-medium mt-1', isLight ? 'text-orange-800' : 'text-orange-300')}>
+            {extendedAccessDate}
+          </p>
+        </div>
+      )}
+      
+      {/* EOL Date (only show if not mixed and not active - backward compat) */}
+      {eolDate && !hasRegionalData && (status !== 'ACTIVE' && globalStatus !== 'ACTIVE') && (
+        <div className={cn('rounded-lg p-3 border', isLight ? 'bg-red-50 border-red-200' : 'bg-red-500/10 border border-red-500/20')}>
+          <p className={cn('text-xs', isLight ? 'text-red-700' : 'text-red-400')}>End of Life Date</p>
+          <p className={cn('text-sm font-medium mt-1', isLight ? 'text-red-800' : 'text-red-300')}>
+            {eolDate}
+          </p>
+        </div>
+      )}
+      
+      {/* Suggested Replacement */}
+      {recommendedReplacement && (
+        <div className={cn('rounded-lg p-3 border', isLight ? 'bg-blue-50 border-blue-200' : 'bg-blue-500/10 border border-blue-500/20')}>
+          <p className={cn('text-xs', isLight ? 'text-blue-700' : 'text-blue-400')}>Suggested Replacement</p>
+          <p className={cn('text-sm font-medium mt-1', isLight ? 'text-blue-800' : 'text-blue-300')}>
+            {recommendedReplacement}
+          </p>
+          {recommendedModelId && (
+            <p className={cn('text-[10px] font-mono mt-1', isLight ? 'text-blue-600' : 'text-blue-400/70')}>
+              {recommendedModelId}
+            </p>
+          )}
+        </div>
+      )}
+      
+      {/* No lifecycle data message */}
+      {!formattedReleaseDate && !legacyDate && !extendedAccessDate && !eolDate && !recommendedReplacement && !hasRegionalData && (
+        <p className={cn('text-sm', isLight ? 'text-stone-500' : 'text-slate-400')}>
+          No additional lifecycle information available
+        </p>
+      )}
+    </div>
+  )
+}
+
 function SpecsTab({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -1668,6 +2052,11 @@ function SpecsTab({ model }) {
                   <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>No documentation links available</span>
                 )}
               </div>
+            </CollapsibleSection>
+
+            {/* Lifecycle Details */}
+            <CollapsibleSection title="Lifecycle Details" icon={Clock} defaultExpanded={true}>
+              <LifecycleDetailsSection model={model} isLight={isLight} />
             </CollapsibleSection>
 
             {/* Consumption & Deployment Options */}
@@ -2835,7 +3224,84 @@ export function ModelCardExpanded({
 
   if (!model) return null
 
-  const isActive = model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE'
+  const lifecycleStatus = model.model_lifecycle?.status || model.model_status || 'ACTIVE'
+  const globalStatus = model.model_lifecycle?.global_status
+  const statusSummary = model.model_lifecycle?.status_summary
+  
+  // Helper function to get status styles
+  const getStatusStyles = (status) => {
+    const normalizedStatus = (status || 'ACTIVE').toUpperCase()
+    switch (normalizedStatus) {
+      case 'ACTIVE':
+        return isLight
+          ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+          : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+      case 'LEGACY':
+        return isLight
+          ? 'bg-amber-100 text-amber-700 border border-amber-200'
+          : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+      case 'EOL':
+        return isLight
+          ? 'bg-red-100 text-red-700 border border-red-200'
+          : 'bg-red-500/20 text-red-400 border border-red-500/30'
+      case 'MIXED':
+        return isLight
+          ? 'bg-purple-100 text-purple-700 border border-purple-200'
+          : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+      default:
+        return isLight
+          ? 'bg-stone-100 text-stone-700 border border-stone-200'
+          : 'bg-white/10 text-slate-400 border border-white/20'
+    }
+  }
+  
+  const getStatusLabel = (status) => {
+    const normalizedStatus = (status || 'ACTIVE').toUpperCase()
+    switch (normalizedStatus) {
+      case 'ACTIVE': return 'Active'
+      case 'LEGACY': return 'Legacy'
+      case 'EOL': return 'End of Life'
+      case 'MIXED': return 'Mixed'
+      default: return normalizedStatus
+    }
+  }
+  
+  // Helper to render status badges - handles both single and MIXED status
+  const renderStatusBadges = () => {
+    // If global_status is MIXED and we have status_summary, render multiple badges
+    if (globalStatus === 'MIXED' && statusSummary) {
+      const statusOrder = ['LEGACY', 'ACTIVE', 'EOL']
+      const activeStatuses = statusOrder.filter(s => statusSummary[s]?.length > 0)
+      
+      if (activeStatuses.length > 0) {
+        return (
+          <>
+            {activeStatuses.map(s => (
+              <span
+                key={s}
+                className={cn(
+                  'px-1.5 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wide',
+                  getStatusStyles(s)
+                )}
+              >
+                {getStatusLabel(s)}
+              </span>
+            ))}
+          </>
+        )
+      }
+    }
+    
+    // Single status display (backward compatible)
+    return (
+      <span className={cn(
+        'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide',
+        getStatusStyles(lifecycleStatus)
+      )}>
+        {getStatusLabel(lifecycleStatus)}
+      </span>
+    )
+  }
 
   const contextWindow = model.converse_data?.context_window
   const extendedContext = model.converse_data?.extended_context
@@ -2907,18 +3373,7 @@ export function ModelCardExpanded({
                 >
                   {model.model_provider}
                 </Badge>
-                <span className={cn(
-                  'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide',
-                  isActive
-                    ? isLight
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-emerald-500/15 text-emerald-400'
-                    : isLight
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-amber-500/15 text-amber-400'
-                )}>
-                  {isActive ? 'Active' : 'Legacy'}
-                </span>
+                {renderStatusBadges()}
                 {model.mantle_only && (
                   <span className={cn(
                     'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',

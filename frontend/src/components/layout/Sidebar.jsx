@@ -255,7 +255,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          'hidden lg:flex flex-col h-screen border-r overflow-hidden transition-all duration-150 ease-in-out',
+          'hidden lg:flex flex-col h-full border-r overflow-hidden transition-all duration-150 ease-in-out',
           collapsed ? 'w-[68px]' : 'w-60',
           isLight
             ? 'bg-white/80 border-stone-200/80 backdrop-blur-xl'

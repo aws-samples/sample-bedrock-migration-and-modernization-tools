@@ -111,6 +111,22 @@ function extractConsumptionOptions(models) {
 }
 
 /**
+ * Extracts unique lifecycle statuses from model data
+ * @param {Array} models - Flattened array of models
+ * @returns {Array} Unique lifecycle statuses
+ */
+function extractLifecycleStatuses(models) {
+  const statuses = new Set()
+  models.forEach(m => {
+    const status = m.model_lifecycle?.status || m.model_status
+    if (status) {
+      statuses.add(status)
+    }
+  })
+  return [...statuses].sort()
+}
+
+/**
  * Get pricing for a model from pricing data
  * Uses pricing_file_reference from the model if available, falls back to model_id
  * @param {Object} model - The model object
@@ -488,6 +504,11 @@ export function useModels() {
     return extractConsumptionOptions(models)
   }, [models])
 
+  // Memoize lifecycle statuses list
+  const lifecycleStatusesList = useMemo(() => {
+    return extractLifecycleStatuses(models)
+  }, [models])
+
   // Statistics
   const stats = useMemo(() => {
     if (!models.length) return null
@@ -556,6 +577,7 @@ export function useModels() {
     customizations,
     languages,
     consumptionOptionsList,
+    lifecycleStatusesList,
     stats,
     loading,
     error,

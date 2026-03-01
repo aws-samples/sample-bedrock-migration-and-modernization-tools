@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef, useEffect, useCallback, Fragment } from 'react'
-import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUpDown, Zap, Globe, Globe2, Cpu, ExternalLink } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect, useCallback, Fragment, memo } from 'react'
+import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUpDown, Zap, Globe, Globe2, Cpu, ExternalLink, AlertTriangle, AlertCircle, Info } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -139,6 +139,39 @@ function getAvailabilityColors(onDemand, cris, mantle, isLight) {
 }
 
 /**
+ * Get lifecycle status for a model in a specific region.
+ * Returns { status, legacyDate, eolDate, recommendedReplacement } or null if no lifecycle data.
+ */
+function getRegionLifecycleStatus(model, regionCode) {
+  const lifecycle = model.model_lifecycle
+  if (!lifecycle) return null
+  
+  // Check for regional status first
+  const regionalStatus = lifecycle.regional_status?.[regionCode]
+  if (regionalStatus) {
+    return {
+      status: regionalStatus.status || 'ACTIVE',
+      legacyDate: regionalStatus.legacy_date,
+      eolDate: regionalStatus.eol_date,
+      recommendedReplacement: lifecycle.recommended_replacement
+    }
+  }
+  
+  // Fall back to global status if no regional data
+  const globalStatus = lifecycle.global_status || lifecycle.status
+  if (globalStatus && globalStatus !== 'ACTIVE' && globalStatus !== 'MIXED') {
+    return {
+      status: globalStatus,
+      legacyDate: lifecycle.legacy_date,
+      eolDate: lifecycle.eol_date,
+      recommendedReplacement: lifecycle.recommended_replacement
+    }
+  }
+  
+  return null
+}
+
+/**
  * Simple availability cell — check when available, dash when not.
  * Hover tooltip shows availability breakdown based on active filter:
  * - 'all': shows all types (In Region / CRIS / Mantle)
@@ -146,8 +179,29 @@ function getAvailabilityColors(onDemand, cris, mantle, isLight) {
  * - 'cris': shows only CRIS info with scopes
  * - 'mantle': shows only Mantle info
  */
-function AvailabilityCell({ model, regionCode, regionLabel, isLight, activeView }) {
+const AvailabilityCell = memo(function AvailabilityCell({ model, regionCode, regionLabel, isLight, activeView, selectedCrisScopes }) {
   const { available, onDemand, cris, mantle } = getRegionAvailability(model, regionCode)
+  
+  // Check if model has CRIS for this region with the selected scope(s)
+  const hasCrisForSelectedScope = (model, regionCode, selectedScopes) => {
+    if (!selectedScopes || selectedScopes.size === 0) {
+      // No filter - check if any CRIS profile exists for this region
+      return model.cross_region_inference?.source_regions?.includes(regionCode) || false
+    }
+    
+    // Check if any profile matches both the region AND the selected scope
+    const profiles = model.cross_region_inference?.profiles || []
+    return profiles.some(p => {
+      if (p.source_region !== regionCode) return false
+      const prefix = p.profile_id?.split('.')[0]?.toLowerCase() || ''
+      // Map prefix to display name for comparison
+      const scopeName = prefix === 'global' ? 'Global' : prefix.toUpperCase()
+      return selectedScopes.has(scopeName)
+    })
+  }
+  
+  // Get lifecycle status for this region
+  const lifecycleStatus = getRegionLifecycleStatus(model, regionCode)
 
   // In specific views, only show relevant availability
   let isAvailable, colors
@@ -155,7 +209,8 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight, activeView 
     isAvailable = onDemand
     colors = isAvailable ? getAvailabilityColors(true, false, false, isLight) : null
   } else if (activeView === 'cris') {
-    isAvailable = cris
+    // Use scope-aware check when CRIS view is active
+    isAvailable = hasCrisForSelectedScope(model, regionCode, selectedCrisScopes)
     colors = isAvailable ? getAvailabilityColors(false, true, false, isLight) : null
   } else if (activeView === 'mantle') {
     isAvailable = mantle
@@ -166,6 +221,7 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight, activeView 
     colors = isAvailable ? getAvailabilityColors(onDemand, cris, mantle, isLight) : null
   }
 
+  // Early return for not available (no function calls needed)
   if (!isAvailable) {
     return (
       <div className="w-4 h-4 flex items-center justify-center">
@@ -174,7 +230,12 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight, activeView 
     )
   }
 
+  // Check if this region has EOL or LEGACY status
+  const isEol = lifecycleStatus?.status === 'EOL'
+  const isLegacy = lifecycleStatus?.status === 'LEGACY'
+
   // Build CRIS scopes helper (used in 'all' and 'cris' views)
+  // When selectedCrisScopes is provided, only return scopes that match the filter
   const getCrisScopes = () => {
     const profiles = model.cross_region_inference?.profiles || []
     const scopes = new Set()
@@ -182,21 +243,73 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight, activeView 
       if (p.source_region === regionCode) {
         const prefix = p.profile_id?.split('.')[0] || ''
         const scope = prefix.toLowerCase()
-        if (scope === 'global') scopes.add('Global')
-        else if (scope === 'us') scopes.add('US')
-        else if (scope === 'eu') scopes.add('EU')
-        else if (scope === 'apac') scopes.add('APAC')
-        else if (scope === 'au') scopes.add('AU')
-        else if (scope === 'jp') scopes.add('JP')
-        else if (scope === 'ca') scopes.add('CA')
-        else if (scope) scopes.add(scope.toUpperCase())
+        let scopeName
+        if (scope === 'global') scopeName = 'Global'
+        else if (scope === 'us') scopeName = 'US'
+        else if (scope === 'eu') scopeName = 'EU'
+        else if (scope === 'apac') scopeName = 'APAC'
+        else if (scope === 'au') scopeName = 'AU'
+        else if (scope === 'jp') scopeName = 'JP'
+        else if (scope === 'ca') scopeName = 'CA'
+        else if (scope) scopeName = scope.toUpperCase()
+        
+        // Only add scope if no filter is active OR scope matches the filter
+        if (scopeName && (!selectedCrisScopes || selectedCrisScopes.size === 0 || selectedCrisScopes.has(scopeName))) {
+          scopes.add(scopeName)
+        }
       }
     })
     
     return [...scopes].sort((a, b) => {
-      const order = ['Global', 'US', 'EU', 'APAC', 'AU', 'JP', 'CA']
+      const order = ['Global', 'US', 'CA', 'EU', 'APAC', 'AU', 'JP']
       return (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 99 : order.indexOf(b))
     })
+  }
+  
+  // Render lifecycle status in tooltip
+  const renderLifecycleInfo = () => {
+    if (!lifecycleStatus || lifecycleStatus.status === 'ACTIVE') return null
+    
+    const isLegacy = lifecycleStatus.status === 'LEGACY'
+    const isEol = lifecycleStatus.status === 'EOL'
+    
+    return (
+      <div className={cn(
+        'mt-1.5 pt-1.5 border-t',
+        isLight ? 'border-stone-200' : 'border-white/[0.08]'
+      )}>
+        <div className="flex items-center gap-1.5">
+          {isEol ? (
+            <AlertCircle className={cn('w-3 h-3', isLight ? 'text-red-500' : 'text-red-400')} strokeWidth={2} />
+          ) : (
+            <AlertTriangle className={cn('w-3 h-3', isLight ? 'text-amber-500' : 'text-amber-400')} strokeWidth={2} />
+          )}
+          <span className={cn(
+            'font-medium',
+            isEol
+              ? (isLight ? 'text-red-600' : 'text-red-400')
+              : (isLight ? 'text-amber-600' : 'text-amber-400')
+          )}>
+            {isEol ? 'End of Life' : 'Legacy'}
+          </span>
+        </div>
+        {lifecycleStatus.legacyDate && isLegacy && (
+          <div className={cn('text-[10px] mt-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
+            Legacy: {lifecycleStatus.legacyDate}
+          </div>
+        )}
+        {lifecycleStatus.eolDate && (isLegacy || isEol) && (
+          <div className={cn('text-[10px] mt-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>
+            EOL: {lifecycleStatus.eolDate}
+          </div>
+        )}
+        {lifecycleStatus.recommendedReplacement && (
+          <div className={cn('text-[10px] mt-0.5', isLight ? 'text-blue-600' : 'text-blue-400')}>
+            Suggested Replacement: {lifecycleStatus.recommendedReplacement}
+          </div>
+        )}
+      </div>
+    )
   }
 
   // Render tooltip content based on active view
@@ -280,16 +393,17 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight, activeView 
     )
   }
 
-  return (
-    <TooltipProvider delayDuration={150}>
+  // EOL means not available - show as unavailable with red X
+  if (isEol) {
+    return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex justify-center cursor-default">
+          <div className="flex justify-center cursor-default relative">
             <div className={cn(
               'w-4 h-4 rounded-full flex items-center justify-center',
-              colors.bg
+              isLight ? 'bg-red-100' : 'bg-red-500/20'
             )}>
-              <Check className={cn('w-2.5 h-2.5', colors.icon)} strokeWidth={3} />
+              <X className={cn('w-2.5 h-2.5', isLight ? 'text-red-600' : 'text-red-400')} strokeWidth={2.5} />
             </div>
           </div>
         </TooltipTrigger>
@@ -297,7 +411,8 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight, activeView 
           side="top"
           sideOffset={6}
           className={cn(
-            'px-3 py-2 text-xs z-50 max-w-[200px]',
+            'rounded-lg border',
+            'px-3 py-2 text-xs z-50 max-w-[220px]',
             isLight
               ? 'bg-white border-stone-200 shadow-lg'
               : 'bg-white/[0.06] backdrop-blur-xl border-white/[0.06] shadow-[0_4px_12px_rgba(0,0,0,0.3)] ring-1 ring-white/[0.03]'
@@ -309,11 +424,58 @@ function AvailabilityCell({ model, regionCode, regionLabel, isLight, activeView 
           <div className="space-y-0.5">
             {renderTooltipContent()}
           </div>
+          {renderLifecycleInfo()}
         </TooltipContent>
       </Tooltip>
-    </TooltipProvider>
+    )
+  }
+
+  // Main return for LEGACY and ACTIVE status
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex justify-center cursor-default relative">
+          {isLegacy ? (
+            // LEGACY status: show warning icon instead of checkmark
+            <div className={cn(
+              'w-4 h-4 rounded-full flex items-center justify-center',
+              isLight ? 'bg-amber-100' : 'bg-amber-500/20'
+            )}>
+              <AlertTriangle className={cn('w-2.5 h-2.5', isLight ? 'text-amber-600' : 'text-amber-400')} strokeWidth={2.5} />
+            </div>
+          ) : (
+            // Normal available: show checkmark
+            <div className={cn(
+              'w-4 h-4 rounded-full flex items-center justify-center',
+              colors.bg
+            )}>
+              <Check className={cn('w-2.5 h-2.5', colors.icon)} strokeWidth={3} />
+            </div>
+          )}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent
+        side="top"
+        sideOffset={6}
+        className={cn(
+          'rounded-lg border',
+          'px-3 py-2 text-xs z-50 max-w-[220px]',
+          isLight
+            ? 'bg-white border-stone-200 shadow-lg'
+            : 'bg-white/[0.06] backdrop-blur-xl border-white/[0.06] shadow-[0_4px_12px_rgba(0,0,0,0.3)] ring-1 ring-white/[0.03]'
+        )}
+      >
+        <div className={cn('font-medium mb-1', isLight ? 'text-stone-700' : 'text-[#e4e5e7]')}>
+          {regionLabel} ({regionCode})
+        </div>
+        <div className="space-y-0.5">
+          {renderTooltipContent()}
+        </div>
+        {renderLifecycleInfo()}
+      </TooltipContent>
+    </Tooltip>
   )
-}
+})
 
 export function RegionalAvailability() {
   const { theme } = useTheme()
@@ -410,7 +572,7 @@ export function RegionalAvailability() {
         prefixes.add(normalizeCrisPrefix(prefix))
       })
     })
-    const order = ['Global', 'US', 'EU', 'APAC', 'AU', 'JP', 'CA']
+    const order = ['Global', 'US', 'CA', 'EU', 'APAC', 'AU', 'JP']
     return order.filter(p => prefixes.has(p)).concat(
       [...prefixes].filter(p => !order.includes(p)).sort()
     )
@@ -448,6 +610,17 @@ export function RegionalAvailability() {
       }
       if (activeView === 'cris') {
         if (!m.cross_region_inference?.supported) return false
+        // If a CRIS scope is selected, filter to only models with that scope
+        if (selectedGeos.size > 0) {
+          const profiles = m.cross_region_inference?.profiles || []
+          const modelScopes = new Set(profiles.map(p => {
+            const prefix = p.profile_id?.split('.')[0]?.toLowerCase() || ''
+            return prefix === 'global' ? 'Global' : prefix.toUpperCase()
+          }))
+          // Check if model has any of the selected scopes
+          const hasSelectedScope = [...selectedGeos].some(scope => modelScopes.has(scope))
+          if (!hasSelectedScope) return false
+        }
       }
       if (activeView === 'mantle') {
         if (!(m.mantle_inference?.supported || m.is_mantle)) return false
@@ -467,7 +640,7 @@ export function RegionalAvailability() {
     )
 
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b))
-  }, [models, searchQuery, activeView])
+  }, [models, searchQuery, activeView, selectedGeos])
 
   const totalFiltered = groupedModels.reduce((sum, [, models]) => sum + models.length, 0)
 
@@ -493,6 +666,29 @@ export function RegionalAvailability() {
     })
     return coverage
   }, [groupedModels, activeRegions, totalFiltered, activeView])
+
+  // Check if any visible models have lifecycle warnings (LEGACY or EOL)
+  const hasLifecycleWarnings = useMemo(() => {
+    for (const [, providerModels] of groupedModels) {
+      for (const model of providerModels) {
+        const lifecycle = model.model_lifecycle
+        if (!lifecycle) continue
+        
+        // Check global status
+        const globalStatus = lifecycle.global_status || lifecycle.status
+        if (globalStatus === 'LEGACY' || globalStatus === 'EOL') return true
+        
+        // Check regional statuses
+        const regionalStatus = lifecycle.regional_status
+        if (regionalStatus) {
+          for (const regionData of Object.values(regionalStatus)) {
+            if (regionData.status === 'LEGACY' || regionData.status === 'EOL') return true
+          }
+        }
+      }
+    }
+    return false
+  }, [groupedModels])
 
   // Column tint via inset box-shadow (layers over bg without conflicting)
   const getColumnTint = useCallback((regionCode) => {
@@ -705,19 +901,59 @@ export function RegionalAvailability() {
             )
           })}
         </div>
+        
+        {/* Lifecycle Legend - only show when there are models with warnings */}
+        {hasLifecycleWarnings && (
+          <div className={cn(
+            'flex items-center gap-4 px-3 py-1.5 rounded-lg border',
+            isLight
+              ? 'bg-stone-50/80 border-stone-200'
+              : 'bg-white/[0.02] border-white/[0.06]'
+          )}>
+            <div className="flex items-center gap-1.5">
+              <Info className={cn('w-3 h-3', isLight ? 'text-stone-400' : 'text-slate-500')} />
+              <span className={cn('text-[10px] font-medium', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                Lifecycle:
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className={cn(
+                'w-4 h-4 rounded-full flex items-center justify-center',
+                isLight ? 'bg-amber-100' : 'bg-amber-500/20'
+              )}>
+                <AlertTriangle className={cn('w-2.5 h-2.5', isLight ? 'text-amber-600' : 'text-amber-400')} strokeWidth={2.5} />
+              </div>
+              <span className={cn('text-[10px]', isLight ? 'text-amber-700' : 'text-amber-400')}>
+                Legacy (will be deprecated)
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className={cn(
+                'w-4 h-4 rounded-full flex items-center justify-center',
+                isLight ? 'bg-red-100' : 'bg-red-500/20'
+              )}>
+                <X className={cn('w-2.5 h-2.5', isLight ? 'text-red-600' : 'text-red-400')} strokeWidth={2.5} />
+              </div>
+              <span className={cn('text-[10px]', isLight ? 'text-red-700' : 'text-red-400')}>
+                End of Life (no longer available)
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Table container */}
       <div className="flex-1 relative min-h-0">
-        <div
-          ref={tableContainerRef}
-          className={cn(
-            'h-full min-w-0 overflow-auto rounded-xl backdrop-blur-xl',
-            isLight
-              ? 'border border-stone-200/60 bg-white/70 shadow-[0_2px_15px_-3px_rgba(120,113,108,0.08)] ring-1 ring-stone-100/50'
-              : 'border border-white/[0.06] bg-white/[0.03] shadow-[0_2px_15px_-3px_rgba(0,0,0,0.3)] ring-1 ring-white/[0.03]'
-          )}
-        >
+        <TooltipProvider delayDuration={150}>
+          <div
+            ref={tableContainerRef}
+            className={cn(
+              'h-full min-w-0 overflow-auto rounded-xl backdrop-blur-xl',
+              isLight
+                ? 'border border-stone-200/60 bg-white/70 shadow-[0_2px_15px_-3px_rgba(120,113,108,0.08)] ring-1 ring-stone-100/50'
+                : 'border border-white/[0.06] bg-white/[0.03] shadow-[0_2px_15px_-3px_rgba(0,0,0,0.3)] ring-1 ring-white/[0.03]'
+            )}
+          >
           <table className="w-max min-w-full border-collapse">
             <thead>
               {/* Row 1: Geo group headers */}
@@ -978,6 +1214,7 @@ export function RegionalAvailability() {
                                 regionLabel={region.label}
                                 isLight={isLight}
                                 activeView={activeView}
+                                selectedCrisScopes={activeView === 'cris' ? selectedGeos : null}
                               />
                             </td>
                           ))}
@@ -1002,7 +1239,7 @@ export function RegionalAvailability() {
             </div>
           )}
         </div>
-
+        </TooltipProvider>
       </div>
     </div>
   )
