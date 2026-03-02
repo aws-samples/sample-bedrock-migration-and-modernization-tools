@@ -414,19 +414,22 @@ export function applyFilters(models, filters) {
     filtered = filtered.filter(m => filters.providers.includes(m.model_provider))
   }
 
-  // Geographic region filter
+  // Geographic region filter — checks in-region, CRIS, and Mantle
   if (filters.geoRegion && filters.geoRegion !== 'All Regions') {
     const prefixMap = { 'US': 'us-', 'EU': 'eu-', 'AP': 'ap-', 'CA': 'ca-', 'SA': 'sa-', 'ME': 'me-', 'AF': 'af-' }
     const prefix = prefixMap[filters.geoRegion]
     if (prefix) {
+      const regionMatchesGeo = (r) => {
+        if (r.startsWith(prefix)) return true
+        // Special cases: il- regions belong to ME geo, mx- regions belong to SA geo
+        if (filters.geoRegion === 'ME' && r.startsWith('il-')) return true
+        if (filters.geoRegion === 'SA' && r.startsWith('mx-')) return true
+        return false
+      }
       filtered = filtered.filter(m =>
-        m.in_region?.some(r => {
-          if (r.startsWith(prefix)) return true
-          // Special cases: il- regions belong to ME geo, mx- regions belong to SA geo
-          if (filters.geoRegion === 'ME' && r.startsWith('il-')) return true
-          if (filters.geoRegion === 'SA' && r.startsWith('mx-')) return true
-          return false
-        })
+        m.in_region?.some(regionMatchesGeo) ||
+        m.cross_region_inference?.source_regions?.some(regionMatchesGeo) ||
+        m.mantle_inference?.mantle_regions?.some(regionMatchesGeo)
       )
     }
   }
@@ -538,17 +541,23 @@ export function applyFilters(models, filters) {
   }
 
   // Primary region availability filter (skip if 'all' is selected)
+  // Checks in-region, CRIS source regions, and Mantle regions
   if (filters.primaryRegion && filters.primaryRegion !== 'all') {
+    const modelAvailableInRegion = (m, region) =>
+      m.in_region?.includes(region) ||
+      m.cross_region_inference?.source_regions?.includes(region) ||
+      m.mantle_inference?.mantle_regions?.includes(region)
+
     if (isGeoSelection(filters.primaryRegion)) {
       // GEO selection - filter models available in ANY region within that geo
       const geoRegions = getRegionsForGeo(filters.primaryRegion, awsRegions)
       filtered = filtered.filter(m =>
-        geoRegions.some(region => m.in_region?.includes(region))
+        geoRegions.some(region => modelAvailableInRegion(m, region))
       )
     } else {
       // Single region selection
       filtered = filtered.filter(m =>
-        m.in_region?.includes(filters.primaryRegion)
+        modelAvailableInRegion(m, filters.primaryRegion)
       )
     }
   }
