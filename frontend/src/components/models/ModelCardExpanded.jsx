@@ -17,6 +17,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/authStore'
+import { canViewQuotas } from '@/config/admin'
 
 // Provider color mapping - using actual brand colors (Tailwind classes)
 const providerColors = {
@@ -569,6 +571,78 @@ function ApplicationInferenceProfileSection({ regionsAvailable }) {
   )
 }
 
+// Compact Application Inference Profile info banner (supplementary, not an inference type)
+function ApplicationInferenceProfileBanner() {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+
+  return (
+    <div>
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={cn(
+          'w-full flex items-center justify-between px-3 py-2 rounded-md transition-all text-xs',
+          isLight
+            ? 'bg-blue-50/60 border border-blue-200/50 hover:bg-blue-50'
+            : 'bg-blue-500/[0.06] border border-blue-500/15 hover:bg-blue-500/[0.10]',
+          isExpanded && 'rounded-b-none'
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <Info className={cn('h-3.5 w-3.5', isLight ? 'text-blue-500' : 'text-blue-400')} />
+          <span className={cn('font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>
+            App Inference Profiles
+          </span>
+        </div>
+        {isExpanded
+          ? <ChevronDown className={cn('h-3.5 w-3.5', isLight ? 'text-blue-500' : 'text-blue-400')} />
+          : <ChevronRight className={cn('h-3.5 w-3.5', isLight ? 'text-blue-500' : 'text-blue-400')} />
+        }
+      </button>
+
+      {isExpanded && (
+        <div className={cn(
+          'px-3 py-3 rounded-b-md border border-t-0 text-xs space-y-3',
+          isLight
+            ? 'bg-blue-50/30 border-blue-200/50'
+            : 'bg-blue-500/[0.03] border-blue-500/15'
+        )}>
+          <p className={cn(isLight ? 'text-stone-600' : 'text-slate-400')}>
+            User-created inference profiles for cost tracking, team organization, and custom routing.
+            Can wrap a single-region model or a CRIS profile for cross-region routing.
+          </p>
+
+          <div>
+            <p className={cn('font-medium mb-1.5', isLight ? 'text-stone-700' : 'text-slate-300')}>Use for</p>
+            <div className="flex flex-wrap gap-1.5">
+              {['Cost allocation', 'Usage tagging', 'Team organization', 'Custom routing'].map(tag => (
+                <span key={tag} className={cn(
+                  'px-1.5 py-0.5 rounded text-[10px]',
+                  isLight ? 'bg-blue-100/70 text-blue-700 border border-blue-200/60' : 'bg-blue-500/10 text-blue-300 border border-blue-500/20'
+                )}>{tag}</span>
+              ))}
+            </div>
+          </div>
+
+          <a
+            href="https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'inline-flex items-center gap-1 font-medium transition-colors',
+              isLight ? 'text-blue-600 hover:text-blue-700' : 'text-blue-400 hover:text-blue-300'
+            )}
+          >
+            Learn more
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Cross-Region Inference Section grouped by geographic scope
 function CrossRegionInferenceSection({ crisData }) {
   const [expandedScopes, setExpandedScopes] = useState({})
@@ -1074,8 +1148,9 @@ const consumptionExplanations = {
   'Mantle': 'Managed inference endpoints with dedicated capacity and custom configurations.',
 }
 
-// Compact availability summary showing all 4 inference types (excluding Provisioned)
+// Compact availability summary with expandable detail sections for each inference type
 function AvailabilitySummary({ model }) {
+  const [expandedTypes, setExpandedTypes] = useState({})
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
@@ -1085,31 +1160,35 @@ function AvailabilitySummary({ model }) {
   const batchData = model.batch_inference_supported || {}
   const mantleData = model.mantle_inference || {}
 
+  const toggleType = (label) => {
+    setExpandedTypes(prev => ({ ...prev, [label]: !prev[label] }))
+  }
+
   const types = [
     {
       label: 'In Region',
-      // For Mantle-only models, In Region is not available
       supported: isMantleOnly ? false : ((model.in_region?.length > 0) || (regions.length > 0 && (model.inference_types_supported || []).includes('ON_DEMAND'))),
       count: isMantleOnly ? 0 : (model.in_region?.length ?? model.total_in_region ?? regions.length),
+      detail: () => <OnDemandAvailabilitySection model={model} />,
     },
     {
       label: 'Cross-Region (CRIS)',
-      // For Mantle-only models, CRIS is not available
       supported: isMantleOnly ? false : !!crisData.supported,
       count: isMantleOnly ? 0 : (crisData.source_regions?.length ?? crisData.profiles_count ?? 0),
+      detail: () => <CrossRegionInferenceSection crisData={crisData} />,
     },
     {
       label: 'Batch',
-      // For Mantle-only models, Batch is not available
       supported: isMantleOnly ? false : !!batchData.supported,
       count: isMantleOnly ? 0 : (batchData.supported_regions?.length ?? 0),
+      detail: () => <BatchInferenceSection batchData={batchData} />,
     },
     {
       label: 'Mantle',
-      // Mantle is the primary option for Mantle-only models
       supported: !!mantleData.supported,
       count: mantleData.total_mantle_regions ?? mantleData.mantle_regions?.length ?? 0,
-      highlight: isMantleOnly, // Highlight Mantle for Mantle-only models
+      highlight: isMantleOnly,
+      detail: () => <MantleInferenceSection mantleData={mantleData} />,
     },
   ]
 
@@ -1169,58 +1248,89 @@ function AvailabilitySummary({ model }) {
           This model is available exclusively via Mantle Inference
         </div>
       )}
-      {types.map(({ label, supported, count, highlight }) => (
-        <div
-          key={label}
-          className={cn(
-            'flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs',
-            highlight
-              ? isLight
-                ? 'bg-violet-50 border border-violet-200'
-                : 'bg-violet-500/10 border border-violet-500/20'
-              : isLight
-                ? 'bg-white border border-stone-200'
-                : 'bg-white/[0.02] border border-white/[0.06]'
-          )}
-        >
-          <span className={cn(
-            'font-medium',
-            highlight
-              ? isLight ? 'text-violet-700' : 'text-violet-400'
-              : isLight ? 'text-stone-700' : 'text-[#e4e5e7]'
-          )}>
-            {label}
-          </span>
-          <div className="flex items-center gap-2">
-            {supported && count > 0 && (
-              <span className={cn(
-                'text-[10px] font-mono tabular-nums',
+      {types.map(({ label, supported, count, highlight, detail }) => {
+        const isExpanded = expandedTypes[label]
+        return (
+          <div key={label}>
+            <button
+              onClick={() => supported && toggleType(label)}
+              disabled={!supported}
+              className={cn(
+                'w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-all',
+
+                // Supported: colored left accent + tinted bg
+                supported && !highlight && (isLight
+                  ? 'bg-emerald-50/70 border-l-[3px] border-l-emerald-500 border-y border-r border-emerald-200/60 hover:bg-emerald-100/70 cursor-pointer'
+                  : 'bg-emerald-500/[0.08] border-l-[3px] border-l-emerald-500 border-y border-r border-emerald-500/20 hover:bg-emerald-500/[0.12] cursor-pointer'
+                ),
+
+                // Mantle highlight: violet accent
+                supported && highlight && (isLight
+                  ? 'bg-violet-50 border-l-[3px] border-l-violet-500 border-y border-r border-violet-200 hover:bg-violet-100/70 cursor-pointer'
+                  : 'bg-violet-500/10 border-l-[3px] border-l-violet-400 border-y border-r border-violet-500/30 hover:bg-violet-500/[0.15] cursor-pointer'
+                ),
+
+                // Unsupported: dimmed and muted
+                !supported && (isLight
+                  ? 'bg-stone-50/40 border border-stone-200/50 opacity-50 cursor-not-allowed'
+                  : 'bg-white/[0.01] border border-white/[0.04] opacity-40 cursor-not-allowed'
+                ),
+
+                isExpanded && 'rounded-b-none'
+              )}
+            >
+              <div className="flex items-center gap-1.5">
+                {supported && (
+                  isExpanded
+                    ? <ChevronDown className={cn('h-3 w-3', highlight ? (isLight ? 'text-violet-600' : 'text-violet-400') : (isLight ? 'text-emerald-600' : 'text-emerald-400'))} />
+                    : <ChevronRight className={cn('h-3 w-3', highlight ? (isLight ? 'text-violet-600' : 'text-violet-400') : (isLight ? 'text-emerald-600' : 'text-emerald-400'))} />
+                )}
+                <span className={cn(
+                  'font-medium',
+                  supported && highlight && (isLight ? 'text-violet-700' : 'text-violet-300'),
+                  supported && !highlight && (isLight ? 'text-stone-800' : 'text-emerald-200'),
+                  !supported && (isLight ? 'text-stone-500' : 'text-slate-500')
+                )}>
+                  {label}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {supported && count > 0 && (
+                  <span className={cn(
+                    'text-[10px] font-mono tabular-nums font-semibold',
+                    highlight
+                      ? (isLight ? 'text-violet-600' : 'text-violet-400')
+                      : (isLight ? 'text-emerald-700' : 'text-emerald-400')
+                  )}>
+                    {count} {count === 1 ? 'region' : 'regions'}
+                  </span>
+                )}
+                <span className={cn(
+                  'inline-flex items-center justify-center w-[18px] h-[18px] rounded-full flex-shrink-0',
+                  supported && highlight && (isLight ? 'bg-violet-500 text-white' : 'bg-violet-400 text-violet-950'),
+                  supported && !highlight && (isLight ? 'bg-emerald-500 text-white' : 'bg-emerald-400 text-emerald-950'),
+                  !supported && (isLight ? 'bg-stone-200 text-stone-400' : 'bg-white/[0.06] text-slate-600')
+                )}>
+                  {supported ? <Check className="h-3 w-3 stroke-[2.5]" /> : <X className="h-2.5 w-2.5" />}
+                </span>
+              </div>
+            </button>
+            {isExpanded && supported && (
+              <div className={cn(
+                'px-3 py-3 rounded-b-md border-l-[3px] border-r border-b border-t-0',
                 highlight
-                  ? isLight ? 'text-violet-600' : 'text-violet-300'
-                  : isLight ? 'text-stone-500' : 'text-slate-400'
+                  ? isLight ? 'bg-violet-50/40 border-l-violet-500 border-r-violet-200 border-b-violet-200' : 'bg-violet-500/5 border-l-violet-400 border-r-violet-500/20 border-b-violet-500/20'
+                  : isLight ? 'bg-emerald-50/30 border-l-emerald-500 border-r-emerald-200/60 border-b-emerald-200/60' : 'bg-emerald-500/[0.04] border-l-emerald-500 border-r-emerald-500/20 border-b-emerald-500/20'
               )}>
-                {count} {count === 1 ? 'region' : 'regions'}
-              </span>
+                {detail()}
+              </div>
             )}
-            <span className={cn(
-              'inline-flex items-center justify-center w-[18px] h-[18px] rounded-full text-[10px]',
-              supported
-                ? highlight
-                  ? isLight
-                    ? 'bg-violet-100 text-violet-700'
-                    : 'bg-violet-500/20 text-violet-400'
-                  : isLight
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'bg-emerald-500/15 text-emerald-400'
-                : isLight
-                  ? 'bg-stone-100 text-stone-400'
-                  : 'bg-white/[0.06] text-slate-500'
-            )}>
-              {supported ? <Check className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" />}
-            </span>
           </div>
-        </div>
-      ))}
+        )
+      })}
+
+      {/* App Inference Profiles — supplementary info banner */}
+      <ApplicationInferenceProfileBanner />
     </div>
   )
 }
@@ -2105,46 +2215,9 @@ function SpecsTab({ model }) {
 
           {/* Right Column */}
           <div className="space-y-4">
-            {/* Availability Summary */}
+            {/* Availability Overview — pills expand inline to show details */}
             <CollapsibleSection title="Availability Overview" icon={Globe} defaultExpanded={true}>
               <AvailabilitySummary model={model} />
-            </CollapsibleSection>
-
-            {/* On-Demand Availability */}
-            <CollapsibleSection title="In Region Availability" icon={Globe} defaultExpanded={false}>
-              <OnDemandAvailabilitySection model={model} />
-            </CollapsibleSection>
-
-            {/* Provisioned Throughput */}
-            {(model.provisioned_throughput?.supported || model.provisioned_throughput?.provisioned_regions?.length > 0) && (
-              <CollapsibleSection title="Provisioned Throughput" icon={Zap} defaultExpanded={false}>
-                <ProvisionedThroughputSection provisionedData={model.provisioned_throughput} />
-              </CollapsibleSection>
-            )}
-
-            {/* Cross-Region Inference */}
-            <CollapsibleSection title="Cross-Region Inference" icon={Globe} defaultExpanded={false}>
-              <CrossRegionInferenceSection crisData={crisData} />
-            </CollapsibleSection>
-
-            {/* Application Inference Profiles */}
-            <CollapsibleSection title="Application Inference Profiles" icon={Layers} defaultExpanded={false}>
-              <ApplicationInferenceProfileSection regionsAvailable={regions} />
-            </CollapsibleSection>
-
-            {/* Batch Inference Support */}
-            <CollapsibleSection title="Batch Inference Support" icon={Package} defaultExpanded={false}>
-              <BatchInferenceSection batchData={batchData} />
-            </CollapsibleSection>
-
-            {/* Mantle Inference Support */}
-            <CollapsibleSection
-              title="Mantle Inference"
-              icon={Cpu}
-              defaultExpanded={false}
-              infoLink="https://aws.amazon.com/blogs/machine-learning/exploring-the-zero-operator-access-design-of-mantle/"
-            >
-              <MantleInferenceSection mantleData={mantleData} />
             </CollapsibleSection>
           </div>
         </div>
@@ -2494,6 +2567,8 @@ function QuotasTab({ model }) {
   for (const region of allRegions) {
     const regionQuotas = quotas[region] || []
     for (const quota of regionQuotas) {
+      // Skip per-day quotas (derived from per-minute, redundant)
+      if (/per\s+day/i.test(quota.quota_name || '')) continue
       const category = categorizeQuota(quota.quota_name || '')
       const geo = getGeoForRegion(region)
       if (!categorizedQuotas[category]) categorizedQuotas[category] = {}
@@ -2602,6 +2677,17 @@ function QuotasTab({ model }) {
   return (
     <ScrollArea className="h-full">
       <div className="p-6">
+        {/* Internal banner */}
+        <div className={cn(
+          'flex items-start gap-2 px-3 py-2.5 rounded-lg text-xs mb-4',
+          isLight
+            ? 'bg-violet-50 text-violet-700 border border-violet-200'
+            : 'bg-violet-500/10 text-violet-300 border border-violet-500/20'
+        )}>
+          <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+          <span>These quotas are internal service quotas and may not reflect customer-facing limits.</span>
+        </div>
+
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative max-w-md">
@@ -2619,13 +2705,13 @@ function QuotasTab({ model }) {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Left Column */}
           <div className="space-y-4">
+            {renderCategorySection('cross_region', 'Cross-Region Inference', Globe)}
             {renderCategorySection('on_demand', 'In Region Inference', Zap)}
-            {renderCategorySection('batch', 'Batch Inference', Layers)}
           </div>
 
           {/* Right Column */}
           <div className="space-y-4">
-            {renderCategorySection('cross_region', 'Cross-Region Inference', Globe)}
+            {renderCategorySection('batch', 'Batch Inference', Layers)}
             {renderCategorySection('provisioned', 'Provisioned Throughput', Server)}
             {renderCategorySection('customization', 'Customization', Cpu)}
             {renderCategorySection('general', 'General', FileText)}
@@ -2652,7 +2738,7 @@ function extractRegionPricing(regionPricing) {
           type: 'input',
           description: p.description || 'Input Tokens',
           price: parseFloat(p.price),
-          unit: p.unit || 'Per 1K tokens'
+          unit: 'Per 1M tokens'
         })
       })
     }
@@ -2662,7 +2748,7 @@ function extractRegionPricing(regionPricing) {
           type: 'output',
           description: p.description || 'Output Tokens',
           price: parseFloat(p.price),
-          unit: p.unit || 'Per 1K tokens'
+          unit: 'Per 1M tokens'
         })
       })
     }
@@ -2685,7 +2771,7 @@ function extractRegionPricing(regionPricing) {
       type: 'input',
       description: 'Input Tokens',
       price: regionPricing.input_per_1k_tokens,
-      unit: 'Per 1K tokens'
+      unit: 'Per 1M tokens'
     })
   }
   if (regionPricing.output_per_1k_tokens !== undefined) {
@@ -2693,7 +2779,7 @@ function extractRegionPricing(regionPricing) {
       type: 'output',
       description: 'Output Tokens',
       price: regionPricing.output_per_1k_tokens,
-      unit: 'Per 1K tokens'
+      unit: 'Per 1M tokens'
     })
   }
 
@@ -2704,7 +2790,7 @@ function extractRegionPricing(regionPricing) {
         type: 'input',
         description: 'Input Tokens',
         price: regionPricing.text.input_per_1k_tokens,
-        unit: 'Per 1K tokens'
+        unit: 'Per 1M tokens'
       })
     }
     if (regionPricing.text.output_per_1k_tokens !== undefined) {
@@ -2712,7 +2798,7 @@ function extractRegionPricing(regionPricing) {
         type: 'output',
         description: 'Output Tokens',
         price: regionPricing.text.output_per_1k_tokens,
-        unit: 'Per 1K tokens'
+        unit: 'Per 1M tokens'
       })
     }
   }
@@ -2815,7 +2901,8 @@ function PricingItemsList({ items, isLight }) {
 
   const handleCopyPrice = async (e, price, unit, idx) => {
     e.stopPropagation()
-    const text = `$${typeof price === 'number' ? price.toFixed(6) : price} ${unit}`
+    const displayPrice = typeof price === 'number' ? price * 1000 : price
+    const text = `$${typeof displayPrice === 'number' ? (displayPrice < 0.01 ? displayPrice.toFixed(4) : displayPrice.toFixed(2)) : displayPrice} ${unit}`
     await navigator.clipboard.writeText(text)
     setCopiedIdx(idx)
     setTimeout(() => setCopiedIdx(null), 1500)
@@ -2824,7 +2911,8 @@ function PricingItemsList({ items, isLight }) {
   return (
     <div>
       {items.map((item, idx) => {
-        const priceStr = typeof item._price === 'number' ? item._price.toFixed(6) : item._price || 'N/A'
+        const rawPrice = typeof item._price === 'number' ? item._price * 1000 : item._price
+        const priceStr = typeof rawPrice === 'number' ? (rawPrice < 0.01 ? rawPrice.toFixed(4) : rawPrice.toFixed(2)) : rawPrice || 'N/A'
         const isExpanded = expandedIdx === idx
         return (
           <div key={idx}>
@@ -2910,7 +2998,7 @@ function CollapsiblePricingRegion({ region, pricing, category, defaultExpanded =
         <div className="flex items-center gap-3">
           {inputItem && outputItem && (
             <span className="text-xs text-emerald-600 dark:text-emerald-400">
-              ${inputItem.price.toFixed(4)} / ${outputItem.price.toFixed(4)}
+              ${(inputItem.price * 1000) < 0.01 ? (inputItem.price * 1000).toFixed(4) : (inputItem.price * 1000).toFixed(2)} / ${(outputItem.price * 1000) < 0.01 ? (outputItem.price * 1000).toFixed(4) : (outputItem.price * 1000).toFixed(2)}
             </span>
           )}
           {isExpanded ? (
@@ -2929,7 +3017,7 @@ function CollapsiblePricingRegion({ region, pricing, category, defaultExpanded =
                 _label: simplifyPricingDescription(item.description).label,
                 _type: item.type,
                 _price: item.price,
-                _unit: item.unit || 'per 1K tokens',
+                _unit: (item.unit || 'per 1M tokens').replace(/1K tokens/gi, '1M tokens'),
                 _raw: item.description,
               })).sort((a, b) => {
                 const typeOrder = { input: 0, output: 1, other: 2 }
@@ -3038,7 +3126,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
     }
   }
 
-  const pricingGroupOrder = ['On-Demand', 'On-Demand Long Context', 'On-Demand Global', 'Batch', 'Batch Long Context', 'Batch Global', 'Provisioned Throughput', 'Custom Model']
+  const pricingGroupOrder = ['On-Demand Global', 'On-Demand', 'On-Demand Long Context', 'Batch Global', 'Batch', 'Batch Long Context', 'Provisioned Throughput', 'Custom Model']
   const pricingGroups = Object.keys(pricingByGroupGeoRegion).sort((a, b) => {
     const indexA = pricingGroupOrder.indexOf(a)
     const indexB = pricingGroupOrder.indexOf(b)
@@ -3136,7 +3224,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
                             _label: label,
                             _type: type,
                             _price: item.price_per_thousand ?? item.price_per_unit,
-                            _unit: item.unit_label || `per ${item.unit || 'unit'}`,
+                            _unit: (item.unit_label || `per ${item.unit || 'unit'}`).replace(/1K tokens/gi, '1M tokens'),
                             _raw: item.description || item.dimension,
                           }
                         }).sort((a, b) => {
@@ -3219,6 +3307,8 @@ export function ModelCardExpanded({
   preferredRegion = 'us-east-1',
 }) {
   const [activeTab, setActiveTab] = useState('specs')
+  const user = useAuthStore(s => s.user)
+  const showQuotas = canViewQuotas(user)
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
@@ -3325,6 +3415,8 @@ export function ModelCardExpanded({
   for (const region of quotaRegions) {
     const regionQuotas = quotas[region] || []
     for (const quota of regionQuotas) {
+      // Skip per-day quotas (derived from per-minute, redundant)
+      if (/per\s+day/i.test(quota.quota_name || '')) continue
       totalQuotas++
       if (quota.adjustable) adjustableQuotas++
       quotaCategories.add(categorizeQuota(quota.quota_name || ''))
@@ -3579,7 +3671,7 @@ export function ModelCardExpanded({
                 </>
               )}
 
-              {activeTab === 'quotas' && (
+              {showQuotas && activeTab === 'quotas' && (
                 <div className="space-y-3">
                   <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-slate-400')}>
                     Quota Summary
@@ -3645,9 +3737,11 @@ export function ModelCardExpanded({
                   <TabsTrigger value="specs" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
                     Technical Specs
                   </TabsTrigger>
-                  <TabsTrigger value="quotas" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
-                    Service Quotas
-                  </TabsTrigger>
+                  {showQuotas && (
+                    <TabsTrigger value="quotas" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
+                      Service Quotas
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="pricing" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
                     Pricing
                   </TabsTrigger>
@@ -3657,9 +3751,11 @@ export function ModelCardExpanded({
                   <SpecsTab model={model} />
                 </TabsContent>
 
-                <TabsContent value="quotas" className="flex-1 mt-0 min-h-0 overflow-hidden">
-                  <QuotasTab model={model} />
-                </TabsContent>
+                {showQuotas && (
+                  <TabsContent value="quotas" className="flex-1 mt-0 min-h-0 overflow-hidden">
+                    <QuotasTab model={model} />
+                  </TabsContent>
+                )}
 
                 <TabsContent value="pricing" className="flex-1 mt-0 min-h-0 overflow-hidden">
                   <PricingTab model={model} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} />

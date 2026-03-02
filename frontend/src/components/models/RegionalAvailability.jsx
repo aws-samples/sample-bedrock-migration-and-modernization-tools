@@ -828,9 +828,9 @@ export function RegionalAvailability() {
           {/* Tier 1: Primary filter pills */}
           {[
             { id: 'all', label: 'All', icon: null },
-            { id: 'in_region', label: 'In Region', icon: Zap },
             { id: 'cris', label: 'CRIS', icon: Globe },
             { id: 'mantle', label: 'Mantle', icon: Cpu },
+            { id: 'in_region', label: 'In Region', icon: Zap },
           ].map(view => (
             <button
               key={view.id}

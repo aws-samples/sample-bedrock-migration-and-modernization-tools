@@ -417,11 +417,23 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 <div className="flex-1 text-center border-r border-current/10">
                   <p className={cn('text-[10px] uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-slate-400')}>Context</p>
                   <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
-                    {formatNumber(contextWindow)}
-                    {hasExtendedContext && (
-                      <span className={cn('text-xs font-normal ml-1', isLight ? 'text-amber-500' : 'text-emerald-400')}>
-                        / {formatNumber(extendedContext)}
-                      </span>
+                    {hasExtendedContext ? (
+                      <Tooltip delayDuration={200}>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">
+                            {formatNumber(contextWindow)}
+                            <span className={cn('ml-1', isLight ? 'text-amber-500' : 'text-emerald-400')}>
+                              → {formatNumber(extendedContext)}
+                            </span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+                          <p><strong>{formatNumber(contextWindow)}</strong> base context window</p>
+                          <p><strong>{formatNumber(extendedContext)}</strong> with extended context</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      formatNumber(contextWindow)
                     )}
                   </p>
                 </div>
@@ -587,17 +599,17 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                   <div className="text-center">
                     <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>Input</p>
                     <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-[#f0f1f3]')}>
-                      ${inputPrice < 0.0001 ? inputPrice.toFixed(6) : inputPrice.toFixed(4)}
+                      ${inputPrice < 0.01 ? inputPrice.toFixed(4) : inputPrice.toFixed(2)}
                     </p>
                   </div>
                   <div className="text-center">
                     <p className={cn('text-[10px] uppercase tracking-wide mb-0.5', isLight ? 'text-stone-500' : 'text-slate-400')}>Output</p>
                     <p className={cn('font-semibold', isLight ? 'text-stone-800' : 'text-[#f0f1f3]')}>
-                      ${outputPrice !== null ? (outputPrice < 0.0001 ? outputPrice.toFixed(6) : outputPrice.toFixed(4)) : 'N/A'}
+                      ${outputPrice !== null ? (outputPrice < 0.01 ? outputPrice.toFixed(4) : outputPrice.toFixed(2)) : 'N/A'}
                     </p>
                   </div>
                   <p className={cn('col-span-2 text-center text-[10px] -mt-1', isLight ? 'text-stone-400' : 'text-slate-400')}>
-                    {unitLabel || 'per 1K tokens'}
+                    {unitLabel || 'per 1M tokens'}
                   </p>
                 </div>
               ) : (

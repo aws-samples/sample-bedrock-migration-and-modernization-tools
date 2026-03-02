@@ -9,9 +9,8 @@ const providerColors = providerColorClasses
 function formatPrice(price) {
   if (price === null || price === undefined) return null
   if (price === 0) return '$0'
-  if (price < 0.0001) return `$${price.toFixed(6)}`
   if (price < 0.01) return `$${price.toFixed(4)}`
-  return `$${price.toFixed(4)}`
+  return `$${price.toFixed(2)}`
 }
 
 function formatImagePrice(price) {
@@ -107,7 +106,7 @@ function simplifyDescription(item) {
 }
 
 function getItemPrice(item) {
-  if (item.price_per_thousand != null) return { value: item.price_per_thousand, unit: item.unit_label || 'per 1K tokens' }
+  if (item.price_per_thousand != null) return { value: item.price_per_thousand * 1000, unit: item.unit_label || 'per 1M tokens' }
   if (item.price_per_unit != null) return { value: item.price_per_unit, unit: item.unit_label || `per ${item.unit || 'unit'}` }
   return { value: null, unit: '' }
 }
@@ -116,10 +115,8 @@ function formatPriceValue(priceInfo) {
   if (!priceInfo || priceInfo.value === null || priceInfo.value === undefined) return 'N/A'
   if (priceInfo.value === 0) return '$0'
   const v = priceInfo.value
-  if (v < 0.0001) return `$${v.toFixed(6)}`
   if (v < 0.01) return `$${v.toFixed(4)}`
-  if (v >= 100) return `$${v.toFixed(2)}`
-  return `$${v.toFixed(4)}`
+  return `$${v.toFixed(2)}`
 }
 
 // Build a unified row key for comparison across models
