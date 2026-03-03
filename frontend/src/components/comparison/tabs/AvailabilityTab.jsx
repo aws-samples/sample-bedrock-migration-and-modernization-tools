@@ -37,7 +37,7 @@ function friendlyName(label) {
 function getAllModelRegions(model) {
   const onDemand = model.availability?.on_demand?.regions ?? model.in_region ?? []
   const cris = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
-  const mantle = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
+  const mantle = model.availability?.mantle?.mantle_regions ?? []
   return [...new Set([...onDemand, ...cris, ...mantle])]
 }
 
@@ -47,7 +47,7 @@ export function AvailabilityTab({ selectedModels, isLight }) {
   const [mapFullscreen, setMapFullscreen] = useState(false)
 
   // Check if any model is Mantle-only
-  const mantleOnlyModels = selectedModels.filter(({ model }) => model.mantle_only)
+  const mantleOnlyModels = selectedModels.filter(({ model }) => model.availability?.mantle?.only)
   const hasMantleOnlyModels = mantleOnlyModels.length > 0
 
   const allRegions = new Set()
@@ -56,9 +56,9 @@ export function AvailabilityTab({ selectedModels, isLight }) {
   })
 
   const modelCoverage = selectedModels.map(({ model }) => {
-    const isMantleOnly = model.mantle_only
+    const isMantleOnly = model.availability?.mantle?.only
     const regions = getAllModelRegions(model)
-    const mantleRegions = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
+    const mantleRegions = model.availability?.mantle?.mantle_regions ?? []
     return {
       model,
       regions,
@@ -346,7 +346,7 @@ export function AvailabilityTab({ selectedModels, isLight }) {
       )}
 
       {/* Mantle Inference — collapsible, column format */}
-      {selectedModels.some(({ model }) => model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle) && (
+      {selectedModels.some(({ model }) => model.availability?.mantle?.supported) && (
         <MantleSection selectedModels={selectedModels} isLight={isLight} />
       )}
 
@@ -534,7 +534,7 @@ function GeoSection({ group, collapsed, onToggle, selectedModels, commonRegions,
       {/* Region rows */}
       {!collapsed && group.regions.map(region => {
         // Only consider non-Mantle-only models for common regions
-        const nonMantleOnlyModels = selectedModels.filter(({ model }) => !model.mantle_only)
+        const nonMantleOnlyModels = selectedModels.filter(({ model }) => !model.availability?.mantle?.only)
         const isCommon = nonMantleOnlyModels.length > 0 && commonRegions.includes(region.value)
         return (
           <tr
@@ -823,7 +823,7 @@ function CrisSection({ selectedModels, isLight }) {
 function MantleSection({ selectedModels, isLight }) {
   const [expanded, setExpanded] = useState(true)
 
-  const mantleCount = selectedModels.filter(({ model }) => model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle).length
+  const mantleCount = selectedModels.filter(({ model }) => model.availability?.mantle?.supported).length
 
   // Build region lookup: code → { name, geo }
   const regionLookup = {}
@@ -837,7 +837,7 @@ function MantleSection({ selectedModels, isLight }) {
   // Collect all Mantle regions and group by geo
   const allMantleRegions = new Set()
   selectedModels.forEach(({ model }) => {
-    (model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []).forEach(r => allMantleRegions.add(r))
+    (model.availability?.mantle?.mantle_regions ?? []).forEach(r => allMantleRegions.add(r))
   })
 
   const geoGrouped = {}
@@ -926,7 +926,7 @@ function MantleSection({ selectedModels, isLight }) {
                   Supported
                 </td>
                 {selectedModels.map(({ model }) => {
-                  const supported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle ?? false
+                  const supported = model.availability?.mantle?.supported ?? false
                   return (
                     <td key={model.model_id} className="px-3 py-2.5 text-center">
                       {supported ? (
@@ -945,7 +945,7 @@ function MantleSection({ selectedModels, isLight }) {
                   Regions
                 </td>
                 {selectedModels.map(({ model }) => {
-                  const count = (model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []).length
+                  const count = (model.availability?.mantle?.mantle_regions ?? []).length
                   return (
                     <td key={model.model_id} className={cn(
                       'px-3 py-2.5 text-center text-sm font-medium',
@@ -972,8 +972,8 @@ function MantleSection({ selectedModels, isLight }) {
                       </div>
                     </td>
                     {selectedModels.map(({ model }) => {
-                      const modelRegions = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
-                      const supported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle ?? false
+                      const modelRegions = model.availability?.mantle?.mantle_regions ?? []
+                      const supported = model.availability?.mantle?.supported ?? false
                       const matchingRegions = regions.filter(r => modelRegions.includes(r))
 
                       return (

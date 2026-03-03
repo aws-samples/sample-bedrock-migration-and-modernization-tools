@@ -74,8 +74,8 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
     const extendedContext = getExtendedContextWindow(model)
     const effectiveContext = Math.max(baseContext || 0, extendedContext || 0)
     const hasLongCtx = detectLongContext(pricing, region) || (extendedContext != null && extendedContext > (baseContext || 0))
-    const isMantleOnly = model.mantle_only
-    const mantleRegions = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
+    const isMantleOnly = model.availability?.mantle?.only
+    const mantleRegions = model.availability?.mantle?.mantle_regions ?? []
     return {
       model,
       region,
@@ -89,7 +89,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       crisSupported: isMantleOnly ? false : (model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false),
       crisProfilesCount: model.availability?.cross_region?.profiles_count ?? model.cross_region_inference?.profiles_count ?? 0,
       crisSourceRegions: (model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []).length,
-      mantleSupported: model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle ?? false,
+      mantleSupported: model.availability?.mantle?.supported ?? false,
       mantleRegions: mantleRegions.length,
       consumptionOptions: model.consumption_options || [],
       languages: model.languages ?? model.languages_supported ?? [],

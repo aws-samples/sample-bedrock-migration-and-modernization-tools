@@ -312,7 +312,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
 
   const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false
   const crisGeoScopes = getCrisGeoScopes(model)
-  const mantleSupported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle ?? false
+  const mantleSupported = model.availability?.mantle?.supported ?? false
   const streamingSupported = model.streaming ?? model.streaming_supported ?? false
   const consumptionOptions = useMemo(() => {
     const opts = [...(model.consumption_options || [])]
@@ -322,7 +322,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
       opts.push('provisioned_throughput')
     }
     // Ensure mantle is shown if model supports it
-    const mantleInferenceSupported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle
+    const mantleInferenceSupported = model.availability?.mantle?.supported
     if (mantleInferenceSupported && !opts.includes('mantle')) {
       opts.push('mantle')
     }
@@ -356,7 +356,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
             >
               {model.model_provider}
             </Badge>
-            {model.mantle_only && (
+            {model.availability?.mantle?.only && (
               <span className={cn(
                 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
                 isLight
@@ -366,7 +366,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 Mantle Only
               </span>
             )}
-            {!model.mantle_only && (model.availability?.mantle?.supported || model.mantle_inference?.supported || model.is_mantle) && (
+            {!model.availability?.mantle?.only && (model.availability?.mantle?.supported) && (
               <span className={cn(
                 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
                 isLight
@@ -539,7 +539,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               {(() => {
                 const onDemandRegions = model.availability?.on_demand?.regions || model.in_region || []
                 const crisRegions = model.availability?.cross_region?.source_regions || model.cross_region_inference?.source_regions || []
-                const mantleRegions = model.availability?.mantle?.mantle_regions || model.mantle_inference?.mantle_regions || []
+                const mantleRegions = model.availability?.mantle?.mantle_regions || []
                 const allRegions = new Set([...onDemandRegions, ...crisRegions, ...mantleRegions])
                 const totalRegionCount = allRegions.size
                 return (

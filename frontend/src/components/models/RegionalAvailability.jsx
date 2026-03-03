@@ -118,7 +118,7 @@ const MODEL_COL_WIDTH = 280
 function getRegionAvailability(model, regionCode) {
   const inRegionList = model.availability?.on_demand?.regions ?? model.in_region ?? []
   const crisRegions = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
-  const mantleRegions = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
+  const mantleRegions = model.availability?.mantle?.mantle_regions ?? []
 
   // in_region is the source of truth for ON_DEMAND availability (no fallback)
   const onDemand = inRegionList.includes(regionCode)
@@ -504,7 +504,7 @@ export function RegionalAvailability() {
     models.forEach(m => {
       ;(m.availability?.on_demand?.regions ?? m.in_region ?? []).forEach(r => usedRegions.add(r))
       ;(m.availability?.cross_region?.source_regions ?? m.cross_region_inference?.source_regions ?? []).forEach(r => usedRegions.add(r))
-      ;(m.availability?.mantle?.mantle_regions ?? m.mantle_inference?.mantle_regions ?? []).forEach(r => usedRegions.add(r))
+      ;(m.availability?.mantle?.mantle_regions ?? []).forEach(r => usedRegions.add(r))
     })
 
     // Known regions that appear in the data (preserves defined order)
@@ -632,8 +632,8 @@ export function RegionalAvailability() {
         }
       }
       if (activeView === 'mantle') {
-        const mantleSupported = m.availability?.mantle?.supported ?? m.mantle_inference?.supported
-        if (!(mantleSupported || m.is_mantle)) return false
+        const mantleSupported = m.availability?.mantle?.supported
+        if (!mantleSupported) return false
       }
       return true
     })
@@ -1157,7 +1157,7 @@ export function RegionalAvailability() {
                     {!isCollapsed && providerModels.map((model) => {
                       const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
                       const crisRegions = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
-                      const mantleRegions = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
+                      const mantleRegions = model.availability?.mantle?.mantle_regions ?? []
                       const allRegions = new Set([...regions, ...crisRegions, ...mantleRegions])
                       const regionCount = allRegions.size
                       const isHovered = hoveredRow === model.model_id

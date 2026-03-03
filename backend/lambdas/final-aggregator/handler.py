@@ -2084,6 +2084,13 @@ def build_final_models(
                 model_id, provisioned_availability_data
             )
 
+            # Build Mantle inference data (needed for tracking matched IDs)
+            mantle = build_mantle_inference(model_id, mantle_by_model)
+
+            # Track matched Mantle model ID
+            if mantle.get("matched_mantle_id"):
+                matched_mantle_ids.add(mantle["matched_mantle_id"])
+
             # Transform to expected schema
             transformed = transform_model_to_schema(
                 model_id=model_id,
@@ -2100,18 +2107,6 @@ def build_final_models(
                 lifecycle_by_model=lifecycle_by_model,
                 regional_lifecycle=regional_lifecycle,
             )
-
-            # Track matched Mantle model ID from availability.mantle
-            mantle_availability = transformed.get("availability", {}).get("mantle", {})
-            # The matched_mantle_id is stored in the mantle data during build_mantle_inference
-            # We need to track it differently now - check if mantle is supported
-            if mantle_availability.get("supported"):
-                # For tracking, we use the model_id itself since it matched
-                matched_mantle_ids.add(model_id)
-                # Also check for fuzzy matches by looking at mantle_by_model
-                for mantle_id_candidate in mantle_by_model.keys():
-                    if calculate_match_score(model_id, mantle_id_candidate) >= 0.8:
-                        matched_mantle_ids.add(mantle_id_candidate)
 
             result_providers[provider]["models"][model_id] = transformed
 

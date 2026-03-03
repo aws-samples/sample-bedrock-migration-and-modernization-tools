@@ -290,7 +290,7 @@ function RadarTooltip({ active, payload, label, isLight }) {
 function getAllModelRegions(model) {
   const onDemand = model.availability?.on_demand?.regions ?? model.in_region ?? []
   const cris = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
-  const mantle = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
+  const mantle = model.availability?.mantle?.mantle_regions ?? []
   return [...new Set([...onDemand, ...cris, ...mantle])]
 }
 
@@ -309,7 +309,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
     const streamingSupported = model.streaming ?? model.streaming_supported ?? false
     const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false
     const batchSupported = (model.consumption_options || []).includes('batch')
-    const mantleSupported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle ?? false
+    const mantleSupported = model.availability?.mantle?.supported ?? false
     const hasLongContext = detectLongContext(pricing, region)
     const extendedContext = getExtendedContextWindow(model)
     const effectiveContextWindow = Math.max(contextWindow, extendedContext || 0)
@@ -362,7 +362,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
       if (m.streaming ?? m.streaming_supported) features++
       if ((m.consumption_options || []).includes('batch')) features++
       if (m.availability?.cross_region?.supported ?? m.cross_region_inference?.supported) features++
-      if (m.availability?.mantle?.supported ?? m.mantle_inference?.supported ?? m.is_mantle) features++
+      if (m.availability?.mantle?.supported) features++
       if (features > maxFeatures) maxFeatures = features
     })
     

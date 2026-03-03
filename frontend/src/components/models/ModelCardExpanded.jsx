@@ -330,7 +330,7 @@ function OnDemandAvailabilitySection({ model }) {
   const grouped = groupRegionsByGeo(regions)
   const geoCount = Object.keys(grouped).length
   const modelId = model.model_id
-  const isMantleOnly = model.mantle_only
+  const isMantleOnly = model.availability?.mantle?.only
 
   return (
     <div className="space-y-3">
@@ -1120,11 +1120,11 @@ function AvailabilitySummary({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
-  const isMantleOnly = model.mantle_only
+  const isMantleOnly = model.availability?.mantle?.only
   const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
   const crisData = model.availability?.cross_region ?? model.cross_region_inference ?? {}
   const batchData = model.availability?.batch ?? model.batch_inference_supported ?? {}
-  const mantleData = model.availability?.mantle ?? model.mantle_inference ?? {}
+  const mantleData = model.availability?.mantle ?? {}
 
   const toggleType = (label) => {
     setExpandedTypes(prev => ({ ...prev, [label]: !prev[label] }))
@@ -2026,7 +2026,7 @@ function SpecsTab({ model }) {
   const streamingSupported = model.streaming ?? model.streaming_supported
   const crisData = model.availability?.cross_region ?? model.cross_region_inference ?? {}
   const batchData = model.availability?.batch ?? model.batch_inference_supported ?? {}
-  const mantleData = model.availability?.mantle ?? model.mantle_inference ?? {}
+  const mantleData = model.availability?.mantle ?? {}
   const consumptionOptions = model.consumption_options || []
   const customizations = model.customization?.customization_supported || []
   const lifecycleStatus = model.lifecycle?.status ?? model.model_lifecycle?.status ?? model.model_status ?? 'Unknown'
@@ -3367,8 +3367,8 @@ export function ModelCardExpanded({
   const capabilities = model.capabilities ?? model.model_capabilities ?? []
   const streamingSupported = model.streaming ?? model.streaming_supported
   const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported
-  const mantleSupported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported
-  const mantleRegions = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
+  const mantleSupported = model.availability?.mantle?.supported
+  const mantleRegions = model.availability?.mantle?.mantle_regions ?? []
   const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
   const outputModalities = model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? []
 
@@ -3405,8 +3405,8 @@ export function ModelCardExpanded({
       opts.push('provisioned_throughput')
     }
     // Ensure mantle is shown if model supports it
-    const mantleData = model.availability?.mantle ?? model.mantle_inference
-    if ((mantleData?.supported || model.is_mantle) && !opts.includes('mantle')) {
+    const mantleData = model.availability?.mantle
+    if (mantleData?.supported && !opts.includes('mantle')) {
       opts.push('mantle')
     }
     // Ensure cross_region_inference is shown if model supports it
@@ -3456,7 +3456,7 @@ export function ModelCardExpanded({
                   {model.model_provider}
                 </Badge>
                 {renderStatusBadges()}
-                {model.mantle_only && (
+                {model.availability?.mantle?.only && (
                   <span className={cn(
                     'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
                     isLight
@@ -3466,7 +3466,7 @@ export function ModelCardExpanded({
                     Mantle Only
                   </span>
                 )}
-                {!model.mantle_only && ((model.availability?.mantle?.supported ?? model.mantle_inference?.supported) || model.is_mantle) && (
+                {!model.availability?.mantle?.only && model.availability?.mantle?.supported && (
                   <span className={cn(
                     'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
                     isLight

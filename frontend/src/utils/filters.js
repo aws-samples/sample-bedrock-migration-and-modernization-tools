@@ -474,8 +474,8 @@ export function applyFilters(models, filters) {
   // Mantle support filter
   if (filters.mantleSupport && filters.mantleSupport !== 'All Models') {
     filtered = filtered.filter(m => {
-      const mantleSupported = m.availability?.mantle?.supported || m.is_mantle
-      const mantleOnly = m.mantle_only
+      const mantleSupported = m.availability?.mantle?.supported
+      const mantleOnly = m.availability?.mantle?.only
       
       switch (filters.mantleSupport) {
         case 'Mantle Supported':

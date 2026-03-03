@@ -30,30 +30,34 @@ const mockModelWithConsumptionOptions = {
   model_id: 'anthropic.claude-3-sonnet',
   model_name: 'Claude 3 Sonnet',
   model_provider: 'Anthropic',
-  model_modalities: {
+  modalities: {
     input_modalities: ['TEXT', 'IMAGE'],
     output_modalities: ['TEXT']
   },
-  model_lifecycle: { status: 'ACTIVE' },
-  model_capabilities: ['chat', 'analysis'],
-  streaming_supported: true,
-  in_region: ['us-east-1', 'us-west-2'],
-  cross_region_inference: {
-    supported: true,
-    source_regions: ['us-east-1']
-  },
-  mantle_inference: {
-    supported: false
-  },
-  provisioned_throughput: {
-    supported: true
+  lifecycle: { status: 'ACTIVE' },
+  capabilities: ['chat', 'analysis'],
+  streaming: true,
+  availability: {
+    on_demand: {
+      regions: ['us-east-1', 'us-west-2']
+    },
+    cross_region: {
+      supported: true,
+      source_regions: ['us-east-1']
+    },
+    mantle: {
+      supported: false
+    },
+    provisioned: {
+      supported: true
+    }
   },
   consumption_options: ['on_demand', 'batch', 'cross_region_inference', 'provisioned_throughput'],
-  converse_data: {
+  specs: {
     context_window: 200000,
     max_output_tokens: 4096
   },
-  model_pricing: {
+  pricing: {
     is_pricing_available: true
   }
 }

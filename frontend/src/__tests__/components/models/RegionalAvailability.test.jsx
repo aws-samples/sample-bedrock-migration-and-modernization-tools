@@ -15,30 +15,38 @@ vi.mock('@/hooks/useModels', () => ({
         model_id: 'anthropic.claude-3-sonnet',
         model_name: 'Claude 3 Sonnet',
         model_provider: 'Anthropic',
-        in_region: ['us-east-1', 'us-west-2'],
-        cross_region_inference: {
-          supported: true,
-          source_regions: ['us-east-1'],
-          profiles: []
-        },
-        mantle_inference: {
-          supported: false,
-          mantle_regions: []
+        availability: {
+          on_demand: {
+            regions: ['us-east-1', 'us-west-2']
+          },
+          cross_region: {
+            supported: true,
+            source_regions: ['us-east-1'],
+            profiles: []
+          },
+          mantle: {
+            supported: false,
+            mantle_regions: []
+          }
         }
       },
       {
         model_id: 'amazon.titan-text-express',
         model_name: 'Titan Text Express',
         model_provider: 'Amazon',
-        in_region: ['us-east-1', 'eu-west-1'],
-        cross_region_inference: {
-          supported: false,
-          source_regions: [],
-          profiles: []
-        },
-        mantle_inference: {
-          supported: false,
-          mantle_regions: []
+        availability: {
+          on_demand: {
+            regions: ['us-east-1', 'eu-west-1']
+          },
+          cross_region: {
+            supported: false,
+            source_regions: [],
+            profiles: []
+          },
+          mantle: {
+            supported: false,
+            mantle_regions: []
+          }
         }
       }
     ],

@@ -18,37 +18,41 @@ const mockModelWithAllOptions = {
   model_id: 'anthropic.claude-3-sonnet',
   model_name: 'Claude 3 Sonnet',
   model_provider: 'Anthropic',
-  model_modalities: {
+  modalities: {
     input_modalities: ['TEXT', 'IMAGE'],
     output_modalities: ['TEXT']
   },
-  model_lifecycle: { status: 'ACTIVE' },
-  model_capabilities: ['chat', 'analysis'],
-  streaming_supported: true,
-  in_region: ['us-east-1', 'us-west-2'],
-  cross_region_inference: {
-    supported: true,
-    source_regions: ['us-east-1'],
-    profiles: []
-  },
-  batch_inference_supported: {
-    supported: true,
-    supported_regions: ['us-east-1']
-  },
-  mantle_inference: {
-    supported: true,
-    mantle_regions: ['us-east-1']
-  },
-  provisioned_throughput: {
-    supported: true,
-    provisioned_regions: ['us-east-1']
+  lifecycle: { status: 'ACTIVE' },
+  capabilities: ['chat', 'analysis'],
+  streaming: true,
+  availability: {
+    on_demand: {
+      regions: ['us-east-1', 'us-west-2']
+    },
+    cross_region: {
+      supported: true,
+      source_regions: ['us-east-1'],
+      profiles: []
+    },
+    batch: {
+      supported: true,
+      supported_regions: ['us-east-1']
+    },
+    mantle: {
+      supported: true,
+      mantle_regions: ['us-east-1']
+    },
+    provisioned: {
+      supported: true,
+      provisioned_regions: ['us-east-1']
+    }
   },
   consumption_options: ['on_demand', 'batch', 'cross_region_inference', 'provisioned_throughput', 'mantle'],
-  converse_data: {
+  specs: {
     context_window: 200000,
     max_output_tokens: 4096
   },
-  model_pricing: {
+  pricing: {
     is_pricing_available: true
   }
 }
@@ -59,11 +63,11 @@ function AvailabilitySummary({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
-  const isMantleOnly = model.mantle_only
-  const regions = model.in_region || []
-  const crisData = model.cross_region_inference || {}
-  const batchData = model.batch_inference_supported || {}
-  const mantleData = model.mantle_inference || {}
+  const isMantleOnly = model.availability?.mantle?.only
+  const regions = model.availability?.on_demand?.regions || []
+  const crisData = model.availability?.cross_region || {}
+  const batchData = model.availability?.batch || {}
+  const mantleData = model.availability?.mantle || {}
 
   // Consumption option explanations for info popover
   const consumptionExplanations = {
@@ -77,8 +81,8 @@ function AvailabilitySummary({ model }) {
   const types = [
     {
       label: 'In Region',
-      supported: isMantleOnly ? false : ((model.in_region?.length > 0) || (regions.length > 0)),
-      count: isMantleOnly ? 0 : (model.in_region?.length ?? regions.length),
+      supported: isMantleOnly ? false : ((model.availability?.on_demand?.regions?.length > 0) || (regions.length > 0)),
+      count: isMantleOnly ? 0 : (model.availability?.on_demand?.regions?.length ?? regions.length),
     },
     {
       label: 'Cross-Region (CRIS)',

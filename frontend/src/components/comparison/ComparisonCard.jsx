@@ -36,7 +36,7 @@ export function ComparisonCard({ model, onRemove }) {
   const isActive = (model.lifecycle?.status ?? model.model_lifecycle?.status) === 'ACTIVE' || model.model_status === 'ACTIVE'
   const streamingSupported = model.streaming ?? model.streaming_supported ?? false
   const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false
-  const mantleSupported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle ?? false
+  const mantleSupported = model.availability?.mantle?.supported ?? false
 
   return (
     <Card className={cn(
@@ -70,7 +70,7 @@ export function ComparisonCard({ model, onRemove }) {
           )}>
             {model.model_provider}
           </Badge>
-          {model.mantle_only && (
+          {model.availability?.mantle?.only && (
             <span className={cn(
               'inline-flex items-center px-1.5 py-0 rounded-full text-[9px] font-semibold',
               isLight
