@@ -898,7 +898,7 @@ function ProvisionedThroughputSection({ provisionedData }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const { theme } = useTheme()
   const isLight = theme === 'light'
-  const regions = provisionedData.provisioned_regions || []
+  const regions = provisionedData.regions ?? provisionedData.provisioned_regions ?? []
   const grouped = groupRegionsByGeo(regions)
   const geoCount = Object.keys(grouped).length
 
@@ -920,7 +920,7 @@ function ProvisionedThroughputSection({ provisionedData }) {
           <>
             <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
               <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Total Regions</p>
-              <p className={cn('text-lg font-bold', isLight ? 'text-amber-600' : 'text-amber-400')}>{provisionedData.total_provisioned_regions ?? regions.length}</p>
+              <p className={cn('text-lg font-bold', isLight ? 'text-amber-600' : 'text-amber-400')}>{regions.length}</p>
             </div>
             <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
               <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Geographies</p>
@@ -946,7 +946,7 @@ function BatchInferenceSection({ batchData }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const { theme } = useTheme()
   const isLight = theme === 'light'
-  const regions = batchData.supported_regions || []
+  const regions = batchData.regions ?? batchData.supported_regions ?? []
   const grouped = groupRegionsByGeo(regions)
 
   return (
@@ -1097,9 +1097,9 @@ function MantleInferenceSection({ mantleData }) {
       )}
 
       {/* Endpoint pattern info */}
-      {mantleData.supported && mantleData.mantle_endpoint_pattern && (
+      {mantleData.supported && (
         <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
-          Endpoint: <code className={cn('font-mono px-1 py-0.5 rounded', isLight ? 'bg-stone-100' : 'bg-white/[0.06]')}>{mantleData.mantle_endpoint_pattern}</code>
+          Endpoint: <code className={cn('font-mono px-1 py-0.5 rounded', isLight ? 'bg-stone-100' : 'bg-white/[0.06]')}>{mantleData.mantle_endpoint_pattern ?? 'bedrock-mantle.{region}.api.aws'}</code>
         </p>
       )}
     </div>
@@ -1140,13 +1140,13 @@ function AvailabilitySummary({ model }) {
     {
       label: 'Cross-Region (CRIS)',
       supported: isMantleOnly ? false : !!crisData.supported,
-      count: isMantleOnly ? 0 : (crisData.regions?.length ?? crisData.profiles_count ?? 0),
+      count: isMantleOnly ? 0 : (crisData.regions?.length ?? crisData.profiles?.length ?? 0),
       detail: () => <CrossRegionInferenceSection crisData={crisData} />,
     },
     {
       label: 'Batch',
       supported: isMantleOnly ? false : !!batchData.supported,
-      count: isMantleOnly ? 0 : (batchData.supported_regions?.length ?? 0),
+      count: isMantleOnly ? 0 : (batchData.regions?.length ?? batchData.supported_regions?.length ?? 0),
       detail: () => <BatchInferenceSection batchData={batchData} />,
     },
     {

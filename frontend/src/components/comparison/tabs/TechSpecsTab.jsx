@@ -87,7 +87,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       outputModalities: model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? [],
       streamingSupported: model.streaming ?? model.streaming_supported ?? false,
       crisSupported: isMantleOnly ? false : (model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false),
-      crisProfilesCount: model.availability?.cross_region?.profiles_count ?? model.cross_region_inference?.profiles_count ?? 0,
+      crisProfilesCount: model.availability?.cross_region?.profiles?.length ?? model.cross_region_inference?.profiles?.length ?? 0,
       crisSourceRegions: (model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []).length,
       mantleSupported: model.availability?.mantle?.supported ?? false,
       mantleRegions: mantleRegions.length,
@@ -97,8 +97,8 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       isActive: (model.lifecycle?.status ?? model.model_lifecycle?.status) === 'ACTIVE' || model.model_status === 'ACTIVE',
       hasLongContext: hasLongCtx,
       batchSupported: isMantleOnly ? false : (model.availability?.batch?.supported ?? model.batch_inference_supported?.supported ?? false),
-      batchRegions: (model.availability?.batch?.supported_regions ?? model.batch_inference_supported?.supported_regions ?? []).length,
-      batchCoverage: model.availability?.batch?.coverage_percentage ?? model.batch_inference_supported?.coverage_percentage,
+      batchRegions: (model.availability?.batch?.regions ?? model.availability?.batch?.supported_regions ?? model.batch_inference_supported?.supported_regions ?? []).length,
+      batchCoverage: null, // Removed - coverage_percentage field no longer exists
       // Total regions: on-demand + CRIS + Mantle
       totalRegions: new Set([
         ...(model.availability?.on_demand?.regions ?? model.in_region ?? []),
