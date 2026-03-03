@@ -502,7 +502,7 @@
         "lng": -3.7038,
         "name": "Spain",
         "geo": "EU",
-        "iata": "MAD"
+        "iata": "THC"
       },
       "ap-south-1": {
         "lat": 19.076,
@@ -656,7 +656,7 @@
         "lng": -99.1332,
         "name": "Mexico City",
         "geo": "SA",
-        "iata": "MEX"
+        "iata": "QRO"
       }
     },
     "aws_regions": [
