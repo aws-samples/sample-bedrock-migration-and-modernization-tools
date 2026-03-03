@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route, BarChart3, Wrench, AlertTriangle, AlertCircle } from 'lucide-react'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import {
@@ -3396,7 +3396,27 @@ export function ModelCardExpanded({
   const legacyByRegion = legacyPricing.by_region || {}
   let pricingRegions = []
   let pricingTypes = 0
-  const consumptionOptions = model.consumption_options || []
+  // Compute consumption options dynamically to ensure alignment with actual capabilities
+  const consumptionOptions = useMemo(() => {
+    const opts = [...(model.consumption_options || [])]
+    // Ensure provisioned_throughput is shown if model supports it
+    if (model.provisioned_throughput?.supported && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
+      opts.push('provisioned_throughput')
+    }
+    // Ensure mantle is shown if model supports it
+    if ((model.mantle_inference?.supported || model.is_mantle) && !opts.includes('mantle')) {
+      opts.push('mantle')
+    }
+    // Ensure cross_region_inference is shown if model supports it
+    if (model.cross_region_inference?.supported && !opts.includes('cross_region_inference')) {
+      opts.push('cross_region_inference')
+    }
+    // Ensure batch is shown if model supports it
+    if (model.batch_inference_supported?.supported && !opts.includes('batch')) {
+      opts.push('batch')
+    }
+    return opts
+  }, [model])
 
   if (fullPricing?.regions) {
     pricingRegions = Object.keys(fullPricing.regions)
@@ -3440,6 +3460,16 @@ export function ModelCardExpanded({
                       : 'bg-violet-500/15 text-violet-400 border border-violet-500/30'
                   )}>
                     Mantle Only
+                  </span>
+                )}
+                {!model.mantle_only && (model.mantle_inference?.supported || model.is_mantle) && (
+                  <span className={cn(
+                    'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
+                    isLight
+                      ? 'bg-violet-100 text-violet-700 border border-violet-200'
+                      : 'bg-violet-500/15 text-violet-400 border border-violet-500/30'
+                  )}>
+                    Mantle
                   </span>
                 )}
               </div>

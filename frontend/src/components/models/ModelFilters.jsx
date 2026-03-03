@@ -275,6 +275,13 @@ const streamingToggleOptions = [
   { value: 'Streaming Not Supported', label: 'No' },
 ]
 
+const mantleToggleOptions = [
+  { value: 'All Models', label: 'All' },
+  { value: 'Mantle Supported', label: 'Yes' },
+  { value: 'Mantle Only', label: 'Only' },
+  { value: 'No Mantle', label: 'No' },
+]
+
 export function ModelFilters({
   filters,
   onFiltersChange,
@@ -370,6 +377,17 @@ export function ModelFilters({
         key: 'streaming',
         label: `Streaming: ${filters.streamingSupport === 'Streaming Supported' ? 'Yes' : 'No'}`,
         onRemove: () => updateFilter('streamingSupport', 'All Models')
+      })
+    }
+
+    if (filters.mantleSupport !== 'All Models') {
+      const mantleLabel = filters.mantleSupport === 'Mantle Supported' ? 'Yes' 
+        : filters.mantleSupport === 'Mantle Only' ? 'Only' 
+        : 'No'
+      chips.push({
+        key: 'mantle',
+        label: `Mantle: ${mantleLabel}`,
+        onRemove: () => updateFilter('mantleSupport', 'All Models')
       })
     }
 
@@ -626,6 +644,14 @@ export function ModelFilters({
               options={streamingToggleOptions}
               value={filters.streamingSupport}
               onChange={(v) => updateFilter('streamingSupport', v)}
+              isLight={isLight}
+            />
+
+            <ToggleGroup
+              label="Mantle"
+              options={mantleToggleOptions}
+              value={filters.mantleSupport}
+              onChange={(v) => updateFilter('mantleSupport', v)}
               isLight={isLight}
             />
           </div>

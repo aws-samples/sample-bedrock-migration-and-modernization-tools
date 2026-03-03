@@ -363,6 +363,16 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 Mantle Only
               </span>
             )}
+            {!model.mantle_only && (model.mantle_inference?.supported || model.is_mantle) && (
+              <span className={cn(
+                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
+                isLight
+                  ? 'bg-violet-100 text-violet-700 border border-violet-200'
+                  : 'bg-violet-500/15 text-violet-400 border border-violet-500/30'
+              )}>
+                Mantle
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

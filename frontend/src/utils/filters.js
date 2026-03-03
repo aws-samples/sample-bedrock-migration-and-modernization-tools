@@ -188,6 +188,16 @@ export const streamingSupportOptions = [
 ]
 
 /**
+ * Mantle support options
+ */
+export const mantleSupportOptions = [
+  { value: 'All Models', label: 'All Models' },
+  { value: 'Mantle Supported', label: 'Mantle Supported' },
+  { value: 'Mantle Only', label: 'Mantle Only' },
+  { value: 'No Mantle', label: 'No Mantle' },
+]
+
+/**
  * Context window filter options
  */
 export const contextFilterOptions = [
@@ -306,6 +316,7 @@ export const initialFilterState = {
   modelStatus: 'All Status',
   crisSupport: 'All Models',
   streamingSupport: 'All Models',
+  mantleSupport: 'All Models',
   consumptionOptions: [],
   useCases: [],
   modality: 'All Modalities',
@@ -460,6 +471,25 @@ export function applyFilters(models, filters) {
     filtered = filtered.filter(m => m.streaming_supported === supported)
   }
 
+  // Mantle support filter
+  if (filters.mantleSupport && filters.mantleSupport !== 'All Models') {
+    filtered = filtered.filter(m => {
+      const mantleSupported = m.mantle_inference?.supported || m.is_mantle
+      const mantleOnly = m.mantle_only
+      
+      switch (filters.mantleSupport) {
+        case 'Mantle Supported':
+          return mantleSupported
+        case 'Mantle Only':
+          return mantleOnly
+        case 'No Mantle':
+          return !mantleSupported
+        default:
+          return true
+      }
+    })
+  }
+
   // Context window filter
   if (filters.contextFilter && filters.contextFilter !== 'All Models') {
     filtered = filtered.filter(m => {
@@ -555,6 +585,7 @@ export function countActiveFilters(filters) {
   if (filters.modelStatus && filters.modelStatus !== 'All Status') count++
   if (filters.crisSupport && filters.crisSupport !== 'All Models') count++
   if (filters.streamingSupport && filters.streamingSupport !== 'All Models') count++
+  if (filters.mantleSupport && filters.mantleSupport !== 'All Models') count++
   if (filters.consumptionOptions?.length > 0) count++
   if (filters.contextFilter && filters.contextFilter !== 'All Models') count++
   if (filters.modality && filters.modality !== 'All Modalities') count++
