@@ -1181,6 +1181,93 @@ def build_endpoint_availability(
 
 
 # =============================================================================
+# Phase 1 JSON Restructure - New consolidated field builders
+# =============================================================================
+
+
+def build_availability(model: dict) -> dict:
+    """
+    Build consolidated availability object from scattered region fields.
+
+    Consolidates:
+    - in_region → on_demand.regions
+    - cross_region_inference → cross_region
+    - batch_inference_supported → batch
+    - provisioned_throughput → provisioned
+    - mantle_inference → mantle
+
+    This is Phase 1 (dual-output) - new fields added while keeping old fields
+    for backward compatibility.
+    """
+    # On-demand availability
+    on_demand_regions = model.get("in_region", [])
+
+    # Cross-region inference
+    cris = model.get("cross_region_inference", {})
+    cross_region = {
+        "supported": cris.get("supported", False),
+        "regions": cris.get("source_regions", []),
+        "profiles": cris.get("profiles", []),
+    }
+
+    # Batch inference
+    batch_data = model.get("batch_inference_supported", {})
+    batch = {
+        "supported": batch_data.get("supported", False),
+        "regions": batch_data.get("supported_regions", []),
+    }
+
+    # Provisioned throughput
+    pt_data = model.get("provisioned_throughput", {})
+    provisioned = {
+        "supported": pt_data.get("supported", False),
+        "regions": pt_data.get("provisioned_regions", []),
+    }
+
+    # Mantle inference
+    mantle_data = model.get("mantle_inference", {})
+    mantle = {
+        "supported": mantle_data.get("supported", False),
+        "regions": mantle_data.get("mantle_regions", []),
+        "only": model.get("mantle_only", False),
+        "responses_api": mantle_data.get("supports_responses_api", False),
+    }
+
+    return {
+        "on_demand": {
+            "supported": len(on_demand_regions) > 0,
+            "regions": on_demand_regions,
+        },
+        "cross_region": cross_region,
+        "batch": batch,
+        "provisioned": provisioned,
+        "mantle": mantle,
+    }
+
+
+def build_specs(model: dict) -> dict:
+    """Build simplified specs object from converse_data."""
+    converse = model.get("converse_data", {})
+    return {
+        "context_window": converse.get("context_window"),
+        "max_output": converse.get("max_output_tokens"),
+        "extended_context": converse.get("extended_context"),
+        "size_category": converse.get("size_category"),
+        "source": converse.get("source"),
+        "verified": converse.get("verified", False),
+    }
+
+
+def build_pricing_alias(model: dict) -> dict:
+    """Build simplified pricing object."""
+    pricing_data = model.get("model_pricing", {})
+    return {
+        "available": pricing_data.get("is_pricing_available", False),
+        "reference": pricing_data.get("pricing_file_reference"),
+    }
+
+
+# =============================================================================
 # Sub-functions for transform_model_to_schema() decomposition
 # =============================================================================
 
@@ -1756,7 +1843,8 @@ def transform_model_to_schema(
         api_support,
     )
 
-    return {
+    # Build the base result with all existing fields (backward compatibility)
+    result = {
         "model_id": model_id,
         "model_arn": model.get("model_arn", ""),
         "model_name": model.get("model_name", ""),
@@ -1792,6 +1880,31 @@ def transform_model_to_schema(
         "api_support": api_support,
         "endpoint_availability": endpoint_availability,
     }
+
+    # =========================================================================
+    # Phase 1 JSON Restructure - NEW consolidated fields (dual-output mode)
+    # These are aliases/consolidations of existing data. Old fields are kept
+    # for backward compatibility.
+    # =========================================================================
+
+    # NEW: Consolidated availability object
+    result["availability"] = build_availability(result)
+
+    # NEW: Simplified field aliases
+    result["modalities"] = model_modalities
+    result["capabilities"] = capabilities
+    result["use_cases"] = console_use_cases
+    result["lifecycle"] = model_lifecycle
+    result["streaming"] = model.get("streaming_supported", False)
+    result["languages"] = console_languages
+    result["docs"] = documentation_links
+    result["features"] = feature_support
+    result["specs"] = build_specs(result)
+    result["pricing"] = build_pricing_alias(result)
+    result["quotas"] = model_quotas
+    result["api"] = api_support
+
+    return result
 
 
 def find_matching_availability(
