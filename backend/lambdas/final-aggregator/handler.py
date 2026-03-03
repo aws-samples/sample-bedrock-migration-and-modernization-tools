@@ -1704,6 +1704,22 @@ def transform_model_to_schema(
         if "provisioned_throughput" in consumption_options:
             consumption_options.remove("provisioned_throughput")
 
+    # Reconcile consumption_options with actual cross-region inference data
+    if cross_region.get("supported"):
+        if "cross_region_inference" not in consumption_options:
+            consumption_options.append("cross_region_inference")
+    else:
+        if "cross_region_inference" in consumption_options:
+            consumption_options.remove("cross_region_inference")
+
+    # Reconcile consumption_options with actual batch inference data
+    if batch_inference.get("supported"):
+        if "batch" not in consumption_options:
+            consumption_options.append("batch")
+    else:
+        if "batch" in consumption_options:
+            consumption_options.remove("batch")
+
     # Get feature support and chat features from console metadata
     feature_support = console_meta.get("feature_support", {}) if console_meta else {}
     chat_features = console_meta.get("chat_features", {}) if console_meta else {}
