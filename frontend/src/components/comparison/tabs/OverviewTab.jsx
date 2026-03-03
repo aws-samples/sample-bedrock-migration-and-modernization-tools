@@ -301,7 +301,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
   const modelData = selectedModels.map(({ model, region }) => {
     const pricing = getPricingForModel?.(model, region)
     const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window ?? 0
-    const maxOutput = model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens ?? 0
+    const maxOutput = model.specs?.max_output ?? model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens ?? 0
     const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
     const outputModalities = model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? []
     const regions = getAllModelRegions(model)

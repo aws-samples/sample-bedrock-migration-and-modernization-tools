@@ -2007,7 +2007,7 @@ function SpecsTab({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window
-  const maxOutput = model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
+  const maxOutput = model.specs?.max_output ?? model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
   const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
   const outputModalities = model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? []
   const capabilities = model.capabilities ?? model.model_capabilities ?? []
@@ -3361,8 +3361,8 @@ export function ModelCardExpanded({
 
   const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window
   const extendedContext = model.specs?.extended_context ?? model.converse_data?.extended_context
-  const hasExtendedContext = model.specs?.has_extended_context ?? model.converse_data?.has_extended_context
-  const maxOutput = model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
+  const hasExtendedContext = model.specs?.extended_context != null || model.converse_data?.has_extended_context
+  const maxOutput = model.specs?.max_output ?? model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
   const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
   const capabilities = model.capabilities ?? model.model_capabilities ?? []
   const streamingSupported = model.streaming ?? model.streaming_supported

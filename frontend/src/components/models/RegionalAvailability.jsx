@@ -148,7 +148,7 @@ function getAvailabilityColors(onDemand, cris, mantle, isLight) {
  * Returns { status, legacyDate, eolDate, recommendedReplacement } or null if no lifecycle data.
  */
 function getRegionLifecycleStatus(model, regionCode) {
-  const lifecycle = model.model_lifecycle
+  const lifecycle = model.lifecycle ?? model.model_lifecycle
   if (!lifecycle) return null
   
   // Check for regional status first
@@ -681,7 +681,7 @@ export function RegionalAvailability() {
   const hasLifecycleWarnings = useMemo(() => {
     for (const [, providerModels] of groupedModels) {
       for (const model of providerModels) {
-        const lifecycle = model.model_lifecycle
+        const lifecycle = model.lifecycle ?? model.model_lifecycle
         if (!lifecycle) continue
         
         // Check global status

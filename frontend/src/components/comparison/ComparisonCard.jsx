@@ -30,7 +30,7 @@ export function ComparisonCard({ model, onRemove }) {
 
   // New field paths with fallbacks to old field names
   const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window
-  const maxOutput = model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
+  const maxOutput = model.specs?.max_output ?? model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
   const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
   const outputModalities = model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? []
   const isActive = (model.lifecycle?.status ?? model.model_lifecycle?.status) === 'ACTIVE' || model.model_status === 'ACTIVE'

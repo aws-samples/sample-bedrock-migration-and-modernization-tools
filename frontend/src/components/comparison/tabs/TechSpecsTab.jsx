@@ -82,7 +82,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       contextWindow: baseContext,
       effectiveContext,
       hasExtendedContext: extendedContext != null && extendedContext > (baseContext || 0),
-      maxOutput: model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens,
+      maxOutput: model.specs?.max_output ?? model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens,
       inputModalities: model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? [],
       outputModalities: model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? [],
       streamingSupported: model.streaming ?? model.streaming_supported ?? false,

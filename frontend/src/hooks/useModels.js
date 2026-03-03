@@ -139,8 +139,8 @@ function extractLifecycleStatuses(models) {
 function getModelPricing(model, pricingData) {
   if (!pricingData?.providers) return null
 
-  // First try using pricing_file_reference (preferred method)
-  const pricingRef = model.pricing?.pricing_file_reference
+  // First try using reference (new) or pricing_file_reference (legacy)
+  const pricingRef = model.pricing?.reference ?? model.pricing?.pricing_file_reference
   if (pricingRef?.provider && pricingRef?.model_key) {
     const providerData = pricingData.providers[pricingRef.provider]
     if (providerData?.[pricingRef.model_key]) {
