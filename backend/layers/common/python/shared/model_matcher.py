@@ -469,7 +469,7 @@ def has_semantic_conflict(id1: str, id2: str) -> bool:
         >>> has_semantic_conflict("deepseek.v3-v1:0", "deepseek.r1")
         True
         >>> has_semantic_conflict("deepseek.v3-v1:0", "deepseek.v3.1")
-        False
+        True
         >>> has_semantic_conflict("claude-3-sonnet", "claude-3-5-sonnet")
         True
         >>> has_semantic_conflict("claude-3-sonnet", "claude-3-opus")
@@ -520,6 +520,30 @@ def has_semantic_conflict(id1: str, id2: str) -> bool:
     is_embed2 = "embed" in norm2
     if is_embed1 != is_embed2:
         return True
+
+    # Check for API version vs semantic version conflict
+    # Pattern: model.vX-vY:Z (API version) vs model.vX.Y (semantic version)
+    # e.g., deepseek.v3-v1:0 (model v3, API v1) vs deepseek.v3.1 (model v3.1)
+    # These look similar after canonicalization but are different models
+    api_ver_pattern = r"\.v(\d+)-v(\d+)(?::\d+)?$"  # .v3-v1:0 -> model v3, API v1
+    semantic_ver_pattern = r"\.v(\d+)\.(\d+)$"  # .v3.1 -> model v3.1
+
+    api_match1 = re.search(api_ver_pattern, norm1)
+    api_match2 = re.search(api_ver_pattern, norm2)
+    sem_match1 = re.search(semantic_ver_pattern, norm1)
+    sem_match2 = re.search(semantic_ver_pattern, norm2)
+
+    # If one has API version format and other has semantic version format
+    if (api_match1 and sem_match2) or (api_match2 and sem_match1):
+        # Get the semantic version's minor part
+        if sem_match1:
+            sem_minor = sem_match1.group(2)
+        else:
+            sem_minor = sem_match2.group(2)
+        # If semantic version has non-zero minor, it's a different model
+        # e.g., v3-v1 (model v3) vs v3.1 (model v3.1) -> conflict
+        if sem_minor != "0":
+            return True
 
     # Check for DeepSeek-style version conflicts (v3.1 vs v3.2)
     # This catches cases where the model family is the same but minor version differs
@@ -876,7 +900,6 @@ PROVIDER_DISPLAY_NAMES: dict[str, str] = {
     "aws": "Amazon",
     "google": "Google",
     "openai": "OpenAI",
-    
     # AI research labs
     "anthropic": "Anthropic",
     "meta": "Meta",
@@ -884,7 +907,6 @@ PROVIDER_DISPLAY_NAMES: dict[str, str] = {
     "mistral": "Mistral AI",
     "cohere": "Cohere",
     "ai21": "AI21 Labs",
-    
     # Chinese AI companies
     "qwen": "Qwen",
     "alibaba": "Alibaba Cloud",
@@ -893,12 +915,10 @@ PROVIDER_DISPLAY_NAMES: dict[str, str] = {
     "moonshotai": "Moonshot AI",
     "zai": "Z.AI",
     "zhipu": "Zhipu AI",
-    
     # Image/Video AI companies
     "stability": "Stability AI",
     "luma": "Luma AI",
     "twelvelabs": "TwelveLabs",
-    
     # Other providers
     "nvidia": "NVIDIA",
     "writer": "Writer",
@@ -908,16 +928,16 @@ PROVIDER_DISPLAY_NAMES: dict[str, str] = {
 def get_provider_display_name(provider_prefix: str) -> str:
     """
     Get the human-readable display name for a provider prefix.
-    
+
     This function provides a centralized way to resolve provider prefixes
     to their display names, ensuring consistency across the codebase.
-    
+
     Args:
         provider_prefix: The provider prefix from a model ID (e.g., "google", "openai")
-    
+
     Returns:
         Human-readable provider name, or title-cased prefix if not found.
-    
+
     Examples:
         >>> get_provider_display_name("google")
         'Google'
@@ -930,13 +950,13 @@ def get_provider_display_name(provider_prefix: str) -> str:
     """
     if not provider_prefix:
         return "Unknown"
-    
+
     normalized = provider_prefix.lower().strip()
-    
+
     # Check the display names mapping
     if normalized in PROVIDER_DISPLAY_NAMES:
         return PROVIDER_DISPLAY_NAMES[normalized]
-    
+
     # Fallback: title-case the prefix with proper word separation
     # Convert underscores/hyphens to spaces, then title case
     fallback = normalized.replace("_", " ").replace("-", " ").title()
@@ -946,13 +966,13 @@ def get_provider_display_name(provider_prefix: str) -> str:
 def get_provider_from_model_id(model_id: str) -> tuple[str, str]:
     """
     Extract provider prefix and display name from a model ID.
-    
+
     Args:
         model_id: Full model ID (e.g., "google.gemma-3-12b-it")
-    
+
     Returns:
         Tuple of (normalized_prefix, display_name)
-    
+
     Examples:
         >>> get_provider_from_model_id("google.gemma-3-12b-it")
         ('google', 'Google')
@@ -963,13 +983,13 @@ def get_provider_from_model_id(model_id: str) -> tuple[str, str]:
     """
     if not model_id or "." not in model_id:
         return ("unknown", "Unknown")
-    
+
     prefix = model_id.split(".")[0].lower()
-    
+
     # Normalize using PROVIDER_ALIASES (e.g., moonshotai -> moonshot)
     normalized = PROVIDER_ALIASES.get(prefix, prefix)
-    
+
     # Get display name
     display_name = get_provider_display_name(normalized)
-    
+
     return (normalized, display_name)
