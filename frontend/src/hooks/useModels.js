@@ -46,8 +46,8 @@ function extractProviders(models) {
 function extractCapabilities(models) {
   const caps = new Set()
   models.forEach(m => {
-    if (m.model_capabilities) {
-      m.model_capabilities.forEach(cap => caps.add(cap))
+    if (m.capabilities) {
+      m.capabilities.forEach(cap => caps.add(cap))
     }
   })
   return [...caps].sort()
@@ -61,8 +61,8 @@ function extractCapabilities(models) {
 function extractUseCases(models) {
   const useCases = new Set()
   models.forEach(m => {
-    if (m.model_use_cases && Array.isArray(m.model_use_cases)) {
-      m.model_use_cases.forEach(uc => useCases.add(uc))
+    if (m.use_cases && Array.isArray(m.use_cases)) {
+      m.use_cases.forEach(uc => useCases.add(uc))
     }
   })
   return [...useCases].sort()
@@ -91,8 +91,8 @@ function extractCustomizations(models) {
 function extractLanguages(models) {
   const languages = new Set()
   models.forEach(m => {
-    if (m.languages_supported && Array.isArray(m.languages_supported)) {
-      m.languages_supported.forEach(lang => languages.add(lang))
+    if (m.languages && Array.isArray(m.languages)) {
+      m.languages.forEach(lang => languages.add(lang))
     }
   })
   return [...languages].sort()
@@ -121,7 +121,7 @@ function extractConsumptionOptions(models) {
 function extractLifecycleStatuses(models) {
   const statuses = new Set()
   models.forEach(m => {
-    const status = m.model_lifecycle?.status || m.model_status
+    const status = m.lifecycle?.status || m.model_status
     if (status) {
       statuses.add(status)
     }
@@ -140,7 +140,7 @@ function getModelPricing(model, pricingData) {
   if (!pricingData?.providers) return null
 
   // First try using pricing_file_reference (preferred method)
-  const pricingRef = model.model_pricing?.pricing_file_reference
+  const pricingRef = model.pricing?.pricing_file_reference
   if (pricingRef?.provider && pricingRef?.model_key) {
     const providerData = pricingData.providers[pricingRef.provider]
     if (providerData?.[pricingRef.model_key]) {
@@ -520,33 +520,33 @@ export function useModels() {
   const stats = useMemo(() => {
     if (!models.length) return null
 
-    const activeCount = models.filter(m => (m.model_lifecycle?.status || m.model_status) === 'ACTIVE').length
-    const legacyCount = models.filter(m => (m.model_lifecycle?.status || m.model_status) === 'LEGACY').length
+    const activeCount = models.filter(m => (m.lifecycle?.status || m.model_status) === 'ACTIVE').length
+    const legacyCount = models.filter(m => (m.lifecycle?.status || m.model_status) === 'LEGACY').length
 
     // Count unique regions (all region types)
     const regions = new Set()
     models.forEach(m => {
-      if (m.in_region) {
-        m.in_region.forEach(r => regions.add(r))
+      if (m.availability?.on_demand?.regions) {
+        m.availability.on_demand.regions.forEach(r => regions.add(r))
       }
-      if (m.cross_region_inference?.source_regions) {
-        m.cross_region_inference.source_regions.forEach(r => regions.add(r))
+      if (m.availability?.cross_region?.source_regions) {
+        m.availability.cross_region.source_regions.forEach(r => regions.add(r))
       }
-      if (m.batch_inference_supported?.supported_regions) {
-        m.batch_inference_supported.supported_regions.forEach(r => regions.add(r))
+      if (m.availability?.batch?.supported_regions) {
+        m.availability.batch.supported_regions.forEach(r => regions.add(r))
       }
-      if (m.provisioned_throughput?.provisioned_regions) {
-        m.provisioned_throughput.provisioned_regions.forEach(r => regions.add(r))
+      if (m.availability?.provisioned?.provisioned_regions) {
+        m.availability.provisioned.provisioned_regions.forEach(r => regions.add(r))
       }
-      if (m.mantle_inference?.mantle_regions) {
-        m.mantle_inference.mantle_regions.forEach(r => regions.add(r))
+      if (m.availability?.mantle?.mantle_regions) {
+        m.availability.mantle.mantle_regions.forEach(r => regions.add(r))
       }
     })
 
     // Count multimodal models
     const multimodalCount = models.filter(m => {
-      const inputs = m.model_modalities?.input_modalities || []
-      const outputs = m.model_modalities?.output_modalities || []
+      const inputs = m.modalities?.input_modalities || []
+      const outputs = m.modalities?.output_modalities || []
       return inputs.length > 1 || outputs.length > 1 ||
              inputs.some(i => i !== 'TEXT') ||
              outputs.some(o => o !== 'TEXT')

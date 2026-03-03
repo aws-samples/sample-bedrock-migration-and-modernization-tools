@@ -66,7 +66,7 @@ function getContrastColor(hexColor) {
 }
 
 function extractPricing(model, preferredRegion = 'us-east-1') {
-  const pricing = model.model_pricing || model.comprehensive_pricing || {}
+  const pricing = model.pricing || model.model_pricing || model.comprehensive_pricing || {}
 
   let inputPrice = null
   let outputPrice = null
@@ -295,37 +295,40 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   const { toggleModel, isModelSelected } = useComparisonStore()
   const isSelectedForComparison = isModelSelected(model.model_id)
 
-  const contextWindow = model.converse_data?.context_window
-  const extendedContext = model.converse_data?.extended_context
-  const hasExtendedContext = model.converse_data?.has_extended_context
-  const maxOutput = model.converse_data?.max_output_tokens
-  const inputModalities = model.model_modalities?.input_modalities || []
-  const outputModalities = model.model_modalities?.output_modalities || []
-  const capabilities = model.model_capabilities || []
-  const regions = model.in_region || []
-  const lifecycleStatus = model.model_lifecycle?.status || model.model_status || 'ACTIVE'
+  const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window
+  const extendedContext = model.specs?.extended_context ?? model.converse_data?.extended_context
+  const hasExtendedContext = model.specs?.has_extended_context ?? model.converse_data?.has_extended_context
+  const maxOutput = model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
+  const inputModalities = model.modalities?.input_modalities || model.model_modalities?.input_modalities || []
+  const outputModalities = model.modalities?.output_modalities || model.model_modalities?.output_modalities || []
+  const capabilities = model.capabilities || model.model_capabilities || []
+  const regions = model.availability?.on_demand?.regions || model.in_region || []
+  const lifecycleStatus = model.lifecycle?.status || model.model_lifecycle?.status || model.model_status || 'ACTIVE'
 
   // Get pricing from new pricing data source, fallback to old method
   const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
   const pricingSummary = pricingResult?.summary || extractPricing(model, preferredRegion)
   const { inputPrice, outputPrice, pricingType, unitLabel, imagePrice, imagePrices, videoPrice, videoPrices } = pricingSummary
 
-  const crisSupported = model.cross_region_inference?.supported || false
+  const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false
   const crisGeoScopes = getCrisGeoScopes(model)
-  const mantleSupported = model.mantle_inference?.supported || model.is_mantle || false
-  const streamingSupported = model.streaming_supported || false
+  const mantleSupported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle ?? false
+  const streamingSupported = model.streaming ?? model.streaming_supported ?? false
   const consumptionOptions = useMemo(() => {
     const opts = [...(model.consumption_options || [])]
     // Ensure provisioned_throughput is shown if model supports it
-    if (model.provisioned_throughput?.supported && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
+    const provisionedSupported = model.availability?.provisioned?.supported ?? model.provisioned_throughput?.supported
+    if (provisionedSupported && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
       opts.push('provisioned_throughput')
     }
     // Ensure mantle is shown if model supports it
-    if ((model.mantle_inference?.supported || model.is_mantle) && !opts.includes('mantle')) {
+    const mantleInferenceSupported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle
+    if (mantleInferenceSupported && !opts.includes('mantle')) {
       opts.push('mantle')
     }
     // Ensure cross_region_inference is shown if model supports it
-    if (model.cross_region_inference?.supported && !opts.includes('cross_region_inference')) {
+    const crossRegionSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported
+    if (crossRegionSupported && !opts.includes('cross_region_inference')) {
       opts.push('cross_region_inference')
     }
     return opts
@@ -363,7 +366,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 Mantle Only
               </span>
             )}
-            {!model.mantle_only && (model.mantle_inference?.supported || model.is_mantle) && (
+            {!model.mantle_only && (model.availability?.mantle?.supported || model.mantle_inference?.supported || model.is_mantle) && (
               <span className={cn(
                 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
                 isLight
@@ -378,8 +381,8 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
           <div className="flex items-center gap-2">
             <StatusPill 
               status={lifecycleStatus} 
-              globalStatus={model.model_lifecycle?.global_status}
-              statusSummary={model.model_lifecycle?.status_summary}
+              globalStatus={model.lifecycle?.global_status || model.model_lifecycle?.global_status}
+              statusSummary={model.lifecycle?.status_summary || model.model_lifecycle?.status_summary}
               isLight={isLight} 
             />
             <button
@@ -534,9 +537,9 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 isLight={isLight}
               />
               {(() => {
-                const onDemandRegions = model.in_region || []
-                const crisRegions = model.cross_region_inference?.source_regions || []
-                const mantleRegions = model.mantle_inference?.mantle_regions || []
+                const onDemandRegions = model.availability?.on_demand?.regions || model.in_region || []
+                const crisRegions = model.availability?.cross_region?.source_regions || model.cross_region_inference?.source_regions || []
+                const mantleRegions = model.availability?.mantle?.mantle_regions || model.mantle_inference?.mantle_regions || []
                 const allRegions = new Set([...onDemandRegions, ...crisRegions, ...mantleRegions])
                 const totalRegionCount = allRegions.size
                 return (

@@ -95,8 +95,8 @@ export const awsRegions = DEFAULT_AWS_REGIONS
 
 /**
  * Build a dynamic AWS regions list from model data.
- * Extracts all unique regions from models[].in_region and
- * models[].cross_region_inference.source_regions, then returns sorted
+ * Extracts all unique regions from models[].availability.on_demand.regions and
+ * models[].availability.cross_region.source_regions, then returns sorted
  * { value, label, geo } entries.
  *
  * Falls back to DEFAULT_AWS_REGIONS if models is empty.
@@ -106,14 +106,14 @@ export function buildAwsRegionsFromModels(models) {
 
   const regionCodes = new Set()
   models.forEach(m => {
-    if (m.in_region) {
-      m.in_region.forEach(r => regionCodes.add(r))
+    if (m.availability?.on_demand?.regions) {
+      m.availability.on_demand.regions.forEach(r => regionCodes.add(r))
     }
-    if (m.cross_region_inference?.source_regions) {
-      m.cross_region_inference.source_regions.forEach(r => regionCodes.add(r))
+    if (m.availability?.cross_region?.source_regions) {
+      m.availability.cross_region.source_regions.forEach(r => regionCodes.add(r))
     }
-    if (m.mantle_inference?.mantle_regions) {
-      m.mantle_inference.mantle_regions.forEach(r => regionCodes.add(r))
+    if (m.availability?.mantle?.mantle_regions) {
+      m.availability.mantle.mantle_regions.forEach(r => regionCodes.add(r))
     }
   })
 
@@ -170,7 +170,7 @@ export const crisSupportOptions = [
  * Returns exact scopes (uppercased) - JP, AU, APAC are separate
  */
 export function getCrisGeoScopes(model) {
-  const profiles = model?.cross_region_inference?.profiles || []
+  const profiles = model?.availability?.cross_region?.profiles || []
   return [...new Set(profiles.map(p => {
     const profileId = p.profile_id || p.inference_profile_id
     const prefix = profileId?.split('.')[0]
@@ -267,8 +267,8 @@ export function sortModels(models, sortBy, getPricingForModel, preferredRegion) 
   sorted.sort((a, b) => {
     switch (sortBy) {
       case 'newest': {
-        const dateA = a.model_lifecycle?.release_date || 0
-        const dateB = b.model_lifecycle?.release_date || 0
+        const dateA = a.lifecycle?.release_date || 0
+        const dateB = b.lifecycle?.release_date || 0
         return dateB - dateA // Newest first (higher timestamp first)
       }
       case 'name-asc':
@@ -278,13 +278,13 @@ export function sortModels(models, sortBy, getPricingForModel, preferredRegion) 
       case 'provider-asc':
         return (a.model_provider || '').localeCompare(b.model_provider || '')
       case 'context-desc': {
-        const ctxA = a.converse_data?.context_window || 0
-        const ctxB = b.converse_data?.context_window || 0
+        const ctxA = a.specs?.context_window || 0
+        const ctxB = b.specs?.context_window || 0
         return ctxB - ctxA // Largest first
       }
       case 'context-asc': {
-        const ctxA = a.converse_data?.context_window || 0
-        const ctxB = b.converse_data?.context_window || 0
+        const ctxA = a.specs?.context_window || 0
+        const ctxB = b.specs?.context_window || 0
         return ctxA - ctxB // Smallest first
       }
       case 'price-input-asc': {
@@ -345,8 +345,8 @@ export function extractProviders(models) {
 export function extractCapabilities(models) {
   const capabilities = new Set()
   models.forEach(m => {
-    if (m.model_capabilities && Array.isArray(m.model_capabilities)) {
-      m.model_capabilities.forEach(cap => capabilities.add(cap))
+    if (m.capabilities && Array.isArray(m.capabilities)) {
+      m.capabilities.forEach(cap => capabilities.add(cap))
     }
   })
   return Array.from(capabilities).sort()
@@ -358,8 +358,8 @@ export function extractCapabilities(models) {
 export function extractUseCases(models) {
   const useCases = new Set()
   models.forEach(m => {
-    if (m.model_use_cases && Array.isArray(m.model_use_cases)) {
-      m.model_use_cases.forEach(uc => useCases.add(uc))
+    if (m.use_cases && Array.isArray(m.use_cases)) {
+      m.use_cases.forEach(uc => useCases.add(uc))
     }
   })
   return Array.from(useCases).sort()
@@ -371,11 +371,11 @@ export function extractUseCases(models) {
 export function extractModalities(models) {
   const modalities = new Set()
   models.forEach(m => {
-    if (m.model_modalities?.input_modalities) {
-      m.model_modalities.input_modalities.forEach(mod => modalities.add(mod))
+    if (m.modalities?.input_modalities) {
+      m.modalities.input_modalities.forEach(mod => modalities.add(mod))
     }
-    if (m.model_modalities?.output_modalities) {
-      m.model_modalities.output_modalities.forEach(mod => modalities.add(mod))
+    if (m.modalities?.output_modalities) {
+      m.modalities.output_modalities.forEach(mod => modalities.add(mod))
     }
   })
   return Array.from(modalities).sort()
@@ -394,7 +394,7 @@ export function applyFilters(models, filters) {
       m.model_name?.toLowerCase().includes(query) ||
       m.model_id?.toLowerCase().includes(query) ||
       m.model_provider?.toLowerCase().includes(query) ||
-      m.model_capabilities?.some(c => c.toLowerCase().includes(query))
+      m.capabilities?.some(c => c.toLowerCase().includes(query))
     )
   }
 
@@ -416,9 +416,9 @@ export function applyFilters(models, filters) {
         return false
       }
       filtered = filtered.filter(m =>
-        m.in_region?.some(regionMatchesGeo) ||
-        m.cross_region_inference?.source_regions?.some(regionMatchesGeo) ||
-        m.mantle_inference?.mantle_regions?.some(regionMatchesGeo)
+        m.availability?.on_demand?.regions?.some(regionMatchesGeo) ||
+        m.availability?.cross_region?.source_regions?.some(regionMatchesGeo) ||
+        m.availability?.mantle?.mantle_regions?.some(regionMatchesGeo)
       )
     }
   }
@@ -426,9 +426,9 @@ export function applyFilters(models, filters) {
   // Model status filter - handles MIXED status models appearing in applicable filters
   if (filters.modelStatus && filters.modelStatus !== 'All Status') {
     filtered = filtered.filter(m => {
-      const status = m.model_lifecycle?.status || m.model_status
-      const globalStatus = m.model_lifecycle?.global_status
-      const statusSummary = m.model_lifecycle?.status_summary
+      const status = m.lifecycle?.status || m.model_status
+      const globalStatus = m.lifecycle?.global_status
+      const statusSummary = m.lifecycle?.status_summary
       
       // If filtering for MIXED, only include models with global_status === 'MIXED'
       if (filters.modelStatus === 'MIXED') {
@@ -454,11 +454,11 @@ export function applyFilters(models, filters) {
   // CRIS support filter - supports geographic scope filtering
   if (filters.crisSupport && filters.crisSupport !== 'All Models') {
     if (filters.crisSupport === 'CRIS Not Supported') {
-      filtered = filtered.filter(m => !m.cross_region_inference?.supported)
+      filtered = filtered.filter(m => !m.availability?.cross_region?.supported)
     } else {
       // Filter by geographic scope (GLOBAL, US, EU, APAC)
       filtered = filtered.filter(m => {
-        if (!m.cross_region_inference?.supported) return false
+        if (!m.availability?.cross_region?.supported) return false
         const scopes = getCrisGeoScopes(m)
         return scopes.includes(filters.crisSupport)
       })
@@ -468,13 +468,13 @@ export function applyFilters(models, filters) {
   // Streaming support filter
   if (filters.streamingSupport && filters.streamingSupport !== 'All Models') {
     const supported = filters.streamingSupport === 'Streaming Supported'
-    filtered = filtered.filter(m => m.streaming_supported === supported)
+    filtered = filtered.filter(m => m.streaming === supported)
   }
 
   // Mantle support filter
   if (filters.mantleSupport && filters.mantleSupport !== 'All Models') {
     filtered = filtered.filter(m => {
-      const mantleSupported = m.mantle_inference?.supported || m.is_mantle
+      const mantleSupported = m.availability?.mantle?.supported || m.is_mantle
       const mantleOnly = m.mantle_only
       
       switch (filters.mantleSupport) {
@@ -493,7 +493,7 @@ export function applyFilters(models, filters) {
   // Context window filter
   if (filters.contextFilter && filters.contextFilter !== 'All Models') {
     filtered = filtered.filter(m => {
-      const ctx = m.converse_data?.context_window
+      const ctx = m.specs?.context_window
       if (typeof ctx !== 'number') return false
       switch (filters.contextFilter) {
         case 'Small (< 32K)': return ctx < 32000
@@ -508,22 +508,22 @@ export function applyFilters(models, filters) {
   // Modality filter
   if (filters.modality && filters.modality !== 'All Modalities') {
     filtered = filtered.filter(m =>
-      m.model_modalities?.input_modalities?.includes(filters.modality) ||
-      m.model_modalities?.output_modalities?.includes(filters.modality)
+      m.modalities?.input_modalities?.includes(filters.modality) ||
+      m.modalities?.output_modalities?.includes(filters.modality)
     )
   }
 
   // Capabilities filter
   if (filters.capabilities && filters.capabilities.length > 0) {
     filtered = filtered.filter(m =>
-      filters.capabilities.some(cap => m.model_capabilities?.includes(cap))
+      filters.capabilities.some(cap => m.capabilities?.includes(cap))
     )
   }
 
   // Use cases filter
   if (filters.useCases && filters.useCases.length > 0) {
     filtered = filtered.filter(m =>
-      filters.useCases.some(uc => m.model_use_cases?.includes(uc))
+      filters.useCases.some(uc => m.use_cases?.includes(uc))
     )
   }
 
@@ -537,7 +537,7 @@ export function applyFilters(models, filters) {
   // Languages filter
   if (filters.languages && filters.languages.length > 0) {
     filtered = filtered.filter(m =>
-      filters.languages.some(lang => m.languages_supported?.includes(lang))
+      filters.languages.some(lang => m.languages?.includes(lang))
     )
   }
 
@@ -552,9 +552,9 @@ export function applyFilters(models, filters) {
   // Checks in-region, CRIS source regions, and Mantle regions
   if (filters.primaryRegion && filters.primaryRegion !== 'all') {
     const modelAvailableInRegion = (m, region) =>
-      m.in_region?.includes(region) ||
-      m.cross_region_inference?.source_regions?.includes(region) ||
-      m.mantle_inference?.mantle_regions?.includes(region)
+      m.availability?.on_demand?.regions?.includes(region) ||
+      m.availability?.cross_region?.source_regions?.includes(region) ||
+      m.availability?.mantle?.mantle_regions?.includes(region)
 
     if (isGeoSelection(filters.primaryRegion)) {
       // GEO selection - filter models available in ANY region within that geo

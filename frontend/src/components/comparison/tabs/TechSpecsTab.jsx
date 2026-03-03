@@ -40,7 +40,7 @@ function detectLongContext(pricing, region) {
 
 // Extract extended context window from quota names (e.g., "1M Context Length")
 function getExtendedContextWindow(model) {
-  const quotas = model.model_service_quotas || {}
+  const quotas = model.quotas ?? model.model_service_quotas ?? {}
   let maxContext = 0
   const pattern = /(\d+)(K|M)\s*Context\s*Length/i
   for (const regionQuotas of Object.values(quotas)) {
@@ -70,39 +70,39 @@ const inferenceTypeLabels = {
 export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
   const specsData = selectedModels.map(({ model, region }) => {
     const pricing = getPricingForModel?.(model, region)
-    const baseContext = model.converse_data?.context_window
+    const baseContext = model.specs?.context_window ?? model.converse_data?.context_window
     const extendedContext = getExtendedContextWindow(model)
     const effectiveContext = Math.max(baseContext || 0, extendedContext || 0)
     const hasLongCtx = detectLongContext(pricing, region) || (extendedContext != null && extendedContext > (baseContext || 0))
     const isMantleOnly = model.mantle_only
-    const mantleRegions = model.mantle_inference?.mantle_regions || []
+    const mantleRegions = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
     return {
       model,
       region,
       contextWindow: baseContext,
       effectiveContext,
       hasExtendedContext: extendedContext != null && extendedContext > (baseContext || 0),
-      maxOutput: model.converse_data?.max_output_tokens,
-      inputModalities: model.model_modalities?.input_modalities || [],
-      outputModalities: model.model_modalities?.output_modalities || [],
-      streamingSupported: model.streaming_supported || false,
-      crisSupported: isMantleOnly ? false : (model.cross_region_inference?.supported || false),
-      crisProfilesCount: model.cross_region_inference?.profiles_count || 0,
-      crisSourceRegions: (model.cross_region_inference?.source_regions || []).length,
-      mantleSupported: model.mantle_inference?.supported || model.is_mantle || false,
+      maxOutput: model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens,
+      inputModalities: model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? [],
+      outputModalities: model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? [],
+      streamingSupported: model.streaming ?? model.streaming_supported ?? false,
+      crisSupported: isMantleOnly ? false : (model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false),
+      crisProfilesCount: model.availability?.cross_region?.profiles_count ?? model.cross_region_inference?.profiles_count ?? 0,
+      crisSourceRegions: (model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []).length,
+      mantleSupported: model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle ?? false,
       mantleRegions: mantleRegions.length,
       consumptionOptions: model.consumption_options || [],
-      languages: model.languages_supported || [],
+      languages: model.languages ?? model.languages_supported ?? [],
       customizations: model.customization?.customization_supported || [],
-      isActive: model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE',
+      isActive: (model.lifecycle?.status ?? model.model_lifecycle?.status) === 'ACTIVE' || model.model_status === 'ACTIVE',
       hasLongContext: hasLongCtx,
-      batchSupported: isMantleOnly ? false : (model.batch_inference_supported?.supported || false),
-      batchRegions: (model.batch_inference_supported?.supported_regions || []).length,
-      batchCoverage: model.batch_inference_supported?.coverage_percentage,
+      batchSupported: isMantleOnly ? false : (model.availability?.batch?.supported ?? model.batch_inference_supported?.supported ?? false),
+      batchRegions: (model.availability?.batch?.supported_regions ?? model.batch_inference_supported?.supported_regions ?? []).length,
+      batchCoverage: model.availability?.batch?.coverage_percentage ?? model.batch_inference_supported?.coverage_percentage,
       // Total regions: on-demand + CRIS + Mantle
       totalRegions: new Set([
-        ...(model.in_region || []),
-        ...(model.cross_region_inference?.source_regions || []),
+        ...(model.availability?.on_demand?.regions ?? model.in_region ?? []),
+        ...(model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []),
         ...mantleRegions
       ]).size,
       // For Mantle-only models, show "Mantle Only" instead of empty inference types

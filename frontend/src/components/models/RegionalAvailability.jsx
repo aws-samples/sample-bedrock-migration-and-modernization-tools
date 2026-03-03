@@ -111,14 +111,14 @@ const MODEL_COL_WIDTH = 280
  * Compute per-region availability for a model (on-demand + CRIS + Mantle).
  *
  * Data sources:
- * - in_region: actual ON_DEMAND availability from regional-availability Lambda
- * - cross_region_inference.source_regions: CRIS source regions
- * - mantle_inference.mantle_regions: Mantle engine regions
+ * - availability.on_demand.regions: actual ON_DEMAND availability from regional-availability Lambda
+ * - availability.cross_region.source_regions: CRIS source regions
+ * - availability.mantle.mantle_regions: Mantle engine regions
  */
 function getRegionAvailability(model, regionCode) {
-  const inRegionList = model.in_region || []
-  const crisRegions = model.cross_region_inference?.source_regions || []
-  const mantleRegions = model.mantle_inference?.mantle_regions || []
+  const inRegionList = model.availability?.on_demand?.regions ?? model.in_region ?? []
+  const crisRegions = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
+  const mantleRegions = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
 
   // in_region is the source of truth for ON_DEMAND availability (no fallback)
   const onDemand = inRegionList.includes(regionCode)
@@ -191,11 +191,12 @@ const AvailabilityCell = memo(function AvailabilityCell({ model, regionCode, reg
   const hasCrisForSelectedScope = (model, regionCode, selectedScopes) => {
     if (!selectedScopes || selectedScopes.size === 0) {
       // No filter - check if any CRIS profile exists for this region
-      return model.cross_region_inference?.source_regions?.includes(regionCode) || false
+      const sourceRegions = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions
+      return sourceRegions?.includes(regionCode) || false
     }
     
     // Check if any profile matches both the region AND the selected scope
-    const profiles = model.cross_region_inference?.profiles || []
+    const profiles = model.availability?.cross_region?.profiles ?? model.cross_region_inference?.profiles ?? []
     return profiles.some(p => {
       if (p.source_region !== regionCode) return false
       const prefix = p.profile_id?.split('.')[0]?.toLowerCase() || ''
@@ -242,7 +243,7 @@ const AvailabilityCell = memo(function AvailabilityCell({ model, regionCode, reg
   // Build CRIS scopes helper (used in 'all' and 'cris' views)
   // When selectedCrisScopes is provided, only return scopes that match the filter
   const getCrisScopes = () => {
-    const profiles = model.cross_region_inference?.profiles || []
+    const profiles = model.availability?.cross_region?.profiles ?? model.cross_region_inference?.profiles ?? []
     const scopes = new Set()
     profiles.forEach(p => {
       if (p.source_region === regionCode) {
@@ -501,9 +502,9 @@ export function RegionalAvailability() {
     if (!models.length) return REGION_COLUMNS
     const usedRegions = new Set()
     models.forEach(m => {
-      ;(m.in_region || []).forEach(r => usedRegions.add(r))
-      ;(m.cross_region_inference?.source_regions || []).forEach(r => usedRegions.add(r))
-      ;(m.mantle_inference?.mantle_regions || []).forEach(r => usedRegions.add(r))
+      ;(m.availability?.on_demand?.regions ?? m.in_region ?? []).forEach(r => usedRegions.add(r))
+      ;(m.availability?.cross_region?.source_regions ?? m.cross_region_inference?.source_regions ?? []).forEach(r => usedRegions.add(r))
+      ;(m.availability?.mantle?.mantle_regions ?? m.mantle_inference?.mantle_regions ?? []).forEach(r => usedRegions.add(r))
     })
 
     // Known regions that appear in the data (preserves defined order)
@@ -535,8 +536,9 @@ export function RegionalAvailability() {
       // For CRIS view: show source regions, filtered by selected CRIS prefixes
       const crisSourceRegions = new Set()
       models.forEach(m => {
-        if (!m.cross_region_inference?.supported) return
-        const profiles = m.cross_region_inference?.profiles || []
+        const crisSupported = m.availability?.cross_region?.supported ?? m.cross_region_inference?.supported
+        if (!crisSupported) return
+        const profiles = m.availability?.cross_region?.profiles ?? m.cross_region_inference?.profiles ?? []
         profiles.forEach(p => {
           const prefix = p.profile_id?.split('.')[0] || ''
           const scope = normalizeCrisPrefix(prefix)
@@ -572,7 +574,7 @@ export function RegionalAvailability() {
     if (activeView !== 'cris') return []
     const prefixes = new Set()
     models.forEach(m => {
-      (m.cross_region_inference?.profiles || []).forEach(p => {
+      (m.availability?.cross_region?.profiles ?? m.cross_region_inference?.profiles ?? []).forEach(p => {
         const prefix = p.profile_id?.split('.')[0] || ''
         prefixes.add(normalizeCrisPrefix(prefix))
       })
@@ -611,13 +613,15 @@ export function RegionalAvailability() {
       )) return false
       if (activeView === 'in_region') {
         // Use actual in_region availability, not declared inference_types_supported
-        if (!(m.in_region?.length > 0)) return false
+        const inRegionList = m.availability?.on_demand?.regions ?? m.in_region
+        if (!(inRegionList?.length > 0)) return false
       }
       if (activeView === 'cris') {
-        if (!m.cross_region_inference?.supported) return false
+        const crisSupported = m.availability?.cross_region?.supported ?? m.cross_region_inference?.supported
+        if (!crisSupported) return false
         // If a CRIS scope is selected, filter to only models with that scope
         if (selectedGeos.size > 0) {
-          const profiles = m.cross_region_inference?.profiles || []
+          const profiles = m.availability?.cross_region?.profiles ?? m.cross_region_inference?.profiles ?? []
           const modelScopes = new Set(profiles.map(p => {
             const prefix = p.profile_id?.split('.')[0]?.toLowerCase() || ''
             return prefix === 'global' ? 'Global' : prefix.toUpperCase()
@@ -628,7 +632,8 @@ export function RegionalAvailability() {
         }
       }
       if (activeView === 'mantle') {
-        if (!(m.mantle_inference?.supported || m.is_mantle)) return false
+        const mantleSupported = m.availability?.mantle?.supported ?? m.mantle_inference?.supported
+        if (!(mantleSupported || m.is_mantle)) return false
       }
       return true
     })
@@ -1150,9 +1155,9 @@ export function RegionalAvailability() {
                     </tr>
 
                     {!isCollapsed && providerModels.map((model) => {
-                      const regions = model.in_region || []
-                      const crisRegions = model.cross_region_inference?.source_regions || []
-                      const mantleRegions = model.mantle_inference?.mantle_regions || []
+                      const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
+                      const crisRegions = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
+                      const mantleRegions = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
                       const allRegions = new Set([...regions, ...crisRegions, ...mantleRegions])
                       const regionCount = allRegions.size
                       const isHovered = hoveredRow === model.model_id

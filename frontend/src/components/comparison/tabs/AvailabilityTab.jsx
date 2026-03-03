@@ -35,9 +35,9 @@ function friendlyName(label) {
 
 // Helper to get all regions for a model (on-demand + CRIS + Mantle)
 function getAllModelRegions(model) {
-  const onDemand = model.in_region || []
-  const cris = model.cross_region_inference?.source_regions || []
-  const mantle = model.mantle_inference?.mantle_regions || []
+  const onDemand = model.availability?.on_demand?.regions ?? model.in_region ?? []
+  const cris = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
+  const mantle = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
   return [...new Set([...onDemand, ...cris, ...mantle])]
 }
 
@@ -58,7 +58,7 @@ export function AvailabilityTab({ selectedModels, isLight }) {
   const modelCoverage = selectedModels.map(({ model }) => {
     const isMantleOnly = model.mantle_only
     const regions = getAllModelRegions(model)
-    const mantleRegions = model.mantle_inference?.mantle_regions || []
+    const mantleRegions = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
     return {
       model,
       regions,
@@ -341,12 +341,12 @@ export function AvailabilityTab({ selectedModels, isLight }) {
       )}
 
       {/* CRIS Coverage — collapsible, column format */}
-      {selectedModels.some(({ model }) => model.cross_region_inference?.supported) && (
+      {selectedModels.some(({ model }) => model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported) && (
         <CrisSection selectedModels={selectedModels} isLight={isLight} />
       )}
 
       {/* Mantle Inference — collapsible, column format */}
-      {selectedModels.some(({ model }) => model.mantle_inference?.supported || model.is_mantle) && (
+      {selectedModels.some(({ model }) => model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle) && (
         <MantleSection selectedModels={selectedModels} isLight={isLight} />
       )}
 
@@ -598,7 +598,7 @@ function GeoSection({ group, collapsed, onToggle, selectedModels, commonRegions,
 function CrisSection({ selectedModels, isLight }) {
   const [expanded, setExpanded] = useState(true)
 
-  const crisCount = selectedModels.filter(({ model }) => model.cross_region_inference?.supported).length
+  const crisCount = selectedModels.filter(({ model }) => model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported).length
 
   // Build region lookup: code → { name, geo }
   const regionLookup = {}
@@ -612,7 +612,7 @@ function CrisSection({ selectedModels, isLight }) {
   // Collect all CRIS source regions and group by geo
   const allSourceRegions = new Set()
   selectedModels.forEach(({ model }) => {
-    (model.cross_region_inference?.source_regions || []).forEach(r => allSourceRegions.add(r))
+    (model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []).forEach(r => allSourceRegions.add(r))
   })
 
   const geoGrouped = {}
@@ -701,7 +701,7 @@ function CrisSection({ selectedModels, isLight }) {
                   Supported
                 </td>
                 {selectedModels.map(({ model }) => {
-                  const supported = model.cross_region_inference?.supported
+                  const supported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported
                   return (
                     <td key={model.model_id} className="px-3 py-2.5 text-center">
                       {supported ? (
@@ -721,7 +721,7 @@ function CrisSection({ selectedModels, isLight }) {
                 </td>
                 {selectedModels.map(({ model }) => {
                   // Count unique profile IDs (same logic as ModelCardExpanded)
-                  const profiles = model.cross_region_inference?.profiles || []
+                  const profiles = model.availability?.cross_region?.profiles ?? model.cross_region_inference?.profiles ?? []
                   const uniqueEndpoints = new Set(
                     profiles
                       .map(p => p.profile_id || p.inference_profile_id)
@@ -744,7 +744,7 @@ function CrisSection({ selectedModels, isLight }) {
                   Source Regions
                 </td>
                 {selectedModels.map(({ model }) => {
-                  const count = (model.cross_region_inference?.source_regions || []).length
+                  const count = (model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []).length
                   return (
                     <td key={model.model_id} className={cn(
                       'px-3 py-2.5 text-center text-sm font-medium',
@@ -771,8 +771,8 @@ function CrisSection({ selectedModels, isLight }) {
                       </div>
                     </td>
                     {selectedModels.map(({ model }) => {
-                      const modelRegions = model.cross_region_inference?.source_regions || []
-                      const supported = model.cross_region_inference?.supported
+                      const modelRegions = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
+                      const supported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported
                       const matchingRegions = regions.filter(r => modelRegions.includes(r))
 
                       return (
@@ -823,7 +823,7 @@ function CrisSection({ selectedModels, isLight }) {
 function MantleSection({ selectedModels, isLight }) {
   const [expanded, setExpanded] = useState(true)
 
-  const mantleCount = selectedModels.filter(({ model }) => model.mantle_inference?.supported || model.is_mantle).length
+  const mantleCount = selectedModels.filter(({ model }) => model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle).length
 
   // Build region lookup: code → { name, geo }
   const regionLookup = {}
@@ -837,7 +837,7 @@ function MantleSection({ selectedModels, isLight }) {
   // Collect all Mantle regions and group by geo
   const allMantleRegions = new Set()
   selectedModels.forEach(({ model }) => {
-    (model.mantle_inference?.mantle_regions || []).forEach(r => allMantleRegions.add(r))
+    (model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []).forEach(r => allMantleRegions.add(r))
   })
 
   const geoGrouped = {}
@@ -926,7 +926,7 @@ function MantleSection({ selectedModels, isLight }) {
                   Supported
                 </td>
                 {selectedModels.map(({ model }) => {
-                  const supported = model.mantle_inference?.supported || model.is_mantle || false
+                  const supported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle ?? false
                   return (
                     <td key={model.model_id} className="px-3 py-2.5 text-center">
                       {supported ? (
@@ -945,7 +945,7 @@ function MantleSection({ selectedModels, isLight }) {
                   Regions
                 </td>
                 {selectedModels.map(({ model }) => {
-                  const count = (model.mantle_inference?.mantle_regions || []).length
+                  const count = (model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []).length
                   return (
                     <td key={model.model_id} className={cn(
                       'px-3 py-2.5 text-center text-sm font-medium',
@@ -972,8 +972,8 @@ function MantleSection({ selectedModels, isLight }) {
                       </div>
                     </td>
                     {selectedModels.map(({ model }) => {
-                      const modelRegions = model.mantle_inference?.mantle_regions || []
-                      const supported = model.mantle_inference?.supported || model.is_mantle || false
+                      const modelRegions = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
+                      const supported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle ?? false
                       const matchingRegions = regions.filter(r => modelRegions.includes(r))
 
                       return (

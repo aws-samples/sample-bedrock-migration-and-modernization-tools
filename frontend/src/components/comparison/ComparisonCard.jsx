@@ -28,14 +28,15 @@ export function ComparisonCard({ model, onRemove }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
-  const contextWindow = model.converse_data?.context_window
-  const maxOutput = model.converse_data?.max_output_tokens
-  const inputModalities = model.model_modalities?.input_modalities || []
-  const outputModalities = model.model_modalities?.output_modalities || []
-  const isActive = model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE'
-  const streamingSupported = model.streaming_supported || false
-  const crisSupported = model.cross_region_inference?.supported || false
-  const mantleSupported = model.mantle_inference?.supported || model.is_mantle || false
+  // New field paths with fallbacks to old field names
+  const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window
+  const maxOutput = model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
+  const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
+  const outputModalities = model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? []
+  const isActive = (model.lifecycle?.status ?? model.model_lifecycle?.status) === 'ACTIVE' || model.model_status === 'ACTIVE'
+  const streamingSupported = model.streaming ?? model.streaming_supported ?? false
+  const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false
+  const mantleSupported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle ?? false
 
   return (
     <Card className={cn(

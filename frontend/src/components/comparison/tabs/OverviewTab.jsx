@@ -52,7 +52,7 @@ function detectLongContext(pricing, region) {
 
 // Extract extended context window from quota names (e.g., "1M Context Length", "200K Context Length")
 function getExtendedContextWindow(model) {
-  const quotas = model.model_service_quotas || {}
+  const quotas = model.quotas ?? model.model_service_quotas ?? {}
   let maxContext = 0
   const pattern = /(\d+)(K|M)\s*Context\s*Length/i
   for (const regionQuotas of Object.values(quotas)) {
@@ -288,9 +288,9 @@ function RadarTooltip({ active, payload, label, isLight }) {
 
 // Helper to get all regions for a model (on-demand + CRIS + Mantle)
 function getAllModelRegions(model) {
-  const onDemand = model.in_region || []
-  const cris = model.cross_region_inference?.source_regions || []
-  const mantle = model.mantle_inference?.mantle_regions || []
+  const onDemand = model.availability?.on_demand?.regions ?? model.in_region ?? []
+  const cris = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
+  const mantle = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
   return [...new Set([...onDemand, ...cris, ...mantle])]
 }
 
@@ -300,21 +300,21 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
 
   const modelData = selectedModels.map(({ model, region }) => {
     const pricing = getPricingForModel?.(model, region)
-    const contextWindow = model.converse_data?.context_window || 0
-    const maxOutput = model.converse_data?.max_output_tokens || 0
-    const inputModalities = model.model_modalities?.input_modalities || []
-    const outputModalities = model.model_modalities?.output_modalities || []
+    const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window ?? 0
+    const maxOutput = model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens ?? 0
+    const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
+    const outputModalities = model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? []
     const regions = getAllModelRegions(model)
-    const isActive = model.model_lifecycle?.status === 'ACTIVE' || model.model_status === 'ACTIVE'
-    const streamingSupported = model.streaming_supported || false
-    const crisSupported = model.cross_region_inference?.supported || false
+    const isActive = (model.lifecycle?.status ?? model.model_lifecycle?.status) === 'ACTIVE' || model.model_status === 'ACTIVE'
+    const streamingSupported = model.streaming ?? model.streaming_supported ?? false
+    const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false
     const batchSupported = (model.consumption_options || []).includes('batch')
-    const mantleSupported = model.mantle_inference?.supported || model.is_mantle || false
+    const mantleSupported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported ?? model.is_mantle ?? false
     const hasLongContext = detectLongContext(pricing, region)
     const extendedContext = getExtendedContextWindow(model)
     const effectiveContextWindow = Math.max(contextWindow, extendedContext || 0)
-    const useCasesCount = (model.model_use_cases || []).length
-    const capabilitiesCount = (model.model_capabilities || []).length
+    const useCasesCount = (model.use_cases ?? model.model_use_cases ?? []).length
+    const capabilitiesCount = (model.capabilities ?? model.model_capabilities ?? []).length
 
     return {
       model,
@@ -348,7 +348,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
     
     allModels.forEach(m => {
       // Context window
-      const ctx = m.converse_data?.context_window || 0
+      const ctx = m.specs?.context_window ?? m.converse_data?.context_window ?? 0
       const extCtx = getExtendedContextWindow(m)
       const effectiveCtx = Math.max(ctx, extCtx || 0)
       if (effectiveCtx > maxContext) maxContext = effectiveCtx
@@ -359,10 +359,10 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
       
       // Features count
       let features = 0
-      if (m.streaming_supported) features++
+      if (m.streaming ?? m.streaming_supported) features++
       if ((m.consumption_options || []).includes('batch')) features++
-      if (m.cross_region_inference?.supported) features++
-      if (m.mantle_inference?.supported || m.is_mantle) features++
+      if (m.availability?.cross_region?.supported ?? m.cross_region_inference?.supported) features++
+      if (m.availability?.mantle?.supported ?? m.mantle_inference?.supported ?? m.is_mantle) features++
       if (features > maxFeatures) maxFeatures = features
     })
     

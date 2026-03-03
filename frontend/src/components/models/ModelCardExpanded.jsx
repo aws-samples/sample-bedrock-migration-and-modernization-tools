@@ -326,7 +326,7 @@ function RegionalAvailabilityGrouped({ regions }) {
 function OnDemandAvailabilitySection({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
-  const regions = model.in_region || []
+  const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
   const grouped = groupRegionsByGeo(regions)
   const geoCount = Object.keys(grouped).length
   const modelId = model.model_id
@@ -1121,10 +1121,10 @@ function AvailabilitySummary({ model }) {
   const isLight = theme === 'light'
 
   const isMantleOnly = model.mantle_only
-  const regions = model.in_region || []
-  const crisData = model.cross_region_inference || {}
-  const batchData = model.batch_inference_supported || {}
-  const mantleData = model.mantle_inference || {}
+  const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
+  const crisData = model.availability?.cross_region ?? model.cross_region_inference ?? {}
+  const batchData = model.availability?.batch ?? model.batch_inference_supported ?? {}
+  const mantleData = model.availability?.mantle ?? model.mantle_inference ?? {}
 
   const toggleType = (label) => {
     setExpandedTypes(prev => ({ ...prev, [label]: !prev[label] }))
@@ -1133,8 +1133,8 @@ function AvailabilitySummary({ model }) {
   const types = [
     {
       label: 'In Region',
-      supported: isMantleOnly ? false : ((model.in_region?.length > 0) || (regions.length > 0 && (model.inference_types_supported || []).includes('ON_DEMAND'))),
-      count: isMantleOnly ? 0 : (model.in_region?.length ?? model.total_in_region ?? regions.length),
+      supported: isMantleOnly ? false : (((model.availability?.on_demand?.regions ?? model.in_region)?.length > 0) || (regions.length > 0 && (model.inference_types_supported || []).includes('ON_DEMAND'))),
+      count: isMantleOnly ? 0 : ((model.availability?.on_demand?.regions ?? model.in_region)?.length ?? model.total_in_region ?? regions.length),
       detail: () => <OnDemandAvailabilitySection model={model} />,
     },
     {
@@ -1623,7 +1623,7 @@ function BedrockFeaturesSection({ featureSupport }) {
 function LifecycleDetailsSection({ model, isLight }) {
   const [regionalDetailsExpanded, setRegionalDetailsExpanded] = useState(false)
   
-  const lifecycle = model.model_lifecycle || {}
+  const lifecycle = model.lifecycle ?? model.model_lifecycle ?? {}
   const status = lifecycle.status || model.model_status || 'ACTIVE'
   const globalStatus = lifecycle.global_status
   const primaryStatus = lifecycle.primary_status
@@ -2006,12 +2006,12 @@ function LifecycleDetailsSection({ model, isLight }) {
 function SpecsTab({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
-  const contextWindow = model.converse_data?.context_window
-  const maxOutput = model.converse_data?.max_output_tokens
-  const inputModalities = model.model_modalities?.input_modalities || []
-  const outputModalities = model.model_modalities?.output_modalities || []
-  const capabilities = model.model_capabilities || []
-  const useCasesRaw = model.model_use_cases || []
+  const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window
+  const maxOutput = model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
+  const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
+  const outputModalities = model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? []
+  const capabilities = model.capabilities ?? model.model_capabilities ?? []
+  const useCasesRaw = model.use_cases ?? model.model_use_cases ?? []
   const useCases = [...new Set(
     useCasesRaw
       .flatMap(uc => uc.includes(',') ? uc.split(',') : [uc])
@@ -2020,16 +2020,16 @@ function SpecsTab({ model }) {
       .filter(s => s.length > 0 && s.length < 120)
       .map(s => s.charAt(0).toUpperCase() + s.slice(1))
   )]
-  const languages = model.languages_supported || []
-  const documentationLinks = model.documentation_links || {}
-  const regions = model.in_region || []
-  const streamingSupported = model.streaming_supported
-  const crisData = model.cross_region_inference || {}
-  const batchData = model.batch_inference_supported || {}
-  const mantleData = model.mantle_inference || {}
+  const languages = model.languages ?? model.languages_supported ?? []
+  const documentationLinks = model.docs ?? model.documentation_links ?? {}
+  const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
+  const streamingSupported = model.streaming ?? model.streaming_supported
+  const crisData = model.availability?.cross_region ?? model.cross_region_inference ?? {}
+  const batchData = model.availability?.batch ?? model.batch_inference_supported ?? {}
+  const mantleData = model.availability?.mantle ?? model.mantle_inference ?? {}
   const consumptionOptions = model.consumption_options || []
   const customizations = model.customization?.customization_supported || []
-  const lifecycleStatus = model.model_lifecycle?.status || model.model_status || 'Unknown'
+  const lifecycleStatus = model.lifecycle?.status ?? model.model_lifecycle?.status ?? model.model_status ?? 'Unknown'
 
   return (
     <ScrollArea className="h-full">
@@ -2172,9 +2172,9 @@ function SpecsTab({ model }) {
             </CollapsibleSection>
 
             {/* Bedrock Features */}
-            {model.feature_support && (
+            {(model.features ?? model.feature_support) && (
               <CollapsibleSection title="Bedrock Features" icon={Layers} defaultExpanded={true}>
-                <BedrockFeaturesSection featureSupport={model.feature_support} />
+                <BedrockFeaturesSection featureSupport={model.features ?? model.feature_support} />
               </CollapsibleSection>
             )}
           </div>
@@ -2500,7 +2500,7 @@ function QuotasTab({ model }) {
   const [expandedGeos, setExpandedGeos] = useState({})
   const { theme } = useTheme()
   const isLight = theme === 'light'
-  const quotas = model.model_service_quotas || {}
+  const quotas = model.quotas ?? model.model_service_quotas ?? {}
   const allRegions = Object.keys(quotas)
 
   const geoInfo = {
@@ -3047,7 +3047,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
   const fullPricing = pricingResult?.fullPricing
 
   // Fallback to model's embedded pricing
-  const legacyPricing = model.model_pricing || model.comprehensive_pricing || {}
+  const legacyPricing = model.pricing ?? model.model_pricing ?? model.comprehensive_pricing ?? {}
   const legacyByRegion = legacyPricing.by_region || {}
 
   // Process pricing structure: group -> geo -> region -> items
@@ -3280,9 +3280,9 @@ export function ModelCardExpanded({
 
   if (!model) return null
 
-  const lifecycleStatus = model.model_lifecycle?.status || model.model_status || 'ACTIVE'
-  const globalStatus = model.model_lifecycle?.global_status
-  const statusSummary = model.model_lifecycle?.status_summary
+  const lifecycleStatus = model.lifecycle?.status ?? model.model_lifecycle?.status ?? model.model_status ?? 'ACTIVE'
+  const globalStatus = model.lifecycle?.global_status ?? model.model_lifecycle?.global_status
+  const statusSummary = model.lifecycle?.status_summary ?? model.model_lifecycle?.status_summary
   
   // Helper function to get status styles
   const getStatusStyles = (status) => {
@@ -3359,21 +3359,21 @@ export function ModelCardExpanded({
     )
   }
 
-  const contextWindow = model.converse_data?.context_window
-  const extendedContext = model.converse_data?.extended_context
-  const hasExtendedContext = model.converse_data?.has_extended_context
-  const maxOutput = model.converse_data?.max_output_tokens
-  const regions = model.in_region || []
-  const capabilities = model.model_capabilities || []
-  const streamingSupported = model.streaming_supported
-  const crisSupported = model.cross_region_inference?.supported
-  const mantleSupported = model.mantle_inference?.supported
-  const mantleRegions = model.mantle_inference?.mantle_regions || []
-  const inputModalities = model.model_modalities?.input_modalities || []
-  const outputModalities = model.model_modalities?.output_modalities || []
+  const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window
+  const extendedContext = model.specs?.extended_context ?? model.converse_data?.extended_context
+  const hasExtendedContext = model.specs?.has_extended_context ?? model.converse_data?.has_extended_context
+  const maxOutput = model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
+  const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
+  const capabilities = model.capabilities ?? model.model_capabilities ?? []
+  const streamingSupported = model.streaming ?? model.streaming_supported
+  const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported
+  const mantleSupported = model.availability?.mantle?.supported ?? model.mantle_inference?.supported
+  const mantleRegions = model.availability?.mantle?.mantle_regions ?? model.mantle_inference?.mantle_regions ?? []
+  const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
+  const outputModalities = model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? []
 
   // Compute quota stats
-  const quotas = model.model_service_quotas || {}
+  const quotas = model.quotas ?? model.model_service_quotas ?? {}
   const quotaRegions = Object.keys(quotas)
   let totalQuotas = 0
   let adjustableQuotas = 0
@@ -3392,7 +3392,7 @@ export function ModelCardExpanded({
   // Compute pricing stats
   const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
   const fullPricing = pricingResult?.fullPricing
-  const legacyPricing = model.model_pricing || model.comprehensive_pricing || {}
+  const legacyPricing = model.pricing ?? model.model_pricing ?? model.comprehensive_pricing ?? {}
   const legacyByRegion = legacyPricing.by_region || {}
   let pricingRegions = []
   let pricingTypes = 0
@@ -3400,19 +3400,23 @@ export function ModelCardExpanded({
   const consumptionOptions = (() => {
     const opts = [...(model.consumption_options || [])]
     // Ensure provisioned_throughput is shown if model supports it
-    if (model.provisioned_throughput?.supported && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
+    const provisionedData = model.availability?.provisioned ?? model.provisioned_throughput
+    if (provisionedData?.supported && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
       opts.push('provisioned_throughput')
     }
     // Ensure mantle is shown if model supports it
-    if ((model.mantle_inference?.supported || model.is_mantle) && !opts.includes('mantle')) {
+    const mantleData = model.availability?.mantle ?? model.mantle_inference
+    if ((mantleData?.supported || model.is_mantle) && !opts.includes('mantle')) {
       opts.push('mantle')
     }
     // Ensure cross_region_inference is shown if model supports it
-    if (model.cross_region_inference?.supported && !opts.includes('cross_region_inference')) {
+    const crisData = model.availability?.cross_region ?? model.cross_region_inference
+    if (crisData?.supported && !opts.includes('cross_region_inference')) {
       opts.push('cross_region_inference')
     }
     // Ensure batch is shown if model supports it
-    if (model.batch_inference_supported?.supported && !opts.includes('batch')) {
+    const batchData = model.availability?.batch ?? model.batch_inference_supported
+    if (batchData?.supported && !opts.includes('batch')) {
       opts.push('batch')
     }
     return opts
@@ -3462,7 +3466,7 @@ export function ModelCardExpanded({
                     Mantle Only
                   </span>
                 )}
-                {!model.mantle_only && (model.mantle_inference?.supported || model.is_mantle) && (
+                {!model.mantle_only && ((model.availability?.mantle?.supported ?? model.mantle_inference?.supported) || model.is_mantle) && (
                   <span className={cn(
                     'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
                     isLight
@@ -3566,7 +3570,7 @@ export function ModelCardExpanded({
                       Availability
                     </h3>
                     {(() => {
-                      const crisRegions = model.cross_region_inference?.source_regions || []
+                      const crisRegions = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
                       const allRegions = new Set([...regions, ...crisRegions, ...mantleRegions])
                       return (
                         <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
