@@ -519,19 +519,7 @@ def create_mantle_only_stub(
         mantle_id
     ) or _derive_model_name_from_id(mantle_id)
 
-    # Build mantle_inference for the stub
-    mantle_inference = {
-        "supported": True,
-        "mantle_regions": regions,
-        "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
-        "supports_responses_api": supports_responses_api,
-    }
-
     # Build api_support for Mantle-only model
-    mantle_apis = ["chat_completions"]
-    if supports_responses_api:
-        mantle_apis.append("responses_api")
-
     api_support = {
         "invoke_model": {
             "supported": False,
@@ -555,75 +543,102 @@ def create_mantle_only_stub(
         "endpoints_supported": ["bedrock-mantle"],
     }
 
-    endpoint_availability = {}
-    if regions:
-        endpoint_availability["bedrock_mantle"] = {
-            "regions": regions,
-            "apis": mantle_apis,
-        }
-
     # Get documentation URLs from config
     config = get_config_loader()
     default_bedrock_guide = config.get_documentation_url("bedrock_model_ids")
     default_pricing_guide = config.get_documentation_url("bedrock_pricing")
 
+    # Build intermediate data structures for availability
+    cross_region_data = {
+        "supported": False,
+        "source_regions": [],
+        "profiles": [],
+    }
+    batch_inference_data = {
+        "supported": False,
+        "supported_regions": [],
+        "coverage_percentage": 0.0,
+        "detection_method": "no_pricing_data",
+    }
+    provisioned_data = {
+        "supported": False,
+        "provisioned_regions": [],
+    }
+    mantle_data = {
+        "supported": True,
+        "mantle_regions": regions,
+        "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
+        "supports_responses_api": supports_responses_api,
+    }
+
+    # Build model_pricing structure
+    model_pricing = {
+        "is_pricing_available": False,
+        "pricing_reference_id": mantle_id,
+        "pricing_file_reference": {
+            "provider": provider_name,
+            "model_key": mantle_id,
+            "model_name": model_name,
+        },
+        "pricing_summary": {
+            "integration_source": "mantle_only_stub",
+            "has_pricing_data": False,
+            "integration_timestamp": collection_timestamp,
+            "reference_based": False,
+        },
+    }
+
+    # Build converse_data structure
+    converse_data = {
+        "context_window": None,
+        "max_output_tokens": None,
+        "size_category": {"category": "Unknown", "color": "#6B7280", "tier": 0},
+        "verified": False,
+        "source": "unknown",
+        "litellm_verified": False,
+        "capabilities_count": 0,
+        "use_cases_count": 0,
+        "regions_count": 0,
+        "has_extended_context": False,
+    }
+
+    # Build modalities structure
+    modalities = {
+        "input_modalities": ["TEXT"],
+        "output_modalities": ["TEXT"],
+    }
+
+    # Build lifecycle structure
+    lifecycle = {"status": "ACTIVE", "release_date": ""}
+
+    # Build documentation links
+    docs = {
+        "aws_bedrock_guide": default_bedrock_guide,
+        "pricing_guide": default_pricing_guide,
+    }
+
     return {
+        # Core identifiers
         "model_id": mantle_id,
         "model_arn": "",
         "model_name": model_name,
         "model_provider": provider_name,
-        "model_modalities": {
-            "input_modalities": ["TEXT"],
-            "output_modalities": ["TEXT"],
-        },
-        "streaming_supported": True,
+        # Primary regional data (empty for Mantle-only)
+        "in_region": [],  # Mantle-only models have no ON_DEMAND availability
+        # Model configuration
         "customization": {
             "customization_supported": [],
             "customization_options": {},
         },
         "inference_types_supported": [],
-        "in_region": [],  # Mantle-only models have no ON_DEMAND availability
-        "model_lifecycle": {"status": "ACTIVE", "release_date": ""},
-        "model_capabilities": [],
-        "model_use_cases": [],
-        "languages_supported": [],
+        # Descriptions
         "description": "",
         "short_description": "",
-        "feature_support": {},
+        # Chat features
         "chat_features": {},
+        # Consumption options
         "consumption_options": ["mantle"],
-        "cross_region_inference": {
-            "supported": False,
-            "source_regions": [],
-            "profiles": [],
-        },
-        "is_mantle": True,
-        "mantle_only": True,
-        "mantle_inference": mantle_inference,
-        "provisioned_throughput": {
-            "supported": False,
-            "provisioned_regions": [],
-        },
-        "documentation_links": {
-            "aws_bedrock_guide": default_bedrock_guide,
-            "pricing_guide": default_pricing_guide,
-        },
-        "model_pricing": {
-            "is_pricing_available": False,
-            "pricing_reference_id": mantle_id,
-            "pricing_file_reference": {
-                "provider": provider_name,
-                "model_key": mantle_id,
-                "model_name": model_name,
-            },
-            "pricing_summary": {
-                "integration_source": "mantle_only_stub",
-                "has_pricing_data": False,
-                "integration_timestamp": collection_timestamp,
-                "reference_based": False,
-            },
-        },
-        "model_service_quotas": {},
+        # Collection metadata
         "collection_metadata": {
             "first_discovered_at": collection_timestamp,
             "first_discovered_in_region": regions[0] if regions else "unknown",
@@ -633,29 +648,30 @@ def create_mantle_only_stub(
             "phase2_regional_discovery": False,
             "regional_data_source": "mantle_api",
         },
-        "regional_availability_source": "mantle_api",
-        "batch_inference_supported": {
-            "supported": False,
-            "supported_regions": [],
-            "coverage_percentage": 0.0,
-            "detection_method": "no_pricing_data",
-        },
-        "converse_data": {
-            "context_window": None,
-            "max_output_tokens": None,
-            "size_category": {"category": "Unknown", "color": "#6B7280", "tier": 0},
-            "verified": False,
-            "source": "unknown",
-            "litellm_verified": False,
-            "capabilities_count": 0,
-            "use_cases_count": 0,
-            "regions_count": 0,
-            "has_extended_context": False,
-        },
+        # Boolean flags
         "has_pricing": False,
         "has_quotas": False,
-        "api_support": api_support,
-        "endpoint_availability": endpoint_availability,
+        # NEW consolidated fields (Phase 3)
+        "availability": build_availability(
+            regional_availability=[],
+            cross_region_data=cross_region_data,
+            batch_inference_data=batch_inference_data,
+            provisioned_data=provisioned_data,
+            mantle_data=mantle_data,
+            is_mantle_only=True,
+        ),
+        "modalities": modalities,
+        "capabilities": [],
+        "use_cases": [],
+        "lifecycle": lifecycle,
+        "streaming": True,
+        "languages": [],
+        "docs": docs,
+        "features": {},
+        "specs": build_specs(converse_data),
+        "pricing": build_pricing_alias(model_pricing),
+        "quotas": {},
+        "api": api_support,
     }
 
 
@@ -1185,51 +1201,60 @@ def build_endpoint_availability(
 # =============================================================================
 
 
-def build_availability(model: dict) -> dict:
+def build_availability(
+    regional_availability: list,
+    cross_region_data: dict,
+    batch_inference_data: dict,
+    provisioned_data: dict,
+    mantle_data: dict,
+    is_mantle_only: bool = False,
+) -> dict:
     """
-    Build consolidated availability object from scattered region fields.
+    Build consolidated availability object from component data.
 
-    Consolidates:
-    - in_region → on_demand.regions
-    - cross_region_inference → cross_region
-    - batch_inference_supported → batch
-    - provisioned_throughput → provisioned
-    - mantle_inference → mantle
+    Args:
+        regional_availability: List of on-demand regions
+        cross_region_data: Cross-region inference data from build_cross_region_inference()
+        batch_inference_data: Batch inference data from check_batch_inference()
+        provisioned_data: Provisioned throughput data from build_provisioned_throughput()
+        mantle_data: Mantle inference data from build_mantle_inference()
+        is_mantle_only: Whether this is a Mantle-only model
 
-    This is Phase 1 (dual-output) - new fields added while keeping old fields
-    for backward compatibility.
+    Returns:
+        Consolidated availability object with:
+        - on_demand: {supported, regions}
+        - cross_region: {supported, regions, profiles}
+        - batch: {supported, regions}
+        - provisioned: {supported, regions}
+        - mantle: {supported, regions, only, responses_api}
     """
     # On-demand availability
-    on_demand_regions = model.get("in_region", [])
+    on_demand_regions = regional_availability if regional_availability else []
 
     # Cross-region inference
-    cris = model.get("cross_region_inference", {})
     cross_region = {
-        "supported": cris.get("supported", False),
-        "regions": cris.get("source_regions", []),
-        "profiles": cris.get("profiles", []),
+        "supported": cross_region_data.get("supported", False),
+        "regions": cross_region_data.get("source_regions", []),
+        "profiles": cross_region_data.get("profiles", []),
     }
 
     # Batch inference
-    batch_data = model.get("batch_inference_supported", {})
     batch = {
-        "supported": batch_data.get("supported", False),
-        "regions": batch_data.get("supported_regions", []),
+        "supported": batch_inference_data.get("supported", False),
+        "regions": batch_inference_data.get("supported_regions", []),
     }
 
     # Provisioned throughput
-    pt_data = model.get("provisioned_throughput", {})
     provisioned = {
-        "supported": pt_data.get("supported", False),
-        "regions": pt_data.get("provisioned_regions", []),
+        "supported": provisioned_data.get("supported", False),
+        "regions": provisioned_data.get("provisioned_regions", []),
     }
 
     # Mantle inference
-    mantle_data = model.get("mantle_inference", {})
     mantle = {
         "supported": mantle_data.get("supported", False),
         "regions": mantle_data.get("mantle_regions", []),
-        "only": model.get("mantle_only", False),
+        "only": is_mantle_only,
         "responses_api": mantle_data.get("supports_responses_api", False),
     }
 
@@ -1245,25 +1270,23 @@ def build_availability(model: dict) -> dict:
     }
 
 
-def build_specs(model: dict) -> dict:
+def build_specs(converse_data: dict) -> dict:
     """Build simplified specs object from converse_data."""
-    converse = model.get("converse_data", {})
     return {
-        "context_window": converse.get("context_window"),
-        "max_output": converse.get("max_output_tokens"),
-        "extended_context": converse.get("extended_context"),
-        "size_category": converse.get("size_category"),
-        "source": converse.get("source"),
-        "verified": converse.get("verified", False),
+        "context_window": converse_data.get("context_window"),
+        "max_output": converse_data.get("max_output_tokens"),
+        "extended_context": converse_data.get("extended_context"),
+        "size_category": converse_data.get("size_category"),
+        "source": converse_data.get("source"),
+        "verified": converse_data.get("verified", False),
     }
 
 
-def build_pricing_alias(model: dict) -> dict:
+def build_pricing_alias(model_pricing: dict) -> dict:
     """Build simplified pricing object."""
-    pricing_data = model.get("model_pricing", {})
     return {
-        "available": pricing_data.get("is_pricing_available", False),
-        "reference": pricing_data.get("pricing_file_reference"),
+        "available": model_pricing.get("is_pricing_available", False),
+        "reference": model_pricing.get("pricing_file_reference"),
     }
 
 
@@ -1837,72 +1860,56 @@ def transform_model_to_schema(
         "streaming_supported": model.get("streaming_supported", False),
     }
     api_support = build_api_support(api_support_model, mantle, is_mantle_only=False)
-    endpoint_availability = build_endpoint_availability(
-        regional_availability,
-        mantle,
-        api_support,
+
+    # Build consolidated availability object (Phase 3 - new structure only)
+    availability = build_availability(
+        regional_availability=regional_availability,
+        cross_region_data=cross_region,
+        batch_inference_data=batch_inference,
+        provisioned_data=resolved_provisioned,
+        mantle_data=mantle,
+        is_mantle_only=False,
     )
 
-    # Build the base result with all existing fields (backward compatibility)
+    # Build the result with new field names only (Phase 3 - old fields removed)
     result = {
+        # Core identifiers (kept)
         "model_id": model_id,
         "model_arn": model.get("model_arn", ""),
         "model_name": model.get("model_name", ""),
         "model_provider": model.get("model_provider", ""),
-        "model_modalities": model_modalities,
-        "streaming_supported": model.get("streaming_supported", False),
+        # Primary regional data (kept - availability.on_demand.regions references this)
+        "in_region": regional_availability if regional_availability else [],
+        # Model configuration (kept)
         "customization": customization,
         "inference_types_supported": model.get("inference_types_supported", []),
-        "in_region": regional_availability if regional_availability else [],
-        "model_lifecycle": model_lifecycle,
-        "model_capabilities": capabilities,
-        "model_use_cases": console_use_cases,
-        "languages_supported": console_languages,
+        # Descriptions (kept)
         "description": console_description,
         "short_description": console_short_description,
-        "feature_support": feature_support,
+        # Chat features (kept - used by api_support builder)
         "chat_features": chat_features,
+        # Consumption options (kept)
         "consumption_options": consumption_options,
-        "cross_region_inference": cross_region,
-        "is_mantle": mantle["supported"],
-        "mantle_only": False,
-        "mantle_inference": mantle,
-        "provisioned_throughput": resolved_provisioned,
-        "documentation_links": documentation_links,
-        "model_pricing": model_pricing,
-        "model_service_quotas": model_quotas,
+        # Collection metadata (kept)
         "collection_metadata": collection_metadata,
-        "regional_availability_source": "api_discovery",
-        "batch_inference_supported": batch_inference,
-        "converse_data": converse_data,
+        # Boolean flags (kept - useful for filtering)
         "has_pricing": has_pricing,
         "has_quotas": len(model_quotas) > 0,
-        "api_support": api_support,
-        "endpoint_availability": endpoint_availability,
+        # NEW consolidated fields (Phase 3 - these replace the old fields)
+        "availability": availability,
+        "modalities": model_modalities,
+        "capabilities": capabilities,
+        "use_cases": console_use_cases,
+        "lifecycle": model_lifecycle,
+        "streaming": model.get("streaming_supported", False),
+        "languages": console_languages,
+        "docs": documentation_links,
+        "features": feature_support,
+        "specs": build_specs(converse_data),
+        "pricing": build_pricing_alias(model_pricing),
+        "quotas": model_quotas,
+        "api": api_support,
     }
-
-    # =========================================================================
-    # Phase 1 JSON Restructure - NEW consolidated fields (dual-output mode)
-    # These are aliases/consolidations of existing data. Old fields are kept
-    # for backward compatibility.
-    # =========================================================================
-
-    # NEW: Consolidated availability object
-    result["availability"] = build_availability(result)
-
-    # NEW: Simplified field aliases
-    result["modalities"] = model_modalities
-    result["capabilities"] = capabilities
-    result["use_cases"] = console_use_cases
-    result["lifecycle"] = model_lifecycle
-    result["streaming"] = model.get("streaming_supported", False)
-    result["languages"] = console_languages
-    result["docs"] = documentation_links
-    result["features"] = feature_support
-    result["specs"] = build_specs(result)
-    result["pricing"] = build_pricing_alias(result)
-    result["quotas"] = model_quotas
-    result["api"] = api_support
 
     return result
 
@@ -2094,11 +2101,17 @@ def build_final_models(
                 regional_lifecycle=regional_lifecycle,
             )
 
-            # Track matched Mantle model ID
-            mantle_inference = transformed.get("mantle_inference", {})
-            matched_id = mantle_inference.get("matched_mantle_id")
-            if matched_id:
-                matched_mantle_ids.add(matched_id)
+            # Track matched Mantle model ID from availability.mantle
+            mantle_availability = transformed.get("availability", {}).get("mantle", {})
+            # The matched_mantle_id is stored in the mantle data during build_mantle_inference
+            # We need to track it differently now - check if mantle is supported
+            if mantle_availability.get("supported"):
+                # For tracking, we use the model_id itself since it matched
+                matched_mantle_ids.add(model_id)
+                # Also check for fuzzy matches by looking at mantle_by_model
+                for mantle_id_candidate in mantle_by_model.keys():
+                    if calculate_match_score(model_id, mantle_id_candidate) >= 0.8:
+                        matched_mantle_ids.add(mantle_id_candidate)
 
             result_providers[provider]["models"][model_id] = transformed
 
@@ -2126,12 +2139,18 @@ def build_final_models(
             )
             if pricing_ref:
                 stub["has_pricing"] = True
-                stub["model_pricing"]["is_pricing_available"] = True
-                stub["model_pricing"]["pricing_file_reference"] = pricing_ref
-                stub["model_pricing"]["pricing_summary"]["has_pricing_data"] = True
+                # Update the pricing alias
+                stub["pricing"] = {
+                    "available": True,
+                    "reference": pricing_ref,
+                }
                 batch = check_batch_inference(mantle_id, pricing_data, pricing_ref)
                 if batch.get("supported"):
-                    stub["batch_inference_supported"] = batch
+                    # Update availability.batch
+                    stub["availability"]["batch"] = {
+                        "supported": True,
+                        "regions": batch.get("supported_regions", []),
+                    }
                     if "batch" not in stub["consumption_options"]:
                         stub["consumption_options"].append("batch")
                 logger.info(
@@ -2146,22 +2165,7 @@ def build_final_models(
             if provider_name not in result_providers:
                 result_providers[provider_name] = {"models": {}}
 
-            # Add Phase 1 restructure fields to stub
-            stub["availability"] = build_availability(stub)
-            stub["modalities"] = stub.get("model_modalities", {})
-            stub["capabilities"] = stub.get("model_capabilities", [])
-            stub["use_cases"] = stub.get("model_use_cases", [])
-            stub["lifecycle"] = stub.get("model_lifecycle", {})
-            stub["streaming"] = stub.get("streaming_supported", False)
-            stub["languages"] = stub.get("languages_supported", [])
-            stub["docs"] = stub.get("documentation_links", {})
-            stub["features"] = stub.get("feature_support", {})
-            stub["specs"] = build_specs(stub)
-            stub["pricing"] = build_pricing_alias(stub)
-            stub["quotas"] = stub.get("model_service_quotas", {})
-            stub["api"] = stub.get("api_support", {})
-
-            # Add the stub model
+            # Add the stub model (already has all new fields from create_mantle_only_stub)
             result_providers[provider_name]["models"][mantle_id] = stub
             logger.debug(
                 f"Created Mantle-only stub for {mantle_id} under provider {provider_name}"
