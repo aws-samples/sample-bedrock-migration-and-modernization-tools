@@ -2146,6 +2146,21 @@ def build_final_models(
             if provider_name not in result_providers:
                 result_providers[provider_name] = {"models": {}}
 
+            # Add Phase 1 restructure fields to stub
+            stub["availability"] = build_availability(stub)
+            stub["modalities"] = stub.get("model_modalities", {})
+            stub["capabilities"] = stub.get("model_capabilities", [])
+            stub["use_cases"] = stub.get("model_use_cases", [])
+            stub["lifecycle"] = stub.get("model_lifecycle", {})
+            stub["streaming"] = stub.get("streaming_supported", False)
+            stub["languages"] = stub.get("languages_supported", [])
+            stub["docs"] = stub.get("documentation_links", {})
+            stub["features"] = stub.get("feature_support", {})
+            stub["specs"] = build_specs(stub)
+            stub["pricing"] = build_pricing_alias(stub)
+            stub["quotas"] = stub.get("model_service_quotas", {})
+            stub["api"] = stub.get("api_support", {})
+
             # Add the stub model
             result_providers[provider_name]["models"][mantle_id] = stub
             logger.debug(
