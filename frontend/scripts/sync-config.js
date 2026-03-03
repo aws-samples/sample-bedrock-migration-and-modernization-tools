@@ -53,7 +53,8 @@ function main() {
       lat: coords.lat,
       lng: coords.lng,
       name: coords.name,
-      geo: coords.geo
+      geo: coords.geo,
+      iata: coords.iata
     }
   }
   

@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useTheme } from '@/components/layout/ThemeProvider'
 import { useModels } from '@/hooks/useModels'
 import { cn } from '@/lib/utils'
-import { getRegionName } from '@/utils/regionUtils'
+import { getRegionName, getAirportCode } from '@/utils/regionUtils'
 
 // Ordered region columns grouped by business geo: NAMER, EMEA, APAC, LATAM
 // Labels are derived from centralized region utilities
@@ -1073,7 +1073,7 @@ export function RegionalAvailability() {
                           )}
                         >
                           <div className={cn('font-medium', isLight ? 'text-stone-700' : 'text-[#e4e5e7]')}>
-                            {region.label}
+                            {region.label}{getAirportCode(region.code) ? ` (${getAirportCode(region.code)})` : ''}
                           </div>
                           <div className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
                             {region.code}

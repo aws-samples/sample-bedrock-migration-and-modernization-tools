@@ -28,6 +28,13 @@ export function getRegionGeo(regionCode) {
 }
 
 /**
+ * Get region IATA airport code
+ */
+export function getAirportCode(regionCode) {
+  return regionCoordinates[regionCode]?.iata || null
+}
+
+/**
  * Get region coordinates for map display
  */
 export function getRegionCoordinates(regionCode) {

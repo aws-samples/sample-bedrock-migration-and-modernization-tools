@@ -1,6 +1,6 @@
 /**
  * Auto-generated constants from backend profiler-config.json
- * Generated at: 2026-03-03T18:06:31.448Z
+ * Generated at: 2026-03-03T20:35:47.724Z
  * Source version: 1.0.0-auto-updated-auto-updated
  * 
  * DO NOT EDIT MANUALLY - Run 'npm run sync-config' to regenerate
@@ -39,205 +39,239 @@ export const regionCoordinates = {
     "lat": 38.9519,
     "lng": -77.448,
     "name": "N. Virginia",
-    "geo": "US"
+    "geo": "US",
+    "iata": "IAD"
   },
   "us-east-2": {
     "lat": 39.9612,
     "lng": -82.9988,
     "name": "Ohio",
-    "geo": "US"
+    "geo": "US",
+    "iata": "CMH"
   },
   "us-west-1": {
     "lat": 37.3541,
     "lng": -121.9552,
     "name": "N. California",
-    "geo": "US"
+    "geo": "US",
+    "iata": "SFO"
   },
   "us-west-2": {
     "lat": 45.8696,
     "lng": -119.688,
     "name": "Oregon",
-    "geo": "US"
+    "geo": "US",
+    "iata": "PDX"
   },
   "eu-west-1": {
     "lat": 53.3498,
     "lng": -6.2603,
     "name": "Ireland",
-    "geo": "EU"
+    "geo": "EU",
+    "iata": "DUB"
   },
   "eu-west-2": {
     "lat": 51.5074,
     "lng": -0.1278,
     "name": "London",
-    "geo": "EU"
+    "geo": "EU",
+    "iata": "LHR"
   },
   "eu-west-3": {
     "lat": 48.8566,
     "lng": 2.3522,
     "name": "Paris",
-    "geo": "EU"
+    "geo": "EU",
+    "iata": "CDG"
   },
   "eu-central-1": {
     "lat": 50.1109,
     "lng": 8.6821,
     "name": "Frankfurt",
-    "geo": "EU"
+    "geo": "EU",
+    "iata": "FRA"
   },
   "eu-central-2": {
     "lat": 47.3769,
     "lng": 8.5417,
     "name": "Zurich",
-    "geo": "EU"
+    "geo": "EU",
+    "iata": "ZRH"
   },
   "eu-north-1": {
     "lat": 59.3293,
     "lng": 18.0686,
     "name": "Stockholm",
-    "geo": "EU"
+    "geo": "EU",
+    "iata": "ARN"
   },
   "eu-south-1": {
     "lat": 45.4642,
     "lng": 9.19,
     "name": "Milan",
-    "geo": "EU"
+    "geo": "EU",
+    "iata": "MXP"
   },
   "eu-south-2": {
     "lat": 40.4168,
     "lng": -3.7038,
     "name": "Spain",
-    "geo": "EU"
+    "geo": "EU",
+    "iata": "MAD"
   },
   "ap-south-1": {
     "lat": 19.076,
     "lng": 72.8777,
     "name": "Mumbai",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "BOM"
   },
   "ap-south-2": {
     "lat": 17.385,
     "lng": 78.4867,
     "name": "Hyderabad",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "HYD"
   },
   "ap-northeast-1": {
     "lat": 35.6762,
     "lng": 139.6503,
     "name": "Tokyo",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "NRT"
   },
   "ap-northeast-2": {
     "lat": 37.5665,
     "lng": 126.978,
     "name": "Seoul",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "ICN"
   },
   "ap-northeast-3": {
     "lat": 34.6937,
     "lng": 135.5023,
     "name": "Osaka",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "KIX"
   },
   "ap-southeast-1": {
     "lat": 1.3521,
     "lng": 103.8198,
     "name": "Singapore",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "SIN"
   },
   "ap-southeast-2": {
     "lat": -33.8688,
     "lng": 151.2093,
     "name": "Sydney",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "SYD"
   },
   "ap-southeast-3": {
     "lat": -6.2088,
     "lng": 106.8456,
     "name": "Jakarta",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "CGK"
   },
   "ap-southeast-4": {
     "lat": -37.8136,
     "lng": 144.9631,
     "name": "Melbourne",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "MEL"
   },
   "ap-southeast-5": {
     "lat": 3.139,
     "lng": 101.6869,
     "name": "Malaysia",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "KUL"
   },
   "ap-east-1": {
     "lat": 22.3193,
     "lng": 114.1694,
     "name": "Hong Kong",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "HKG"
   },
   "ca-central-1": {
     "lat": 45.5017,
     "lng": -73.5673,
     "name": "Montreal",
-    "geo": "CA"
+    "geo": "CA",
+    "iata": "YUL"
   },
   "ca-west-1": {
     "lat": 51.0447,
     "lng": -114.0719,
     "name": "Calgary",
-    "geo": "CA"
+    "geo": "CA",
+    "iata": "YYC"
   },
   "sa-east-1": {
     "lat": -23.5505,
     "lng": -46.6333,
     "name": "São Paulo",
-    "geo": "SA"
+    "geo": "SA",
+    "iata": "GRU"
   },
   "me-south-1": {
     "lat": 26.0667,
     "lng": 50.5577,
     "name": "Bahrain",
-    "geo": "ME"
+    "geo": "ME",
+    "iata": "BAH"
   },
   "me-central-1": {
     "lat": 24.4539,
     "lng": 54.3773,
     "name": "UAE",
-    "geo": "ME"
+    "geo": "ME",
+    "iata": "DXB"
   },
   "il-central-1": {
     "lat": 32.0853,
     "lng": 34.7818,
     "name": "Tel Aviv",
-    "geo": "ME"
+    "geo": "ME",
+    "iata": "TLV"
   },
   "af-south-1": {
     "lat": -33.9249,
     "lng": 18.4241,
     "name": "Cape Town",
-    "geo": "AF"
+    "geo": "AF",
+    "iata": "CPT"
   },
   "ap-east-2": {
     "lat": 25.033,
     "lng": 121.5654,
     "name": "Taipei",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "TPE"
   },
   "ap-southeast-6": {
     "lat": -36.8485,
     "lng": 174.7633,
     "name": "Auckland",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "AKL"
   },
   "ap-southeast-7": {
     "lat": 13.7563,
     "lng": 100.5018,
     "name": "Bangkok",
-    "geo": "AP"
+    "geo": "AP",
+    "iata": "BKK"
   },
   "mx-central-1": {
     "lat": 19.4326,
     "lng": -99.1332,
     "name": "Mexico City",
-    "geo": "SA"
+    "geo": "SA",
+    "iata": "MEX"
   }
 };
 
@@ -472,7 +506,7 @@ export const contextWindowThresholds = {
 // Config metadata
 export const configMetadata = {
   version: "1.0.0-auto-updated-auto-updated",
-  generatedAt: "2026-03-03T18:06:31.450Z",
+  generatedAt: "2026-03-03T20:35:47.727Z",
   source: "profiler-config.json"
 };
 
