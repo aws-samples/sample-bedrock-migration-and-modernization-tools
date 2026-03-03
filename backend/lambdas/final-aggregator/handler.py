@@ -203,10 +203,17 @@ def build_cross_region_inference(model_id: str, features_by_region: dict) -> dic
             # Check if any model in this profile matches
             profile_models = profile.get("models", [])
             matches = False
+
+            # Normalize model_id by stripping version suffix for matching
+            # e.g., "anthropic.claude-sonnet-4-6:0" -> "anthropic.claude-sonnet-4-6"
+            # e.g., "anthropic.claude-3-5-sonnet-20240620-v1:0" -> "anthropic.claude-3-5-sonnet-20240620-v1"
+            model_id_base = model_id.rsplit(":", 1)[0] if ":" in model_id else model_id
+
             for pm in profile_models:
                 # Handle both snake_case and camelCase model ARN
                 model_arn = pm.get("model_arn", pm.get("modelArn", ""))
-                if model_id in model_arn:
+                # Check both full model_id and base (without version suffix)
+                if model_id in model_arn or model_id_base in model_arn:
                     matches = True
                     break  # Found a match, no need to check other models
 
