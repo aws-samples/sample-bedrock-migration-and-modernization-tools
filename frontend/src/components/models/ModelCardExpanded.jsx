@@ -3529,16 +3529,25 @@ export function ModelCardExpanded({
                 <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
                   <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Context Window</p>
                   <p className={cn('text-xl font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>
-                    {contextWindow ? (contextWindow >= 1000000 ? `${(contextWindow/1000000).toFixed(1)}M` : contextWindow >= 1000 ? `${(contextWindow/1000).toFixed(0)}K` : contextWindow) : 'N/A'}
-                    {hasExtendedContext && extendedContext && (
-                      <span className={cn('text-sm font-normal ml-1', isLight ? 'text-amber-500' : 'text-emerald-400')}>
-                        / {extendedContext >= 1000000 ? `${(extendedContext/1000000).toFixed(0)}M` : `${(extendedContext/1000).toFixed(0)}K`}
-                      </span>
+                    {hasExtendedContext && extendedContext ? (
+                      <Tooltip delayDuration={200}>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-default">
+                            {formatNumber(contextWindow)}
+                            <span className={cn('ml-1', isLight ? 'text-amber-500' : 'text-emerald-400')}>
+                              | {formatNumber(extendedContext)}
+                            </span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+                          <p><strong>{formatNumber(contextWindow)}</strong> base context window</p>
+                          <p><strong>{formatNumber(extendedContext)}</strong> extended context (beta)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      formatNumber(contextWindow)
                     )}
                   </p>
-                  {hasExtendedContext && (
-                    <p className={cn('text-[10px] mt-1', isLight ? 'text-amber-600' : 'text-emerald-500')}>Extended context (beta)</p>
-                  )}
                 </div>
                 <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
                   <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Max Output</p>

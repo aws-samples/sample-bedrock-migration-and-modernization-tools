@@ -39,7 +39,12 @@ def aggregate_quotas(quota_results: list[dict], s3_client: Any, bucket: str) -> 
     for item in quota_results:
         nested_result = item.get("result", {})
         status = item.get("status") or nested_result.get("status")
-        s3_key = item.get("s3Key") or nested_result.get("s3Key")
+        s3_key = (
+            item.get("s3_key")
+            or item.get("s3Key")
+            or nested_result.get("s3_key")
+            or nested_result.get("s3Key")
+        )
         region = item.get("region")
 
         if status == "SUCCESS" and s3_key:
@@ -66,7 +71,12 @@ def aggregate_features(
     for item in feature_results:
         nested_result = item.get("result", {})
         status = item.get("status") or nested_result.get("status")
-        s3_key = item.get("s3Key") or nested_result.get("s3Key")
+        s3_key = (
+            item.get("s3_key")
+            or item.get("s3Key")
+            or nested_result.get("s3_key")
+            or nested_result.get("s3Key")
+        )
         region = item.get("region")
 
         if status == "SUCCESS" and s3_key:
@@ -97,7 +107,12 @@ def aggregate_mantle(mantle_results: list[dict], s3_client: Any, bucket: str) ->
     for item in mantle_results:
         nested_result = item.get("result", {})
         status = item.get("status") or nested_result.get("status")
-        s3_key = item.get("s3Key") or nested_result.get("s3Key")
+        s3_key = (
+            item.get("s3_key")
+            or item.get("s3Key")
+            or nested_result.get("s3_key")
+            or nested_result.get("s3Key")
+        )
         region = item.get("region")
 
         if status == "SUCCESS" and s3_key:

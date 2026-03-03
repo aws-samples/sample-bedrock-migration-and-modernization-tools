@@ -1,6 +1,6 @@
 /**
  * Auto-generated constants from backend profiler-config.json
- * Generated at: 2026-03-03T07:37:27.082Z
+ * Generated at: 2026-03-03T14:15:12.461Z
  * Source version: 1.0.0-auto-updated-auto-updated
  * 
  * DO NOT EDIT MANUALLY - Run 'npm run sync-config' to regenerate
@@ -9,7 +9,7 @@
 // Provider Colors - Brand colors for each model provider
 export const providerColors = {
   "Amazon": "#FF9900",
-  "Anthropic": "#D4A27F",
+  "Anthropic": "#D97757",
   "Meta": "#0082FB",
   "Mistral AI": "#F54E42",
   "Mistral": "#F54E42",
@@ -20,15 +20,16 @@ export const providerColors = {
   "Stability": "#7C5CFF",
   "Luma AI": "#6366F1",
   "Luma": "#6366F1",
-  "Writer": "#4A90D9",
+  "Writer": "#009BFF",
   "NVIDIA": "#76B900",
-  "DeepSeek": "#4A90D9",
-  "Qwen": "#6366F1",
+  "DeepSeek": "#4D6BFE",
+  "Qwen": "#615EFF",
   "Google": "#4285F4",
   "OpenAI": "#10A37F",
-  "TwelveLabs": "#6366F1",
-  "MiniMax": "#6366F1",
-  "Moonshot AI": "#6366F1",
+  "TwelveLabs": "#FF5733",
+  "MiniMax": "#00D4AA",
+  "Moonshot AI": "#5B6EF7",
+  "Z.AI": "#FF6B35",
   "default": "#64748b"
 };
 
@@ -471,7 +472,7 @@ export const contextWindowThresholds = {
 // Config metadata
 export const configMetadata = {
   version: "1.0.0-auto-updated-auto-updated",
-  generatedAt: "2026-03-03T07:37:27.087Z",
+  generatedAt: "2026-03-03T14:15:12.465Z",
   source: "profiler-config.json"
 };
 
