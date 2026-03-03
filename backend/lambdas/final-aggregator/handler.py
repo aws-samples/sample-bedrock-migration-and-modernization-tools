@@ -236,7 +236,6 @@ def build_cross_region_inference(model_id: str, features_by_region: dict) -> dic
 
     return {
         "supported": len(profiles) > 0,
-        "profiles_count": len(profiles),
         "source_regions": sorted(list(source_regions)),
         "profiles": profiles,
     }
@@ -275,7 +274,6 @@ def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
         return {
             "supported": True,
             "mantle_regions": regions,
-            "total_mantle_regions": len(regions),
             "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
             "matched_mantle_id": model_id,
             "supports_responses_api": mantle_info.get("supports_responses_api", False),
@@ -305,7 +303,6 @@ def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
         return {
             "supported": True,
             "mantle_regions": mantle_regions,
-            "total_mantle_regions": len(mantle_regions),
             "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
             "matched_mantle_id": best_match_id,
             "supports_responses_api": supports_responses_api,
@@ -315,7 +312,6 @@ def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
     return {
         "supported": False,
         "mantle_regions": [],
-        "total_mantle_regions": 0,
         "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
         "matched_mantle_id": None,
         "supports_responses_api": False,
@@ -335,7 +331,6 @@ def build_provisioned_throughput(model_id: str, provisioned_availability: dict) 
     return {
         "supported": len(regions) > 0,
         "provisioned_regions": sorted(regions) if regions else [],
-        "total_provisioned_regions": len(regions),
     }
 
 
@@ -513,7 +508,6 @@ def create_mantle_only_stub(
     mantle_inference = {
         "supported": True,
         "mantle_regions": regions,
-        "total_mantle_regions": len(regions),
         "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
         "supports_responses_api": supports_responses_api,
     }
@@ -585,7 +579,6 @@ def create_mantle_only_stub(
         "consumption_options": ["mantle"],
         "cross_region_inference": {
             "supported": False,
-            "profiles_count": 0,
             "source_regions": [],
             "profiles": [],
         },
@@ -595,7 +588,6 @@ def create_mantle_only_stub(
         "provisioned_throughput": {
             "supported": False,
             "provisioned_regions": [],
-            "total_provisioned_regions": 0,
         },
         "documentation_links": {
             "aws_bedrock_guide": default_bedrock_guide,
@@ -627,7 +619,6 @@ def create_mantle_only_stub(
             "regional_data_source": "mantle_api",
         },
         "regional_availability_source": "mantle_api",
-        "total_in_region": 0,  # Mantle-only models have no ON_DEMAND availability
         "batch_inference_supported": {
             "supported": False,
             "supported_regions": [],
@@ -1699,7 +1690,6 @@ def transform_model_to_schema(
         else {
             "supported": False,
             "provisioned_regions": [],
-            "total_provisioned_regions": 0,
         }
     )
 
@@ -1780,7 +1770,6 @@ def transform_model_to_schema(
         "model_service_quotas": model_quotas,
         "collection_metadata": collection_metadata,
         "regional_availability_source": "api_discovery",
-        "total_in_region": len(regional_availability) if regional_availability else 0,
         "batch_inference_supported": batch_inference,
         "converse_data": converse_data,
         "has_pricing": has_pricing,

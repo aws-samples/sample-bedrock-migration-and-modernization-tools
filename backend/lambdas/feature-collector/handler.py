@@ -259,13 +259,13 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
         output_data = {
             "metadata": {
                 "region": region,
-                "inferenceProfileCount": len(profiles),
-                "collectionTimestamp": time.strftime(
+                "inference_profile_count": len(profiles),
+                "collection_timestamp": time.strftime(
                     "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
                 ),
-                "fromCache": from_cache,
+                "from_cache": from_cache,
             },
-            "inferenceProfiles": profiles,
+            "inference_profiles": profiles,
         }
 
         if not dry_run and s3_bucket:
@@ -300,10 +300,10 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
         return {
             "status": "SUCCESS",
             "region": region,
-            "s3Key": s3_key,
-            "inferenceProfileCount": len(profiles),
-            "fromCache": from_cache,
-            "durationMs": duration_ms,
+            "s3_key": s3_key,
+            "inference_profile_count": len(profiles),
+            "from_cache": from_cache,
+            "duration_ms": duration_ms,
         }
 
     except Exception as e:
