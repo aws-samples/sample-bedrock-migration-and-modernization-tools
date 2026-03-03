@@ -4291,7 +4291,9 @@ export function ModelCardExpanded({
                     </h3>
                     {(() => {
                       const crisRegions = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []
-                      const allRegions = new Set([...regions, ...crisRegions, ...mantleRegions])
+                      const batchRegions = model.availability?.batch?.regions ?? []
+                      const provisionedRegions = model.availability?.provisioned?.regions ?? []
+                      const allRegions = new Set([...regions, ...crisRegions, ...batchRegions, ...provisionedRegions, ...mantleRegions])
                       return (
                         <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
                           <div className="flex items-center justify-between">
@@ -4430,21 +4432,13 @@ export function ModelCardExpanded({
                     Pricing Summary
                   </h3>
                   <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
-                    <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Pricing Types</p>
-                    <p className={cn('text-xl font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{pricingTypes}</p>
-                  </div>
-                  <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
                     <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Regions</p>
                     <p className={cn('text-xl font-bold', isLight ? 'text-emerald-700' : 'text-emerald-400')}>{pricingRegions.length}</p>
                   </div>
-                  <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
-                    <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Options</p>
-                    <p className={cn('text-xl font-bold', isLight ? 'text-purple-700' : 'text-purple-400')}>{consumptionOptions.length || pricingTypes}</p>
-                  </div>
                   {consumptionOptions.length > 0 && (
-                    <div className="pt-2">
+                    <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
                       <p className={cn('text-xs mb-2', isLight ? 'text-stone-500' : 'text-slate-400')}>Consumption</p>
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1.5">
                         {consumptionOptions.map(opt => {
                           const labels = { 'on_demand': 'In Region', 'batch': 'Batch', 'provisioned': 'Provisioned', 'cross_region_inference': 'Cross-Region', 'mantle': 'Mantle' }
                           return <Badge key={opt} variant="info" className="text-[10px]">{labels[opt] || opt}</Badge>
