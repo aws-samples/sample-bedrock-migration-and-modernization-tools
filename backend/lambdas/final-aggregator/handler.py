@@ -1720,6 +1720,14 @@ def transform_model_to_schema(
         if "batch" in consumption_options:
             consumption_options.remove("batch")
 
+    # Reconcile consumption_options with actual mantle inference data
+    if mantle.get("supported"):
+        if "mantle" not in consumption_options:
+            consumption_options.append("mantle")
+    else:
+        if "mantle" in consumption_options:
+            consumption_options.remove("mantle")
+
     # Get feature support and chat features from console metadata
     feature_support = console_meta.get("feature_support", {}) if console_meta else {}
     chat_features = console_meta.get("chat_features", {}) if console_meta else {}
