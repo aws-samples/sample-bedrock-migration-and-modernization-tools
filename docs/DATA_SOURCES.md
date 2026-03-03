@@ -54,7 +54,7 @@ The Bedrock Model Profiler aggregates data from **7 distinct data sources** to p
 ├─────────────────────┤      ├─────────────────────┤      ├─────────────────────┤
 │ ┌─────────────────┐ │      │ ┌─────────────────┐ │      │ ┌─────────────────┐ │
 │ │pricing-collector│ │      │ │ model-extractor │ │      │ │ quota-collector │ │
-│ │   (x3 parallel) │ │      │ │   (x2 regions)  │ │      │ │  (x16 regions)  │ │
+│ │   (x3 parallel) │ │      │ │  (x27 regions)  │ │      │ │   (xN regions)  │ │
 │ └────────┬────────┘ │      │ └────────┬────────┘ │      │ └────────┬────────┘ │
 │          ▼          │      │          ▼          │      │          │          │
 │ ┌─────────────────┐ │      │ ┌─────────────────┐ │      │          │          │
@@ -116,6 +116,19 @@ The Bedrock Model Profiler aggregates data from **7 distinct data sources** to p
                               │     Frontend      │
                               └───────────────────┘
 ```
+
+---
+
+### Caching Architecture
+
+The pipeline uses S3-based caching to minimize redundant API calls:
+
+| Cache Type | Producer | Consumer | TTL | Location |
+|------------|----------|----------|-----|----------|
+| **Model Data** | `model-extractor` | `regional-availability` | Per-execution | `cache/list_foundation_models_{region}.json` |
+| **Inference Profiles** | `region-discovery` | `feature-collector` | Per-execution | `cache/inference_profiles_{region}.json` |
+| **LiteLLM Data** | `token-specs-collector` | Self | 24 hours | `cache/litellm_model_prices.json` |
+| **Lifecycle Data** | `lifecycle-collector` | Self | 24 hours | `cache/lifecycle_data.json` |
 
 ---
 
@@ -204,7 +217,7 @@ response = bedrock_client.list_foundation_models(byInferenceType='PROVISIONED')
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
-| `region_name` | `us-east-1`, `us-west-2` (for extraction); all regions (for availability) | Dual-region collection for models; all regions for availability |
+| `region_name` | All 27 Bedrock regions (for extraction and availability) | All-region collection for models and availability |
 | `byInferenceType` | `ON_DEMAND`, `PROVISIONED` | Filters for regional availability |
 
 **Fields Extracted from modelSummaries:**
@@ -322,7 +335,7 @@ response = quotas_client.list_service_quotas(
 |-----------|-------|-------------|
 | `ServiceCode` | `bedrock` | Service code for Bedrock |
 | `MaxResults` | 100 | Pagination limit |
-| Regions | 16 regions | Collected in parallel |
+| Regions | All discovered regions | Collected in parallel (dynamically discovered) |
 
 **Fields Extracted:**
 ```json
@@ -572,7 +585,7 @@ tables = soup.select('.table-container .table-contents table')
 |--------|----------|-------------|---------|--------|-------------|
 | `pricing-collector` | `pricing:GetProducts` | Bulk Pricing API (HTTPS) | 5 min | 512 MB | 3 |
 | `pricing-aggregator` | S3 read/write | - | 2 min | 1 GB | 1 |
-| `model-extractor` | `bedrock:ListFoundationModels`, Bedrock REST API (SigV4) | - | 1 min | 256 MB | 2 |
+| `model-extractor` | `bedrock:ListFoundationModels`, Bedrock REST API (SigV4) | - | 1 min | 256 MB | 10 |
 | `model-merger` | S3 read/write | - | 1 min | 512 MB | 1 |
 | `quota-collector` | `service-quotas:ListServiceQuotas` | - | 1 min | 256 MB | 10 |
 
@@ -701,12 +714,12 @@ Located at: `backend/config/profiler-config.json`
 | API | Approximate Calls |
 |-----|-------------------|
 | `pricing:GetProducts` | 300+ (paginated, 3 service codes) |
-| `bedrock:ListFoundationModels` | 2 (model extraction) + 27× (availability) |
-| `service-quotas:ListServiceQuotas` | 16 (one per quota region) |
+| `bedrock:ListFoundationModels` | 27 (model extraction, cached for availability) |
+| `service-quotas:ListServiceQuotas` | N (one per discovered region) |
 | `bedrock:ListInferenceProfiles` | 27 (one per feature region) |
 | Mantle API | 27 (one per region) + probes |
-| LiteLLM (HTTPS) | 1 |
-| AWS Docs (HTTPS) | 1 |
+| LiteLLM (HTTPS) | 1 (cached for 24h) |
+| AWS Docs (HTTPS) | 1 (cached for 24h) |
 
 ---
 

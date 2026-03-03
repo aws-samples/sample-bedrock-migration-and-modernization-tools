@@ -43,8 +43,8 @@ python test_workflow_local.py
 ```
 Step Functions Workflow (daily at 6 AM UTC)
     ├→ pricing-collector (3x parallel) → pricing-aggregator
-    ├→ model-extractor (2 regions) → model-merger
-    └→ quota-collector (20 regions parallel)
+    ├→ model-extractor (27 regions) → model-merger (caches for regional-availability)
+    └→ quota-collector (N regions parallel)
          ↓
     pricing-linker + regional-availability + feature-collector + token-specs-collector
          ↓
