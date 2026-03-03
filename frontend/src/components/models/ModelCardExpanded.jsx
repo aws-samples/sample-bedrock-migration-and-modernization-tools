@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route, BarChart3, Wrench, AlertTriangle, AlertCircle } from 'lucide-react'
+import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route,  Wrench, AlertTriangle, AlertCircle } from 'lucide-react'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import {
   Dialog,
@@ -3091,7 +3091,7 @@ const pricingGroupInfo = {
 
 function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [pricingView, setPricingView] = useState('byType') // 'byType' | 'table' | 'byRegion'
+  const [pricingView, setPricingView] = useState('byType') // 'byType' | 'byRegion'
   const [expandedSections, setExpandedSections] = useState({})
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -3201,8 +3201,10 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
   }
 
   const consumptionTypeInfo = {
-    'In Region': { icon: Zap, label: 'In Region (On-Demand)', description: 'Standard on-demand pricing' },
+    'In Region': { icon: Zap, label: 'In Region', description: 'Standard on-demand pricing' },
     'CRIS': { icon: Globe, label: 'Cross-Region (CRIS)', description: 'Cross-region inference' },
+    'CRIS-Global': { icon: Globe, label: 'Global', description: 'Global cross-region inference' },
+    'CRIS-Regional': { icon: Globe, label: 'Regional', description: 'Regional cross-region inference' },
     'Long Context': { icon: BookOpen, label: 'Long Context', description: 'Extended context window pricing' },
     'Batch': { icon: Package, label: 'Batch', description: 'Batch processing with discounts' },
     'Provisioned': { icon: Server, label: 'Provisioned Throughput', description: 'Reserved capacity pricing' },
@@ -3306,7 +3308,6 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
     )}>
       {[
         { key: 'byType', label: 'By Type', icon: Layers },
-        { key: 'table', label: 'Table', icon: BarChart3 },
         { key: 'byRegion', label: 'By Region', icon: Globe }
       ].map(({ key, label, icon: Icon }) => (
         <button
@@ -3345,24 +3346,69 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
       }
     }
 
-    // Render a consumption type section
-    const renderConsumptionSection = (consumptionType, items) => {
-      const info = consumptionTypeInfo[consumptionType]
-      const Icon = info?.icon || Zap
-      const sectionKey = `byType_${consumptionType}`
-      const isExpanded = expandedSections[sectionKey] !== false // Default expanded
-
-      // Group by tier, then deduplicate by price
+    // Consolidate items by tier and type, computing price ranges
+    const consolidateByTierAndType = (items) => {
       const byTier = {}
       items.forEach(item => {
         const tier = item._tier || 'Standard'
-        if (!byTier[tier]) byTier[tier] = []
-        byTier[tier].push(item)
+        if (!byTier[tier]) byTier[tier] = { input: [], output: [], other: [] }
+        const typeKey = item._type === 'input' ? 'input' : item._type === 'output' ? 'output' : 'other'
+        byTier[tier][typeKey].push(item)
       })
+
+      // For each tier, compute consolidated data
+      const result = {}
+      for (const [tier, types] of Object.entries(byTier)) {
+        result[tier] = {}
+        for (const [typeKey, typeItems] of Object.entries(types)) {
+          if (typeItems.length === 0) continue
+          
+          // Get all unique prices and regions
+          const prices = typeItems.map(i => i._price).filter(p => p != null)
+          const allRegions = [...new Set(typeItems.map(i => i.region).filter(Boolean))]
+          const minPrice = Math.min(...prices)
+          const maxPrice = Math.max(...prices)
+          const unit = typeItems[0]._unit
+          
+          // Group by price for detailed breakdown
+          const byPrice = {}
+          typeItems.forEach(item => {
+            const priceKey = (item._price ?? 0).toFixed(6)
+            if (!byPrice[priceKey]) {
+              byPrice[priceKey] = { price: item._price, regions: [], unit: item._unit }
+            }
+            if (item.region && !byPrice[priceKey].regions.includes(item.region)) {
+              byPrice[priceKey].regions.push(item.region)
+            }
+          })
+          
+          result[tier][typeKey] = {
+            minPrice,
+            maxPrice,
+            hasRange: minPrice !== maxPrice,
+            unit,
+            totalRegions: allRegions.length,
+            allRegions,
+            priceBreakdown: Object.values(byPrice).sort((a, b) => a.price - b.price)
+          }
+        }
+      }
+      return result
+    }
+
+    // Render a consumption type section
+    const renderConsumptionSection = (consumptionType, items, subLabel = null) => {
+      const info = consumptionTypeInfo[subLabel || consumptionType]
+      const Icon = info?.icon || Zap
+      const sectionKey = `byType_${subLabel || consumptionType}`
+      const isExpanded = expandedSections[sectionKey] !== false // Default expanded
+
+      // Consolidate by tier and type
+      const consolidated = consolidateByTierAndType(items)
 
       // Sort tiers: Standard first, then alphabetically
       const tierOrder = ['Standard', 'Cache Read', 'Cache Write', '1h Cache', 'Flex', 'Priority', 'No Commit', '1 Month', '6 Month']
-      const sortedTiers = Object.keys(byTier).sort((a, b) => {
+      const sortedTiers = Object.keys(consolidated).sort((a, b) => {
         const idxA = tierOrder.indexOf(a)
         const idxB = tierOrder.indexOf(b)
         if (idxA !== -1 && idxB !== -1) return idxA - idxB
@@ -3371,8 +3417,17 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
         return a.localeCompare(b)
       })
 
+      // Format price range
+      const formatPriceRange = (data) => {
+        if (!data) return null
+        if (data.hasRange) {
+          return `$${formatPrice(data.minPrice)} - $${formatPrice(data.maxPrice)}`
+        }
+        return `$${formatPrice(data.minPrice)}`
+      }
+
       return (
-        <div key={consumptionType} className={cn(
+        <div key={subLabel || consumptionType} className={cn(
           'rounded-lg overflow-hidden border',
           isLight
             ? 'bg-stone-50/80 border-stone-200/80'
@@ -3403,10 +3458,20 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
           {isExpanded && (
             <div className={cn('px-3 pb-3 border-t space-y-3', isLight ? 'border-stone-200' : 'border-white/10')}>
               {sortedTiers.map(tier => {
-                const tierItems = byTier[tier]
-                const deduped = groupByPrice(tierItems)
+                const tierData = consolidated[tier]
                 const tierKey = `${sectionKey}_${tier}`
-                const isTierExpanded = expandedSections[tierKey]
+                const hasInput = tierData.input
+                const hasOutput = tierData.output
+                const hasOther = tierData.other
+                const hasInputOutput = hasInput && hasOutput
+                
+                // Calculate total unique regions for this tier
+                const tierRegions = new Set([
+                  ...(tierData.input?.allRegions || []),
+                  ...(tierData.output?.allRegions || []),
+                  ...(tierData.other?.allRegions || [])
+                ])
+                const totalTierRegions = tierRegions.size
 
                 return (
                   <div key={tier} className="pt-2">
@@ -3417,11 +3482,209 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
                       <div className={cn('text-xs font-medium mb-2', isLight ? 'text-stone-700' : 'text-slate-200')}>
                         {tier}
                       </div>
-                      {deduped.map((item, idx) => {
-                        const regionCount = item.regions?.length || 1
-                        const itemKey = `${tierKey}_${idx}`
-                        const showRegions = expandedSections[itemKey]
-
+                      
+                      {/* Consolidated Input/Output row when both exist */}
+                      {hasInputOutput && (
+                        <div className="mb-1">
+                          <div className={cn(
+                            'flex items-center justify-between px-2 py-2 rounded',
+                            isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.04]'
+                          )}>
+                            <div className="flex items-center gap-4 flex-wrap">
+                              {/* Input */}
+                              <div className="flex items-center gap-2">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500" />
+                                <span className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Input:</span>
+                                <span className={cn('text-xs font-mono font-semibold tabular-nums', isLight ? 'text-stone-900' : 'text-emerald-400')}>
+                                  {formatPriceRange(tierData.input)}
+                                  <span className={cn('font-normal ml-1', isLight ? 'text-stone-400' : 'text-slate-400')}>
+                                    {tierData.input.unit}
+                                  </span>
+                                </span>
+                              </div>
+                              
+                              <span className={cn('text-xs', isLight ? 'text-stone-300' : 'text-slate-600')}>|</span>
+                              
+                              {/* Output */}
+                              <div className="flex items-center gap-2">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 bg-emerald-500" />
+                                <span className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-400')}>Output:</span>
+                                <span className={cn('text-xs font-mono font-semibold tabular-nums', isLight ? 'text-stone-900' : 'text-emerald-400')}>
+                                  {formatPriceRange(tierData.output)}
+                                  <span className={cn('font-normal ml-1', isLight ? 'text-stone-400' : 'text-slate-400')}>
+                                    {tierData.output.unit}
+                                  </span>
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <button
+                              onClick={() => toggleSection(tierKey)}
+                              className={cn(
+                                'text-[10px] px-1.5 py-0.5 rounded transition-colors flex-shrink-0',
+                                isLight
+                                  ? 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                  : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                              )}
+                            >
+                              {totalTierRegions} regions {expandedSections[tierKey] ? '▲' : '▼'}
+                            </button>
+                          </div>
+                          
+                          {/* Expanded price breakdown */}
+                          {expandedSections[tierKey] && (
+                            <div className={cn(
+                              'ml-4 mt-2 space-y-2 px-2 py-2 rounded',
+                              isLight ? 'bg-stone-50' : 'bg-white/[0.02]'
+                            )}>
+                              {/* Input breakdown */}
+                              {tierData.input.priceBreakdown.length > 1 && (
+                                <div>
+                                  <div className={cn('text-[10px] font-medium mb-1 flex items-center gap-1.5', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                    Input breakdown:
+                                  </div>
+                                  {tierData.input.priceBreakdown.map((pb, idx) => (
+                                    <div key={idx} className={cn('text-[10px] ml-3 flex justify-between', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                                      <span className="font-mono">${formatPrice(pb.price)}</span>
+                                      <span>{pb.regions.length} regions: {pb.regions.sort().map(r => getRegionDisplayName(r) || r).join(', ')}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Output breakdown */}
+                              {tierData.output.priceBreakdown.length > 1 && (
+                                <div>
+                                  <div className={cn('text-[10px] font-medium mb-1 flex items-center gap-1.5', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    Output breakdown:
+                                  </div>
+                                  {tierData.output.priceBreakdown.map((pb, idx) => (
+                                    <div key={idx} className={cn('text-[10px] ml-3 flex justify-between', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                                      <span className="font-mono">${formatPrice(pb.price)}</span>
+                                      <span>{pb.regions.length} regions: {pb.regions.sort().map(r => getRegionDisplayName(r) || r).join(', ')}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Single price - just show regions */}
+                              {tierData.input.priceBreakdown.length === 1 && tierData.output.priceBreakdown.length === 1 && (
+                                <div className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                                  {[...tierRegions].sort().map(r => getRegionDisplayName(r) || r).join(', ')}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Standalone Input (when no Output) */}
+                      {hasInput && !hasOutput && (
+                        <div className="mb-1">
+                          <div className={cn(
+                            'flex items-center justify-between px-2 py-1.5 rounded',
+                            isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.04]'
+                          )}>
+                            <div className="flex items-center gap-2">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500" />
+                              <span className={cn('text-xs', isLight ? 'text-stone-700' : 'text-[#e4e5e7]')}>Input</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={cn('text-xs font-mono font-semibold tabular-nums', isLight ? 'text-stone-900' : 'text-emerald-400')}>
+                                {formatPriceRange(tierData.input)}
+                                <span className={cn('font-normal ml-1', isLight ? 'text-stone-400' : 'text-slate-400')}>
+                                  {tierData.input.unit}
+                                </span>
+                              </span>
+                              <button
+                                onClick={() => toggleSection(`${tierKey}_input`)}
+                                className={cn(
+                                  'text-[10px] px-1.5 py-0.5 rounded transition-colors',
+                                  isLight
+                                    ? 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                                )}
+                              >
+                                {tierData.input.totalRegions} regions {expandedSections[`${tierKey}_input`] ? '▲' : '▼'}
+                              </button>
+                            </div>
+                          </div>
+                          {expandedSections[`${tierKey}_input`] && (
+                            <div className={cn(
+                              'ml-4 mt-1 px-2 py-1.5 rounded text-[10px]',
+                              isLight ? 'bg-stone-50 text-stone-500' : 'bg-white/[0.02] text-slate-400'
+                            )}>
+                              {tierData.input.priceBreakdown.length > 1 ? (
+                                tierData.input.priceBreakdown.map((pb, idx) => (
+                                  <div key={idx} className="flex justify-between">
+                                    <span className="font-mono">${formatPrice(pb.price)}</span>
+                                    <span>{pb.regions.sort().map(r => getRegionDisplayName(r) || r).join(', ')}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                tierData.input.allRegions.sort().map(r => getRegionDisplayName(r) || r).join(', ')
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Standalone Output (when no Input) */}
+                      {hasOutput && !hasInput && (
+                        <div className="mb-1">
+                          <div className={cn(
+                            'flex items-center justify-between px-2 py-1.5 rounded',
+                            isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.04]'
+                          )}>
+                            <div className="flex items-center gap-2">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 bg-emerald-500" />
+                              <span className={cn('text-xs', isLight ? 'text-stone-700' : 'text-[#e4e5e7]')}>Output</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={cn('text-xs font-mono font-semibold tabular-nums', isLight ? 'text-stone-900' : 'text-emerald-400')}>
+                                {formatPriceRange(tierData.output)}
+                                <span className={cn('font-normal ml-1', isLight ? 'text-stone-400' : 'text-slate-400')}>
+                                  {tierData.output.unit}
+                                </span>
+                              </span>
+                              <button
+                                onClick={() => toggleSection(`${tierKey}_output`)}
+                                className={cn(
+                                  'text-[10px] px-1.5 py-0.5 rounded transition-colors',
+                                  isLight
+                                    ? 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                                )}
+                              >
+                                {tierData.output.totalRegions} regions {expandedSections[`${tierKey}_output`] ? '▲' : '▼'}
+                              </button>
+                            </div>
+                          </div>
+                          {expandedSections[`${tierKey}_output`] && (
+                            <div className={cn(
+                              'ml-4 mt-1 px-2 py-1.5 rounded text-[10px]',
+                              isLight ? 'bg-stone-50 text-stone-500' : 'bg-white/[0.02] text-slate-400'
+                            )}>
+                              {tierData.output.priceBreakdown.length > 1 ? (
+                                tierData.output.priceBreakdown.map((pb, idx) => (
+                                  <div key={idx} className="flex justify-between">
+                                    <span className="font-mono">${formatPrice(pb.price)}</span>
+                                    <span>{pb.regions.sort().map(r => getRegionDisplayName(r) || r).join(', ')}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                tierData.output.allRegions.sort().map(r => getRegionDisplayName(r) || r).join(', ')
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Other types (not input/output) */}
+                      {hasOther && tierData.other.priceBreakdown.map((pb, idx) => {
+                        const itemKey = `${tierKey}_other_${idx}`
                         return (
                           <div key={idx} className="mb-1 last:mb-0">
                             <div className={cn(
@@ -3429,22 +3692,19 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
                               isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.04]'
                             )}>
                               <div className="flex items-center gap-2">
-                                <span className={cn(
-                                  'inline-block w-1.5 h-1.5 rounded-full flex-shrink-0',
-                                  item._type === 'input' ? 'bg-blue-500' : item._type === 'output' ? 'bg-emerald-500' : 'bg-[#6d6e72]'
-                                )} />
+                                <span className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[#6d6e72]" />
                                 <span className={cn('text-xs', isLight ? 'text-stone-700' : 'text-[#e4e5e7]')}>
-                                  {item._label}
+                                  {tier}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className={cn('text-xs font-mono font-semibold tabular-nums', isLight ? 'text-stone-900' : 'text-emerald-400')}>
-                                  ${formatPrice(item._price)}
+                                  ${formatPrice(pb.price)}
                                   <span className={cn('font-normal ml-1', isLight ? 'text-stone-400' : 'text-slate-400')}>
-                                    {item._unit}
+                                    {pb.unit}
                                   </span>
                                 </span>
-                                {regionCount > 1 ? (
+                                {pb.regions.length > 1 ? (
                                   <button
                                     onClick={() => toggleSection(itemKey)}
                                     className={cn(
@@ -3454,21 +3714,21 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
                                         : 'bg-white/10 text-slate-300 hover:bg-white/20'
                                     )}
                                   >
-                                    {regionCount} regions {showRegions ? '▲' : '▼'}
+                                    {pb.regions.length} regions {expandedSections[itemKey] ? '▲' : '▼'}
                                   </button>
                                 ) : (
                                   <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
-                                    {item.regions?.[0] || item.region}
+                                    {pb.regions[0]}
                                   </span>
                                 )}
                               </div>
                             </div>
-                            {showRegions && item.regions?.length > 1 && (
+                            {expandedSections[itemKey] && pb.regions.length > 1 && (
                               <div className={cn(
                                 'ml-4 mt-1 px-2 py-1.5 rounded text-[10px]',
                                 isLight ? 'bg-stone-50 text-stone-500' : 'bg-white/[0.02] text-slate-400'
                               )}>
-                                {item.regions.sort().map(r => getRegionDisplayName(r) || r).join(', ')}
+                                {pb.regions.sort().map(r => getRegionDisplayName(r) || r).join(', ')}
                               </div>
                             )}
                           </div>
@@ -3483,215 +3743,96 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
         </div>
       )
     }
+    
+    // Render CRIS section with Global/Regional sub-sections
+    const renderCRISSection = (items) => {
+      // Split items into Global and Regional
+      const globalItems = items.filter(item => item._groupName === 'On-Demand Global')
+      const regionalItems = items.filter(item => item._groupName !== 'On-Demand Global')
+      
+      // If only one type exists, render normally
+      if (globalItems.length === 0 || regionalItems.length === 0) {
+        return renderConsumptionSection('CRIS', items)
+      }
+      
+      // Both exist - render as parent with sub-sections
+      const sectionKey = 'byType_CRIS'
+      const isExpanded = expandedSections[sectionKey] !== false
+      const info = consumptionTypeInfo['CRIS']
+      const Icon = info?.icon || Globe
+      
+      return (
+        <div key="CRIS" className={cn(
+          'rounded-lg overflow-hidden border',
+          isLight
+            ? 'bg-stone-50/80 border-stone-200/80'
+            : 'bg-white/5 border-white/10'
+        )}>
+          <button
+            className={cn(
+              'w-full flex items-center justify-between p-3 transition-colors',
+              isLight ? 'hover:bg-stone-100/80' : 'hover:bg-white/5'
+            )}
+            onClick={() => toggleSection(sectionKey)}
+          >
+            <div className="flex items-center gap-2">
+              <Icon className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+              <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
+                {info?.label || 'Cross-Region (CRIS)'}
+              </span>
+              <Badge variant="secondary" className="text-[10px]">
+                {new Set(items.map(i => i.region)).size} regions
+              </Badge>
+            </div>
+            {isExpanded ? (
+              <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+            ) : (
+              <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+            )}
+          </button>
+          {isExpanded && (
+            <div className={cn('px-3 pb-3 border-t space-y-3', isLight ? 'border-stone-200' : 'border-white/10')}>
+              {/* Global sub-section */}
+              {globalItems.length > 0 && (
+                <div className="pt-2">
+                  {renderConsumptionSection('CRIS', globalItems, 'CRIS-Global')}
+                </div>
+              )}
+              {/* Regional sub-section */}
+              {regionalItems.length > 0 && (
+                <div className="pt-2">
+                  {renderConsumptionSection('CRIS', regionalItems, 'CRIS-Regional')}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )
+    }
 
     // Split into left/right columns
     const leftTypes = ['In Region', 'CRIS', 'Long Context']
     const rightTypes = ['Batch', 'Provisioned', 'Custom']
+    
+    // Helper to render the appropriate section
+    const renderSection = (type, items) => {
+      if (type === 'CRIS') {
+        return renderCRISSection(items)
+      }
+      return renderConsumptionSection(type, items)
+    }
 
     return (
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="space-y-4">
-          {leftTypes.map(type => byConsumptionType[type] && renderConsumptionSection(type, byConsumptionType[type]))}
+          {leftTypes.map(type => byConsumptionType[type] && renderSection(type, byConsumptionType[type]))}
         </div>
         <div className="space-y-4">
-          {rightTypes.map(type => byConsumptionType[type] && renderConsumptionSection(type, byConsumptionType[type]))}
+          {rightTypes.map(type => byConsumptionType[type] && renderSection(type, byConsumptionType[type]))}
         </div>
       </div>
     )
   }
-
-  // ============================================
-  // VIEW 2: TABLE (Price Comparison Table)
-  // ============================================
-  const renderTableView = () => {
-    const allItems = filterItems(getAllPricingItems())
-    
-    // Group and deduplicate for table
-    const tableRows = []
-    const seen = new Set()
-
-    // Group by tier + type + price
-    allItems.forEach(item => {
-      const key = `${item._tier}_${item._type}_${item._label}_${formatPrice(item._price)}_${item._groupName}`
-      if (!seen.has(key)) {
-        seen.add(key)
-        const matchingItems = allItems.filter(i => 
-          i._tier === item._tier && 
-          i._type === item._type && 
-          i._label === item._label &&
-          formatPrice(i._price) === formatPrice(item._price) &&
-          i._groupName === item._groupName
-        )
-        const regions = [...new Set(matchingItems.map(i => i.region))]
-        
-        // Determine consumption type
-        let consumptionType = 'Other'
-        for (const [cType, groups] of Object.entries(consumptionTypeMapping)) {
-          if (groups.includes(item._groupName)) {
-            consumptionType = cType
-            break
-          }
-        }
-
-        // Calculate discount if applicable (batch vs on-demand)
-        let discount = null
-        if (consumptionType === 'Batch' && item._type !== 'other') {
-          const onDemandItems = allItems.filter(i => 
-            consumptionTypeMapping['In Region'].includes(i._groupName) &&
-            i._type === item._type &&
-            i._tier === 'Standard'
-          )
-          if (onDemandItems.length > 0) {
-            const onDemandPrice = onDemandItems[0]._price
-            if (onDemandPrice && item._price) {
-              const discountPct = Math.round((1 - item._price / onDemandPrice) * 100)
-              if (discountPct > 0) discount = `${discountPct}%`
-            }
-          }
-        }
-
-        tableRows.push({
-          tier: item._tier,
-          label: item._label,
-          type: item._type,
-          price: item._price,
-          unit: item._unit,
-          regionCount: regions.length,
-          regions,
-          consumptionType,
-          discount,
-          groupName: item._groupName
-        })
-      }
-    })
-
-    // Sort table rows
-    const typeOrder = { input: 0, output: 1, other: 2 }
-    const consumptionOrder = ['In Region', 'Long Context', 'CRIS', 'Batch', 'Provisioned', 'Custom', 'Other']
-    tableRows.sort((a, b) => {
-      const cA = consumptionOrder.indexOf(a.consumptionType)
-      const cB = consumptionOrder.indexOf(b.consumptionType)
-      if (cA !== cB) return cA - cB
-      if (a.tier !== b.tier) return a.tier.localeCompare(b.tier)
-      return (typeOrder[a.type] ?? 2) - (typeOrder[b.type] ?? 2)
-    })
-
-    return (
-      <div className={cn(
-        'rounded-lg border overflow-hidden',
-        isLight ? 'bg-white border-stone-200' : 'bg-white/[0.02] border-white/[0.06]'
-      )}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className={cn(
-                'border-b',
-                isLight ? 'bg-stone-50 border-stone-200' : 'bg-white/5 border-white/10'
-              )}>
-                <th className={cn('px-3 py-2.5 text-left font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                  Tier
-                </th>
-                <th className={cn('px-3 py-2.5 text-left font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                  Type
-                </th>
-                <th className={cn('px-3 py-2.5 text-right font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                  Price
-                </th>
-                <th className={cn('px-3 py-2.5 text-center font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                  Discount
-                </th>
-                <th className={cn('px-3 py-2.5 text-center font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                  Regions
-                </th>
-                <th className={cn('px-3 py-2.5 text-left font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                  Consumption
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableRows.map((row, idx) => {
-                const rowKey = `table_row_${idx}`
-                const showRegions = expandedSections[rowKey]
-
-                return (
-                  <tr
-                    key={idx}
-                    className={cn(
-                      'border-b last:border-b-0 transition-colors',
-                      isLight ? 'border-stone-100 hover:bg-stone-50' : 'border-white/5 hover:bg-white/[0.02]'
-                    )}
-                  >
-                    <td className={cn('px-3 py-2', isLight ? 'text-stone-800' : 'text-white')}>
-                      <div className="flex items-center gap-2">
-                        <span className={cn(
-                          'inline-block w-1.5 h-1.5 rounded-full flex-shrink-0',
-                          row.type === 'input' ? 'bg-blue-500' : row.type === 'output' ? 'bg-emerald-500' : 'bg-[#6d6e72]'
-                        )} />
-                        {row.tier}
-                      </div>
-                    </td>
-                    <td className={cn('px-3 py-2', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                      {row.label}
-                    </td>
-                    <td className={cn('px-3 py-2 text-right font-mono tabular-nums', isLight ? 'text-stone-900' : 'text-emerald-400')}>
-                      ${formatPrice(row.price)}
-                      <span className={cn('font-normal ml-1', isLight ? 'text-stone-400' : 'text-slate-500')}>
-                        {row.unit}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      {row.discount ? (
-                        <span className={cn(
-                          'inline-block px-1.5 py-0.5 rounded text-[10px] font-medium',
-                          isLight ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-500/20 text-emerald-400'
-                        )}>
-                          {row.discount}
-                        </span>
-                      ) : (
-                        <span className={cn('text-[10px]', isLight ? 'text-stone-300' : 'text-slate-600')}>—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <button
-                        onClick={() => toggleSection(rowKey)}
-                        className={cn(
-                          'px-1.5 py-0.5 rounded transition-colors',
-                          isLight
-                            ? 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                            : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                        )}
-                      >
-                        {row.regionCount}
-                      </button>
-                      {showRegions && (
-                        <div className={cn(
-                          'absolute z-10 mt-1 p-2 rounded-lg shadow-lg text-left max-w-xs',
-                          isLight ? 'bg-white border border-stone-200' : 'bg-slate-800 border border-white/10'
-                        )}>
-                          <div className={cn('text-[10px] leading-relaxed', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                            {row.regions.sort().map(r => getRegionDisplayName(r) || r).join(', ')}
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                    <td className={cn('px-3 py-2', isLight ? 'text-stone-600' : 'text-slate-400')}>
-                      {row.consumptionType}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-        {tableRows.length === 0 && (
-          <div className={cn('text-center py-8', isLight ? 'text-stone-500' : 'text-slate-400')}>
-            No pricing data matches your search
-          </div>
-        )}
-      </div>
-    )
-  }
-
   // ============================================
   // VIEW 3: BY REGION (Simplified Geo-Based View)
   // ============================================
@@ -3834,7 +3975,6 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
 
         {/* View Content */}
         {pricingView === 'byType' && renderByTypeView()}
-        {pricingView === 'table' && renderTableView()}
         {pricingView === 'byRegion' && renderByRegionView()}
       </div>
     </ScrollArea>
