@@ -2006,7 +2006,10 @@ function LifecycleDetailsSection({ model, isLight }) {
 function SpecsTab({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
+  
+  // Data extraction (preserved from original)
   const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window
+  const extendedContextWindow = model.specs?.extended_context_window
   const maxOutput = model.specs?.max_output ?? model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
   const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
   const outputModalities = model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? []
@@ -2023,168 +2026,371 @@ function SpecsTab({ model }) {
   const languages = model.languages ?? model.languages_supported ?? []
   const documentationLinks = model.docs ?? model.documentation_links ?? {}
   const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
-  const streamingSupported = model.streaming ?? model.streaming_supported
-  const crisData = model.availability?.cross_region ?? model.cross_region_inference ?? {}
-  const batchData = model.availability?.batch ?? model.batch_inference_supported ?? {}
-  const mantleData = model.availability?.mantle ?? {}
   const consumptionOptions = model.consumption_options || []
   const customizations = model.customization?.customization_supported || []
-  const lifecycleStatus = model.lifecycle?.status ?? model.model_lifecycle?.status ?? model.model_status ?? 'Unknown'
+  const lifecycleStatus = model.lifecycle?.status ?? model.model_lifecycle?.status ?? model.model_status ?? 'ACTIVE'
+  
+  // Calculate total regions across all availability types
+  const onDemandRegions = model.availability?.on_demand?.regions ?? model.in_region ?? []
+  const crisRegions = model.availability?.cross_region?.regions ?? []
+  const batchRegions = model.availability?.batch?.regions ?? []
+  const mantleRegions = model.availability?.mantle?.regions ?? []
+  const totalRegions = new Set([...onDemandRegions, ...crisRegions, ...batchRegions, ...mantleRegions]).size || onDemandRegions.length
+
+  // Format large numbers with K/M suffix
+  const formatNumber = (num) => {
+    if (!num) return '—'
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
+    if (num >= 1000) return `${(num / 1000).toFixed(0)}K`
+    return num.toString()
+  }
+
+  // Get status color classes
+  const getStatusColor = (status) => {
+    const normalizedStatus = (status || 'ACTIVE').toUpperCase()
+    switch (normalizedStatus) {
+      case 'ACTIVE':
+        return isLight
+          ? 'bg-emerald-500 text-white'
+          : 'bg-emerald-500 text-white'
+      case 'LEGACY':
+        return isLight
+          ? 'bg-amber-500 text-white'
+          : 'bg-amber-500 text-white'
+      case 'EOL':
+        return isLight
+          ? 'bg-red-500 text-white'
+          : 'bg-red-500 text-white'
+      default:
+        return isLight
+          ? 'bg-stone-400 text-white'
+          : 'bg-slate-500 text-white'
+    }
+  }
+
+  // Category header component
+  const CategoryHeader = ({ icon: Icon, title }) => (
+    <div className={cn(
+      'flex items-center gap-2 mb-3 pb-2 border-b',
+      isLight ? 'border-stone-200' : 'border-white/10'
+    )}>
+      <Icon className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+      <h3 className={cn('text-sm font-semibold tracking-wide uppercase', isLight ? 'text-stone-700' : 'text-slate-200')}>
+        {title}
+      </h3>
+    </div>
+  )
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-6">
-        {/* Two-column grid layout for better use of space */}
+      <div className="p-6 space-y-6">
+        {/* ═══════════════════════════════════════════════════════════════════
+            HERO SECTION - Key Metrics (always visible, prominent)
+            ═══════════════════════════════════════════════════════════════════ */}
+        <div className={cn(
+          'rounded-xl p-4 border',
+          isLight
+            ? 'bg-gradient-to-br from-stone-50 to-stone-100/50 border-stone-200'
+            : 'bg-gradient-to-br from-white/[0.04] to-white/[0.02] border-white/10'
+        )}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Context Window */}
+            <div className={cn(
+              'rounded-lg p-3 text-center',
+              isLight ? 'bg-white/80 shadow-sm' : 'bg-white/[0.04]'
+            )}>
+              <div className={cn('text-[10px] uppercase tracking-wider font-medium mb-1', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                Context Window
+              </div>
+              <div className={cn('text-2xl font-bold tabular-nums', isLight ? 'text-stone-900' : 'text-white')}>
+                {formatNumber(contextWindow)}
+              </div>
+              {extendedContextWindow && extendedContextWindow !== contextWindow && (
+                <div className={cn('text-xs mt-0.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')}>
+                  ({formatNumber(extendedContextWindow)} extended)
+                </div>
+              )}
+            </div>
+
+            {/* Max Output */}
+            <div className={cn(
+              'rounded-lg p-3 text-center',
+              isLight ? 'bg-white/80 shadow-sm' : 'bg-white/[0.04]'
+            )}>
+              <div className={cn('text-[10px] uppercase tracking-wider font-medium mb-1', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                Max Output
+              </div>
+              <div className={cn('text-2xl font-bold tabular-nums', isLight ? 'text-stone-900' : 'text-white')}>
+                {formatNumber(maxOutput)}
+              </div>
+              <div className={cn('text-xs mt-0.5', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                tokens
+              </div>
+            </div>
+
+            {/* Total Regions */}
+            <div className={cn(
+              'rounded-lg p-3 text-center',
+              isLight ? 'bg-white/80 shadow-sm' : 'bg-white/[0.04]'
+            )}>
+              <div className={cn('text-[10px] uppercase tracking-wider font-medium mb-1', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                Regions
+              </div>
+              <div className={cn('text-2xl font-bold tabular-nums', isLight ? 'text-stone-900' : 'text-white')}>
+                {totalRegions || '—'}
+              </div>
+              <div className={cn('text-xs mt-0.5', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                available
+              </div>
+            </div>
+
+            {/* Lifecycle Status */}
+            <div className={cn(
+              'rounded-lg p-3 text-center',
+              isLight ? 'bg-white/80 shadow-sm' : 'bg-white/[0.04]'
+            )}>
+              <div className={cn('text-[10px] uppercase tracking-wider font-medium mb-1', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                Status
+              </div>
+              <div className="flex justify-center mt-1">
+                <span className={cn(
+                  'px-3 py-1 rounded-full text-sm font-semibold',
+                  getStatusColor(lifecycleStatus)
+                )}>
+                  {lifecycleStatus.toUpperCase()}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            TWO-COLUMN GRID - Category Sections
+            ═══════════════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* Left Column */}
-          <div className="space-y-4">
-            {/* Input & Output Modalities */}
-            <CollapsibleSection title="Input & Output Modalities" icon={Layers} defaultExpanded={true}>
+          {/* ─────────────────────────────────────────────────────────────────
+              LEFT COLUMN
+              ───────────────────────────────────────────────────────────────── */}
+          <div className="space-y-6">
+            {/* ═══ MODEL CAPABILITIES ═══ */}
+            <div>
+              <CategoryHeader icon={Cpu} title="Model Capabilities" />
               <div className="space-y-3">
-                <div>
-                  <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Input Modalities</p>
-                  <div className="flex flex-wrap gap-2">
-                    {inputModalities.length > 0 ? inputModalities.map(mod => {
-                      const Icon = modalityIcons[mod] || MessageSquare
-                      return (
-                        <Badge key={mod} className={cn(isLight ? 'text-[#faf9f5] bg-amber-700' : 'text-white bg-[#1A9E7A]')}>
-                          <Icon className="h-3 w-3 mr-1" />{modalityLabels[mod] || mod}
-                        </Badge>
-                      )
-                    }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>None specified</span>}
+                {/* Modalities - Always expanded */}
+                <CollapsibleSection title="Input & Output Modalities" icon={Layers} defaultExpanded={true}>
+                  <div className="space-y-3">
+                    <div>
+                      <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Input</p>
+                      <div className="flex flex-wrap gap-2">
+                        {inputModalities.length > 0 ? inputModalities.map(mod => {
+                          const Icon = modalityIcons[mod] || MessageSquare
+                          return (
+                            <Badge key={mod} className={cn(isLight ? 'text-[#faf9f5] bg-amber-700' : 'text-white bg-[#1A9E7A]')}>
+                              <Icon className="h-3 w-3 mr-1" />{modalityLabels[mod] || mod}
+                            </Badge>
+                          )
+                        }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>None specified</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Output</p>
+                      <div className="flex flex-wrap gap-2">
+                        {outputModalities.length > 0 ? outputModalities.map(mod => {
+                          const Icon = modalityIcons[mod] || MessageSquare
+                          return (
+                            <Badge key={mod} className={cn('bg-emerald-600', isLight ? 'text-[#faf9f5]' : 'text-white')}>
+                              <Icon className="h-3 w-3 mr-1" />{modalityLabels[mod] || mod}
+                            </Badge>
+                          )
+                        }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>None specified</span>}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Output Modalities</p>
-                  <div className="flex flex-wrap gap-2">
-                    {outputModalities.length > 0 ? outputModalities.map(mod => {
-                      const Icon = modalityIcons[mod] || MessageSquare
-                      return (
-                        <Badge key={mod} className={cn('bg-emerald-600', isLight ? 'text-[#faf9f5]' : 'text-white')}>
-                          <Icon className="h-3 w-3 mr-1" />{modalityLabels[mod] || mod}
-                        </Badge>
-                      )
-                    }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>None specified</span>}
-                  </div>
-                </div>
-              </div>
-            </CollapsibleSection>
+                </CollapsibleSection>
 
-            {/* Capabilities & Use Cases */}
-            <CollapsibleSection title="Capabilities & Use Cases" icon={Cpu} defaultExpanded={true}>
-              <div className="space-y-3">
-                <ExpandableTagList
-                  label="Capabilities"
-                  items={capabilities}
-                  maxVisible={8}
-                  isLight={isLight}
-                />
-                <ExpandableTagList
-                  label="Use Cases"
-                  items={useCases}
-                  maxVisible={8}
-                  isLight={isLight}
-                />
-              </div>
-            </CollapsibleSection>
+                {/* Capabilities - Collapsed by default */}
+                {capabilities.length > 0 && (
+                  <CollapsibleSection title="Capabilities" icon={Zap} defaultExpanded={false}>
+                    <ExpandableTagList
+                      label=""
+                      items={capabilities}
+                      maxVisible={8}
+                      isLight={isLight}
+                    />
+                  </CollapsibleSection>
+                )}
 
-            {/* Languages */}
-            <CollapsibleSection title="Languages" icon={Languages} defaultExpanded={true}>
-              <div className="flex flex-wrap gap-1.5">
-                {languages.length > 0 ? languages.map(lang => (
-                  <Badge key={lang} variant="secondary" className="text-xs">{lang}</Badge>
-                )) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>Not specified</span>}
-              </div>
-            </CollapsibleSection>
-
-            {/* Documentation & Resources */}
-            <CollapsibleSection title="Documentation & Resources" icon={FileText} defaultExpanded={true}>
-              <div className="space-y-2">
-                {Object.keys(documentationLinks).length > 0 ? (
-                  <div className="flex flex-col gap-2">
-                    {documentationLinks.aws_bedrock_guide && (
-                      <a href={documentationLinks.aws_bedrock_guide} target="_blank" rel="noopener noreferrer"
-                         className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        AWS Bedrock Guide
-                      </a>
-                    )}
-                    {documentationLinks.pricing_guide && (
-                      <a href={documentationLinks.pricing_guide} target="_blank" rel="noopener noreferrer"
-                         className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Pricing Guide
-                      </a>
-                    )}
-                    {documentationLinks.provider_guide && (
-                      <a href={documentationLinks.provider_guide} target="_blank" rel="noopener noreferrer"
-                         className={cn('flex items-center gap-2 text-sm hover:underline', isLight ? 'text-blue-600' : 'text-blue-400')}>
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Provider Documentation
-                      </a>
-                    )}
-                  </div>
-                ) : (
-                  <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>No documentation links available</span>
+                {/* Use Cases - Collapsed by default */}
+                {useCases.length > 0 && (
+                  <CollapsibleSection title="Use Cases" icon={BookOpen} defaultExpanded={false}>
+                    <ExpandableTagList
+                      label=""
+                      items={useCases}
+                      maxVisible={8}
+                      isLight={isLight}
+                    />
+                  </CollapsibleSection>
                 )}
               </div>
-            </CollapsibleSection>
+            </div>
 
-            {/* Lifecycle Details */}
-            <CollapsibleSection title="Lifecycle Details" icon={Clock} defaultExpanded={true}>
-              <LifecycleDetailsSection model={model} isLight={isLight} />
-            </CollapsibleSection>
-
-            {/* Consumption & Deployment Options */}
-            <CollapsibleSection title="Consumption & Deployment" icon={Server} defaultExpanded={true}>
+            {/* ═══ FEATURES & INTEGRATIONS ═══ */}
+            <div>
+              <CategoryHeader icon={Wrench} title="Features & Integrations" />
               <div className="space-y-3">
-                <div>
-                  <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Consumption Options</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {consumptionOptions.length > 0 ? consumptionOptions.map(opt => {
-                      const labels = {
-                        'on_demand': 'In Region',
-                        'batch': 'Batch',
-                        'provisioned': 'Provisioned',
-                        'provisioned_throughput': 'Provisioned Throughput',
-                        'cross_region_inference': 'Cross-Region Inference',
-                        'mantle': 'Mantle Inference'
-                      }
-                      return (
-                        <Badge key={opt} variant="info" className="text-xs">
-                          {labels[opt] || opt}
-                        </Badge>
-                      )
-                    }) : <span className={cn('text-sm', isLight ? 'text-stone-600' : 'text-slate-400')}>Not specified</span>}
-                  </div>
-                </div>
+                {/* Bedrock Features - Collapsed by default */}
+                {(model.features ?? model.feature_support) && (
+                  <CollapsibleSection title="Bedrock Features" icon={Layers} defaultExpanded={false}>
+                    <BedrockFeaturesSection featureSupport={model.features ?? model.feature_support} />
+                  </CollapsibleSection>
+                )}
+
+                {/* Languages - Collapsed by default */}
+                {languages.length > 0 && (
+                  <CollapsibleSection title="Languages" icon={Languages} defaultExpanded={false}>
+                    <div className="flex flex-wrap gap-1.5">
+                      {languages.map(lang => (
+                        <Badge key={lang} variant="secondary" className="text-xs">{lang}</Badge>
+                      ))}
+                    </div>
+                  </CollapsibleSection>
+                )}
+
+                {/* Customizations - Collapsed by default */}
                 {customizations.length > 0 && (
-                  <div>
-                    <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Customizations</p>
+                  <CollapsibleSection title="Customizations" icon={Wrench} defaultExpanded={false}>
                     <div className="flex flex-wrap gap-1.5">
                       {customizations.map(custom => (
                         <Badge key={custom} variant="outline" className="text-xs">{custom}</Badge>
                       ))}
                     </div>
+                  </CollapsibleSection>
+                )}
+
+                {/* Show placeholder if no features */}
+                {!(model.features ?? model.feature_support) && languages.length === 0 && customizations.length === 0 && (
+                  <div className={cn(
+                    'rounded-lg p-4 text-center',
+                    isLight ? 'bg-stone-50 border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]'
+                  )}>
+                    <p className={cn('text-sm', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                      No feature data available
+                    </p>
                   </div>
                 )}
               </div>
-            </CollapsibleSection>
-
-            {/* Bedrock Features */}
-            {(model.features ?? model.feature_support) && (
-              <CollapsibleSection title="Bedrock Features" icon={Layers} defaultExpanded={true}>
-                <BedrockFeaturesSection featureSupport={model.features ?? model.feature_support} />
-              </CollapsibleSection>
-            )}
+            </div>
           </div>
 
-          {/* Right Column */}
-          <div className="space-y-4">
-            {/* Availability Overview — pills expand inline to show details */}
-            <CollapsibleSection title="Availability Overview" icon={Globe} defaultExpanded={true}>
-              <AvailabilitySummary model={model} />
-            </CollapsibleSection>
+          {/* ─────────────────────────────────────────────────────────────────
+              RIGHT COLUMN
+              ───────────────────────────────────────────────────────────────── */}
+          <div className="space-y-6">
+            {/* ═══ AVAILABILITY & DEPLOYMENT ═══ */}
+            <div>
+              <CategoryHeader icon={Globe} title="Availability & Deployment" />
+              <div className="space-y-3">
+                {/* Regional Availability - Always expanded */}
+                <CollapsibleSection title="Regional Availability" icon={Globe} defaultExpanded={true}>
+                  <AvailabilitySummary model={model} />
+                </CollapsibleSection>
+
+                {/* Consumption Options - Collapsed by default */}
+                {consumptionOptions.length > 0 && (
+                  <CollapsibleSection title="Consumption Options" icon={Server} defaultExpanded={false}>
+                    <div className="flex flex-wrap gap-1.5">
+                      {consumptionOptions.map(opt => {
+                        const labels = {
+                          'on_demand': 'In Region',
+                          'batch': 'Batch',
+                          'provisioned': 'Provisioned',
+                          'provisioned_throughput': 'Provisioned Throughput',
+                          'cross_region_inference': 'Cross-Region Inference',
+                          'mantle': 'Mantle Inference'
+                        }
+                        return (
+                          <Badge key={opt} variant="info" className="text-xs">
+                            {labels[opt] || opt}
+                          </Badge>
+                        )
+                      })}
+                    </div>
+                  </CollapsibleSection>
+                )}
+              </div>
+            </div>
+
+            {/* ═══ LIFECYCLE & RESOURCES ═══ */}
+            <div>
+              <CategoryHeader icon={Clock} title="Lifecycle & Resources" />
+              <div className="space-y-3">
+                {/* Lifecycle Details - Collapsed by default */}
+                <CollapsibleSection title="Status & Dates" icon={Clock} defaultExpanded={false}>
+                  <LifecycleDetailsSection model={model} isLight={isLight} />
+                </CollapsibleSection>
+
+                {/* Documentation Links - Always visible (not collapsible) */}
+                <div className={cn(
+                  'rounded-lg overflow-hidden border p-3',
+                  isLight
+                    ? 'bg-stone-50/80 border-stone-200/80'
+                    : 'bg-white/5 border-white/10'
+                )}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <FileText className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+                    <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
+                      Documentation
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {Object.keys(documentationLinks).length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        {documentationLinks.aws_bedrock_guide && (
+                          <a href={documentationLinks.aws_bedrock_guide} target="_blank" rel="noopener noreferrer"
+                             className={cn(
+                               'flex items-center gap-2 text-sm px-2 py-1.5 rounded-md transition-colors',
+                               isLight
+                                 ? 'text-blue-600 hover:bg-blue-50'
+                                 : 'text-blue-400 hover:bg-blue-500/10'
+                             )}>
+                            <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" />
+                            AWS Bedrock Guide
+                          </a>
+                        )}
+                        {documentationLinks.pricing_guide && (
+                          <a href={documentationLinks.pricing_guide} target="_blank" rel="noopener noreferrer"
+                             className={cn(
+                               'flex items-center gap-2 text-sm px-2 py-1.5 rounded-md transition-colors',
+                               isLight
+                                 ? 'text-blue-600 hover:bg-blue-50'
+                                 : 'text-blue-400 hover:bg-blue-500/10'
+                             )}>
+                            <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" />
+                            Pricing Guide
+                          </a>
+                        )}
+                        {documentationLinks.provider_guide && (
+                          <a href={documentationLinks.provider_guide} target="_blank" rel="noopener noreferrer"
+                             className={cn(
+                               'flex items-center gap-2 text-sm px-2 py-1.5 rounded-md transition-colors',
+                               isLight
+                                 ? 'text-blue-600 hover:bg-blue-50'
+                                 : 'text-blue-400 hover:bg-blue-500/10'
+                             )}>
+                            <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" />
+                            Provider Documentation
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <p className={cn('text-sm px-2', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                        No documentation links available
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

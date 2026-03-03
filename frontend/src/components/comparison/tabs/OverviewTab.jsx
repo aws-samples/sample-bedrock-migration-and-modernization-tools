@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy, Info, DollarSign, Globe } from 'lucide-react'
+import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy, DollarSign, Globe } from 'lucide-react'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -296,7 +296,6 @@ function getAllModelRegions(model) {
 
 export function OverviewTab({ selectedModels, getPricingForModel, allModels, isLight }) {
   const [scoringMode, setScoringMode] = useState('global') // 'global' or 'relative'
-  const [showScoringInfo, setShowScoringInfo] = useState(false)
 
   const modelData = selectedModels.map(({ model, region }) => {
     const pricing = getPricingForModel?.(model, region)
@@ -431,28 +430,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
   return (
     <div className="mt-4 space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div className={cn(
-          'px-3 py-2.5 rounded-lg border',
-          isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
-        )}>
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <Trophy className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-            <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Best Score</span>
-          </div>
-          <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>
-            {radarScores.length > 0 ? Math.max(...radarScores.map(s => s.costScore + s.contextScore + s.regionScore + s.featureScore)).toFixed(1) : '—'}
-          </p>
-          {radarScores.length > 0 && (() => {
-            const best = radarScores.reduce((a, b) => {
-              const aTotal = a.costScore + a.contextScore + a.regionScore + a.featureScore
-              const bTotal = b.costScore + b.contextScore + b.regionScore + b.featureScore
-              return bTotal > aTotal ? b : a
-            })
-            return <p className={cn('text-[10px] truncate', isLight ? 'text-stone-400' : 'text-slate-500')}>{best.name}</p>
-          })()}
-        </div>
-
+      <div className="grid grid-cols-3 gap-2">
         <div className={cn(
           'px-3 py-2.5 rounded-lg border',
           isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
@@ -552,114 +530,44 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3">
-            <div className="lg:col-span-2" style={{ height: 380 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={radarChartData} cx="50%" cy="50%" outerRadius="70%">
-                  <PolarGrid
-                    stroke={isLight ? '#d6d3d1' : 'rgba(255,255,255,0.08)'}
-                    strokeDasharray="3 3"
+          <div style={{ height: 380 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={radarChartData} cx="50%" cy="50%" outerRadius="70%">
+                <PolarGrid
+                  stroke={isLight ? '#d6d3d1' : 'rgba(255,255,255,0.08)'}
+                  strokeDasharray="3 3"
+                />
+                <PolarAngleAxis
+                  dataKey="axis"
+                  tick={{
+                    fill: isLight ? '#57534e' : '#94a3b8',
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                />
+                <PolarRadiusAxis
+                  angle={90}
+                  domain={[0, 10]}
+                  tick={{
+                    fill: isLight ? '#a8a29e' : '#475569',
+                    fontSize: 9,
+                  }}
+                  tickCount={6}
+                />
+                {radarScores.map((scores, idx) => (
+                  <Radar
+                    key={scores.name}
+                    name={scores.name}
+                    dataKey={scores.name}
+                    stroke={radarColors[idx % radarColors.length]}
+                    fill={radarColors[idx % radarColors.length]}
+                    fillOpacity={0.15}
+                    strokeWidth={2}
                   />
-                  <PolarAngleAxis
-                    dataKey="axis"
-                    tick={{
-                      fill: isLight ? '#57534e' : '#94a3b8',
-                      fontSize: 12,
-                      fontWeight: 500,
-                    }}
-                  />
-                  <PolarRadiusAxis
-                    angle={90}
-                    domain={[0, 10]}
-                    tick={{
-                      fill: isLight ? '#a8a29e' : '#475569',
-                      fontSize: 9,
-                    }}
-                    tickCount={6}
-                  />
-                  {radarScores.map((scores, idx) => (
-                    <Radar
-                      key={scores.name}
-                      name={scores.name}
-                      dataKey={scores.name}
-                      stroke={radarColors[idx % radarColors.length]}
-                      fill={radarColors[idx % radarColors.length]}
-                      fillOpacity={0.15}
-                      strokeWidth={2}
-                    />
-                  ))}
-                  <Tooltip content={<RadarTooltip isLight={isLight} />} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Score summary per model */}
-            <div className="px-4 py-3 lg:pr-6 overflow-y-auto" style={{ maxHeight: 380 }}>
-              <div className="space-y-1.5">
-                {radarScores.map((scores, idx) => {
-                  const total = scores.costScore + scores.contextScore + scores.regionScore + scores.featureScore
-                  return (
-                    <div key={scores.name} className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: radarColors[idx % radarColors.length] }}
-                        />
-                        <span className={cn(
-                          'text-[11px] truncate max-w-[120px]',
-                          isLight ? 'text-stone-700' : 'text-slate-300'
-                        )}>
-                          {scores.name}
-                        </span>
-                      </div>
-                      <span className={cn(
-                        'text-[11px] font-bold tabular-nums',
-                        isLight ? 'text-stone-900' : 'text-white'
-                      )}>
-                        {total.toFixed(1)}/40
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Scoring Info */}
-      <div className="flex items-center">
-        <button
-          onClick={() => setShowScoringInfo(!showScoringInfo)}
-          className={cn(
-            'flex items-center gap-1 text-xs rounded-md px-2 py-1 transition-colors',
-            isLight ? 'text-stone-400 hover:text-stone-600 hover:bg-stone-100' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-          )}
-        >
-          <Info className="h-3.5 w-3.5" />
-          <span>Scoring (0–10 scale)</span>
-        </button>
-      </div>
-
-      {/* Scoring Info Panel (collapsible) */}
-      {showScoringInfo && (
-        <div className={cn(
-          'rounded-lg border p-4 text-xs space-y-2',
-          isLight ? 'bg-stone-50 border-stone-200 text-stone-600' : 'bg-white/[0.02] border-white/[0.06] text-slate-400'
-        )}>
-          <p className={cn('font-semibold text-sm mb-2', isLight ? 'text-stone-700' : 'text-slate-300')}>
-            How Scoring Works
-          </p>
-          <p>Each model is scored on 4 dimensions (0–10 scale each, max total 40):</p>
-          <div className="space-y-1.5 mt-2">
-            <div><span className="font-medium">Cost Efficiency</span> — Lower price per token = higher score. Cheapest model scores 10, most expensive scores 0. Models without pricing data score 0.</div>
-            <div><span className="font-medium">Context Window</span> — Larger context = higher score. The model with the largest context window scores 10, others proportionally.</div>
-            <div><span className="font-medium">Availability</span> — More regions = higher score. The model available in the most regions scores 10, others proportionally.</div>
-            <div><span className="font-medium">Features</span> — More features = higher score. Counts: Streaming, Batch, Cross-Region Inference (CRIS), and Mantle support.</div>
-          </div>
-          <div className={cn('mt-3 pt-2 border-t', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
-            <p><span className="font-medium">Global mode</span> — Scores are relative to ALL {allModels?.length || 0} models in the catalog. Consistent across comparisons.</p>
-            <p><span className="font-medium">Relative mode</span> — Scores are relative to only the models being compared. Best in the group always scores 10.</p>
+                ))}
+                <Tooltip content={<RadarTooltip isLight={isLight} />} />
+              </RadarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       )}
