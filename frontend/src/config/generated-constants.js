@@ -1,6 +1,6 @@
 /**
  * Auto-generated constants from backend profiler-config.json
- * Generated at: 2026-03-03T21:10:50.327Z
+ * Generated at: 2026-03-03T21:19:22.895Z
  * Source version: 1.0.0-auto-updated-auto-updated
  * 
  * DO NOT EDIT MANUALLY - Run 'npm run sync-config' to regenerate
@@ -117,7 +117,7 @@ export const regionCoordinates = {
     "lng": -3.7038,
     "name": "Spain",
     "geo": "EU",
-    "iata": "THC"
+    "iata": "ZAZ"
   },
   "ap-south-1": {
     "lat": 19.076,
@@ -506,7 +506,7 @@ export const contextWindowThresholds = {
 // Config metadata
 export const configMetadata = {
   version: "1.0.0-auto-updated-auto-updated",
-  generatedAt: "2026-03-03T21:10:50.331Z",
+  generatedAt: "2026-03-03T21:19:22.904Z",
   source: "profiler-config.json"
 };
 

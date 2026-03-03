@@ -15,7 +15,7 @@ The authoritative source is an internal AWS spreadsheet that maps all AWS region
 https://docs.aws.amazon.com/mediaconvert/latest/ug/usage-report-understand.html
 
 This public documentation contains IATA codes for 23 regions where MediaConvert is available. However, it does NOT include newer regions like:
-- eu-south-2 (Spain) - THC
+- eu-south-2 (Spain) - ZAZ
 - mx-central-1 (Mexico) - QRO
 - eu-central-2 (Zurich) - ZRH
 - ap-southeast-7 (Thailand) - BKK
@@ -54,7 +54,7 @@ This public documentation contains IATA codes for 23 regions where MediaConvert 
 | eu-central-2 | Zurich | **ZRH** | Zurich Airport |
 | eu-north-1 | Stockholm | **ARN** | Stockholm Arlanda |
 | eu-south-1 | Milan | **MXP** | Milan Malpensa |
-| eu-south-2 | Spain | **THC** | Tenerife South (AWS Spain DC code) |
+| eu-south-2 | Spain | **ZAZ** | Zaragoza Airport |
 
 ### Middle East & Africa (EMEA)
 
@@ -97,9 +97,6 @@ This public documentation contains IATA codes for 23 regions where MediaConvert 
 
 ## Notes on Specific Codes
 
-### THC (eu-south-2 - Spain)
-The code THC does not correspond to a major Spanish airport (Madrid = MAD, Barcelona = BCN). This appears to be an AWS-specific billing code, possibly derived from Tenerife South Airport or an internal designation.
-
 ### QRO (mx-central-1 - Mexico)
 QRO is the IATA code for Querétaro Intercontinental Airport, not Mexico City (MEX). This indicates the AWS Mexico region data center is located near Querétaro, not Mexico City.
 
@@ -138,4 +135,4 @@ When AWS adds new regions:
 
 - **Date**: 2026-03-03
 - **Updated by**: Claude (automated)
-- **Changes**: Fixed eu-south-2 (MAD→THC) and mx-central-1 (MEX→QRO) based on AWS internal reference
+- **Changes**: Changed eu-south-2 from THC to ZAZ (Zaragoza Airport)
