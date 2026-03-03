@@ -5,8 +5,6 @@ Merges all collected data into the final comprehensive JSON outputs.
 Works with the correct snake_case schema from upstream Lambdas.
 """
 
-import logging
-import os
 import re
 import time
 from typing import Any, Optional
@@ -21,25 +19,21 @@ from shared import (
     S3ReadError,
     get_config_loader,
 )
-
-logger = logging.getLogger()
-logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
-
-# Configuration loader - initialized on first use
-_config_loader = None
-
-
-def _get_config():
-    """Get the configuration loader (lazy initialization)."""
-    global _config_loader
-    if _config_loader is None:
-        _config_loader = get_config_loader()
-        _config_loader.load_config()
-    return _config_loader
+from shared.model_matcher import (
+    get_provider_from_model_id,
+    get_canonical_model_id,
+    calculate_match_score,
+    get_model_variant_info,
+    has_semantic_conflict,
+)
+from shared.powertools import logger, tracer, metrics, LambdaContext
+from aws_lambda_powertools.metrics import MetricUnit
 
 
+@tracer.capture_method
 def aggregate_quotas(quota_results: list[dict], s3_client: Any, bucket: str) -> dict:
-    """Aggregate quotas from all regions."""
+    """Aggregate quotas from all regions with tracing."""
+    logger.info("Aggregating quotas", extra={"result_count": len(quota_results)})
     quotas_by_region = {}
 
     for item in quota_results:
@@ -53,16 +47,20 @@ def aggregate_quotas(quota_results: list[dict], s3_client: Any, bucket: str) -> 
                 data = read_from_s3(s3_client, bucket, s3_key, default_on_missing={})
                 quotas_by_region[region] = data.get("quotas", [])
             except S3ReadError as e:
-                logger.warning(f"Failed to read quotas for {region}: {e}")
+                logger.warning(
+                    "Failed to read quotas", extra={"region": region, "error": str(e)}
+                )
                 quotas_by_region[region] = []
 
     return quotas_by_region
 
 
+@tracer.capture_method
 def aggregate_features(
     feature_results: list[dict], s3_client: Any, bucket: str
 ) -> dict:
-    """Aggregate inference profiles from all regions."""
+    """Aggregate inference profiles from all regions with tracing."""
+    logger.info("Aggregating features", extra={"result_count": len(feature_results)})
     profiles_by_region = {}
 
     for item in feature_results:
@@ -79,17 +77,21 @@ def aggregate_features(
                     "inference_profiles", data.get("inferenceProfiles", [])
                 )
             except S3ReadError as e:
-                logger.warning(f"Failed to read features for {region}: {e}")
+                logger.warning(
+                    "Failed to read features", extra={"region": region, "error": str(e)}
+                )
                 profiles_by_region[region] = []
 
     return profiles_by_region
 
 
+@tracer.capture_method
 def aggregate_mantle(mantle_results: list[dict], s3_client: Any, bucket: str) -> dict:
-    """Aggregate Mantle models from all regions.
+    """Aggregate Mantle models from all regions with tracing.
 
     Returns: { model_id: {"regions": [region1, ...], "supports_responses_api": bool} }
     """
+    logger.info("Aggregating Mantle data", extra={"result_count": len(mantle_results)})
     mantle_by_model = {}
 
     for item in mantle_results:
@@ -114,7 +116,10 @@ def aggregate_mantle(mantle_results: list[dict], s3_client: Any, bucket: str) ->
                         if model.get("supports_responses_api", False):
                             mantle_by_model[model_id]["supports_responses_api"] = True
             except S3ReadError as e:
-                logger.warning(f"Failed to read mantle data for {region}: {e}")
+                logger.warning(
+                    "Failed to read mantle data",
+                    extra={"region": region, "error": str(e)},
+                )
 
     # Convert sets to sorted lists
     return {
@@ -145,7 +150,7 @@ def get_context_window_from_config(model_id: str) -> dict:
     Uses pattern matching to find the best match in context_window_specs.
     Returns dict with context window data or empty dict if not found.
     """
-    config = _get_config()
+    config = get_config_loader()
     context_specs = config.config.get("model_configuration", {}).get(
         "context_window_specs", {}
     )
@@ -231,39 +236,20 @@ def build_cross_region_inference(model_id: str, features_by_region: dict) -> dic
 
 
 def _normalize_for_mantle_match(model_id: str) -> str:
-    """Normalize a model ID for fuzzy Mantle matching."""
-    normalized = model_id.lower()
-    # Strip version suffixes
-    for suffix in [":0", ":1", ":2", "-v1", "-v2", "-v3"]:
-        if normalized.endswith(suffix):
-            normalized = normalized[: -len(suffix)]
-    # Strip -instruct/-it/-chat
-    for suffix in ["-instruct", "-it", "-chat"]:
-        if normalized.endswith(suffix):
-            normalized = normalized[: -len(suffix)]
-    return normalized
-
-
-def _is_prefix_match(shorter: str, longer: str) -> bool:
-    """Check if shorter is a prefix of longer, followed by a separator or end.
-
-    Prevents false matches like 'deepseek.v3' matching 'deepseek.v3.1'.
-    Only '-' and '_' count as separators; '.' is excluded because it appears
-    inside version numbers (v3.1) and would cause false positives.
-    """
-    if not longer.startswith(shorter):
-        return False
-    return len(longer) == len(shorter) or longer[len(shorter)] in ("-", "_")
+    """Normalize a model ID for fuzzy Mantle matching using centralized utility."""
+    return get_canonical_model_id(model_id)
 
 
 def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
     """Build mantle_inference object for a model.
 
-    Uses fuzzy matching because the Mantle API (/v1/models) returns model IDs
-    in a different format than Bedrock's ListFoundationModels. Common differences:
+    Uses the centralized model_matcher for fuzzy matching because the Mantle API
+    (/v1/models) returns model IDs in a different format than Bedrock's
+    ListFoundationModels. Common differences:
     - Missing version suffixes (-v1:0)
     - -instruct vs -v1:0 suffixes
     - Different provider prefixes (moonshotai vs moonshot)
+    - Semantic version differences (v3-v1:0 vs v3.1)
 
     mantle_by_model values are dicts: {"regions": [...], "supports_responses_api": bool}
 
@@ -288,53 +274,35 @@ def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
             "supports_responses_api": mantle_info.get("supports_responses_api", False),
         }
 
-    # 2. Fuzzy match: normalize both sides and compare
-    normalized_bedrock = _normalize_for_mantle_match(model_id)
+    # 2. Fuzzy match using centralized model_matcher
+    # Find the best match using calculate_match_score
+    best_match_id = None
+    best_score = 0.0
+    best_info = {}
 
     for mantle_id, mantle_info in mantle_by_model.items():
-        mantle_regions = mantle_info.get("regions", [])
-        supports_responses_api = mantle_info.get("supports_responses_api", False)
-        normalized_mantle = _normalize_for_mantle_match(mantle_id)
+        # Skip if there's a semantic conflict (e.g., v3 vs r1)
+        if has_semantic_conflict(model_id, mantle_id):
+            continue
 
-        # Direct normalized match
-        if normalized_bedrock == normalized_mantle:
-            return {
-                "supported": True,
-                "mantle_regions": mantle_regions,
-                "total_mantle_regions": len(mantle_regions),
-                "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
-                "matched_mantle_id": mantle_id,
-                "supports_responses_api": supports_responses_api,
-            }
+        score = calculate_match_score(model_id, mantle_id)
+        if score > best_score:
+            best_score = score
+            best_match_id = mantle_id
+            best_info = mantle_info
 
-        # Prefix match — require separator boundary to prevent v3 matching v3.1
-        if _is_prefix_match(normalized_mantle, normalized_bedrock) or _is_prefix_match(
-            normalized_bedrock, normalized_mantle
-        ):
-            return {
-                "supported": True,
-                "mantle_regions": mantle_regions,
-                "total_mantle_regions": len(mantle_regions),
-                "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
-                "matched_mantle_id": mantle_id,
-                "supports_responses_api": supports_responses_api,
-            }
-
-        # Provider-agnostic match: compare after the first dot
-        bedrock_name = model_id.split(".", 1)[-1].lower() if "." in model_id else ""
-        mantle_name = mantle_id.split(".", 1)[-1].lower() if "." in mantle_id else ""
-        if bedrock_name and mantle_name:
-            norm_bedrock_name = _normalize_for_mantle_match(bedrock_name)
-            norm_mantle_name = _normalize_for_mantle_match(mantle_name)
-            if norm_bedrock_name == norm_mantle_name:
-                return {
-                    "supported": True,
-                    "mantle_regions": mantle_regions,
-                    "total_mantle_regions": len(mantle_regions),
-                    "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
-                    "matched_mantle_id": mantle_id,
-                    "supports_responses_api": supports_responses_api,
-                }
+    # Accept match if score is high enough (0.8 threshold)
+    if best_match_id and best_score >= 0.8:
+        mantle_regions = best_info.get("regions", [])
+        supports_responses_api = best_info.get("supports_responses_api", False)
+        return {
+            "supported": True,
+            "mantle_regions": mantle_regions,
+            "total_mantle_regions": len(mantle_regions),
+            "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
+            "matched_mantle_id": best_match_id,
+            "supports_responses_api": supports_responses_api,
+        }
 
     # No match found
     return {
@@ -526,9 +494,8 @@ def create_mantle_only_stub(
     These models exist in the Mantle API but have no corresponding Bedrock foundation model.
     The stub provides minimal metadata to display the model in the UI.
     """
-    # Extract provider prefix from model ID
-    provider_prefix = mantle_id.split(".")[0].lower() if "." in mantle_id else ""
-    provider_name = MANTLE_PROVIDER_NAMES.get(provider_prefix, "Unknown")
+    # Extract provider using centralized utility from model_matcher
+    _, provider_name = get_provider_from_model_id(mantle_id)
 
     # Derive model name — check explicit overrides first, then generic derivation
     model_name = MANTLE_MODEL_NAME_OVERRIDES.get(
@@ -579,6 +546,11 @@ def create_mantle_only_stub(
             "apis": mantle_apis,
         }
 
+    # Get documentation URLs from config
+    config = get_config_loader()
+    default_bedrock_guide = config.get_documentation_url("bedrock_model_ids")
+    default_pricing_guide = config.get_documentation_url("bedrock_pricing")
+
     return {
         "model_id": mantle_id,
         "model_arn": "",
@@ -619,8 +591,8 @@ def create_mantle_only_stub(
             "total_provisioned_regions": 0,
         },
         "documentation_links": {
-            "aws_bedrock_guide": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids-arns.html",
-            "pricing_guide": "https://aws.amazon.com/bedrock/pricing/",
+            "aws_bedrock_guide": default_bedrock_guide,
+            "pricing_guide": default_pricing_guide,
         },
         "model_pricing": {
             "is_pricing_available": False,
@@ -1195,42 +1167,35 @@ def build_endpoint_availability(
     return result
 
 
-def transform_model_to_schema(
+# =============================================================================
+# Sub-functions for transform_model_to_schema() decomposition
+# =============================================================================
+
+
+@tracer.capture_method
+def _resolve_context_window(
     model_id: str,
     model: dict,
-    regional_availability: list,
     token_specs: dict,
-    quotas_by_region: dict,
-    features_by_region: dict,
     enriched_model: dict,
-    pricing_data: dict,
-    collection_timestamp: str,
-    mantle_by_model: dict,
-    provisioned_throughput: dict = None,
-    lifecycle_by_model: dict = None,
-    regional_lifecycle: dict = None,
 ) -> dict:
+    """Resolve context window using 4-tier priority.
+
+    Priority:
+    1. Console API metadata (from model-extractor REST call)
+    2. Model ID size variant (from model-merger)
+    3. profiler-config.json
+    4. LiteLLM token_specs (last resort)
+
+    Args:
+        model_id: The model identifier
+        model: Model data from upstream
+        token_specs: Token specifications from LiteLLM
+        enriched_model: Enriched model data
+
+    Returns:
+        Dictionary with context_window, max_output, source, and extended_* fields
     """
-    Merge model data from all sources into final schema.
-
-    Input model data is already in snake_case from upstream Lambdas.
-    """
-    # Get enriched data (already in snake_case)
-    capabilities = enriched_model.get(
-        "model_capabilities", model.get("model_capabilities", [])
-    )
-    use_cases = enriched_model.get("model_use_cases", model.get("model_use_cases", []))
-    doc_links = enriched_model.get(
-        "documentation_links", model.get("documentation_links", {})
-    )
-
-    # Build token/converse data (upstream uses snake_case)
-    # 4-tier priority: 1) Console API metadata, 2) Model ID variants,
-    # 3) Config (extended fields always, context as fallback), 4) LiteLLM
-    existing_converse = enriched_model.get(
-        "converse_data", model.get("converse_data", {})
-    )
-
     context_window = None
     max_output = None
     source = None
@@ -1239,14 +1204,12 @@ def transform_model_to_schema(
     extended_output = None
     extended_output_beta = None
 
-    # --- TIER 1: Console API metadata (from model-extractor REST call) ---
-    console_meta = model.get("console_metadata", {})
-    console_languages = console_meta.get("languages", []) if console_meta else []
-    console_use_cases = console_meta.get("use_cases", []) if console_meta else []
-    console_description = console_meta.get("description", "") if console_meta else ""
-    console_short_description = (
-        console_meta.get("short_description", "") if console_meta else ""
+    existing_converse = enriched_model.get(
+        "converse_data", model.get("converse_data", {})
     )
+
+    # --- TIER 1: Console API metadata ---
+    console_meta = model.get("console_metadata", {})
     if console_meta:
         api_context = console_meta.get("max_context_window")
         if api_context and isinstance(api_context, (int, float)):
@@ -1256,7 +1219,7 @@ def transform_model_to_schema(
         if api_output and isinstance(api_output, (int, float)):
             max_output = int(api_output)
 
-    # --- TIER 2: Model ID size variant (from model-merger) ---
+    # --- TIER 2: Model ID size variant ---
     if context_window is None:
         variant_cw = model.get("variant_context_window")
         if variant_cw and isinstance(variant_cw, (int, float)):
@@ -1270,7 +1233,6 @@ def transform_model_to_schema(
         config_extended = config_specs.get("extended_context")
 
         # If API returned the extended value as context_window, prefer config's standard
-        # (e.g., API says 1M for Opus 4.6, but standard is 200K with 1M extended)
         if config_standard and config_extended and context_window == config_extended:
             context_window = config_standard
             source = config_specs.get("source", "config")
@@ -1285,13 +1247,12 @@ def transform_model_to_schema(
             max_output = config_specs.get("max_output")
 
         # Extended fields: ALWAYS apply from config regardless of tier
-        # These fields only exist in config (Claude dual context, extended output)
         extended_context = config_extended
         extended_context_beta = config_specs.get("extended_context_beta")
         extended_output = config_specs.get("extended_output")
         extended_output_beta = config_specs.get("extended_output_beta")
 
-    # --- TIER 4: LiteLLM token_specs (last resort) ---
+    # --- TIER 4: LiteLLM token_specs ---
     if context_window is None:
         context_window = token_specs.get("context_window")
     if max_output is None:
@@ -1307,160 +1268,104 @@ def transform_model_to_schema(
     if source is None:
         source = existing_converse.get("source")
 
-    converse_data = {
+    return {
         "context_window": context_window,
-        "max_output_tokens": max_output,
-        "size_category": get_size_category(context_window),
-        "verified": source is not None and source != "unknown",
-        "source": source or "unknown",
+        "max_output": max_output,
+        "source": source,
+        "extended_context": extended_context,
+        "extended_context_beta": extended_context_beta,
+        "extended_output": extended_output,
+        "extended_output_beta": extended_output_beta,
         "litellm_verified": token_specs.get(
             "litellm_verified", existing_converse.get("litellm_verified", False)
         ),
+    }
+
+
+@tracer.capture_method
+def _build_converse_data(
+    context_data: dict,
+    capabilities: list,
+    use_cases: list,
+    regional_availability: list,
+) -> dict:
+    """Build the converse_data structure.
+
+    Args:
+        context_data: Output from _resolve_context_window()
+        capabilities: Model capabilities list
+        use_cases: Model use cases list
+        regional_availability: List of available regions
+
+    Returns:
+        Complete converse_data dictionary
+    """
+    context_window = context_data["context_window"]
+
+    converse_data = {
+        "context_window": context_window,
+        "max_output_tokens": context_data["max_output"],
+        "size_category": get_size_category(context_window),
+        "verified": context_data["source"] is not None
+        and context_data["source"] != "unknown",
+        "source": context_data["source"] or "unknown",
+        "litellm_verified": context_data["litellm_verified"],
         "capabilities_count": len(capabilities),
         "use_cases_count": len(use_cases),
         "regions_count": len(regional_availability),
     }
 
     # Add extended context info if available
-    if extended_context:
-        converse_data["extended_context"] = extended_context
+    if context_data["extended_context"]:
+        converse_data["extended_context"] = context_data["extended_context"]
         converse_data["has_extended_context"] = True
-        if extended_context_beta:
-            converse_data["extended_context_beta"] = extended_context_beta
+        if context_data["extended_context_beta"]:
+            converse_data["extended_context_beta"] = context_data[
+                "extended_context_beta"
+            ]
     else:
         converse_data["has_extended_context"] = False
 
     # Add extended output info if available
-    if extended_output:
-        converse_data["extended_output"] = extended_output
-        if extended_output_beta:
-            converse_data["extended_output_beta"] = extended_output_beta
+    if context_data["extended_output"]:
+        converse_data["extended_output"] = context_data["extended_output"]
+        if context_data["extended_output_beta"]:
+            converse_data["extended_output_beta"] = context_data["extended_output_beta"]
 
-    # Build cross-region inference
-    cross_region = build_cross_region_inference(model_id, features_by_region)
+    return converse_data
 
-    # Build Mantle inference
-    mantle = build_mantle_inference(model_id, mantle_by_model)
 
-    # Build model quotas (using snake_case model_name)
-    model_quotas = build_model_quotas(
-        model_id,
-        model.get("model_name", ""),
-        quotas_by_region,
-        model_provider=model.get("model_provider", ""),
+@tracer.capture_method
+def _merge_lifecycle_data(
+    model_lifecycle: dict,
+    regional_lifecycle: dict,
+    lifecycle_by_model: dict,
+    model_id: str,
+    model_name: str,
+) -> dict:
+    """Merge regional lifecycle data into model lifecycle.
+
+    Args:
+        model_lifecycle: Base lifecycle from model data
+        regional_lifecycle: Regional lifecycle data from lifecycle-collector
+        lifecycle_by_model: Legacy lifecycle data by model ID
+        model_id: Model identifier
+        model_name: Model name (fallback for matching)
+
+    Returns:
+        Merged lifecycle dictionary
+    """
+    # Start with base lifecycle
+    result = (
+        model_lifecycle.copy()
+        if model_lifecycle
+        else {"status": "ACTIVE", "release_date": ""}
     )
 
-    # Get model pricing from upstream (already in snake_case)
-    # Preserve pricing_file_reference from pricing-linker which has correct provider mapping
-    model_pricing_data = model.get("model_pricing", {})
-    has_pricing = model_pricing_data.get(
-        "is_pricing_available", model.get("has_pricing", False)
-    )
-    pricing_ref_id = model_pricing_data.get("pricing_reference_id", "")
-
-    # Use upstream pricing_file_reference if available (from pricing-linker)
-    # This preserves the correct provider name from the pricing file
-    upstream_pricing_ref = model_pricing_data.get("pricing_file_reference")
-
-    # Check batch inference support - pass pricing reference and regional availability for accurate lookup
-    # regional_availability from regional-availability Lambda is the source of truth (no fallback)
-    batch_inference = check_batch_inference(
-        model_id, pricing_data, upstream_pricing_ref, regional_availability
-    )
-
-    # Availability types are kept separate:
-    # - in_region = on-demand/in-region invocation (from regional-availability Lambda)
-    # - cross_region_inference.source_regions = CRIS source regions
-    # - batch_inference_supported.supported_regions = batch-capable regions
-    # - provisioned_throughput.provisioned_regions = provisioned throughput regions
-    # - mantle_inference.mantle_regions = Mantle engine regions
-    # Coverage percentage: batch regions relative to in-region availability
-    if batch_inference.get("supported") and regional_availability:
-        batch_regs = len(batch_inference.get("supported_regions", []))
-        total_regs = len(regional_availability)
-        batch_inference["coverage_percentage"] = (
-            round(min(batch_regs / total_regs * 100, 100.0), 1)
-            if total_regs > 0
-            else 0.0
-        )
-
-    if upstream_pricing_ref and isinstance(upstream_pricing_ref, dict):
-        pricing_provider = upstream_pricing_ref.get(
-            "provider", model.get("model_provider", "")
-        )
-        pricing_model_key = upstream_pricing_ref.get(
-            "model_key", pricing_ref_id or model_id
-        )
-    else:
-        # Fallback: use model's provider (may not match pricing file)
-        pricing_provider = model.get("model_provider", "")
-        pricing_model_key = pricing_ref_id if pricing_ref_id else model_id
-
-    model_pricing = {
-        "is_pricing_available": has_pricing,
-        "pricing_reference_id": pricing_ref_id or model_id,
-        "pricing_file_reference": {
-            "provider": pricing_provider,
-            "model_key": pricing_model_key,
-            "model_name": model.get("model_name", ""),
-        },
-        "pricing_summary": {
-            "integration_source": "amazon-bedrock-pricing-collector",
-            "has_pricing_data": has_pricing,
-            "integration_timestamp": collection_timestamp,
-            "reference_based": True,
-        },
-    }
-
-    # Build documentation links (pass through all from enricher, with defaults)
-    documentation_links = doc_links.copy() if doc_links else {}
-    # Ensure minimum required links
-    if "aws_bedrock_guide" not in documentation_links:
-        documentation_links["aws_bedrock_guide"] = (
-            "https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids-arns.html"
-        )
-    if "pricing_guide" not in documentation_links:
-        documentation_links["pricing_guide"] = "https://aws.amazon.com/bedrock/pricing/"
-
-    # Get modalities (already in snake_case nested structure)
-    model_modalities = model.get("model_modalities", {})
-    if not model_modalities:
-        # Fallback for legacy data
-        model_modalities = {
-            "input_modalities": model.get("input_modalities", []),
-            "output_modalities": model.get("output_modalities", []),
-        }
-
-    # Get collection metadata (already in snake_case)
-    existing_metadata = model.get("collection_metadata", {})
-    collection_metadata = {
-        "first_discovered_at": existing_metadata.get(
-            "first_discovered_at", collection_timestamp
-        ),
-        "first_discovered_in_region": existing_metadata.get(
-            "first_discovered_in_region",
-            regional_availability[0] if regional_availability else "unknown",
-        ),
-        "api_source": existing_metadata.get("api_source", "list_foundation_models"),
-        "dual_region_collection": existing_metadata.get("dual_region_collection", True),
-        "regions_collected_from": existing_metadata.get("regions_collected_from", []),
-        "phase2_regional_discovery": True,
-        "regional_data_source": "api_discovery",
-        # extraction_regions: where model was found in ListFoundationModels API (audit/debug only)
-        "extraction_regions": model.get("extraction_regions", []),
-    }
-
-    # Get model lifecycle (already in snake_case from API)
-    model_lifecycle = model.get("model_lifecycle", {})
-    if not model_lifecycle:
-        model_lifecycle = {"status": "ACTIVE", "release_date": ""}
-
-    # Merge regional lifecycle data if available (new structure from lifecycle-collector)
+    # Try to get regional data by model_id first, then by model_name
     regional_data = (regional_lifecycle or {}).get(model_id, {})
-    # Also try matching by model_name for models not found by model_id
-    # (some Legacy/EOL models in regional_lifecycle are keyed by model_name)
     if not regional_data:
-        regional_data = (regional_lifecycle or {}).get(model.get("model_name", ""), {})
+        regional_data = (regional_lifecycle or {}).get(model_name, {})
 
     if regional_data:
         # Build regional lifecycle structure
@@ -1482,45 +1387,39 @@ def transform_model_to_schema(
         elif statuses_present:
             global_status = statuses_present[0]
         else:
-            global_status = model_lifecycle.get("status", "ACTIVE")
+            global_status = result.get("status", "ACTIVE")
 
         # Build the new model_lifecycle structure
-        model_lifecycle = {
+        result = {
             "status": primary_status,  # Backward compatible - single status
             "global_status": global_status,
             "primary_status": primary_status,
             "regional_status": regional_status,
             "status_summary": status_summary,
-            "release_date": model_lifecycle.get("release_date", ""),
+            "release_date": result.get("release_date", ""),
         }
 
         # Add recommended replacement info
         if regional_data.get("recommended_replacement"):
-            model_lifecycle["recommended_replacement"] = regional_data[
-                "recommended_replacement"
-            ]
+            result["recommended_replacement"] = regional_data["recommended_replacement"]
         if regional_data.get("recommended_model_id"):
-            model_lifecycle["recommended_model_id"] = regional_data[
-                "recommended_model_id"
-            ]
+            result["recommended_model_id"] = regional_data["recommended_model_id"]
 
         # Add dates from the first LEGACY or EOL region (for backward compatibility)
         for region, status_data in regional_status.items():
             if status_data.get("status") in ["LEGACY", "EOL"]:
                 if status_data.get("legacy_date"):
-                    model_lifecycle["legacy_date"] = status_data["legacy_date"]
+                    result["legacy_date"] = status_data["legacy_date"]
                 if status_data.get("eol_date"):
-                    model_lifecycle["eol_date"] = status_data["eol_date"]
+                    result["eol_date"] = status_data["eol_date"]
                 if status_data.get("extended_access_date"):
-                    model_lifecycle["extended_access_date"] = status_data[
-                        "extended_access_date"
-                    ]
+                    result["extended_access_date"] = status_data["extended_access_date"]
                 break
 
         # Add launch_date from first ACTIVE region (for backward compatibility)
         for region, status_data in regional_status.items():
             if status_data.get("status") == "ACTIVE" and status_data.get("launch_date"):
-                model_lifecycle["launch_date"] = status_data["launch_date"]
+                result["launch_date"] = status_data["launch_date"]
                 break
 
     # Fallback to old models_by_id if no regional data (backward compatibility)
@@ -1530,23 +1429,247 @@ def transform_model_to_schema(
             # Override status from scraped data (active, legacy, eol)
             scraped_status = lifecycle_info.get("lifecycle_status")
             if scraped_status:
-                model_lifecycle["status"] = scraped_status.upper()
+                result["status"] = scraped_status.upper()
             # Add EOL date if available
             eol_date = lifecycle_info.get("eol_date")
             if eol_date:
-                model_lifecycle["eol_date"] = eol_date
+                result["eol_date"] = eol_date
             # Add legacy date if available
             legacy_date = lifecycle_info.get("legacy_date")
             if legacy_date:
-                model_lifecycle["legacy_date"] = legacy_date
+                result["legacy_date"] = legacy_date
             # Add recommended replacement if available
             recommended_replacement = lifecycle_info.get("recommended_replacement")
             if recommended_replacement:
-                model_lifecycle["recommended_replacement"] = recommended_replacement
+                result["recommended_replacement"] = recommended_replacement
             # Add recommended model ID if available
             recommended_model_id = lifecycle_info.get("model_id")
             if recommended_model_id and recommended_model_id != model_id:
-                model_lifecycle["recommended_model_id"] = recommended_model_id
+                result["recommended_model_id"] = recommended_model_id
+
+    return result
+
+
+@tracer.capture_method
+def _build_model_pricing(
+    model: dict,
+    pricing_data: dict,
+    collection_timestamp: str,
+    regional_availability: list,
+) -> tuple[dict, dict, bool, Optional[dict]]:
+    """Build the model_pricing structure and batch inference data.
+
+    Args:
+        model: Model data with pricing info
+        pricing_data: Full pricing data for batch inference check
+        collection_timestamp: Collection timestamp
+        regional_availability: List of available regions
+
+    Returns:
+        Tuple of (model_pricing dict, batch_inference dict)
+    """
+    # Get model pricing from upstream (already in snake_case)
+    model_pricing_data = model.get("model_pricing", {})
+    has_pricing = model_pricing_data.get(
+        "is_pricing_available", model.get("has_pricing", False)
+    )
+    pricing_ref_id = model_pricing_data.get("pricing_reference_id", "")
+
+    # Use upstream pricing_file_reference if available (from pricing-linker)
+    upstream_pricing_ref = model_pricing_data.get("pricing_file_reference")
+
+    # Check batch inference support
+    batch_inference = check_batch_inference(
+        model.get("model_id", ""),
+        pricing_data,
+        upstream_pricing_ref,
+        regional_availability,
+    )
+
+    # Calculate coverage percentage
+    if batch_inference.get("supported") and regional_availability:
+        batch_regs = len(batch_inference.get("supported_regions", []))
+        total_regs = len(regional_availability)
+        batch_inference["coverage_percentage"] = (
+            round(min(batch_regs / total_regs * 100, 100.0), 1)
+            if total_regs > 0
+            else 0.0
+        )
+
+    # Determine pricing provider and model key
+    if upstream_pricing_ref and isinstance(upstream_pricing_ref, dict):
+        pricing_provider = upstream_pricing_ref.get(
+            "provider", model.get("model_provider", "")
+        )
+        pricing_model_key = upstream_pricing_ref.get(
+            "model_key", pricing_ref_id or model.get("model_id", "")
+        )
+    else:
+        pricing_provider = model.get("model_provider", "")
+        pricing_model_key = (
+            pricing_ref_id if pricing_ref_id else model.get("model_id", "")
+        )
+
+    model_pricing = {
+        "is_pricing_available": has_pricing,
+        "pricing_reference_id": pricing_ref_id or model.get("model_id", ""),
+        "pricing_file_reference": {
+            "provider": pricing_provider,
+            "model_key": pricing_model_key,
+            "model_name": model.get("model_name", ""),
+        },
+        "pricing_summary": {
+            "integration_source": "amazon-bedrock-pricing-collector",
+            "has_pricing_data": has_pricing,
+            "integration_timestamp": collection_timestamp,
+            "reference_based": True,
+        },
+    }
+
+    return model_pricing, batch_inference, has_pricing, upstream_pricing_ref
+
+
+@tracer.capture_method
+def _build_collection_metadata(
+    model: dict,
+    regional_availability: list,
+    collection_timestamp: str,
+) -> dict:
+    """Build collection metadata structure.
+
+    Args:
+        model: Model data
+        regional_availability: List of available regions
+        collection_timestamp: Collection timestamp
+
+    Returns:
+        collection_metadata dictionary
+    """
+    existing_metadata = model.get("collection_metadata", {})
+    return {
+        "first_discovered_at": existing_metadata.get(
+            "first_discovered_at", collection_timestamp
+        ),
+        "first_discovered_in_region": existing_metadata.get(
+            "first_discovered_in_region",
+            regional_availability[0] if regional_availability else "unknown",
+        ),
+        "api_source": existing_metadata.get("api_source", "list_foundation_models"),
+        "dual_region_collection": existing_metadata.get("dual_region_collection", True),
+        "regions_collected_from": existing_metadata.get("regions_collected_from", []),
+        "phase2_regional_discovery": True,
+        "regional_data_source": "api_discovery",
+        # extraction_regions: where model was found in ListFoundationModels API (audit/debug only)
+        "extraction_regions": model.get("extraction_regions", []),
+    }
+
+
+@tracer.capture_method
+def transform_model_to_schema(
+    model_id: str,
+    model: dict,
+    regional_availability: list,
+    token_specs: dict,
+    quotas_by_region: dict,
+    features_by_region: dict,
+    enriched_model: dict,
+    pricing_data: dict,
+    collection_timestamp: str,
+    mantle_by_model: dict,
+    provisioned_throughput: dict = None,
+    lifecycle_by_model: dict = None,
+    regional_lifecycle: dict = None,
+) -> dict:
+    """Merge model data from all sources into final schema.
+
+    Orchestrates sub-functions to build the complete model structure.
+    Input model data is already in snake_case from upstream Lambdas.
+    """
+    # Get enriched data (already in snake_case)
+    capabilities = enriched_model.get(
+        "model_capabilities", model.get("model_capabilities", [])
+    )
+    use_cases = enriched_model.get("model_use_cases", model.get("model_use_cases", []))
+    doc_links = enriched_model.get(
+        "documentation_links", model.get("documentation_links", {})
+    )
+
+    # Extract console metadata fields
+    console_meta = model.get("console_metadata", {})
+    console_languages = console_meta.get("languages", []) if console_meta else []
+    console_use_cases = console_meta.get("use_cases", []) if console_meta else []
+    console_description = console_meta.get("description", "") if console_meta else ""
+    console_short_description = (
+        console_meta.get("short_description", "") if console_meta else ""
+    )
+
+    # Resolve context window (4-tier priority)
+    context_data = _resolve_context_window(model_id, model, token_specs, enriched_model)
+
+    # Build converse data
+    converse_data = _build_converse_data(
+        context_data, capabilities, use_cases, regional_availability
+    )
+
+    # Build cross-region inference
+    cross_region = build_cross_region_inference(model_id, features_by_region)
+
+    # Build Mantle inference
+    mantle = build_mantle_inference(model_id, mantle_by_model)
+
+    # Build model quotas (using snake_case model_name)
+    model_quotas = build_model_quotas(
+        model_id,
+        model.get("model_name", ""),
+        quotas_by_region,
+        model_provider=model.get("model_provider", ""),
+    )
+
+    # Build model pricing and batch inference data
+    # Add model_id to model dict for _build_model_pricing
+    model_with_id = {**model, "model_id": model_id}
+    model_pricing, batch_inference, has_pricing, upstream_pricing_ref = (
+        _build_model_pricing(
+            model_with_id, pricing_data, collection_timestamp, regional_availability
+        )
+    )
+
+    # Build documentation links (pass through all from enricher, with defaults from config)
+    config = get_config_loader()
+    documentation_links = doc_links.copy() if doc_links else {}
+    if "aws_bedrock_guide" not in documentation_links:
+        documentation_links["aws_bedrock_guide"] = config.get_documentation_url(
+            "bedrock_model_ids"
+        )
+    if "pricing_guide" not in documentation_links:
+        documentation_links["pricing_guide"] = config.get_documentation_url(
+            "bedrock_pricing"
+        )
+
+    # Get modalities (already in snake_case nested structure)
+    model_modalities = model.get("model_modalities", {})
+    if not model_modalities:
+        model_modalities = {
+            "input_modalities": model.get("input_modalities", []),
+            "output_modalities": model.get("output_modalities", []),
+        }
+
+    # Build collection metadata
+    collection_metadata = _build_collection_metadata(
+        model, regional_availability, collection_timestamp
+    )
+
+    # Merge lifecycle data
+    base_lifecycle = model.get("model_lifecycle", {})
+    if not base_lifecycle:
+        base_lifecycle = {"status": "ACTIVE", "release_date": ""}
+    model_lifecycle = _merge_lifecycle_data(
+        base_lifecycle,
+        regional_lifecycle or {},
+        lifecycle_by_model or {},
+        model_id,
+        model.get("model_name", ""),
+    )
 
     # Get customization (already in snake_case)
     customization = model.get("customization", {})
@@ -1573,9 +1696,7 @@ def transform_model_to_schema(
         }
     )
 
-    # Reconcile consumption_options with actual provisioned throughput data.
-    # Pricing data may claim provisioned pricing for models that have NO
-    # provisioned variants in the API, causing a badge/detail mismatch.
+    # Reconcile consumption_options with actual provisioned throughput data
     if resolved_provisioned.get("supported"):
         if "provisioned_throughput" not in consumption_options:
             consumption_options.append("provisioned_throughput")
@@ -1583,19 +1704,16 @@ def transform_model_to_schema(
         if "provisioned_throughput" in consumption_options:
             consumption_options.remove("provisioned_throughput")
 
-    # Get feature support and chat features from console metadata (extracted in model-extractor)
+    # Get feature support and chat features from console metadata
     feature_support = console_meta.get("feature_support", {}) if console_meta else {}
     chat_features = console_meta.get("chat_features", {}) if console_meta else {}
 
     # Build unified API support and endpoint availability
-    # Pass a dict with the fields build_api_support needs (chat_features from console_meta,
-    # streaming_supported from the model)
     api_support_model = {
         "chat_features": chat_features,
         "streaming_supported": model.get("streaming_supported", False),
     }
     api_support = build_api_support(api_support_model, mantle, is_mantle_only=False)
-    # regional_availability from regional-availability Lambda is source of truth (no fallback)
     endpoint_availability = build_endpoint_availability(
         regional_availability,
         mantle,
@@ -1611,7 +1729,6 @@ def transform_model_to_schema(
         "streaming_supported": model.get("streaming_supported", False),
         "customization": customization,
         "inference_types_supported": model.get("inference_types_supported", []),
-        # in_region: actual ON_DEMAND availability from regional-availability Lambda (no fallback)
         "in_region": regional_availability if regional_availability else [],
         "model_lifecycle": model_lifecycle,
         "model_capabilities": capabilities,
@@ -1632,7 +1749,6 @@ def transform_model_to_schema(
         "model_service_quotas": model_quotas,
         "collection_metadata": collection_metadata,
         "regional_availability_source": "api_discovery",
-        # total_in_region: count of ON_DEMAND regions (no fallback to extraction data)
         "total_in_region": len(regional_availability) if regional_availability else 0,
         "batch_inference_supported": batch_inference,
         "converse_data": converse_data,
@@ -1643,15 +1759,43 @@ def transform_model_to_schema(
     }
 
 
-def find_matching_availability(model_id: str, model_availability: dict) -> list:
+def find_matching_availability(
+    model_id: str,
+    model_availability: dict,
+    inference_types: list = None,
+) -> list:
     """
     Find regional availability for a model, handling ID format differences.
 
     Model IDs from Bedrock API: anthropic.claude-3-5-sonnet-20241022-v2:0
     Model IDs from Pricing API: anthropic.claude-3-sonnet
 
+    IMPORTANT: If model only supports PROVISIONED inference, don't inherit
+    on-demand regions from base model. This prevents provisioned-only models
+    like cohere.embed-english-v3:0:512 from incorrectly inheriting regions
+    from their base model cohere.embed-english-v3:0.
+
+    Args:
+        model_id: The model identifier to look up
+        model_availability: Dict mapping model IDs to lists of available regions
+        inference_types: List of inference types the model supports (e.g., ["ON_DEMAND", "PROVISIONED"])
+
     Strategy: Try exact match first, then find the best (longest) match.
     """
+    # Check if this is a provisioned-only model using centralized utility
+    variant_info = get_model_variant_info(model_id)
+    is_provisioned_only = variant_info.get("is_provisioned_only", False) or (
+        inference_types is not None and inference_types == ["PROVISIONED"]
+    )
+
+    # If provisioned-only, only return exact match - don't inherit from base model
+    if is_provisioned_only:
+        if model_id in model_availability:
+            return model_availability[model_id]
+        # For provisioned-only models, don't do fuzzy matching to base model
+        # as that would incorrectly inherit on-demand regions
+        return []
+
     # Try exact match first
     if model_id in model_availability:
         return model_availability[model_id]
@@ -1724,6 +1868,7 @@ def find_matching_availability(model_id: str, model_availability: dict) -> list:
     return []
 
 
+@tracer.capture_method
 def build_final_models(
     models_with_pricing: dict,
     regional_availability: dict,
@@ -1737,11 +1882,12 @@ def build_final_models(
     lifecycle_by_model: dict,
     regional_lifecycle: dict = None,
 ) -> dict:
-    """Build the final comprehensive models structure in expected schema.
+    """Build the final comprehensive models structure in expected schema with tracing.
 
     Also creates stub entries for Mantle-only models (models that exist in the
     Mantle API but not in Bedrock's ListFoundationModels).
     """
+    logger.info("Building final models")
     providers = models_with_pricing.get("providers", {})
     enriched_providers = enriched_models.get("providers", {})
     # Upstream uses snake_case: model_availability
@@ -1760,8 +1906,15 @@ def build_final_models(
         result_providers[provider] = {"models": {}}
 
         for model_id, model in provider_data.get("models", {}).items():
+            # Get inference types for this model (needed for availability matching)
+            inference_types = model.get("inference_types_supported", [])
+
             # Get regional availability for this model (with fuzzy matching)
-            regions = find_matching_availability(model_id, model_availability)
+            # Pass inference_types to prevent provisioned-only models from
+            # inheriting on-demand regions from base models
+            regions = find_matching_availability(
+                model_id, model_availability, inference_types
+            )
 
             # Get token specs for this model
             specs = token_specs_data.get(model_id, {})
@@ -1854,7 +2007,10 @@ def build_final_models(
     return result_providers
 
 
-def lambda_handler(event: dict, context: Any) -> dict:
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """
     Lambda handler for final aggregation.
 
@@ -1881,6 +2037,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
             "totalProviders": 17
         }
     """
+    logger.info("Starting final aggregation")
     start_time = time.time()
     collection_timestamp = time.strftime(
         "%Y-%m-%dT%H:%M:%S.000000+00:00", time.gmtime()
@@ -1916,7 +2073,9 @@ def lambda_handler(event: dict, context: Any) -> dict:
     models_output_key = f"executions/{execution_id}/final/bedrock_models.json"
     pricing_output_key = f"executions/{execution_id}/final/bedrock_pricing.json"
 
-    logger.info("Building final aggregated output")
+    logger.info(
+        "Building final aggregated output", extra={"execution_id": execution_id}
+    )
 
     try:
         s3_client = get_s3_client()
@@ -2046,8 +2205,35 @@ def lambda_handler(event: dict, context: Any) -> dict:
             total_models = 0
             total_providers = 0
             total_regions = 0
+            models_with_pricing_count = 0
 
         duration_ms = int((time.time() - start_time) * 1000)
+
+        # Emit metrics
+        metrics.add_metric(
+            name="TotalModels", unit=MetricUnit.Count, value=total_models
+        )
+        metrics.add_metric(
+            name="TotalProviders", unit=MetricUnit.Count, value=total_providers
+        )
+        metrics.add_metric(
+            name="ModelsWithPricing",
+            unit=MetricUnit.Count,
+            value=models_with_pricing_count,
+        )
+        metrics.add_metric(
+            name="DurationMs", unit=MetricUnit.Milliseconds, value=duration_ms
+        )
+
+        logger.info(
+            "Final aggregation complete",
+            extra={
+                "total_models": total_models,
+                "total_providers": total_providers,
+                "models_with_pricing": models_with_pricing_count,
+                "duration_ms": duration_ms,
+            },
+        )
 
         return {
             "status": "SUCCESS",
@@ -2060,7 +2246,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
         }
 
     except Exception as e:
-        logger.error(f"Failed to aggregate: {e}", exc_info=True)
+        logger.exception("Failed to aggregate", extra={"error_type": type(e).__name__})
         return {
             "status": "FAILED",
             "errorType": type(e).__name__,

@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { DATA_URLS } from '../config/dataSource'
 
+// Default region from environment variable
+const DEFAULT_REGION = import.meta.env.VITE_DEFAULT_REGION || 'us-east-1'
+
 /**
  * Flattens the hierarchical model data into a flat array
  * @param {Object} data - Raw JSON data from bedrock_models.json
@@ -163,7 +166,7 @@ function getModelPricing(model, pricingData) {
  * @param {string} region - Preferred region
  * @returns {Object} Pricing summary with type information
  */
-function extractSummaryPricing(modelPricing, region = 'us-east-1') {
+function extractSummaryPricing(modelPricing, region = DEFAULT_REGION) {
   const nullResult = {
     inputPrice: null,
     outputPrice: null,
@@ -562,7 +565,7 @@ export function useModels() {
   // Helper to get pricing for a specific model
   // Accepts full model object to use pricing_file_reference for matching
   const getPricingForModel = useMemo(() => {
-    return (model, preferredRegion = 'us-east-1') => {
+    return (model, preferredRegion = DEFAULT_REGION) => {
       if (!model) return { fullPricing: null, summary: { inputPrice: null, outputPrice: null } }
       const modelPricing = getModelPricing(model, pricingData)
       return {

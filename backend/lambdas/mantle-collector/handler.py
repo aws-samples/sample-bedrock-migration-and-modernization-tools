@@ -6,13 +6,10 @@ Uses SigV4-signed HTTP requests to the bedrock-mantle.{region}.api.aws endpoint.
 """
 
 import json
-import logging
-import os
 import time
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any
 
 import boto3
 from botocore.auth import SigV4Auth
@@ -24,9 +21,8 @@ from shared import (
     validate_required_params,
     ValidationError,
 )
-
-logger = logging.getLogger()
-logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+from shared.powertools import logger, tracer, metrics, LambdaContext
+from aws_lambda_powertools.metrics import MetricUnit
 
 MANTLE_ENDPOINT_PATTERN = "bedrock-mantle.{region}.api.aws"
 REQUEST_TIMEOUT_SECONDS = 10
@@ -35,6 +31,7 @@ REQUEST_TIMEOUT_SECONDS = 10
 _boto3_session = boto3.Session()
 
 
+@tracer.capture_method
 def call_mantle_endpoint(region: str) -> list[dict]:
     """
     Call Mantle /v1/models endpoint with SigV4 signing.
@@ -235,7 +232,10 @@ def probe_all_responses_support(
     return results
 
 
-def lambda_handler(event: dict, context: Any) -> dict:
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """
     Lambda handler for Mantle model collection (single region).
 
@@ -284,11 +284,13 @@ def lambda_handler(event: dict, context: Any) -> dict:
     s3_key = event.get("s3Key", f"test/mantle/{region}.json")
     dry_run = event.get("dryRun", False)
 
-    logger.info(f"Collecting Mantle models from region: {region}")
+    logger.info("Starting Mantle collection", extra={"region": region})
 
     try:
         models = call_mantle_endpoint(region)
-        logger.info(f"Mantle: {region} returned {len(models)} models")
+        logger.info(
+            "Mantle models retrieved", extra={"region": region, "count": len(models)}
+        )
 
         # Probe Responses API support for each model
         model_ids = [m["model_id"] for m in models]
@@ -298,11 +300,13 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
         supported_count = sum(1 for v in responses_support.values() if v)
         logger.info(
-            "Responses API probe in %s: %d/%d models supported (took %dms)",
-            region,
-            supported_count,
-            len(model_ids),
-            probe_duration_ms,
+            "Responses API probe complete",
+            extra={
+                "region": region,
+                "supported": supported_count,
+                "total": len(model_ids),
+                "duration_ms": probe_duration_ms,
+            },
         )
 
         # Enrich each model dict with Responses API support flag
@@ -333,11 +337,26 @@ def lambda_handler(event: dict, context: Any) -> dict:
             write_to_s3(s3_client, s3_bucket, s3_key, output_data)
         else:
             logger.info(
-                f"Dry run - would write {len(models)} Mantle models "
-                f"to s3://{s3_bucket}/{s3_key}"
+                "Dry run - would write Mantle models",
+                extra={"count": len(models), "bucket": s3_bucket, "key": s3_key},
             )
 
         duration_ms = int((time.time() - start_time) * 1000)
+
+        # Emit metrics
+        metrics.add_metric(
+            name="MantleModelsCollected", unit=MetricUnit.Count, value=len(models)
+        )
+        metrics.add_dimension(name="Region", value=region)
+
+        logger.info(
+            "Mantle collection complete",
+            extra={
+                "region": region,
+                "model_count": len(models),
+                "duration_ms": duration_ms,
+            },
+        )
 
         return {
             "status": "SUCCESS",
@@ -351,8 +370,16 @@ def lambda_handler(event: dict, context: Any) -> dict:
         # HTTPError is a subclass of URLError — must be caught first
         duration_ms = int((time.time() - start_time) * 1000)
         is_retryable = e.code >= 500
-        log_level = logging.WARNING if is_retryable else logging.ERROR
-        logger.log(log_level, f"Mantle HTTP error in {region}: {e.code} {e.reason}")
+        if is_retryable:
+            logger.warning(
+                "Mantle HTTP error (retryable)",
+                extra={"region": region, "code": e.code, "reason": e.reason},
+            )
+        else:
+            logger.error(
+                "Mantle HTTP error",
+                extra={"region": region, "code": e.code, "reason": e.reason},
+            )
         return {
             "status": "FAILED",
             "region": region,
@@ -365,7 +392,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
     except urllib.error.URLError as e:
         duration_ms = int((time.time() - start_time) * 1000)
         reason = str(e.reason) if hasattr(e, "reason") else str(e)
-        logger.debug(f"Mantle not available in {region}: URLError: {reason}")
+        logger.debug("Mantle not available", extra={"region": region, "reason": reason})
         return {
             "status": "FAILED",
             "region": region,
@@ -378,8 +405,8 @@ def lambda_handler(event: dict, context: Any) -> dict:
     except Exception as e:
         duration_ms = int((time.time() - start_time) * 1000)
         logger.warning(
-            f"Unexpected error collecting Mantle models from {region}: "
-            f"{type(e).__name__}: {e}"
+            "Unexpected error collecting Mantle models",
+            extra={"region": region, "error_type": type(e).__name__, "error": str(e)},
         )
         return {
             "status": "FAILED",

@@ -30,7 +30,7 @@ The Bedrock Model Profiler aggregates data from **7 distinct data sources** to p
 └─────────────────────────────────────────────────────────────────────────────────────┘
 
                                     ┌───────────────┐
-                                    │ DiscoverRegions│
+                                    │DiscoverRegions│
                                     │   Lambda      │
                                     └───────┬───────┘
                                             │
@@ -38,6 +38,12 @@ The Bedrock Model Profiler aggregates data from **7 distinct data sources** to p
                               ┌─────────────────────────┐
                               │   InitializeExecution   │
                               │   (Pass State)          │
+                              └───────────┬─────────────┘
+                                          │
+                                          ▼
+                              ┌─────────────────────────┐
+                              │      ConfigSync         │
+                              │   (Frontend Config)     │
                               └───────────┬─────────────┘
                                           │
            ┌──────────────────────────────┼──────────────────────────────┐
@@ -526,6 +532,7 @@ tables = soup.select('.table-container .table-contents table')
 | `executions/{id}/pricing/AmazonBedrockFoundationModels.json` | pricing-collector | Raw pricing for service code |
 | `executions/{id}/merged/pricing.json` | pricing-aggregator | Aggregated pricing data |
 | `executions/{id}/models/{region}.json` | model-extractor | Models from region |
+| `executions/{id}/cache/list_foundation_models_{region}.json` | model-extractor | Cached API response for reuse |
 | `executions/{id}/merged/models.json` | model-merger | Deduplicated models |
 | `executions/{id}/quotas/{region}.json` | quota-collector | Quotas from region |
 | `executions/{id}/features/{region}.json` | feature-collector | Inference profiles from region |
@@ -537,6 +544,9 @@ tables = soup.select('.table-container .table-contents table')
 | `executions/{id}/final/bedrock_models.json` | final-aggregator | Final models output |
 | `executions/{id}/final/bedrock_pricing.json` | final-aggregator | Final pricing output |
 | `executions/{id}/gap-detection/gap-report.json` | gap-detection | Gap analysis report |
+| `config/frontend-config.json` | config-sync | Frontend configuration |
+| `agent/gap-reports/{id}/gap-analysis.json` | gap-detection | Detailed gap analysis |
+| `agent/suggestions/{id}/suggestions.json` | self-healing-agent | AI-generated suggestions |
 
 ### Final Output Files
 
@@ -548,6 +558,13 @@ tables = soup.select('.table-container .table-contents table')
 ---
 
 ## Lambda-by-Lambda Reference
+
+### Pre-Wave Lambdas (Initialization)
+
+| Lambda | AWS APIs | Purpose | Timeout | Memory |
+|--------|----------|---------|---------|--------|
+| `region-discovery` | `bedrock:ListInferenceProfiles` | Dynamically discover regions with Bedrock | 30 sec | 256 MB |
+| `config-sync` | S3 read/write | Sync frontend config from backend | 30 sec | 256 MB |
 
 ### Wave 1 Lambdas (Parallel Collection)
 
@@ -743,3 +760,263 @@ All Lambdas implement consistent error handling:
 | `self-healing-agent` | `bedrock:InvokeModel` |
 | All Lambdas | `s3:GetObject`, `s3:PutObject` |
 | `copy-to-latest` | `s3:CopyObject` |
+
+---
+
+## ConfigSync Lambda
+
+**Purpose:** Syncs frontend-relevant configuration from the backend `profiler-config.json` and generates optimized files for the frontend to consume.
+
+**Workflow Position:** Runs immediately after `InitializeExecution`, before Wave 1 parallel collection.
+
+### Input/Output
+
+**Input:**
+```json
+{
+  "s3Bucket": "bucket-name",
+  "executionId": "exec-123",
+  "generateJs": false
+}
+```
+
+**Output Files:**
+
+| S3 Key | Description |
+|--------|-------------|
+| `config/frontend-config.json` | JSON config with regions, providers, colors |
+| `config/generated-constants.js` | Optional JS module for direct import |
+
+### Frontend Config Structure
+
+```json
+{
+  "version": "1.0.0",
+  "generated_at": "2026-03-03T12:00:00Z",
+  "source": "profiler-config.json",
+  "regions": {
+    "us-east-1": {
+      "label": "N. Virginia",
+      "fullName": "US East (N. Virginia)",
+      "geo": "US",
+      "lat": 38.9519,
+      "lng": -77.448
+    }
+  },
+  "aws_regions": [...],
+  "geo_region_options": [...],
+  "providers": {
+    "colors": { "Amazon": "#FF9900", ... },
+    "documentation": { ... }
+  },
+  "model_config": {
+    "context_thresholds": { "small": 32000, "medium": 128000, "large": 500000 }
+  }
+}
+```
+
+### Benefits
+
+1. **Single Source of Truth** - Region/provider config defined once in backend
+2. **Automatic Updates** - Frontend config regenerated each pipeline run
+3. **Gap Detection** - Drift between frontend and backend configs detected
+
+---
+
+## Caching System
+
+The pipeline implements a caching layer to reduce redundant API calls between Lambdas.
+
+### Model Extraction Cache
+
+**Producer:** `model-extractor`
+**Consumer:** `regional-availability`
+
+When `model-extractor` calls `ListFoundationModels`, it caches the raw API response:
+
+```
+executions/{execution-id}/cache/list_foundation_models_{region}.json
+```
+
+**Cache Structure:**
+```json
+{
+  "region": "us-east-1",
+  "timestamp": "2026-03-03T12:00:00Z",
+  "model_summaries": [
+    {
+      "modelId": "anthropic.claude-3-sonnet-20240229-v1:0",
+      "inferenceTypesSupported": ["ON_DEMAND", "PROVISIONED"],
+      ...
+    }
+  ]
+}
+```
+
+### Cache Flow
+
+```
+┌─────────────────┐     cache write      ┌─────────────────────────────────┐
+│ model-extractor │ ──────────────────►  │ S3: cache/list_foundation_      │
+│ (us-east-1)     │                      │     models_us-east-1.json       │
+└─────────────────┘                      └─────────────────────────────────┘
+                                                        │
+                                                        │ cache read
+                                                        ▼
+                                         ┌─────────────────────────────────┐
+                                         │   regional-availability         │
+                                         │   (skips API call for cached    │
+                                         │    regions)                     │
+                                         └─────────────────────────────────┘
+```
+
+### Cache Utilities
+
+Located in `backend/layers/common/python/shared/cache_utils.py`:
+
+| Function | Description |
+|----------|-------------|
+| `get_cached_models(s3_client, bucket, key)` | Read cached data from S3 |
+| `is_cache_valid(data, max_age_seconds=3600)` | Check if cache is still fresh |
+| `build_cache_key(exec_id, region, type)` | Generate standardized cache key |
+
+### Cache Keys Flow in State Machine
+
+```json
+{
+  "PrepareWave2": {
+    "Parameters": {
+      "modelCacheKeys.$": "$.wave1Results[1].modelsMerged.cacheKeys"
+    }
+  },
+  "ComputeRegionalAvailability": {
+    "Parameters": {
+      "cacheKeys.$": "$.modelCacheKeys"
+    }
+  }
+}
+```
+
+### Cache Performance Impact
+
+| Metric | Without Cache | With Cache |
+|--------|---------------|------------|
+| Regional availability API calls | ~54 (27 regions × 2 filters) | ~50 (2 cached × 2 filters saved) |
+| Potential savings with all regions cached | N/A | Up to 93% reduction |
+
+---
+
+## Self-Healing Enhancement System
+
+The self-healing system has been enhanced to detect and auto-fix additional gap types beyond basic pricing mismatches.
+
+### Enhanced Gap Detection
+
+**Lambda:** `gap-detection`
+
+| Gap Type | Detection Method | Trigger Threshold |
+|----------|-----------------|-------------------|
+| Models without pricing | Missing `has_pricing` flag | ≥5 models |
+| Low-confidence matches | `confidence < 0.6` | ≥3 matches |
+| Unknown providers | Not in `provider_patterns` | Any detected |
+| New models | Delta from previous run | Any detected |
+| Context window mismatches | Config vs. API variance >10% | Any detected |
+| Unknown service codes | Not in `pricing_service_codes` | Any detected |
+| Frontend config drift | Backend ≠ frontend regions/providers | Any drift |
+
+### Gap Report Structure
+
+```json
+{
+  "summary": {
+    "total_models": 108,
+    "models_without_pricing": 3,
+    "low_confidence_matches": 2,
+    "new_models_detected": 5,
+    "unknown_providers": ["NewProvider"],
+    "context_window_mismatches": 1,
+    "unknown_service_codes": [],
+    "frontend_config_drift": false
+  },
+  "trigger_decision": {
+    "should_trigger": true,
+    "reasons": ["5 new models detected", "Unknown providers: NewProvider"],
+    "priority": "high"
+  },
+  "details": {
+    "context_window_mismatches": [
+      {
+        "model_id": "anthropic.claude-3-opus-20240229-v1:0",
+        "actual_value": 200000,
+        "config_value": 180000,
+        "variance": 0.11
+      }
+    ],
+    "frontend_config_drift": {
+      "drift_detected": false,
+      "regions_missing_in_frontend": [],
+      "providers_missing_in_frontend": []
+    }
+  }
+}
+```
+
+### GenAI Auto-Update Capabilities
+
+**Lambda:** `self-healing-agent`
+**Model:** Claude Opus 4.5 via Bedrock
+
+The self-healing agent can automatically update:
+
+| Update Type | Auto-Apply Safe | Example |
+|-------------|-----------------|---------|
+| `provider_pattern_addition` | ✅ Yes | Add `"nemotron"` to NVIDIA patterns |
+| `provider_alias_addition` | ✅ Yes | Add `"deepseek-ai"` alias |
+| `context_window_update` | ✅ Yes | Update Claude context to 200K |
+| `service_code_addition` | ✅ Yes | Add new Bedrock pricing service code |
+| `region_addition` | ✅ Yes | Add new region coordinates |
+| `documentation_link_addition` | ✅ Yes | Add provider doc links |
+| `provider_pattern_removal` | ❌ Review | Could break existing matches |
+| `threshold_change` | ❌ Review | Affects system behavior |
+
+### Auto-Apply Rules
+
+Configured in `profiler-config.json`:
+
+```json
+{
+  "agent_configuration": {
+    "auto_apply_rules": {
+      "safe_changes": [
+        "provider_pattern_addition",
+        "provider_alias_addition",
+        "context_window_update",
+        "service_code_addition"
+      ],
+      "requires_review": [
+        "provider_pattern_removal",
+        "threshold_change"
+      ],
+      "max_models_affected_for_auto_apply": 0.2
+    }
+  }
+}
+```
+
+### Validation Thresholds
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| `max_models_affected_for_auto_apply` | 20% | Prevents mass changes |
+| `context_window_variance_threshold` | 10% | Flags significant mismatches |
+| `low_confidence_threshold` | 0.6 | Minimum match confidence |
+
+### Config History
+
+Auto-applied changes create backups:
+
+```
+config/config-history/profiler-config.{timestamp}.json
+```
+
+This enables rollback if auto-updates cause issues.

@@ -1,6 +1,22 @@
 {
   "version": "1.0.0-auto-updated-auto-updated",
   "last_updated": "2026-02-04T16:29:46Z",
+  "external_urls": {
+    "pricing": {
+      "bulk_pricing_api": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/{service_code}/current/{region}/index.json",
+      "pricing_api_region": "us-east-1"
+    },
+    "documentation": {
+      "bedrock_models_supported": "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
+      "bedrock_pricing": "https://aws.amazon.com/bedrock/pricing/",
+      "bedrock_model_lifecycle": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html",
+      "bedrock_model_ids": "https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids-arns.html"
+    },
+    "external_data_sources": {
+      "litellm_model_prices": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+      "litellm_model_prices_fallback": "https://raw.githubusercontent.com/BerriAI/litellm/main/litellm/model_prices_and_context_window_backup.json"
+    }
+  },
   "provider_configuration": {
     "provider_aliases": {
       "amazon": [
@@ -1099,26 +1115,30 @@
   },
   "agent_configuration": {
     "bedrock_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
-    "max_tokens": 4096,
+    "max_tokens": 8192,
     "thresholds": {
       "unmatched_models_trigger": 5,
       "low_confidence_threshold": 0.6,
       "new_provider_trigger": true,
-      "max_low_confidence_matches": 3
+      "max_low_confidence_matches": 3,
+      "context_window_variance_trigger": 0.1
     },
     "auto_apply_rules": {
       "safe_changes": [
         "provider_pattern_addition",
         "provider_alias_addition",
         "region_addition",
-        "documentation_link_addition"
+        "documentation_link_addition",
+        "context_window_update",
+        "service_code_addition"
       ],
       "requires_review": [
         "provider_pattern_removal",
         "provider_pattern_modification",
         "threshold_change",
         "model_family_change",
-        "model_variant_change"
+        "model_variant_change",
+        "context_window_removal"
       ],
       "max_models_affected_for_auto_apply": 0.2
     }
@@ -1127,5 +1147,11 @@
     "AmazonBedrock",
     "AmazonBedrockService",
     "AmazonBedrockFoundationModels"
-  ]
+  ],
+  "gap_detection_config": {
+    "context_window_variance_threshold": 0.1,
+    "enable_frontend_drift_detection": true,
+    "enable_context_window_detection": true,
+    "enable_service_code_detection": true
+  }
 }

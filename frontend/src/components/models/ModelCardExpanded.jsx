@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import { canViewQuotas } from '@/config/admin'
+import { getRegionName, getRegionInfo, geoGroups as regionGeoGroups } from '@/utils/regionUtils'
 
 // Provider color mapping - using actual brand colors (Tailwind classes)
 const providerColors = {
@@ -232,45 +233,10 @@ function CollapsibleSection({ title, icon: Icon, children, defaultExpanded = fal
   )
 }
 
-// Region display name mapping
-const regionDisplayNames = {
-  'us-east-1': 'N. Virginia',
-  'us-east-2': 'Ohio',
-  'us-west-1': 'N. California',
-  'us-west-2': 'Oregon',
-  'us-gov-west-1': 'US-GovCloud West',
-  'eu-west-1': 'Ireland',
-  'eu-west-2': 'London',
-  'eu-west-3': 'Paris',
-  'eu-central-1': 'Frankfurt',
-  'eu-central-2': 'Zurich',
-  'eu-north-1': 'Stockholm',
-  'eu-south-1': 'Milan',
-  'eu-south-2': 'Spain',
-  'ap-east-1': 'Hong Kong',
-  'ap-east-2': 'Hong Kong 2',
-  'ap-northeast-1': 'Tokyo',
-  'ap-northeast-2': 'Seoul',
-  'ap-northeast-3': 'Osaka',
-  'ap-southeast-1': 'Singapore',
-  'ap-southeast-2': 'Sydney',
-  'ap-southeast-3': 'Jakarta',
-  'ap-southeast-4': 'Melbourne',
-  'ap-southeast-5': 'Malaysia',
-  'ap-southeast-7': 'Thailand',
-  'ap-south-1': 'Mumbai',
-  'ap-south-2': 'Hyderabad',
-  'ca-central-1': 'Canada Central',
-  'ca-west-1': 'Calgary',
-  'sa-east-1': 'São Paulo',
-  'me-south-1': 'Bahrain',
-  'me-central-1': 'UAE',
-  'mx-central-1': 'Mexico',
-  'af-south-1': 'Cape Town',
-  'il-central-1': 'Israel',
-}
+// Region display name - uses centralized region utilities
+const getRegionDisplayName = (regionCode) => getRegionName(regionCode)
 
-// Geographic groupings
+// Geographic groupings - uses centralized geoGroups with additional UI-specific data
 const geoGroups = {
   'US': { name: 'United States', icon: '🇺🇸', prefixes: ['us-'] },
   'EU': { name: 'Europe', icon: '🇪🇺', prefixes: ['eu-'] },
@@ -343,7 +309,7 @@ function RegionalAvailabilityGrouped({ regions }) {
                 <div className="flex flex-wrap gap-1.5 pt-2">
                   {groupRegions.sort().map(region => (
                     <Badge key={region} variant="outline" className="text-xs">
-                      {regionDisplayNames[region] || region} <span className={cn('font-mono ml-1', isLight ? 'text-stone-500' : 'text-slate-300')}>({region})</span>
+                      {getRegionDisplayName(region)} <span className={cn('font-mono ml-1', isLight ? 'text-stone-500' : 'text-slate-300')}>({region})</span>
                     </Badge>
                   ))}
                 </div>
@@ -550,7 +516,7 @@ function ApplicationInferenceProfileSection({ regionsAvailable }) {
             <div className="flex flex-wrap gap-1.5 pt-1">
               {supportedRegions.sort().map(region => (
                 <Badge key={region} variant="secondary" className="text-[10px]">
-                  {regionDisplayNames[region] || region}
+                  {getRegionDisplayName(region)}
                   <span className={cn('ml-1 font-mono', isLight ? 'text-stone-400' : 'text-slate-500')}>
                     ({region})
                   </span>
@@ -851,7 +817,7 @@ function CrossRegionInferenceSection({ crisData }) {
                                       <Tooltip key={sourceRegion} delayDuration={200}>
                                         <TooltipTrigger asChild>
                                           <Badge variant="secondary" className="text-[10px] cursor-default">
-                                            {regionDisplayNames[sourceRegion] || sourceRegion}
+                                            {getRegionDisplayName(sourceRegion)}
                                           </Badge>
                                         </TooltipTrigger>
                                         <TooltipContent side="bottom" sideOffset={4}>
@@ -881,7 +847,7 @@ function CrossRegionInferenceSection({ crisData }) {
                                           <Tooltip delayDuration={200}>
                                             <TooltipTrigger asChild>
                                               <Badge variant="secondary" className="text-[10px] cursor-default shrink-0">
-                                                {regionDisplayNames[sourceRegion] || sourceRegion}
+                                                {getRegionDisplayName(sourceRegion)}
                                               </Badge>
                                             </TooltipTrigger>
                                             <TooltipContent side="left" sideOffset={4}>
@@ -894,7 +860,7 @@ function CrossRegionInferenceSection({ crisData }) {
                                               <Tooltip key={dest} delayDuration={200}>
                                                 <TooltipTrigger asChild>
                                                   <Badge variant="info" className="text-[10px] cursor-default">
-                                                    {regionDisplayNames[dest] || dest}
+                                                    {getRegionDisplayName(dest)}
                                                   </Badge>
                                                 </TooltipTrigger>
                                                 <TooltipContent side="bottom" sideOffset={4}>
@@ -1039,7 +1005,7 @@ function BatchInferenceSection({ batchData }) {
                     <div className="flex flex-wrap gap-1">
                       {geoRegions.sort().map(region => (
                         <Badge key={region} variant="outline" className="text-xs">
-                          {regionDisplayNames[region] || region}
+                          {getRegionDisplayName(region)}
                         </Badge>
                       ))}
                     </div>
@@ -1118,7 +1084,7 @@ function MantleInferenceSection({ mantleData }) {
                     <div className="flex flex-wrap gap-1">
                       {geoRegions.sort().map(region => (
                         <Badge key={region} variant="outline" className="text-xs">
-                          {regionDisplayNames[region] || region}
+                          {getRegionDisplayName(region)}
                         </Badge>
                       ))}
                     </div>
@@ -1915,7 +1881,7 @@ function LifecycleDetailsSection({ model, isLight }) {
                     <div className="grid gap-1">
                       {regions.sort().map(region => {
                         const regionData = regionalStatus[region] || {}
-                        const regionName = regionDisplayNames[region] || region
+                        const regionName = getRegionDisplayName(region)
                         
                         // Collect date info for this region
                         const dateInfo = []
@@ -2246,7 +2212,7 @@ function CollapsibleRegion({ region, quotas, defaultExpanded = false, showAdjust
       >
         <div className="flex items-center gap-2">
           <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-          <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{regionDisplayNames[region] || region}</span>
+          <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{getRegionDisplayName(region)}</span>
           <span className={cn('text-xs font-mono', isLight ? 'text-stone-600' : 'text-slate-300')}>({region})</span>
           <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-300')}>- {Array.isArray(regionQuotas) ? regionQuotas.length : 0} quotas</span>
         </div>
@@ -2594,7 +2560,7 @@ function QuotasTab({ model }) {
     for (const [geo, regions] of Object.entries(geoData)) {
       const geoName = (geoInfo[geo]?.name || '').toLowerCase()
       for (const [region, regionQuotas] of Object.entries(regions)) {
-        const regionName = (regionDisplayNames[region] || '').toLowerCase()
+        const regionName = (getRegionDisplayName(region) || '').toLowerCase()
         const matchingQuotas = regionQuotas.filter(q => {
           const quotaName = (q.quota_name || '').toLowerCase()
           const quotaCode = (q.quota_code || '').toLowerCase()
@@ -2658,7 +2624,7 @@ function QuotasTab({ model }) {
                       <div key={region} className={cn('rounded-lg p-2 mt-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
                         <div className="flex items-center gap-2 mb-2">
                           <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-                          <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>{regionDisplayNames[region] || region}</span>
+                          <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>{getRegionDisplayName(region)}</span>
                           <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-slate-400')}>({region})</span>
                         </div>
                         <QuotaItemsList items={regionQuotas} isLight={isLight} />
@@ -2992,7 +2958,7 @@ function CollapsiblePricingRegion({ region, pricing, category, defaultExpanded =
       >
         <div className="flex items-center gap-2">
           <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-          <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{regionDisplayNames[region] || region}</span>
+          <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{getRegionDisplayName(region)}</span>
           <span className={cn('text-xs font-mono', isLight ? 'text-stone-600' : 'text-slate-300')}>({region})</span>
         </div>
         <div className="flex items-center gap-3">
@@ -3152,7 +3118,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
     for (const [geo, regions] of Object.entries(geoData)) {
       const geoName = (geoInfo[geo]?.name || '').toLowerCase()
       for (const [region, regionItems] of Object.entries(regions)) {
-        const regionName = (regionDisplayNames[region] || '').toLowerCase()
+        const regionName = (getRegionDisplayName(region) || '').toLowerCase()
         const matchingItems = regionItems.filter(item => {
           const description = (item.description || item.dimension || '').toLowerCase()
           return region.toLowerCase().includes(query) ||
@@ -3214,7 +3180,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
                       <div key={region} className={cn('rounded-lg p-2 mt-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
                         <div className="flex items-center gap-2 mb-2">
                           <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-                          <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>{regionDisplayNames[region] || region}</span>
+                          <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>{getRegionDisplayName(region)}</span>
                           <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-slate-400')}>({region})</span>
                         </div>
                         <PricingItemsList items={regionItems.map(item => {

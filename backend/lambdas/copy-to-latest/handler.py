@@ -6,8 +6,6 @@ Preserves date_added for existing models and stamps new models with the current 
 """
 
 import json
-import logging
-import os
 import time
 from typing import Any
 
@@ -19,9 +17,8 @@ from shared import (
     validate_required_params,
     ValidationError,
 )
-
-logger = logging.getLogger()
-logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+from shared.powertools import logger, tracer, metrics, LambdaContext
+from aws_lambda_powertools.metrics import MetricUnit
 
 
 def get_s3_client():
@@ -38,7 +35,13 @@ def copy_s3_object(s3_client: Any, bucket: str, source_key: str, dest_key: str) 
         MetadataDirective="REPLACE",
         ContentType="application/json",
     )
-    logger.info(f"Copied s3://{bucket}/{source_key} to s3://{bucket}/{dest_key}")
+    logger.info(
+        "Copied S3 object",
+        extra={
+            "source": f"s3://{bucket}/{source_key}",
+            "destination": f"s3://{bucket}/{dest_key}",
+        },
+    )
 
 
 def read_s3_json(s3_client: Any, bucket: str, key: str) -> dict:
@@ -47,7 +50,10 @@ def read_s3_json(s3_client: Any, bucket: str, key: str) -> dict:
         response = s3_client.get_object(Bucket=bucket, Key=key)
         return json.loads(response["Body"].read().decode("utf-8"))
     except Exception as e:
-        logger.warning(f"Could not read s3://{bucket}/{key}: {e}")
+        logger.warning(
+            "Could not read S3 object",
+            extra={"bucket": bucket, "key": key, "error": str(e)},
+        )
         return {}
 
 
@@ -93,7 +99,12 @@ def stamp_date_added(
                 new_count += 1
 
     logger.info(
-        f"date_added stamping: {new_count} new models (stamped {today}), {preserved_count} preserved"
+        "date_added stamping complete",
+        extra={
+            "new_models": new_count,
+            "preserved_models": preserved_count,
+            "stamp_date": today,
+        },
     )
 
     # Write the updated data back to the new models key (before the copy)
@@ -105,7 +116,10 @@ def stamp_date_added(
     )
 
 
-def lambda_handler(event: dict, context: Any) -> dict:
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """
     Lambda handler for copying to latest.
 
@@ -149,8 +163,9 @@ def lambda_handler(event: dict, context: Any) -> dict:
     latest_models_key = "latest/bedrock_models.json"
     latest_pricing_key = "latest/bedrock_pricing.json"
 
-    logger.info(f"Copying final outputs to latest/")
+    logger.info("Starting copy to latest", extra={"execution_id": execution_id})
 
+    copied_files = []
     try:
         if not dry_run:
             s3_client = get_s3_client()
@@ -166,12 +181,14 @@ def lambda_handler(event: dict, context: Any) -> dict:
                 copy_s3_object(
                     s3_client, s3_bucket, models_source_key, latest_models_key
                 )
+                copied_files.append(latest_models_key)
 
             # Copy pricing
             if pricing_source_key:
                 copy_s3_object(
                     s3_client, s3_bucket, pricing_source_key, latest_pricing_key
                 )
+                copied_files.append(latest_pricing_key)
 
             # Also create a manifest file with execution info
             manifest = {
@@ -185,10 +202,24 @@ def lambda_handler(event: dict, context: Any) -> dict:
                 Body=json.dumps(manifest, indent=2),
                 ContentType="application/json",
             )
+            copied_files.append("latest/manifest.json")
         else:
             logger.info("Dry run - skipping copy")
 
         duration_ms = int((time.time() - start_time) * 1000)
+
+        # Emit metrics
+        metrics.add_metric(
+            name="FilesCopied", unit=MetricUnit.Count, value=len(copied_files)
+        )
+        metrics.add_metric(
+            name="DurationMs", unit=MetricUnit.Milliseconds, value=duration_ms
+        )
+
+        logger.info(
+            "Copy to latest complete",
+            extra={"files_copied": copied_files, "duration_ms": duration_ms},
+        )
 
         return {
             "status": "SUCCESS",
@@ -198,7 +229,9 @@ def lambda_handler(event: dict, context: Any) -> dict:
         }
 
     except Exception as e:
-        logger.error(f"Failed to copy to latest: {e}", exc_info=True)
+        logger.exception(
+            "Failed to copy to latest", extra={"error_type": type(e).__name__}
+        )
         return {
             "status": "FAILED",
             "errorType": type(e).__name__,

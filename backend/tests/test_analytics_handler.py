@@ -53,6 +53,42 @@ def _import_analytics_handler():
     mod = importlib.util.module_from_spec(spec)
     sys.modules[_MODULE_NAME] = mod
     assert spec.loader is not None, f"Module spec has no loader for {_HANDLER_PATH}"
+
+    # Mock shared.powertools BEFORE loading the module
+    # Create pass-through decorators that preserve function behavior
+    mock_logger = MagicMock()
+    mock_logger.inject_lambda_context = lambda **kwargs: lambda f: f
+    mock_logger.info = MagicMock()
+    mock_logger.warning = MagicMock()
+    mock_logger.error = MagicMock()
+    mock_logger.debug = MagicMock()
+
+    mock_tracer = MagicMock()
+    mock_tracer.capture_method = lambda f: f
+    mock_tracer.capture_lambda_handler = lambda f: f
+
+    mock_metrics = MagicMock()
+    mock_metrics.log_metrics = lambda **kwargs: lambda f: f
+    mock_metrics.add_metric = MagicMock()
+
+    mock_powertools = MagicMock()
+    mock_powertools.logger = mock_logger
+    mock_powertools.tracer = mock_tracer
+    mock_powertools.metrics = mock_metrics
+    mock_powertools.LambdaContext = MagicMock
+    mock_powertools.MetricUnit = MagicMock()
+
+    # Mock aws_lambda_powertools.metrics.MetricUnit
+    mock_aws_powertools_metrics = MagicMock()
+    mock_aws_powertools_metrics.MetricUnit = MagicMock()
+    mock_aws_powertools_metrics.MetricUnit.Count = "Count"
+
+    sys.modules["shared"] = MagicMock()
+    sys.modules["shared.powertools"] = mock_powertools
+    sys.modules["aws_lambda_powertools"] = MagicMock()
+    sys.modules["aws_lambda_powertools.metrics"] = mock_aws_powertools_metrics
+    sys.modules["aws_lambda_powertools.utilities.typing"] = MagicMock()
+
     spec.loader.exec_module(mod)
     return mod
 

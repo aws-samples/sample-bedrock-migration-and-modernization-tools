@@ -6,47 +6,49 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useTheme } from '@/components/layout/ThemeProvider'
 import { useModels } from '@/hooks/useModels'
 import { cn } from '@/lib/utils'
+import { getRegionName } from '@/utils/regionUtils'
 
 // Ordered region columns grouped by business geo: NAMER, EMEA, APAC, LATAM
+// Labels are derived from centralized region utilities
 const REGION_COLUMNS = [
   // NAMER
-  { code: 'us-east-1', short: 'USE1', label: 'N. Virginia', geo: 'NAMER' },
-  { code: 'us-east-2', short: 'USE2', label: 'Ohio', geo: 'NAMER' },
-  { code: 'us-west-2', short: 'USW2', label: 'Oregon', geo: 'NAMER' },
-  { code: 'us-west-1', short: 'USW1', label: 'N. California', geo: 'NAMER' },
-  { code: 'ca-central-1', short: 'CAC1', label: 'Montreal', geo: 'NAMER' },
-  { code: 'ca-west-1', short: 'CAW1', label: 'Calgary', geo: 'NAMER' },
+  { code: 'us-east-1', short: 'USE1', label: getRegionName('us-east-1'), geo: 'NAMER' },
+  { code: 'us-east-2', short: 'USE2', label: getRegionName('us-east-2'), geo: 'NAMER' },
+  { code: 'us-west-2', short: 'USW2', label: getRegionName('us-west-2'), geo: 'NAMER' },
+  { code: 'us-west-1', short: 'USW1', label: getRegionName('us-west-1'), geo: 'NAMER' },
+  { code: 'ca-central-1', short: 'CAC1', label: getRegionName('ca-central-1'), geo: 'NAMER' },
+  { code: 'ca-west-1', short: 'CAW1', label: getRegionName('ca-west-1'), geo: 'NAMER' },
   // EMEA
-  { code: 'eu-west-1', short: 'EUW1', label: 'Ireland', geo: 'EMEA' },
-  { code: 'eu-west-2', short: 'EUW2', label: 'London', geo: 'EMEA' },
-  { code: 'eu-west-3', short: 'EUW3', label: 'Paris', geo: 'EMEA' },
-  { code: 'eu-central-1', short: 'EUC1', label: 'Frankfurt', geo: 'EMEA' },
-  { code: 'eu-central-2', short: 'EUC2', label: 'Zurich', geo: 'EMEA' },
-  { code: 'eu-north-1', short: 'EUN1', label: 'Stockholm', geo: 'EMEA' },
-  { code: 'eu-south-1', short: 'EUS1', label: 'Milan', geo: 'EMEA' },
-  { code: 'eu-south-2', short: 'EUS2', label: 'Spain', geo: 'EMEA' },
-  { code: 'me-south-1', short: 'MES1', label: 'Bahrain', geo: 'EMEA' },
-  { code: 'me-central-1', short: 'MEC1', label: 'UAE', geo: 'EMEA' },
-  { code: 'af-south-1', short: 'AFS1', label: 'Cape Town', geo: 'EMEA' },
-  { code: 'il-central-1', short: 'ILC1', label: 'Tel Aviv', geo: 'EMEA' },
+  { code: 'eu-west-1', short: 'EUW1', label: getRegionName('eu-west-1'), geo: 'EMEA' },
+  { code: 'eu-west-2', short: 'EUW2', label: getRegionName('eu-west-2'), geo: 'EMEA' },
+  { code: 'eu-west-3', short: 'EUW3', label: getRegionName('eu-west-3'), geo: 'EMEA' },
+  { code: 'eu-central-1', short: 'EUC1', label: getRegionName('eu-central-1'), geo: 'EMEA' },
+  { code: 'eu-central-2', short: 'EUC2', label: getRegionName('eu-central-2'), geo: 'EMEA' },
+  { code: 'eu-north-1', short: 'EUN1', label: getRegionName('eu-north-1'), geo: 'EMEA' },
+  { code: 'eu-south-1', short: 'EUS1', label: getRegionName('eu-south-1'), geo: 'EMEA' },
+  { code: 'eu-south-2', short: 'EUS2', label: getRegionName('eu-south-2'), geo: 'EMEA' },
+  { code: 'me-south-1', short: 'MES1', label: getRegionName('me-south-1'), geo: 'EMEA' },
+  { code: 'me-central-1', short: 'MEC1', label: getRegionName('me-central-1'), geo: 'EMEA' },
+  { code: 'af-south-1', short: 'AFS1', label: getRegionName('af-south-1'), geo: 'EMEA' },
+  { code: 'il-central-1', short: 'ILC1', label: getRegionName('il-central-1'), geo: 'EMEA' },
   // APAC
-  { code: 'ap-northeast-1', short: 'ANE1', label: 'Tokyo', geo: 'APAC' },
-  { code: 'ap-northeast-2', short: 'ANE2', label: 'Seoul', geo: 'APAC' },
-  { code: 'ap-northeast-3', short: 'ANE3', label: 'Osaka', geo: 'APAC' },
-  { code: 'ap-southeast-1', short: 'ASE1', label: 'Singapore', geo: 'APAC' },
-  { code: 'ap-southeast-2', short: 'ASE2', label: 'Sydney', geo: 'APAC' },
-  { code: 'ap-southeast-3', short: 'ASE3', label: 'Jakarta', geo: 'APAC' },
-  { code: 'ap-southeast-4', short: 'ASE4', label: 'Melbourne', geo: 'APAC' },
-  { code: 'ap-southeast-5', short: 'ASE5', label: 'Malaysia', geo: 'APAC' },
-  { code: 'ap-southeast-6', short: 'ASE6', label: 'Auckland', geo: 'APAC' },
-  { code: 'ap-southeast-7', short: 'ASE7', label: 'Thailand', geo: 'APAC' },
-  { code: 'ap-south-1', short: 'APS1', label: 'Mumbai', geo: 'APAC' },
-  { code: 'ap-south-2', short: 'APS2', label: 'Hyderabad', geo: 'APAC' },
-  { code: 'ap-east-1', short: 'APE1', label: 'Hong Kong', geo: 'APAC' },
-  { code: 'ap-east-2', short: 'APE2', label: 'Taipei', geo: 'APAC' },
+  { code: 'ap-northeast-1', short: 'ANE1', label: getRegionName('ap-northeast-1'), geo: 'APAC' },
+  { code: 'ap-northeast-2', short: 'ANE2', label: getRegionName('ap-northeast-2'), geo: 'APAC' },
+  { code: 'ap-northeast-3', short: 'ANE3', label: getRegionName('ap-northeast-3'), geo: 'APAC' },
+  { code: 'ap-southeast-1', short: 'ASE1', label: getRegionName('ap-southeast-1'), geo: 'APAC' },
+  { code: 'ap-southeast-2', short: 'ASE2', label: getRegionName('ap-southeast-2'), geo: 'APAC' },
+  { code: 'ap-southeast-3', short: 'ASE3', label: getRegionName('ap-southeast-3'), geo: 'APAC' },
+  { code: 'ap-southeast-4', short: 'ASE4', label: getRegionName('ap-southeast-4'), geo: 'APAC' },
+  { code: 'ap-southeast-5', short: 'ASE5', label: getRegionName('ap-southeast-5'), geo: 'APAC' },
+  { code: 'ap-southeast-6', short: 'ASE6', label: getRegionName('ap-southeast-6'), geo: 'APAC' },
+  { code: 'ap-southeast-7', short: 'ASE7', label: getRegionName('ap-southeast-7'), geo: 'APAC' },
+  { code: 'ap-south-1', short: 'APS1', label: getRegionName('ap-south-1'), geo: 'APAC' },
+  { code: 'ap-south-2', short: 'APS2', label: getRegionName('ap-south-2'), geo: 'APAC' },
+  { code: 'ap-east-1', short: 'APE1', label: getRegionName('ap-east-1'), geo: 'APAC' },
+  { code: 'ap-east-2', short: 'APE2', label: getRegionName('ap-east-2'), geo: 'APAC' },
   // LATAM
-  { code: 'sa-east-1', short: 'SAE1', label: 'Sao Paulo', geo: 'LATAM' },
-  { code: 'mx-central-1', short: 'MXC1', label: 'Mexico City', geo: 'LATAM' },
+  { code: 'sa-east-1', short: 'SAE1', label: getRegionName('sa-east-1'), geo: 'LATAM' },
+  { code: 'mx-central-1', short: 'MXC1', label: getRegionName('mx-central-1'), geo: 'LATAM' },
 ]
 
 const GEO_GROUPS = [
@@ -72,6 +74,7 @@ const KNOWN_REGIONS = new Map(REGION_COLUMNS.map(r => [r.code, r]))
 /**
  * Build a region entry for a code not in REGION_COLUMNS.
  * Auto-detects geo from the prefix and generates a short code.
+ * Uses centralized region utilities for the label.
  */
 function buildRegionEntry(code) {
   const prefix = code.split('-')[0]
@@ -82,7 +85,9 @@ function buildRegionEntry(code) {
   const num = parts[parts.length - 1]
   const raw = parts[0].toUpperCase() + mid + num
   const short = raw.length > 4 ? raw.slice(0, 3) + num : raw
-  return { code, short, label: code, geo }
+  // Use centralized region name if available, otherwise fall back to code
+  const label = getRegionName(code)
+  return { code, short, label, geo }
 }
 
 /**

@@ -31,6 +31,40 @@ mock_shared.get_config_loader.return_value = MagicMock(
 
 sys.modules["shared"] = mock_shared
 
+# Mock shared.model_matcher submodule
+mock_model_matcher = MagicMock()
+# Provide real implementations for the model_matcher functions
+mock_model_matcher.get_canonical_model_id = (
+    lambda x: x.lower().split(":")[0] if x else ""
+)
+mock_model_matcher.calculate_match_score = lambda x, y: 1.0 if x == y else 0.0
+mock_model_matcher.get_model_variant_info = lambda x: {
+    "base_id": x.split(":")[0] if x else "",
+    "is_multimodal": False,
+    "is_provisioned_only": ":0:" in x
+    if x
+    else False,  # e.g., cohere.embed-english-v3:0:512
+    "context_window": None,
+    "version": None,
+    "api_version": None,
+    "has_dimension_suffix": ":0:" in x if x else False,
+}
+mock_model_matcher.has_semantic_conflict = lambda x, y: False
+
+sys.modules["shared.model_matcher"] = mock_model_matcher
+
+# Mock shared.powertools submodule (required after Powertools migration)
+mock_powertools = MagicMock()
+mock_powertools.logger = MagicMock()
+mock_powertools.tracer = MagicMock()
+mock_powertools.tracer.capture_method = lambda f: f
+mock_powertools.metrics = MagicMock()
+mock_powertools.LambdaContext = MagicMock
+
+sys.modules["shared.powertools"] = mock_powertools
+sys.modules["aws_lambda_powertools"] = MagicMock()
+sys.modules["aws_lambda_powertools.metrics"] = MagicMock()
+
 
 # Sample model data
 SAMPLE_MODEL = {

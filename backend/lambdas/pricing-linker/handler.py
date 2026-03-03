@@ -7,15 +7,11 @@ Works with the correct snake_case schema.
 V2 Features (ported from reference implementation):
 - Provider-scoped matching: Only matches within same provider
 - Conflict detection: Blocks semantic mismatches (haiku/sonnet, 8b/405b)
-- Enhanced normalization: Provider-specific rules for edge cases
+- Enhanced normalization: Uses centralized model_matcher for edge cases
 """
 
-import logging
-import os
-import re
 import time
 from typing import Any
-from difflib import SequenceMatcher
 
 from shared import (
     get_s3_client,
@@ -27,26 +23,18 @@ from shared import (
     S3ReadError,
     get_config_loader,
 )
-
-logger = logging.getLogger()
-logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
-
-# Configuration loader - initialized on first use
-_config_loader = None
-
-
-def _get_config():
-    """Get the configuration loader (lazy initialization)."""
-    global _config_loader
-    if _config_loader is None:
-        _config_loader = get_config_loader()
-        _config_loader.load_config()
-    return _config_loader
+from shared.model_matcher import (
+    get_canonical_model_id,
+    calculate_match_score,
+    has_semantic_conflict,
+)
+from shared.powertools import logger, tracer, metrics, LambdaContext
+from aws_lambda_powertools.metrics import MetricUnit
 
 
 def get_provider_aliases() -> dict:
     """Get provider aliases from configuration."""
-    config = _get_config()
+    config = get_config_loader()
     # Convert list values to sets for efficient lookup
     aliases = config.get_provider_aliases()
     return {k: set(v) for k, v in aliases.items()}
@@ -54,12 +42,7 @@ def get_provider_aliases() -> dict:
 
 def get_min_confidence_threshold() -> float:
     """Get minimum confidence threshold from configuration."""
-    return _get_config().get_min_confidence_threshold()
-
-
-def similarity_score(a: str, b: str) -> float:
-    """Calculate similarity between two strings."""
-    return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+    return get_config_loader().get_min_confidence_threshold()
 
 
 def has_on_demand_pricing(pricing_data: dict) -> bool:
@@ -137,184 +120,32 @@ def providers_match(model_provider: str, pricing_provider: str) -> bool:
 
 
 # =============================================================================
-# PORT Feature 2: Conflict Detection
+# PORT Feature 2: Conflict Detection (now using centralized model_matcher)
 # =============================================================================
 
-
-def has_semantic_conflict(
-    model_name: str, pricing_name: str, model_id: str = "", pricing_key: str = ""
-) -> bool:
-    """
-    Detect semantic conflicts that should block a match.
-    Returns True if there's a conflict (models shouldn't match).
-
-    Uses a general, provider-agnostic approach to detect:
-        - Model type mismatches (embed/generator)
-        - Size mismatches (8b vs 405b)
-        - Variant mismatches (haiku/sonnet, pro/lite, command-r/command-r+)
-        - Version mismatches (v1 vs v2, g1 vs g2)
-    """
-    model_lower = (model_name + " " + model_id).lower()
-    pricing_lower = (pricing_name + " " + pricing_key).lower()
-
-    # Normalize "+" to "plus" for comparison
-    model_lower = model_lower.replace("+", " plus ")
-    pricing_lower = pricing_lower.replace("+", " plus ")
-
-    # 1. Model type conflicts - embedding vs generation models
-    type_conflicts = [
-        (["embed", "embedding"], ["generator", "generation", "chat", "instruct"]),
-        (["rerank"], ["embed", "embedding", "chat"]),
-        (["image-generator", "imagegenerator"], ["text", "chat", "embed"]),
-    ]
-
-    for type_group1, type_group2 in type_conflicts:
-        model_has_type1 = any(t in model_lower for t in type_group1)
-        pricing_has_type2 = any(t in pricing_lower for t in type_group2)
-        model_has_type2 = any(t in model_lower for t in type_group2)
-        pricing_has_type1 = any(t in pricing_lower for t in type_group1)
-
-        if (model_has_type1 and pricing_has_type2) or (
-            model_has_type2 and pricing_has_type1
-        ):
-            return True
-
-    # 2. General size mismatch detection (e.g., 8B vs 70B)
-    size_pattern = re.compile(r"(\d+)b\b", re.IGNORECASE)
-    model_sizes = size_pattern.findall(model_lower)
-    pricing_sizes = size_pattern.findall(pricing_lower)
-
-    if model_sizes and pricing_sizes:
-        model_size = int(model_sizes[0])
-        pricing_size = int(pricing_sizes[0])
-        # Allow 30% variance for rounding, but block major mismatches
-        max_size = max(model_size, pricing_size)
-        if max_size > 0 and abs(model_size - pricing_size) > max_size * 0.3:
-            return True
-
-    # 3. General variant conflict detection
-    # Extract variant qualifiers from both sides
-    variant_keywords = [
-        "lite",
-        "mini",
-        "micro",
-        "small",
-        "medium",
-        "ultra",
-        "pro",
-        "premier",
-        "express",
-        "core",
-        "instant",
-        "haiku",
-        "sonnet",
-        "opus",
-        "flash",
-        "turbo",
-        "nano",
-        "canvas",
-        "reel",
-        "sonic",
-        "scout",
-        "maverick",
-    ]
-
-    model_variants = set()
-    pricing_variants = set()
-    for kw in variant_keywords:
-        if re.search(rf"\b{kw}\b", model_lower):
-            model_variants.add(kw)
-        if re.search(rf"\b{kw}\b", pricing_lower):
-            pricing_variants.add(kw)
-
-    # Only flag conflict when BOTH sides have variant keywords and they differ
-    if model_variants and pricing_variants and model_variants != pricing_variants:
-        return True
-
-    # Special: "plus" is always distinctive — Command R != Command R+
-    model_has_plus = "plus" in model_lower
-    pricing_has_plus = "plus" in pricing_lower
-    if model_has_plus != pricing_has_plus:
-        return True
-
-    # 4. Version conflict detection — check RAW model_id and pricing_key
-    # Use [vg] prefix pattern: v1, v2, g1, g2, etc.
-    version_pattern = re.compile(r"\b[vg](\d+(?:\.\d+)?)\b", re.IGNORECASE)
-    model_versions = set(version_pattern.findall(model_id.lower()))
-    pricing_versions = set(version_pattern.findall(pricing_key.lower()))
-
-    # Only conflict if BOTH have versions AND they don't intersect
-    if (
-        model_versions
-        and pricing_versions
-        and not model_versions.intersection(pricing_versions)
-    ):
-        return True
-
-    return False
+# Note: has_semantic_conflict is now imported from shared.model_matcher
 
 
 # =============================================================================
-# PORT Feature 3: Enhanced Normalization
+# PORT Feature 3: Enhanced Normalization (now using centralized model_matcher)
 # =============================================================================
 
 
 def normalize_model_id(model_id: str, provider: str = "") -> str:
     """
-    Normalize model ID for matching by removing common suffixes and normalizing format.
-    Includes provider-specific normalization rules.
+    Normalize model ID for matching using centralized utility.
+
+    This is a wrapper around the centralized get_canonical_model_id() function
+    that provides backward compatibility with the existing interface.
 
     Args:
         model_id: The model identifier to normalize
-        provider: Optional provider name for provider-specific rules
+        provider: Optional provider name (unused, kept for backward compatibility)
+
+    Returns:
+        Canonical form of the model ID for matching.
     """
-    normalized = model_id.lower()
-    provider_lower = provider.lower() if provider else ""
-
-    # Remove common suffixes that differ between APIs
-    # Version suffixes (-v1, -v2, -v3) are API version tags (e.g., deepseek.v3-v1:0),
-    # NOT model versions — safe to strip for matching purposes
-    suffixes_to_remove = [
-        "-it",
-        "-instruct",
-        "-chat",
-        "-v1",
-        "-v2",
-        "-v3",
-        ":0",
-        ":1",
-        ":2",
-    ]
-    # Single pass: strip only one suffix (the first match from the end)
-    # This preserves -v1 in IDs like "stable-fast-upscale-v1:0" after stripping ":0"
-    for suffix in suffixes_to_remove:
-        if normalized.endswith(suffix):
-            normalized = normalized[: -len(suffix)]
-
-    # Normalize '+' to 'plus' before stripping separators (e.g., "command-r+" -> "command-rplus")
-    normalized = normalized.replace("+", "plus")
-
-    # Provider-specific normalization rules
-    if "qwen" in provider_lower or "qwen" in normalized:
-        # Qwen models: remove 'instruct' variations that may differ
-        normalized = re.sub(r"[-_]?instruct", "", normalized)
-
-    if "deepseek" in provider_lower or "deepseek" in normalized:
-        # DeepSeek: normalize version formats (DeepSeek-V3 -> deepseek3)
-        normalized = re.sub(r"[-_]?v(\d+)", r"\1", normalized)
-
-    if "cohere" in provider_lower or "cohere" in normalized:
-        # Cohere: remove 'model' keyword that may differ
-        normalized = re.sub(r"[-_]?model", "", normalized)
-
-    if "stability" in provider_lower or "stability" in normalized:
-        # Stability: normalize SD versions (sd3, sdxl, etc.)
-        normalized = re.sub(r"stable[-_]?diffusion[-_]?", "sd", normalized)
-
-    # Remove all separators for fuzzy matching
-    return (
-        normalized.replace("-", "").replace("_", "").replace(".", "").replace(" ", "")
-    )
+    return get_canonical_model_id(model_id)
 
 
 def find_best_pricing_match(
@@ -325,7 +156,7 @@ def find_best_pricing_match(
 
     Features:
         - Provider-scoped matching: Only matches within same provider
-        - Conflict detection: Blocks semantic mismatches
+        - Conflict detection: Blocks semantic mismatches (using centralized model_matcher)
         - On-Demand prioritization: Prefers entries with On-Demand pricing
 
     Args:
@@ -343,63 +174,22 @@ def find_best_pricing_match(
     best_other_match = None
     best_other_score = 0.0
 
-    # Normalize model identifiers
-    model_id_normalized = normalize_model_id(model_id, model_provider)
-    model_name_normalized = (
-        model_name.lower()
-        .replace("-", "")
-        .replace("_", "")
-        .replace(".", "")
-        .replace(" ", "")
-    )
-
     for pricing_key, pricing_entry in pricing_models.items():
         pricing_data = pricing_entry["data"]
         pricing_provider = pricing_entry["provider"]
-        pricing_model_name = pricing_data.get("model_name", "")
 
         # PORT Feature 1: Provider-scoped matching
         if not providers_match(model_provider, pricing_provider):
             continue
 
-        # PORT Feature 2: Conflict detection
-        if has_semantic_conflict(model_name, pricing_model_name, model_id, pricing_key):
+        # PORT Feature 2: Conflict detection using centralized model_matcher
+        # The centralized has_semantic_conflict() compares model IDs directly
+        if has_semantic_conflict(model_id, pricing_key):
             continue
 
-        # Normalize pricing identifiers
-        pricing_key_normalized = normalize_model_id(pricing_key, pricing_provider)
-        pricing_name_normalized = (
-            pricing_model_name.lower()
-            .replace("-", "")
-            .replace("_", "")
-            .replace(".", "")
-            .replace(" ", "")
-        )
-
-        # Calculate match score
-        score = 0.0
-
-        # Check for exact matches first (after normalization)
-        if model_id_normalized == pricing_key_normalized:
-            score = 1.0
-        elif model_name_normalized == pricing_name_normalized:
-            score = 1.0
-        # Check if one is a prefix of the other (handles version suffix differences)
-        elif model_id_normalized.startswith(
-            pricing_key_normalized
-        ) or pricing_key_normalized.startswith(model_id_normalized):
-            score = 0.95
-        elif model_name_normalized.startswith(
-            pricing_name_normalized
-        ) or pricing_name_normalized.startswith(model_name_normalized):
-            score = 0.95
-        else:
-            # Check for partial matches using similarity
-            score = max(
-                similarity_score(model_id_normalized, pricing_key_normalized),
-                similarity_score(model_name_normalized, pricing_name_normalized),
-                similarity_score(model_id_normalized, pricing_name_normalized),
-            )
+        # Calculate match score using centralized model_matcher
+        # This handles normalization, canonical form comparison, and similarity
+        score = calculate_match_score(model_id, pricing_key)
 
         # Track separately based on whether pricing has On-Demand tier
         if has_on_demand_pricing(pricing_data):
@@ -511,7 +301,10 @@ def link_pricing_to_models(models_data: dict, pricing_data: dict) -> dict:
     }
 
 
-def lambda_handler(event: dict, context: Any) -> dict:
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """
     Lambda handler for pricing linking.
 
@@ -555,7 +348,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
     output_key = f"executions/{execution_id}/intermediate/models-with-pricing.json"
 
-    logger.info("Linking pricing to models (V2 with PORT features)")
+    logger.info("Starting pricing linking", extra={"version": "v2-port-features"})
 
     try:
         s3_client = get_s3_client()
@@ -591,6 +384,23 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
         duration_ms = int((time.time() - start_time) * 1000)
 
+        # Emit metrics
+        metrics.add_metric(
+            name="ModelsLinked", unit=MetricUnit.Count, value=models_with_pricing
+        )
+        metrics.add_metric(
+            name="ModelsUnlinked", unit=MetricUnit.Count, value=models_without_pricing
+        )
+
+        logger.info(
+            "Pricing linking complete",
+            extra={
+                "linked_count": models_with_pricing,
+                "unlinked_count": models_without_pricing,
+                "duration_ms": duration_ms,
+            },
+        )
+
         return {
             "status": "SUCCESS",
             "s3Key": output_key,
@@ -600,7 +410,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
         }
 
     except Exception as e:
-        logger.error(f"Failed to link pricing: {e}", exc_info=True)
+        logger.exception("Failed to link pricing", extra={"error": str(e)})
         return {
             "status": "FAILED",
             "errorType": type(e).__name__,

@@ -1,4 +1,14 @@
 /**
+ * Import region metadata from generated constants (synced from backend)
+ */
+import { 
+  regionCoordinates, 
+  awsRegions as generatedAwsRegions,
+  geoRegionOptions as generatedGeoRegionOptions,
+  geoPrefixMap 
+} from '../config/generated-constants.js'
+
+/**
  * Check if a value is a GEO-level selection
  */
 export function isGeoSelection(value) {
@@ -15,53 +25,30 @@ export function getRegionsForGeo(geoValue, awsRegionsList) {
 }
 
 /**
- * Comprehensive region metadata derived from backend profiler-config.json region_locations.
- * Maps region code → { label, geo } for all known AWS regions.
+ * Build region metadata from generated constants.
+ * This replaces the hard-coded REGION_META.
  */
-const REGION_META = {
-  'us-east-1': { label: 'N. Virginia', geo: 'US' },
-  'us-east-2': { label: 'Ohio', geo: 'US' },
-  'us-west-1': { label: 'N. California', geo: 'US' },
-  'us-west-2': { label: 'Oregon', geo: 'US' },
-  'eu-west-1': { label: 'Ireland', geo: 'EU' },
-  'eu-west-2': { label: 'London', geo: 'EU' },
-  'eu-west-3': { label: 'Paris', geo: 'EU' },
-  'eu-central-1': { label: 'Frankfurt', geo: 'EU' },
-  'eu-central-2': { label: 'Zurich', geo: 'EU' },
-  'eu-north-1': { label: 'Stockholm', geo: 'EU' },
-  'eu-south-1': { label: 'Milan', geo: 'EU' },
-  'eu-south-2': { label: 'Spain', geo: 'EU' },
-  'ap-northeast-1': { label: 'Tokyo', geo: 'AP' },
-  'ap-northeast-2': { label: 'Seoul', geo: 'AP' },
-  'ap-northeast-3': { label: 'Osaka', geo: 'AP' },
-  'ap-southeast-1': { label: 'Singapore', geo: 'AP' },
-  'ap-southeast-2': { label: 'Sydney', geo: 'AP' },
-  'ap-southeast-3': { label: 'Jakarta', geo: 'AP' },
-  'ap-southeast-4': { label: 'Melbourne', geo: 'AP' },
-  'ap-southeast-5': { label: 'Malaysia', geo: 'AP' },
-  'ap-southeast-6': { label: 'Auckland', geo: 'AP' },
-  'ap-southeast-7': { label: 'Thailand', geo: 'AP' },
-  'ap-south-1': { label: 'Mumbai', geo: 'AP' },
-  'ap-south-2': { label: 'Hyderabad', geo: 'AP' },
-  'ap-east-1': { label: 'Hong Kong', geo: 'AP' },
-  'ap-east-2': { label: 'Taipei', geo: 'AP' },
-  'ca-central-1': { label: 'Montreal', geo: 'CA' },
-  'ca-west-1': { label: 'Calgary', geo: 'CA' },
-  'sa-east-1': { label: 'Sao Paulo', geo: 'SA' },
-  'me-south-1': { label: 'Bahrain', geo: 'ME' },
-  'me-central-1': { label: 'UAE', geo: 'ME' },
-  'il-central-1': { label: 'Tel Aviv', geo: 'ME' },
-  'af-south-1': { label: 'Cape Town', geo: 'AF' },
-  'mx-central-1': { label: 'Mexico City', geo: 'SA' },
-}
+const REGION_META = Object.fromEntries(
+  Object.entries(regionCoordinates).map(([code, data]) => [
+    code,
+    { label: data.name, geo: data.geo }
+  ])
+)
 
 /**
  * Auto-detect geo from region code prefix for unknown regions.
+ * Uses geoPrefixMap from generated constants.
  */
-const GEO_PREFIX_MAP = {
-  us: 'US', ca: 'CA', eu: 'EU', ap: 'AP', sa: 'SA',
-  me: 'ME', af: 'AF', il: 'ME', mx: 'SA', in: 'AP',
-}
+const GEO_PREFIX_MAP = Object.fromEntries(
+  Object.entries(geoPrefixMap).map(([geo, prefix]) => [
+    prefix.replace('-', ''),
+    geo
+  ])
+)
+// Add additional prefix mappings not in geoPrefixMap
+GEO_PREFIX_MAP.il = 'ME'
+GEO_PREFIX_MAP.mx = 'SA'
+GEO_PREFIX_MAP.in = 'AP'
 
 /**
  * Geo sort order for consistent region ordering.
@@ -143,18 +130,9 @@ export function buildAwsRegionsFromModels(models) {
 }
 
 /**
- * Geographic region options
+ * Geographic region options - imported from generated constants
  */
-export const geoRegionOptions = [
-  { value: 'All Regions', label: 'All Regions' },
-  { value: 'US', label: 'US Regions' },
-  { value: 'EU', label: 'EU Regions' },
-  { value: 'AP', label: 'Asia Pacific' },
-  { value: 'CA', label: 'Canada' },
-  { value: 'SA', label: 'South America' },
-  { value: 'ME', label: 'Middle East' },
-  { value: 'AF', label: 'Africa' },
-]
+export const geoRegionOptions = generatedGeoRegionOptions
 
 /**
  * Model status options

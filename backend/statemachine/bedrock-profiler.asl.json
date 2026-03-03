@@ -58,7 +58,27 @@
         }
       },
       "ResultPath": "$",
-      "Next": "Wave1_ParallelCollection"
+      "Next": "ConfigSync"
+    },
+
+    "ConfigSync": {
+      "Type": "Task",
+      "Comment": "Sync frontend configuration from backend profiler-config.json",
+      "Resource": "${ConfigSyncFunction}",
+      "Parameters": {
+        "s3Bucket.$": "$.config.s3Bucket",
+        "executionId.$": "$.executionId",
+        "generateJs": false
+      },
+      "ResultPath": "$.configSyncResult",
+      "Next": "Wave1_ParallelCollection",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.configSyncError",
+          "Next": "Wave1_ParallelCollection"
+        }
+      ]
     },
 
     "Wave1_ParallelCollection": {
@@ -95,13 +115,17 @@
                         "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
                         "IntervalSeconds": 5,
                         "MaxAttempts": 3,
-                        "BackoffRate": 2
+                        "BackoffRate": 2,
+                        "JitterStrategy": "FULL",
+                        "MaxDelaySeconds": 60
                       },
                       {
                         "ErrorEquals": ["ThrottlingException", "ProvisionedThroughputExceededException"],
                         "IntervalSeconds": 10,
                         "MaxAttempts": 5,
-                        "BackoffRate": 2
+                        "BackoffRate": 2,
+                        "JitterStrategy": "FULL",
+                        "MaxDelaySeconds": 120
                       }
                     ],
                     "Catch": [
@@ -142,7 +166,9 @@
                   "ErrorEquals": ["States.ALL"],
                   "IntervalSeconds": 3,
                   "MaxAttempts": 2,
-                  "BackoffRate": 2
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL",
+                  "MaxDelaySeconds": 30
                 }
               ],
               "TimeoutSeconds": 120,
@@ -180,7 +206,9 @@
                         "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
                         "IntervalSeconds": 3,
                         "MaxAttempts": 3,
-                        "BackoffRate": 2
+                        "BackoffRate": 2,
+                        "JitterStrategy": "FULL",
+                        "MaxDelaySeconds": 60
                       }
                     ],
                     "Catch": [
@@ -221,7 +249,9 @@
                   "ErrorEquals": ["States.ALL"],
                   "IntervalSeconds": 3,
                   "MaxAttempts": 2,
-                  "BackoffRate": 2
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL",
+                  "MaxDelaySeconds": 30
                 }
               ],
               "TimeoutSeconds": 60,
@@ -259,7 +289,9 @@
                         "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
                         "IntervalSeconds": 3,
                         "MaxAttempts": 3,
-                        "BackoffRate": 2
+                        "BackoffRate": 2,
+                        "JitterStrategy": "FULL",
+                        "MaxDelaySeconds": 60
                       }
                     ],
                     "Catch": [
@@ -301,7 +333,8 @@
         "config.$": "$.config",
         "pricingAggregated.$": "$.wave1Results[0].pricingAggregated",
         "modelsMerged.$": "$.wave1Results[1].modelsMerged",
-        "quotaResults.$": "$.wave1Results[2].quotaResults"
+        "quotaResults.$": "$.wave1Results[2].quotaResults",
+        "modelCacheKeys.$": "$.wave1Results[1].modelsMerged.cacheKeys"
       },
       "Next": "Wave2_EnrichmentProcessing"
     },
@@ -328,7 +361,9 @@
                   "ErrorEquals": ["States.ALL"],
                   "IntervalSeconds": 3,
                   "MaxAttempts": 2,
-                  "BackoffRate": 2
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL",
+                  "MaxDelaySeconds": 30
                 }
               ],
               "TimeoutSeconds": 120,
@@ -346,7 +381,8 @@
                 "s3Bucket.$": "$.config.s3Bucket",
                 "executionId.$": "$.executionId",
                 "pricingS3Key.$": "$.pricingAggregated.s3Key",
-                "regions.$": "$.config.featureRegions"
+                "regions.$": "$.config.featureRegions",
+                "cacheKeys.$": "$.modelCacheKeys"
               },
               "ResultPath": "$.result",
               "Retry": [
@@ -354,7 +390,9 @@
                   "ErrorEquals": ["States.ALL"],
                   "IntervalSeconds": 5,
                   "MaxAttempts": 3,
-                  "BackoffRate": 2
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL",
+                  "MaxDelaySeconds": 60
                 }
               ],
               "TimeoutSeconds": 300,
@@ -392,7 +430,9 @@
                         "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
                         "IntervalSeconds": 3,
                         "MaxAttempts": 3,
-                        "BackoffRate": 2
+                        "BackoffRate": 2,
+                        "JitterStrategy": "FULL",
+                        "MaxDelaySeconds": 60
                       }
                     ],
                     "Catch": [
@@ -438,7 +478,9 @@
                   "ErrorEquals": ["States.ALL"],
                   "IntervalSeconds": 5,
                   "MaxAttempts": 3,
-                  "BackoffRate": 2
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL",
+                  "MaxDelaySeconds": 60
                 }
               ],
               "TimeoutSeconds": 120,
@@ -476,7 +518,9 @@
                         "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
                         "IntervalSeconds": 3,
                         "MaxAttempts": 3,
-                        "BackoffRate": 2
+                        "BackoffRate": 2,
+                        "JitterStrategy": "FULL",
+                        "MaxDelaySeconds": 60
                       }
                     ],
                     "Catch": [
@@ -521,7 +565,9 @@
                   "ErrorEquals": ["States.ALL"],
                   "IntervalSeconds": 5,
                   "MaxAttempts": 3,
-                  "BackoffRate": 2
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL",
+                  "MaxDelaySeconds": 60
                 }
               ],
               "Catch": [
@@ -592,7 +638,9 @@
           "ErrorEquals": ["States.ALL"],
           "IntervalSeconds": 5,
           "MaxAttempts": 2,
-          "BackoffRate": 2
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL",
+          "MaxDelaySeconds": 60
         }
       ],
       "TimeoutSeconds": 180,
@@ -616,7 +664,9 @@
           "ErrorEquals": ["States.ALL"],
           "IntervalSeconds": 3,
           "MaxAttempts": 2,
-          "BackoffRate": 2
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL",
+          "MaxDelaySeconds": 30
         }
       ],
       "TimeoutSeconds": 120,
@@ -658,7 +708,9 @@
           "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
           "IntervalSeconds": 10,
           "MaxAttempts": 2,
-          "BackoffRate": 2
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL",
+          "MaxDelaySeconds": 120
         }
       ],
       "Catch": [
@@ -686,7 +738,9 @@
           "ErrorEquals": ["States.ALL"],
           "IntervalSeconds": 3,
           "MaxAttempts": 2,
-          "BackoffRate": 2
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL",
+          "MaxDelaySeconds": 30
         }
       ],
       "TimeoutSeconds": 60,

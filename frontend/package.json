@@ -4,6 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "sync-config": "node scripts/sync-config.js",
+    "predev": "npm run sync-config",
+    "prebuild": "npm run sync-config",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",

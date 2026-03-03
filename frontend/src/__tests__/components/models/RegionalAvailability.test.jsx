@@ -58,8 +58,8 @@ describe('RegionalAvailability', () => {
     render(<RegionalAvailability />)
     
     // Assert - The table container should not have max-h-* classes
-    // The component uses overflow-x-auto but no max-height constraint
-    const tableContainer = document.querySelector('.overflow-x-auto')
+    // The component uses overflow-auto for both horizontal and vertical scrolling
+    const tableContainer = document.querySelector('.overflow-auto')
     expect(tableContainer).toBeInTheDocument()
     
     // Check that no max-h-* class is present on the container

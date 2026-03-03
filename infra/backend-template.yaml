@@ -24,6 +24,89 @@ Parameters:
     Default: ''
     Description: Name of existing S3 bucket to use (leave empty to create new bucket)
 
+  LogLevel:
+    Type: String
+    Default: INFO
+    AllowedValues: [DEBUG, INFO, WARNING, ERROR]
+    Description: Log level for Lambda functions
+
+  # Configuration parameters for Lambda functions
+  AvailabilityMaxWorkers:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 50
+    Description: Max parallel workers for regional availability checks
+
+  AvailabilityRegionTimeout:
+    Type: Number
+    Default: 30
+    MinValue: 5
+    MaxValue: 120
+    Description: Timeout in seconds for each region availability check
+
+  QuotaBatchSize:
+    Type: Number
+    Default: 100
+    MinValue: 10
+    MaxValue: 1000
+    Description: Batch size for quota collection API calls
+
+  PricingMaxBatches:
+    Type: Number
+    Default: 100
+    MinValue: 10
+    MaxValue: 1000
+    Description: Maximum number of batches for pricing API calls
+
+  PricingApiTimeout:
+    Type: Number
+    Default: 60
+    MinValue: 10
+    MaxValue: 300
+    Description: Timeout in seconds for pricing API calls
+
+  PricingThrottleDelay:
+    Type: String
+    Default: '0.5'
+    Description: Delay in seconds between pricing API calls to avoid throttling
+
+  PricingRetryDelay:
+    Type: String
+    Default: '2'
+    Description: Delay in seconds before retrying failed pricing API calls
+
+  AwsConnectTimeout:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 60
+    Description: Connection timeout in seconds for AWS API calls
+
+  AwsReadTimeout:
+    Type: Number
+    Default: 30
+    MinValue: 5
+    MaxValue: 120
+    Description: Read timeout in seconds for AWS API calls
+
+  AwsMaxRetries:
+    Type: Number
+    Default: 3
+    MinValue: 0
+    MaxValue: 10
+    Description: Maximum number of retries for AWS API calls
+
+  CognitoRegion:
+    Type: String
+    Default: us-east-1
+    Description: AWS region for Cognito User Pool
+
+  Ec2Region:
+    Type: String
+    Default: us-east-1
+    Description: AWS region for EC2 API calls (region discovery)
+
 Conditions:
   HasCloudFrontAccess: !Not [!Equals [!Ref CloudFrontDistributionArn, '']]
   ScheduleEnabledCondition: !Equals [!Ref ScheduleEnabled, 'true']
@@ -36,11 +119,23 @@ Globals:
     MemorySize: 256
     Layers:
       - !Ref SharedUtilsLayer
+      - !Sub arn:aws:lambda:${AWS::Region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python311-x86_64:7
     Environment:
       Variables:
         ENVIRONMENT: !Ref Environment
         DATA_BUCKET: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
-        LOG_LEVEL: INFO
+        LOG_LEVEL: !Ref LogLevel
+        POWERTOOLS_SERVICE_NAME: bedrock-profiler
+        POWERTOOLS_LOG_LEVEL: !Ref LogLevel
+        POWERTOOLS_METRICS_NAMESPACE: BedrockProfiler
+        # AWS client configuration
+        AWS_CONNECT_TIMEOUT: !Ref AwsConnectTimeout
+        AWS_READ_TIMEOUT: !Ref AwsReadTimeout
+        AWS_MAX_RETRIES: !Ref AwsMaxRetries
+        # Cognito configuration
+        COGNITO_REGION: !Ref CognitoRegion
+        # EC2 configuration (for region discovery)
+        EC2_REGION: !Ref Ec2Region
 
 Resources:
   #############################################
@@ -50,7 +145,7 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: !Sub 'bedrock-profiler-shared-utils-${Environment}'
-      Description: Shared utilities for Bedrock Model Profiler Lambda functions
+      Description: Shared utilities for Bedrock Model Profiler Lambda functions - v2.5.0 Architecture improvements with config externalization and enhanced self-healing
       ContentUri: ../backend/layers/common/
       CompatibleRuntimes:
         - python3.11
@@ -118,6 +213,10 @@ Resources:
       Environment:
         Variables:
           PRICING_API_REGION: us-east-1
+          PRICING_MAX_BATCHES: !Ref PricingMaxBatches
+          PRICING_API_TIMEOUT: !Ref PricingApiTimeout
+          PRICING_THROTTLE_DELAY: !Ref PricingThrottleDelay
+          PRICING_RETRY_DELAY: !Ref PricingRetryDelay
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -207,6 +306,9 @@ Resources:
       Handler: handler.lambda_handler
       Timeout: 60
       MemorySize: 256
+      Environment:
+        Variables:
+          QUOTA_BATCH_SIZE: !Ref QuotaBatchSize
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -252,6 +354,10 @@ Resources:
       Handler: handler.lambda_handler
       Timeout: 60
       MemorySize: 512
+      Environment:
+        Variables:
+          AVAILABILITY_MAX_WORKERS: !Ref AvailabilityMaxWorkers
+          AVAILABILITY_REGION_TIMEOUT: !Ref AvailabilityRegionTimeout
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -467,6 +573,19 @@ Resources:
                 - !Sub 'arn:aws:bedrock:*::foundation-model/us.anthropic.claude-*'
                 - !Sub 'arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/us.anthropic.claude-*'
 
+  # Config Sync Lambda - Syncs frontend config from backend profiler-config.json
+  ConfigSyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-config-sync-${Environment}'
+      CodeUri: ../backend/lambdas/config-sync/
+      Handler: handler.lambda_handler
+      Timeout: 60
+      MemorySize: 256
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
+
   #############################################
   # Step Functions State Machine
   #############################################
@@ -506,6 +625,7 @@ Resources:
                   - !GetAtt SelfHealingAgentFunction.Arn
                   - !GetAtt MantleCollectorFunction.Arn
                   - !GetAtt LifecycleCollectorFunction.Arn
+                  - !GetAtt ConfigSyncFunction.Arn
         - PolicyName: CloudWatchLogs
           PolicyDocument:
             Version: '2012-10-17'
@@ -551,6 +671,7 @@ Resources:
         SelfHealingAgentFunction: !GetAtt SelfHealingAgentFunction.Arn
         MantleCollectorFunction: !GetAtt MantleCollectorFunction.Arn
         LifecycleCollectorFunction: !GetAtt LifecycleCollectorFunction.Arn
+        ConfigSyncFunction: !GetAtt ConfigSyncFunction.Arn
       Role: !GetAtt StateMachineRole.Arn
       Logging:
         Destinations:
@@ -635,3 +756,20 @@ Outputs:
     Value: !Sub
       - 's3://${BucketName}/latest/bedrock_pricing.json'
       - BucketName: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
+
+  # Configuration outputs
+  LogLevel:
+    Description: Configured log level
+    Value: !Ref LogLevel
+
+  AvailabilityMaxWorkers:
+    Description: Max workers for availability checks
+    Value: !Ref AvailabilityMaxWorkers
+
+  QuotaBatchSize:
+    Description: Batch size for quota collection
+    Value: !Ref QuotaBatchSize
+
+  PricingMaxBatches:
+    Description: Max batches for pricing collection
+    Value: !Ref PricingMaxBatches

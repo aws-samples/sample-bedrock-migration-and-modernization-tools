@@ -5,11 +5,10 @@ Scrapes model lifecycle data from AWS Bedrock documentation.
 Source: https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html
 """
 
-import logging
 import os
 import re
 import time
-from typing import Any, Optional
+from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup
@@ -17,18 +16,21 @@ from bs4 import BeautifulSoup
 from shared import (
     get_s3_client,
     write_to_s3,
+    get_config_loader,
 )
-
-# Configure logging
-logger = logging.getLogger()
-logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+from shared.powertools import logger, tracer, metrics, LambdaContext
+from aws_lambda_powertools.metrics import MetricUnit
 
 # Configuration
 DATA_BUCKET = os.environ.get("DATA_BUCKET")
-LIFECYCLE_URL = (
-    "https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html"
-)
 REQUEST_TIMEOUT = 30  # seconds
+
+
+def get_lifecycle_url() -> str:
+    """Get model lifecycle documentation URL from config."""
+    config = get_config_loader()
+    return config.get_documentation_url("bedrock_model_lifecycle")
+
 
 # Regex pattern for AWS region codes
 # Matches: us-east-1, us-west-2, eu-central-1, ap-northeast-1, us-gov-west-1, etc.
@@ -186,6 +188,7 @@ def get_all_list_items(cell) -> list[str]:
     return [cell.get_text(strip=True)]
 
 
+@tracer.capture_method
 def fetch_lifecycle_page() -> str:
     """Fetch the HTML content from the AWS lifecycle documentation page."""
     headers = {
@@ -193,7 +196,8 @@ def fetch_lifecycle_page() -> str:
         "Accept": "text/html,application/xhtml+xml",
     }
 
-    response = requests.get(LIFECYCLE_URL, headers=headers, timeout=REQUEST_TIMEOUT)
+    lifecycle_url = get_lifecycle_url()
+    response = requests.get(lifecycle_url, headers=headers, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     return response.text
 
@@ -933,7 +937,8 @@ def scrape_lifecycle_data() -> dict:
 
     if len(tables) < 3:
         logger.warning(
-            f"Expected 3 tables but found {len(tables)}. Page structure may have changed."
+            "Unexpected table count - page structure may have changed",
+            extra={"expected": 3, "found": len(tables)},
         )
 
     # Store models by status for regional_lifecycle building
@@ -946,7 +951,9 @@ def scrape_lifecycle_data() -> dict:
         models = parse_lifecycle_table(table, status)
         all_models.extend(models)
         status_counts[status] = len(models)
-        logger.info(f"Parsed {len(models)} {status} models")
+        logger.info(
+            "Parsed lifecycle models", extra={"status": status, "count": len(models)}
+        )
 
         # Store by status
         if status == "active":
@@ -991,7 +998,10 @@ def scrape_lifecycle_data() -> dict:
     }
 
 
-def lambda_handler(event: dict, context: Any) -> dict:
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """
     Lambda handler for lifecycle data collection.
 
@@ -1019,7 +1029,9 @@ def lambda_handler(event: dict, context: Any) -> dict:
     s3_key = event.get("s3Key", "test/lifecycle.json")
     dry_run = event.get("dryRun", False)
 
-    logger.info(f"Starting lifecycle collection: bucket={s3_bucket}, dryRun={dry_run}")
+    logger.info(
+        "Starting lifecycle collection", extra={"bucket": s3_bucket, "dry_run": dry_run}
+    )
 
     try:
         # Scrape lifecycle data
@@ -1028,7 +1040,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
         # Structure the output
         output_data = {
             "metadata": {
-                "source_url": LIFECYCLE_URL,
+                "source_url": get_lifecycle_url(),
                 "record_count": lifecycle_data["total_models"],
                 "status_counts": lifecycle_data["status_counts"],
                 "regional_lifecycle_count": len(lifecycle_data["regional_lifecycle"]),
@@ -1048,10 +1060,27 @@ def lambda_handler(event: dict, context: Any) -> dict:
             write_to_s3(s3_client, s3_bucket, s3_key, output_data)
         else:
             logger.info(
-                f"Dry run mode - skipping S3 write. Would write to s3://{s3_bucket}/{s3_key}"
+                "Dry run mode - skipping S3 write",
+                extra={"bucket": s3_bucket, "key": s3_key},
             )
 
         duration_ms = int((time.time() - start_time) * 1000)
+
+        # Emit metrics
+        metrics.add_metric(
+            name="LifecycleModelsCollected",
+            unit=MetricUnit.Count,
+            value=lifecycle_data["total_models"],
+        )
+
+        logger.info(
+            "Lifecycle collection complete",
+            extra={
+                "record_count": lifecycle_data["total_models"],
+                "status_counts": lifecycle_data["status_counts"],
+                "duration_ms": duration_ms,
+            },
+        )
 
         return {
             "status": "SUCCESS",
@@ -1064,7 +1093,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
         }
 
     except requests.RequestException as e:
-        logger.error(f"Failed to fetch lifecycle page: {e}", exc_info=True)
+        logger.exception("Failed to fetch lifecycle page", extra={"error": str(e)})
         return {
             "status": "FAILED",
             "errorType": "RequestError",
@@ -1072,7 +1101,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
             "retryable": True,
         }
     except Exception as e:
-        logger.error(f"Failed to collect lifecycle data: {e}", exc_info=True)
+        logger.exception("Failed to collect lifecycle data", extra={"error": str(e)})
         return {
             "status": "FAILED",
             "errorType": type(e).__name__,

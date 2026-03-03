@@ -19,9 +19,12 @@ DynamoDB Schema:
 
 import json
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 import boto3
+
+from shared.powertools import logger, tracer, metrics, LambdaContext
+from aws_lambda_powertools.metrics import MetricUnit
 
 TABLE_NAME = os.environ.get("ANALYTICS_TABLE", "bedrock-profiler-analytics-dev")
 USER_POOL_ID = os.environ.get("USER_POOL_ID", "")
@@ -119,10 +122,16 @@ def _normalize_country_code(code):
     return code
 
 
-def lambda_handler(event, context):
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event, context: LambdaContext):
     """Main handler — sync Cognito users to DynamoDB cache."""
     if not USER_POOL_ID:
+        logger.warning("Cognito sync skipped - USER_POOL_ID not configured")
         return {"status": "SKIPPED", "reason": "USER_POOL_ID not configured"}
+
+    logger.info("Starting Cognito sync")
 
     now = datetime.now(timezone.utc)
     today = now.strftime("%Y-%m-%d")
@@ -146,9 +155,22 @@ def lambda_handler(event, context):
     # Step 5: Write/update individual user cache records
     _write_user_records(users)
 
+    users_synced = len(users)
+    metrics.add_metric(name="UsersSynced", unit=MetricUnit.Count, value=users_synced)
+    logger.info(
+        "Cognito sync complete",
+        extra={
+            "users_synced": users_synced,
+            "estimated_total": estimated_total,
+            "new_today": summary.get("newUsersToday", 0),
+            "returning_today": summary.get("returningUsersToday", 0),
+            "countries": len(summary.get("usersByCountry", {})),
+        },
+    )
+
     return {
         "status": "SUCCESS",
-        "totalUsers": len(users),
+        "totalUsers": users_synced,
         "estimatedTotal": estimated_total,
         "newToday": summary.get("newUsersToday", 0),
         "returningToday": summary.get("returningUsersToday", 0),
@@ -157,6 +179,7 @@ def lambda_handler(event, context):
     }
 
 
+@tracer.capture_method
 def _parse_identity_date_created(attrs):
     """Extract dateCreated from the identities attribute.
 
@@ -186,6 +209,7 @@ def _parse_identity_date_created(attrs):
     return None, None
 
 
+@tracer.capture_method
 def _list_all_users():
     """Paginate all Cognito users. Respects 30 RPS / 60 per page."""
     users = []
@@ -237,6 +261,7 @@ def _list_all_users():
     return users
 
 
+@tracer.capture_method
 def _compute_summary(users, today):
     """Compute daily summary from user list.
 
@@ -287,6 +312,7 @@ def _compute_summary(users, today):
     }
 
 
+@tracer.capture_method
 def _write_summary(today, summary):
     """Write daily summary to DynamoDB."""
     item = {
@@ -301,6 +327,7 @@ def _write_summary(today, summary):
     table.put_item(Item=item)
 
 
+@tracer.capture_method
 def _write_user_records(users):
     """Batch write individual user cache records with dateCreated for period queries."""
     with table.batch_writer() as batch:

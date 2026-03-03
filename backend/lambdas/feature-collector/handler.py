@@ -4,10 +4,7 @@ Feature Collector Lambda
 Collects inference profiles and enhanced features from a single region.
 """
 
-import logging
-import os
 import time
-from typing import Any
 
 import boto3
 from botocore.exceptions import ClientError
@@ -20,21 +17,21 @@ from shared import (
     ValidationError,
     S3WriteError,
 )
-
-logger = logging.getLogger()
-logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
+from shared.powertools import logger, tracer, metrics, LambdaContext
+from aws_lambda_powertools.metrics import MetricUnit
 
 
 def get_bedrock_client(region: str):
     """Create Bedrock client for a specific region."""
-    return boto3.client('bedrock', region_name=region, config=RETRY_CONFIG)
+    return boto3.client("bedrock", region_name=region, config=RETRY_CONFIG)
 
 
 def get_s3_client():
-    return boto3.client('s3', config=RETRY_CONFIG)
+    return boto3.client("s3", config=RETRY_CONFIG)
 
 
-def collect_inference_profiles(bedrock_client: Any, region: str) -> list[dict]:
+@tracer.capture_method
+def collect_inference_profiles(bedrock_client, region: str) -> list[dict]:
     """
     Collect inference profiles from Bedrock API.
 
@@ -44,43 +41,60 @@ def collect_inference_profiles(bedrock_client: Any, region: str) -> list[dict]:
 
     try:
         # List inference profiles
-        paginator = bedrock_client.get_paginator('list_inference_profiles')
+        paginator = bedrock_client.get_paginator("list_inference_profiles")
 
         for page in paginator.paginate():
-            for profile in page.get('inferenceProfileSummaries', []):
+            for profile in page.get("inferenceProfileSummaries", []):
                 normalized = {
-                    'inferenceProfileId': profile.get('inferenceProfileId', ''),
-                    'inferenceProfileArn': profile.get('inferenceProfileArn', ''),
-                    'inferenceProfileName': profile.get('inferenceProfileName', ''),
-                    'description': profile.get('description', ''),
-                    'status': profile.get('status', ''),
-                    'type': profile.get('type', ''),
-                    'models': profile.get('models', []),
-                    'region': region
+                    "inferenceProfileId": profile.get("inferenceProfileId", ""),
+                    "inferenceProfileArn": profile.get("inferenceProfileArn", ""),
+                    "inferenceProfileName": profile.get("inferenceProfileName", ""),
+                    "description": profile.get("description", ""),
+                    "status": profile.get("status", ""),
+                    "type": profile.get("type", ""),
+                    "models": profile.get("models", []),
+                    "region": region,
                 }
                 profiles.append(normalized)
 
-        logger.info(f"Collected {len(profiles)} inference profiles from {region}")
+        logger.info(
+            "Collected inference profiles",
+            extra={"region": region, "count": len(profiles)},
+        )
 
     except ClientError as e:
-        error_code = e.response['Error']['Code']
-        if error_code in ('AccessDeniedException', 'UnrecognizedClientException'):
-            logger.warning(f"Access denied or region not enabled: {region} ({error_code})")
-        elif error_code == 'ValidationException':
-            logger.warning(f"Inference profiles not available in {region}")
-        elif error_code == 'InvalidIdentityToken':
-            logger.warning(f"Invalid token for region {region} - region may require opt-in")
+        error_code = e.response["Error"]["Code"]
+        if error_code in ("AccessDeniedException", "UnrecognizedClientException"):
+            logger.warning(
+                "Access denied or region not enabled",
+                extra={"region": region, "error_code": error_code},
+            )
+        elif error_code == "ValidationException":
+            logger.warning("Inference profiles not available", extra={"region": region})
+        elif error_code == "InvalidIdentityToken":
+            logger.warning(
+                "Invalid token - region may require opt-in", extra={"region": region}
+            )
         else:
-            logger.error(f"Error collecting inference profiles in {region}: {e}")
+            logger.error(
+                "Error collecting inference profiles",
+                extra={"region": region, "error": str(e)},
+            )
             # Don't raise - continue with empty profiles
 
     except Exception as e:
-        logger.warning(f"Unexpected error collecting inference profiles in {region}: {e}")
+        logger.warning(
+            "Unexpected error collecting inference profiles",
+            extra={"region": region, "error": str(e)},
+        )
 
     return profiles
 
 
-def lambda_handler(event: dict, context: Any) -> dict:
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """
     Lambda handler for feature collection.
 
@@ -103,56 +117,78 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
     # Validate required parameters
     try:
-        validate_required_params(event, ['region'], 'FeatureCollector')
+        validate_required_params(event, ["region"], "FeatureCollector")
     except ValidationError as e:
         return {
-            'status': 'FAILED',
-            'errorType': 'ValidationError',
-            'errorMessage': str(e)
+            "status": "FAILED",
+            "errorType": "ValidationError",
+            "errorMessage": str(e),
         }
 
-    region = event['region']
-    s3_bucket = event.get('s3Bucket')
-    s3_key = event.get('s3Key', f'test/features/{region}.json')
-    dry_run = event.get('dryRun', False)
+    region = event["region"]
+    s3_bucket = event.get("s3Bucket")
+    s3_key = event.get("s3Key", f"test/features/{region}.json")
+    dry_run = event.get("dryRun", False)
 
-    logger.info(f"Collecting features from region: {region}")
+    logger.info("Starting feature collection", extra={"region": region})
 
     try:
         bedrock_client = get_bedrock_client(region)
         profiles = collect_inference_profiles(bedrock_client, region)
 
         output_data = {
-            'metadata': {
-                'region': region,
-                'inferenceProfileCount': len(profiles),
-                'collectionTimestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+            "metadata": {
+                "region": region,
+                "inferenceProfileCount": len(profiles),
+                "collectionTimestamp": time.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+                ),
             },
-            'inferenceProfiles': profiles
+            "inferenceProfiles": profiles,
         }
 
         if not dry_run and s3_bucket:
             s3_client = get_s3_client()
             write_to_s3(s3_client, s3_bucket, s3_key, output_data)
         else:
-            logger.info(f"Dry run - would write {len(profiles)} profiles to s3://{s3_bucket}/{s3_key}")
+            logger.info(
+                "Dry run - would write profiles",
+                extra={"count": len(profiles), "bucket": s3_bucket, "key": s3_key},
+            )
 
         duration_ms = int((time.time() - start_time) * 1000)
 
+        # Emit metrics
+        metrics.add_metric(
+            name="ProfilesCollected", unit=MetricUnit.Count, value=len(profiles)
+        )
+        metrics.add_dimension(name="Region", value=region)
+
+        logger.info(
+            "Feature collection complete",
+            extra={
+                "region": region,
+                "profile_count": len(profiles),
+                "duration_ms": duration_ms,
+            },
+        )
+
         return {
-            'status': 'SUCCESS',
-            'region': region,
-            's3Key': s3_key,
-            'inferenceProfileCount': len(profiles),
-            'durationMs': duration_ms
+            "status": "SUCCESS",
+            "region": region,
+            "s3Key": s3_key,
+            "inferenceProfileCount": len(profiles),
+            "durationMs": duration_ms,
         }
 
     except Exception as e:
-        logger.error(f"Failed to collect features from {region}: {e}", exc_info=True)
+        logger.exception(
+            "Failed to collect features", extra={"region": region, "error": str(e)}
+        )
         return {
-            'status': 'FAILED',
-            'region': region,
-            'errorType': type(e).__name__,
-            'errorMessage': str(e),
-            'retryable': 'Throttling' in str(e)
+            "status": "FAILED",
+            "region": region,
+            "errorType": type(e).__name__,
+            "errorMessage": str(e),
+            "retryable": "Throttling" in str(e),
         }

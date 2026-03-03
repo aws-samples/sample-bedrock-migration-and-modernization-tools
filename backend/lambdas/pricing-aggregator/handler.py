@@ -5,11 +5,9 @@ Merges pricing data from all three Bedrock service codes into a unified structur
 Transforms data to match the expected frontend schema with pricing_groups.
 """
 
-import logging
 import os
 import re
 import time
-from typing import Any
 from collections import defaultdict
 
 from shared import (
@@ -22,36 +20,23 @@ from shared import (
     S3ReadError,
     get_config_loader,
 )
-
-logger = logging.getLogger()
-logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO'))
-
-# Configuration loader - initialized on first use
-_config_loader = None
-
-
-def _get_config():
-    """Get the configuration loader (lazy initialization)."""
-    global _config_loader
-    if _config_loader is None:
-        _config_loader = get_config_loader()
-        _config_loader.load_config()
-    return _config_loader
+from shared.powertools import logger, tracer, metrics, LambdaContext
+from aws_lambda_powertools.metrics import MetricUnit
 
 
 def get_region_locations() -> dict:
     """Get region locations from configuration."""
-    return _get_config().get_region_locations()
+    return get_config_loader().get_region_locations()
 
 
 def get_provider_patterns() -> dict:
     """Get provider patterns from configuration."""
-    return _get_config().get_provider_patterns()
+    return get_config_loader().get_provider_patterns()
 
 
 def get_explicit_provider_names() -> dict:
     """Get explicit provider name mappings from configuration."""
-    return _get_config().get_explicit_provider_names()
+    return get_config_loader().get_explicit_provider_names()
 
 
 def determine_pricing_type(usage_type: str, unit: str, description: str) -> dict:
@@ -67,164 +52,188 @@ def determine_pricing_type(usage_type: str, unit: str, description: str) -> dict
         }
     """
     usage_lower = usage_type.lower()
-    unit_lower = (unit or '').lower()
-    desc_lower = (description or '').lower()
+    unit_lower = (unit or "").lower()
+    desc_lower = (description or "").lower()
 
     # Determine if input/output
-    is_input = 'input' in usage_lower or 'input' in desc_lower
-    is_output = 'output' in usage_lower or 'output' in desc_lower
+    is_input = "input" in usage_lower or "input" in desc_lower
+    is_output = "output" in usage_lower or "output" in desc_lower
 
     # Check for per-image pricing
     # Patterns: 'per image', 'image', 'images', 'images processed', 'created_image', 'output image'
     is_image_pricing = (
-        'per image' in desc_lower or
-        unit_lower == 'images' or
-        unit_lower == 'image' or  # Support singular form (e.g., Nova Canvas)
-        'images processed' in desc_lower or
-        'created_image' in usage_lower or
-        'output image' in desc_lower or
-        ('stable' in desc_lower and 'image' in desc_lower)  # Stability AI pattern
+        "per image" in desc_lower
+        or unit_lower == "images"
+        or unit_lower == "image"  # Support singular form (e.g., Nova Canvas)
+        or "images processed" in desc_lower
+        or "created_image" in usage_lower
+        or "output image" in desc_lower
+        or ("stable" in desc_lower and "image" in desc_lower)  # Stability AI pattern
     )
 
     if is_image_pricing:
         # Image generation models (Canvas, Titan Image Generator, Stability AI, etc.)
-        if 't2i' in usage_lower or 'i2i' in usage_lower or 'created_image' in usage_lower or ('stable' in desc_lower and 'image' in desc_lower):
+        if (
+            "t2i" in usage_lower
+            or "i2i" in usage_lower
+            or "created_image" in usage_lower
+            or ("stable" in desc_lower and "image" in desc_lower)
+        ):
             return {
-                'pricing_type': 'image_generation',
-                'unit_label': 'per image',
-                'is_input': None,
-                'is_output': None,
+                "pricing_type": "image_generation",
+                "unit_label": "per image",
+                "is_input": None,
+                "is_output": None,
             }
         # Image embedding/processing
         return {
-            'pricing_type': 'image',
-            'unit_label': 'per image',
-            'is_input': is_input or not is_output,
-            'is_output': is_output,
+            "pricing_type": "image",
+            "unit_label": "per image",
+            "is_input": is_input or not is_output,
+            "is_output": is_output,
         }
 
     # Check for video generation (I2V = image-to-video, T2V = text-to-video)
     # Patterns: NovaReel-I2V-Medfps-HDRes, NovaReel-T2V-Lowfps-SDRes
     is_video_generation = (
-        'i2v' in usage_lower or  # image-to-video
-        't2v' in usage_lower or  # text-to-video
-        ('video' in usage_lower and ('generation' in desc_lower or 'generated' in desc_lower))
+        "i2v" in usage_lower  # image-to-video
+        or "t2v" in usage_lower  # text-to-video
+        or (
+            "video" in usage_lower
+            and ("generation" in desc_lower or "generated" in desc_lower)
+        )
     )
 
     if is_video_generation:
         return {
-            'pricing_type': 'video_generation',
-            'unit_label': 'per video',
-            'is_input': None,
-            'is_output': None,
+            "pricing_type": "video_generation",
+            "unit_label": "per video",
+            "is_input": None,
+            "is_output": None,
         }
 
     # Check for video pricing (per second or per frame) - for video processing, not generation
-    if 'video' in usage_lower and ('second' in unit_lower or 'frame' in unit_lower):
+    if "video" in usage_lower and ("second" in unit_lower or "frame" in unit_lower):
         return {
-            'pricing_type': 'video',
-            'unit_label': f'per {unit_lower}',
-            'is_input': is_input,
-            'is_output': is_output,
+            "pricing_type": "video",
+            "unit_label": f"per {unit_lower}",
+            "is_input": is_input,
+            "is_output": is_output,
         }
 
     # Check for model units (provisioned throughput)
-    if 'modelunit' in usage_lower or 'model-unit' in usage_lower or 'modelunits' in unit_lower:
+    if (
+        "modelunit" in usage_lower
+        or "model-unit" in usage_lower
+        or "modelunits" in unit_lower
+    ):
         return {
-            'pricing_type': 'model_unit',
-            'unit_label': 'per hour',
-            'is_input': None,
-            'is_output': None,
+            "pricing_type": "model_unit",
+            "unit_label": "per hour",
+            "is_input": None,
+            "is_output": None,
         }
 
     # Check for search units (rerank models like Cohere Rerank, Amazon Rerank)
-    if 'search' in unit_lower or 'search' in desc_lower or 'rerank' in usage_lower or 'rerank' in desc_lower:
+    if (
+        "search" in unit_lower
+        or "search" in desc_lower
+        or "rerank" in usage_lower
+        or "rerank" in desc_lower
+    ):
         return {
-            'pricing_type': 'search_unit',
-            'unit_label': 'per 1K search units',
-            'is_input': None,
-            'is_output': None,
+            "pricing_type": "search_unit",
+            "unit_label": "per 1K search units",
+            "is_input": None,
+            "is_output": None,
         }
 
     # Check for video per-second pricing (Luma AI Ray)
-    if ('second' in unit_lower or 'per second' in desc_lower) and ('video' in desc_lower or 'ray' in usage_lower):
+    if ("second" in unit_lower or "per second" in desc_lower) and (
+        "video" in desc_lower or "ray" in usage_lower
+    ):
         return {
-            'pricing_type': 'video_second',
-            'unit_label': 'per second',
-            'is_input': None,
-            'is_output': None,
+            "pricing_type": "video_second",
+            "unit_label": "per second",
+            "is_input": None,
+            "is_output": None,
         }
 
     # Check for token-based pricing (most common)
-    if 'token' in usage_lower or 'token' in desc_lower or '1k token' in desc_lower or '1m token' in desc_lower:
+    if (
+        "token" in usage_lower
+        or "token" in desc_lower
+        or "1k token" in desc_lower
+        or "1m token" in desc_lower
+    ):
         return {
-            'pricing_type': 'token',
-            'unit_label': 'per 1K tokens',
-            'is_input': is_input,
-            'is_output': is_output,
+            "pricing_type": "token",
+            "unit_label": "per 1K tokens",
+            "is_input": is_input,
+            "is_output": is_output,
         }
 
     # Default to token-based for text models
     return {
-        'pricing_type': 'token',
-        'unit_label': 'per 1K tokens',
-        'is_input': is_input,
-        'is_output': is_output,
+        "pricing_type": "token",
+        "unit_label": "per 1K tokens",
+        "is_input": is_input,
+        "is_output": is_output,
     }
 
 
 def determine_pricing_group(usage_type: str, inference_type: str) -> str:
     """Determine the pricing group based on usage type and inference type."""
     usage_lower = usage_type.lower()
-    inference_lower = inference_type.lower() if inference_type else ''
+    inference_lower = inference_type.lower() if inference_type else ""
 
     # Check for global (cross-region)
-    is_global = 'global' in usage_lower or 'cross-region' in usage_lower
+    is_global = "global" in usage_lower or "cross-region" in usage_lower
 
     # Check for batch
-    is_batch = 'batch' in usage_lower
+    is_batch = "batch" in usage_lower
 
     # Check for long context - includes _lctx suffix used in newer AWS format
     is_long_context = (
-        'long-context' in usage_lower or
-        'long context' in inference_lower or
-        '_lctx' in usage_lower or  # New AWS format: USE1_InputTokenCount_LCtx
-        'longcontext' in usage_lower
+        "long-context" in usage_lower
+        or "long context" in inference_lower
+        or "_lctx" in usage_lower  # New AWS format: USE1_InputTokenCount_LCtx
+        or "longcontext" in usage_lower
     )
 
     # Check for provisioned/reserved capacity
     # Includes Reserved_1Month, Reserved_3Month patterns and _tpm_ (tokens per minute)
     is_provisioned = (
-        'provisioned' in usage_lower or
-        'provisioned' in inference_lower or
-        'reserved' in usage_lower or
-        '_tpm_' in usage_lower  # Reserved TPM pricing
+        "provisioned" in usage_lower
+        or "provisioned" in inference_lower
+        or "reserved" in usage_lower
+        or "_tpm_" in usage_lower  # Reserved TPM pricing
     )
 
     # Check for custom model
-    is_custom = 'custom' in usage_lower or 'fine-tun' in usage_lower
+    is_custom = "custom" in usage_lower or "fine-tun" in usage_lower
 
     # Determine group
     if is_custom:
-        return 'Custom Model'
+        return "Custom Model"
     elif is_provisioned:
-        return 'Provisioned Throughput'
+        return "Provisioned Throughput"
     elif is_batch and is_long_context and is_global:
-        return 'Batch Long Context Global'
+        return "Batch Long Context Global"
     elif is_batch and is_long_context:
-        return 'Batch Long Context'
+        return "Batch Long Context"
     elif is_batch and is_global:
-        return 'Batch Global'
+        return "Batch Global"
     elif is_batch:
-        return 'Batch'
+        return "Batch"
     elif is_long_context and is_global:
-        return 'On-Demand Long Context Global'
+        return "On-Demand Long Context Global"
     elif is_long_context:
-        return 'On-Demand Long Context'
+        return "On-Demand Long Context"
     elif is_global:
-        return 'On-Demand Global'
+        return "On-Demand Global"
     else:
-        return 'On-Demand'
+        return "On-Demand"
 
 
 def clean_model_name(raw_name: str) -> str:
@@ -234,22 +243,22 @@ def clean_model_name(raw_name: str) -> str:
         'Stable Diffusion 3 Large v1.0 (Amazon Bedrock Edition)' -> 'Stable Diffusion 3 Large v1.0'
         'Claude 3.5 Sonnet (Amazon Bedrock Edition)' -> 'Claude 3.5 Sonnet'
     """
-    if not raw_name or raw_name.lower() in ['unknown', 'unknown model']:
+    if not raw_name or raw_name.lower() in ["unknown", "unknown model"]:
         return raw_name
 
     cleaned = raw_name.strip()
 
     # Remove AWS-specific suffixes
     suffixes_to_remove = [
-        '(Amazon Bedrock Edition)',
-        '(Amazon Bedrock)',
-        'Amazon Bedrock Edition',
-        'Amazon Bedrock'
+        "(Amazon Bedrock Edition)",
+        "(Amazon Bedrock)",
+        "Amazon Bedrock Edition",
+        "Amazon Bedrock",
     ]
 
     for suffix in suffixes_to_remove:
         if suffix in cleaned:
-            cleaned = cleaned.replace(suffix, '').strip()
+            cleaned = cleaned.replace(suffix, "").strip()
 
     return cleaned if cleaned else raw_name
 
@@ -265,12 +274,22 @@ def extract_from_usagetype(usagetype: str) -> str:
         return None
 
     # Remove region prefix (e.g., "USE1-", "APN1-")
-    parts = usagetype.split('-')
+    parts = usagetype.split("-")
     if len(parts) < 2:
         return None
 
     # Skip common non-model parts
-    skip_parts = ['mp', 'input', 'output', 'tokens', 'count', 'units', 'cache', 'read', 'write']
+    skip_parts = [
+        "mp",
+        "input",
+        "output",
+        "tokens",
+        "count",
+        "units",
+        "cache",
+        "read",
+        "write",
+    ]
 
     for part in parts[1:]:
         if part.lower() in skip_parts:
@@ -279,7 +298,7 @@ def extract_from_usagetype(usagetype: str) -> str:
         # If part looks like a model name (contains letters and is substantial)
         if len(part) > 3 and any(c.isalpha() for c in part):
             # Try to format it nicely (camelCase -> Title Case)
-            formatted = re.sub(r'([a-z])([A-Z])', r'\1 \2', part)
+            formatted = re.sub(r"([a-z])([A-Z])", r"\1 \2", part)
             if len(formatted) > 3:
                 return formatted
 
@@ -296,48 +315,48 @@ def extract_raw_model_name(attributes: dict) -> str:
     4. Fallback extraction from usagetype
     """
     # Strategy 1: servicename (most common in AmazonBedrockFoundationModels)
-    servicename = attributes.get('servicename', '').strip()
-    if servicename and servicename not in ['Amazon Bedrock', 'Amazon Bedrock Service']:
+    servicename = attributes.get("servicename", "").strip()
+    if servicename and servicename not in ["Amazon Bedrock", "Amazon Bedrock Service"]:
         return servicename
 
     # Strategy 2: model field (most common in AmazonBedrock, AmazonBedrockService)
-    model = attributes.get('model', '').strip()
-    if model and model.lower() != 'unknown':
+    model = attributes.get("model", "").strip()
+    if model and model.lower() != "unknown":
         return model
 
     # Strategy 3: titanModel field (special case)
-    titan_model = attributes.get('titanModel', '').strip()
+    titan_model = attributes.get("titanModel", "").strip()
     if titan_model:
         return titan_model
 
     # Strategy 4: Extract from usagetype (fallback)
-    usagetype = attributes.get('usagetype', '')
+    usagetype = attributes.get("usagetype", "")
     if usagetype:
         extracted = extract_from_usagetype(usagetype)
         if extracted:
             return extracted
 
-    return 'Unknown Model'
+    return "Unknown Model"
 
 
 def extract_model_info(product: dict) -> dict:
     """Extract model information from a pricing product."""
-    attributes = product.get('product', {}).get('attributes', {})
-    terms = product.get('terms', {})
+    attributes = product.get("product", {}).get("attributes", {})
+    terms = product.get("terms", {})
 
     # Extract pricing from OnDemand terms
     price_per_unit = None
     unit = None
-    currency = 'USD'
-    description = ''
+    currency = "USD"
+    description = ""
 
-    on_demand = terms.get('OnDemand', {})
+    on_demand = terms.get("OnDemand", {})
     for term_key, term_value in on_demand.items():
-        price_dimensions = term_value.get('priceDimensions', {})
+        price_dimensions = term_value.get("priceDimensions", {})
         for dim_key, dim_value in price_dimensions.items():
-            price_per_unit = dim_value.get('pricePerUnit', {}).get('USD')
-            unit = dim_value.get('unit')
-            description = dim_value.get('description', '')
+            price_per_unit = dim_value.get("pricePerUnit", {}).get("USD")
+            unit = dim_value.get("unit")
+            description = dim_value.get("description", "")
             break
         break
 
@@ -355,10 +374,10 @@ def extract_model_info(product: dict) -> dict:
     # - "Million Input Tokens", "Million Response Tokens" (AWS Marketplace format)
     # - "per 1,000,000" or "per million"
     is_per_million = (
-        'per 1m' in desc_lower or
-        'million' in desc_lower or
-        'per 1,000,000' in desc_lower or
-        '1000000' in desc_lower
+        "per 1m" in desc_lower
+        or "million" in desc_lower
+        or "per 1,000,000" in desc_lower
+        or "1000000" in desc_lower
     )
     if price and is_per_million:
         price = price / 1000  # Convert to per-thousand
@@ -368,19 +387,19 @@ def extract_model_info(product: dict) -> dict:
     model_name = clean_model_name(raw_model_name)
 
     return {
-        'model': model_name,
-        'region': attributes.get('regionCode', 'Unknown'),
-        'inferenceType': attributes.get('inferenceType', ''),
-        'usageType': attributes.get('usagetype', ''),
-        'operation': attributes.get('operation', ''),
-        'price': price,
-        'original_price': original_price,
-        'unit': unit,
-        'currency': currency,
-        'sku': product.get('product', {}).get('sku', ''),
-        'description': description,
-        'serviceCode': attributes.get('servicecode', 'AmazonBedrock'),
-        'attributes': attributes  # Pass all attributes for provider detection fallback
+        "model": model_name,
+        "region": attributes.get("regionCode", "Unknown"),
+        "inferenceType": attributes.get("inferenceType", ""),
+        "usageType": attributes.get("usagetype", ""),
+        "operation": attributes.get("operation", ""),
+        "price": price,
+        "original_price": original_price,
+        "unit": unit,
+        "currency": currency,
+        "sku": product.get("product", {}).get("sku", ""),
+        "description": description,
+        "serviceCode": attributes.get("servicecode", "AmazonBedrock"),
+        "attributes": attributes,  # Pass all attributes for provider detection fallback
     }
 
 
@@ -399,24 +418,40 @@ def detect_custom_model_type(description: str, dimension: str) -> str:
 
     # Custom Model Import indicators
     import_indicators = [
-        'flan architecture', 'llama architecture', 'inference for', 'storage for',
-        'custom model unit per min for inference', 'custom model unit/month storage',
-        'imported model', 'model import'
+        "flan architecture",
+        "llama architecture",
+        "inference for",
+        "storage for",
+        "custom model unit per min for inference",
+        "custom model unit/month storage",
+        "imported model",
+        "model import",
     ]
 
     # Custom Model Training/Customization indicators
     training_indicators = [
-        'customization-training', 'customization-storage', 'fine', 'finetun',
-        'training', 'custom training', 'model customization'
+        "customization-training",
+        "customization-storage",
+        "fine",
+        "finetun",
+        "training",
+        "custom training",
+        "model customization",
     ]
 
     # Check for import patterns
-    if any(indicator in desc_lower or indicator in dim_lower for indicator in import_indicators):
-        return 'Custom Model Import'
+    if any(
+        indicator in desc_lower or indicator in dim_lower
+        for indicator in import_indicators
+    ):
+        return "Custom Model Import"
 
     # Check for training/customization patterns
-    if any(indicator in desc_lower or indicator in dim_lower for indicator in training_indicators):
-        return 'Custom Model Training'
+    if any(
+        indicator in desc_lower or indicator in dim_lower
+        for indicator in training_indicators
+    ):
+        return "Custom Model Training"
 
     return None
 
@@ -453,8 +488,8 @@ def infer_provider(model_name: str, attributes: dict = None) -> str:
 
     # Strategy 1: Check explicit 'provider' attribute (AmazonBedrockService has this)
     if attributes:
-        explicit_provider = attributes.get('provider', '').strip()
-        if explicit_provider and explicit_provider.lower() != 'unknown':
+        explicit_provider = attributes.get("provider", "").strip()
+        if explicit_provider and explicit_provider.lower() != "unknown":
             # Normalize to match model data provider names (e.g., 'Mistral' -> 'Mistral AI')
             return normalize_provider_name(explicit_provider)
 
@@ -475,24 +510,24 @@ def infer_provider(model_name: str, attributes: dict = None) -> str:
 
     # Strategy 4: Fallback - search ALL attributes for provider keywords
     if attributes:
-        all_text = ' '.join(str(v) for v in attributes.values()).lower()
+        all_text = " ".join(str(v) for v in attributes.values()).lower()
         for provider, patterns in provider_patterns.items():
             for pattern in patterns:
                 if pattern in all_text:
                     return provider
 
-    return 'Unknown Models'
+    return "Unknown Models"
 
 
 def normalize_model_id(model_name: str, provider: str) -> str:
     """Normalize model name to a consistent ID format."""
     # Create a provider prefix
-    provider_prefix = provider.lower().replace(' ', '-').replace('_', '-')
-    if provider_prefix == 'unknown-models':
-        provider_prefix = 'unknown'
+    provider_prefix = provider.lower().replace(" ", "-").replace("_", "-")
+    if provider_prefix == "unknown-models":
+        provider_prefix = "unknown"
 
     # Clean the model name
-    model_clean = model_name.lower().replace(' ', '-').replace('.', '-')
+    model_clean = model_name.lower().replace(" ", "-").replace(".", "-")
 
     return f"{provider_prefix}.{model_clean}"
 
@@ -523,13 +558,13 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
     }
     """
     # Structure: provider_model_id -> region -> pricing_group -> entries
-    models_data = defaultdict(lambda: {
-        'model_name': '',
-        'model_provider': '',
-        'regions': defaultdict(lambda: {
-            'pricing_groups': defaultdict(list)
-        })
-    })
+    models_data = defaultdict(
+        lambda: {
+            "model_name": "",
+            "model_provider": "",
+            "regions": defaultdict(lambda: {"pricing_groups": defaultdict(list)}),
+        }
+    )
 
     group_types_seen = set()
     total_entries = 0
@@ -537,26 +572,34 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
     for product in all_products:
         info = extract_model_info(product)
 
-        model_name = info['model']
-        region = info['region']
+        model_name = info["model"]
+        region = info["region"]
 
-        if model_name == 'Unknown' or model_name == 'Unknown Model' or region == 'Unknown':
+        if (
+            model_name == "Unknown"
+            or model_name == "Unknown Model"
+            or region == "Unknown"
+        ):
             continue
 
         # Check for Custom Model Import/Training first
-        custom_model_type = detect_custom_model_type(info['description'], info['usageType'])
+        custom_model_type = detect_custom_model_type(
+            info["description"], info["usageType"]
+        )
 
         # Infer provider with all attributes for fallback detection
-        if custom_model_type == 'Custom Model Import':
-            provider = 'Custom Model Import'
+        if custom_model_type == "Custom Model Import":
+            provider = "Custom Model Import"
         else:
-            provider = infer_provider(model_name, info.get('attributes'))
+            provider = infer_provider(model_name, info.get("attributes"))
 
         # Create model ID
         model_id = normalize_model_id(model_name, provider)
 
         # Determine pricing group
-        pricing_group = determine_pricing_group(info['usageType'], info['inferenceType'])
+        pricing_group = determine_pricing_group(
+            info["usageType"], info["inferenceType"]
+        )
         group_types_seen.add(pricing_group)
 
         # Get location name from config
@@ -565,46 +608,54 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
 
         # Determine pricing type
         pricing_type_info = determine_pricing_type(
-            info['usageType'],
-            info['unit'],
-            info['description']
+            info["usageType"], info["unit"], info["description"]
         )
 
         # Build pricing entry in expected schema
         pricing_entry = {
-            'dimension': info['usageType'],
-            'price_per_unit': info['price'],  # Generic price per unit
-            'price_per_thousand': info['price'] if pricing_type_info['pricing_type'] == 'token' else None,
-            'original_price': info['original_price'],
-            'unit': info['unit'] or 'tokens',
-            'description': info['description'],
-            'source_dataset': 'aws_pricing_api',
-            'model_id': model_id,
-            'model_name': model_name,
-            'provider': provider,
-            'model_provider': provider,
-            'location': location,
-            'operation': info['operation'],
-            'service_code': info['serviceCode'],
-            'pricing_type': pricing_type_info['pricing_type'],
-            'unit_label': pricing_type_info['unit_label'],
-            'is_input': pricing_type_info['is_input'],
-            'is_output': pricing_type_info['is_output'],
-            'pricing_characteristics': {
-                'inference_type': 'on_demand' if 'on-demand' in pricing_group.lower() else (
-                    'batch' if 'batch' in pricing_group.lower() else 'other'
-                ),
-                'context_type': 'long_context' if 'long context' in pricing_group.lower() else 'standard',
-                'geographic_scope': 'global' if 'global' in pricing_group.lower() else 'regional'
+            "dimension": info["usageType"],
+            "price_per_unit": info["price"],  # Generic price per unit
+            "price_per_thousand": info["price"]
+            if pricing_type_info["pricing_type"] == "token"
+            else None,
+            "original_price": info["original_price"],
+            "unit": info["unit"] or "tokens",
+            "description": info["description"],
+            "source_dataset": "aws_pricing_api",
+            "model_id": model_id,
+            "model_name": model_name,
+            "provider": provider,
+            "model_provider": provider,
+            "location": location,
+            "operation": info["operation"],
+            "service_code": info["serviceCode"],
+            "pricing_type": pricing_type_info["pricing_type"],
+            "unit_label": pricing_type_info["unit_label"],
+            "is_input": pricing_type_info["is_input"],
+            "is_output": pricing_type_info["is_output"],
+            "pricing_characteristics": {
+                "inference_type": "on_demand"
+                if "on-demand" in pricing_group.lower()
+                else ("batch" if "batch" in pricing_group.lower() else "other"),
+                "context_type": "long_context"
+                if "long context" in pricing_group.lower()
+                else "standard",
+                "geographic_scope": "global"
+                if "global" in pricing_group.lower()
+                else "regional",
             },
-            'pricing_group': pricing_group
+            "pricing_group": pricing_group,
         }
 
-        models_data[model_id]['model_name'] = model_name
-        models_data[model_id]['model_provider'] = provider
-        models_data[model_id]['pricing_types'] = models_data[model_id].get('pricing_types', set())
-        models_data[model_id]['pricing_types'].add(pricing_type_info['pricing_type'])
-        models_data[model_id]['regions'][region]['pricing_groups'][pricing_group].append(pricing_entry)
+        models_data[model_id]["model_name"] = model_name
+        models_data[model_id]["model_provider"] = provider
+        models_data[model_id]["pricing_types"] = models_data[model_id].get(
+            "pricing_types", set()
+        )
+        models_data[model_id]["pricing_types"].add(pricing_type_info["pricing_type"])
+        models_data[model_id]["regions"][region]["pricing_groups"][
+            pricing_group
+        ].append(pricing_entry)
         total_entries += 1
 
     # Convert to final structure nested by provider: providers -> Provider -> model_id -> data
@@ -614,58 +665,76 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
     total_groups_created = 0
 
     for model_id, model_data in models_data.items():
-        provider = model_data['model_provider']
+        provider = model_data["model_provider"]
 
         # Convert pricing_types set to list for JSON serialization
-        pricing_types_list = sorted(list(model_data.get('pricing_types', set())))
+        pricing_types_list = sorted(list(model_data.get("pricing_types", set())))
 
         # Determine primary pricing type for the model
         # Priority: video_generation > image_generation > video_second > video > image > search_unit > token > model_unit
         # Image/video generation models should show per-image/video pricing, not token pricing
         # Token pricing is prioritized over model_unit (provisioned throughput) for card display
-        primary_pricing_type = 'token'  # default
-        for pt in ['video_generation', 'image_generation', 'video_second', 'video', 'image', 'search_unit', 'token', 'model_unit']:
+        primary_pricing_type = "token"  # default
+        for pt in [
+            "video_generation",
+            "image_generation",
+            "video_second",
+            "video",
+            "image",
+            "search_unit",
+            "token",
+            "model_unit",
+        ]:
             if pt in pricing_types_list:
                 primary_pricing_type = pt
                 break
 
         model_entry = {
-            'model_name': model_data['model_name'],
-            'model_provider': provider,
-            'pricing_types': pricing_types_list,
-            'primary_pricing_type': primary_pricing_type,
-            'regions': {}
+            "model_name": model_data["model_name"],
+            "model_provider": provider,
+            "pricing_types": pricing_types_list,
+            "primary_pricing_type": primary_pricing_type,
+            "regions": {},
         }
 
-        for region, region_data in model_data['regions'].items():
-            pricing_groups = dict(region_data['pricing_groups'])
+        for region, region_data in model_data["regions"].items():
+            pricing_groups = dict(region_data["pricing_groups"])
 
             # Ensure 'On-Demand' exists for frontend compatibility
             # Copy 'On-Demand Global' entries to 'On-Demand' if 'On-Demand' doesn't exist
-            if 'On-Demand' not in pricing_groups and 'On-Demand Global' in pricing_groups:
-                pricing_groups['On-Demand'] = pricing_groups['On-Demand Global']
+            if (
+                "On-Demand" not in pricing_groups
+                and "On-Demand Global" in pricing_groups
+            ):
+                pricing_groups["On-Demand"] = pricing_groups["On-Demand Global"]
             # Same for Batch
-            if 'Batch' not in pricing_groups and 'Batch Global' in pricing_groups:
-                pricing_groups['Batch'] = pricing_groups['Batch Global']
+            if "Batch" not in pricing_groups and "Batch Global" in pricing_groups:
+                pricing_groups["Batch"] = pricing_groups["Batch Global"]
 
             total_dimensions = sum(len(entries) for entries in pricing_groups.values())
             groups_count = len(pricing_groups)
 
             # Calculate group statistics
-            group_sizes = {group: len(entries) for group, entries in pricing_groups.items()}
-            largest_groups = sorted(group_sizes.items(), key=lambda x: x[1], reverse=True)[:5]
+            group_sizes = {
+                group: len(entries) for group, entries in pricing_groups.items()
+            }
+            largest_groups = sorted(
+                group_sizes.items(), key=lambda x: x[1], reverse=True
+            )[:5]
 
-            model_entry['regions'][region] = {
-                'pricing_groups': pricing_groups,
-                'total_dimensions': total_dimensions,
-                'groups_count': groups_count,
-                'group_statistics': {
-                    'total_entries': total_dimensions,
-                    'total_groups': groups_count,
-                    'group_sizes': group_sizes,
-                    'largest_groups': largest_groups,
-                    'average_entries_per_group': total_dimensions / groups_count if groups_count > 0 else 0
-                }
+            model_entry["regions"][region] = {
+                "pricing_groups": pricing_groups,
+                "total_dimensions": total_dimensions,
+                "groups_count": groups_count,
+                "group_statistics": {
+                    "total_entries": total_dimensions,
+                    "total_groups": groups_count,
+                    "group_sizes": group_sizes,
+                    "largest_groups": largest_groups,
+                    "average_entries_per_group": total_dimensions / groups_count
+                    if groups_count > 0
+                    else 0,
+                },
             }
 
             total_regions_processed += 1
@@ -675,16 +744,19 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
         result[provider][model_id] = model_entry
 
     metadata_stats = {
-        'total_entries': total_entries,
-        'total_regions_processed': total_regions_processed,
-        'total_groups_created': total_groups_created,
-        'group_types_seen': sorted(list(group_types_seen))
+        "total_entries": total_entries,
+        "total_regions_processed": total_regions_processed,
+        "total_groups_created": total_groups_created,
+        "group_types_seen": sorted(list(group_types_seen)),
     }
 
     return result, metadata_stats
 
 
-def lambda_handler(event: dict, context: Any) -> dict:
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """
     Lambda handler for pricing aggregation.
 
@@ -707,26 +779,30 @@ def lambda_handler(event: dict, context: Any) -> dict:
         }
     """
     start_time = time.time()
-    collection_timestamp = time.strftime('%Y-%m-%dT%H:%M:%S.%fZ', time.gmtime())
+    collection_timestamp = time.strftime("%Y-%m-%dT%H:%M:%S.%fZ", time.gmtime())
 
     # Validate required parameters
     try:
-        validate_required_params(event, ['s3Bucket', 'executionId', 'pricingResults'], 'PricingAggregator')
+        validate_required_params(
+            event, ["s3Bucket", "executionId", "pricingResults"], "PricingAggregator"
+        )
     except ValidationError as e:
         return {
-            'status': 'FAILED',
-            'errorType': 'ValidationError',
-            'errorMessage': str(e)
+            "status": "FAILED",
+            "errorType": "ValidationError",
+            "errorMessage": str(e),
         }
 
-    s3_bucket = event['s3Bucket']
-    execution_id = parse_execution_id(event['executionId'])
-    pricing_results = event['pricingResults']
-    dry_run = event.get('dryRun', False)
+    s3_bucket = event["s3Bucket"]
+    execution_id = parse_execution_id(event["executionId"])
+    pricing_results = event["pricingResults"]
+    dry_run = event.get("dryRun", False)
 
     output_key = f"executions/{execution_id}/merged/pricing.json"
 
-    logger.info(f"Aggregating pricing from {len(pricing_results)} sources")
+    logger.info(
+        "Starting pricing aggregation", extra={"source_count": len(pricing_results)}
+    )
 
     try:
         s3_client = get_s3_client()
@@ -737,31 +813,43 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
         for item in pricing_results:
             # Handle nested result structure from Map state
-            nested_result = item.get('result', {})
-            status = item.get('status') or nested_result.get('status')
-            s3_key = item.get('s3Key') or nested_result.get('s3Key')
-            service_code = item.get('serviceCode')
+            nested_result = item.get("result", {})
+            status = item.get("status") or nested_result.get("status")
+            s3_key = item.get("s3Key") or nested_result.get("s3Key")
+            service_code = item.get("serviceCode")
 
-            if status == 'SUCCESS' and s3_key:
-                logger.info(f"Reading from s3://{s3_bucket}/{s3_key}")
+            if status == "SUCCESS" and s3_key:
+                logger.info(
+                    "Reading pricing data", extra={"bucket": s3_bucket, "key": s3_key}
+                )
 
                 if not dry_run:
                     data = read_from_s3(s3_client, s3_bucket, s3_key)
-                    products = data.get('products', [])
+                    products = data.get("products", [])
                     all_products.extend(products)
-                    successful_sources.append({
-                        'service_code': service_code,
-                        's3_key': s3_key,
-                        'count': len(products)
-                    })
-                    logger.info(f"Loaded {len(products)} products from {service_code}")
+                    successful_sources.append(
+                        {
+                            "service_code": service_code,
+                            "s3_key": s3_key,
+                            "count": len(products),
+                        }
+                    )
+                    logger.info(
+                        "Loaded products",
+                        extra={
+                            "service_code": service_code,
+                            "product_count": len(products),
+                        },
+                    )
             else:
-                logger.warning(f"Skipping non-successful result: {item}")
+                logger.warning("Skipping non-successful result", extra={"item": item})
 
         if dry_run:
             all_products = []
 
-        logger.info(f"Total products to aggregate: {len(all_products)}")
+        logger.info(
+            "Total products to aggregate", extra={"product_count": len(all_products)}
+        )
 
         # Aggregate pricing data in expected schema
         aggregated, metadata_stats = aggregate_pricing(all_products)
@@ -774,53 +862,82 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
         # Build output in expected schema
         output_data = {
-            'metadata': {
-                'generated_at': collection_timestamp,
-                'version': '1.0.0',
-                'total_pricing_entries': metadata_stats['total_entries'],
-                'data_sources': {
-                    'aws_pricing_api': {
-                        'success': True,
-                        'count': metadata_stats['total_entries'],
-                        'error': None
+            "metadata": {
+                "generated_at": collection_timestamp,
+                "version": "1.0.0",
+                "total_pricing_entries": metadata_stats["total_entries"],
+                "data_sources": {
+                    "aws_pricing_api": {
+                        "success": True,
+                        "count": metadata_stats["total_entries"],
+                        "error": None,
                     }
                 },
-                'providers_count': providers_count,
-                'total_regions_processed': metadata_stats['total_regions_processed'],
-                'total_groups_created': metadata_stats['total_groups_created'],
-                'unique_group_types': len(metadata_stats['group_types_seen']),
-                'average_groups_per_region': (
-                    metadata_stats['total_groups_created'] / metadata_stats['total_regions_processed']
-                    if metadata_stats['total_regions_processed'] > 0 else 0
+                "providers_count": providers_count,
+                "total_regions_processed": metadata_stats["total_regions_processed"],
+                "total_groups_created": metadata_stats["total_groups_created"],
+                "unique_group_types": len(metadata_stats["group_types_seen"]),
+                "average_groups_per_region": (
+                    metadata_stats["total_groups_created"]
+                    / metadata_stats["total_regions_processed"]
+                    if metadata_stats["total_regions_processed"] > 0
+                    else 0
                 ),
-                'currency': 'USD',
-                'pricing_standardization': 'Smart conversion applied: per-million to per-thousand when needed, unit extraction from descriptions',
-                'structure': 'provider > model > region > pricing_groups > dimensions',
-                'group_types_available': metadata_stats['group_types_seen']
+                "currency": "USD",
+                "pricing_standardization": "Smart conversion applied: per-million to per-thousand when needed, unit extraction from descriptions",
+                "structure": "provider > model > region > pricing_groups > dimensions",
+                "group_types_available": metadata_stats["group_types_seen"],
             },
-            'providers': aggregated
+            "providers": aggregated,
         }
 
         # Write to S3
         if not dry_run:
             write_to_s3(s3_client, s3_bucket, output_key, output_data)
         else:
-            logger.info(f"Dry run - would write to s3://{s3_bucket}/{output_key}")
+            logger.info(
+                "Dry run - skipping S3 write",
+                extra={"bucket": s3_bucket, "key": output_key},
+            )
 
         duration_ms = int((time.time() - start_time) * 1000)
 
+        # Add metrics
+        metrics.add_metric(
+            name="PricingEntriesAggregated",
+            unit=MetricUnit.Count,
+            value=metadata_stats["total_entries"],
+        )
+        metrics.add_metric(
+            name="ProvidersCount", unit=MetricUnit.Count, value=providers_count
+        )
+        metrics.add_metric(
+            name="AggregationDurationMs",
+            unit=MetricUnit.Milliseconds,
+            value=duration_ms,
+        )
+
+        logger.info(
+            "Pricing aggregation complete",
+            extra={
+                "providers_count": providers_count,
+                "total_entries": metadata_stats["total_entries"],
+                "duration_ms": duration_ms,
+            },
+        )
+
         return {
-            'status': 'SUCCESS',
-            's3Key': output_key,
-            'providersCount': providers_count,
-            'totalPricingEntries': metadata_stats['total_entries'],
-            'durationMs': duration_ms
+            "status": "SUCCESS",
+            "s3Key": output_key,
+            "providersCount": providers_count,
+            "totalPricingEntries": metadata_stats["total_entries"],
+            "durationMs": duration_ms,
         }
 
     except Exception as e:
-        logger.error(f"Failed to aggregate pricing: {e}", exc_info=True)
+        logger.exception("Failed to aggregate pricing", extra={"error": str(e)})
         return {
-            'status': 'FAILED',
-            'errorType': type(e).__name__,
-            'errorMessage': str(e)
+            "status": "FAILED",
+            "errorType": type(e).__name__,
+            "errorMessage": str(e),
         }

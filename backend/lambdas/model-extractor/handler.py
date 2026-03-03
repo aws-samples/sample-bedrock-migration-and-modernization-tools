@@ -8,11 +8,9 @@ Outputs models in the correct snake_case schema matching the original collector.
 """
 
 import json
-import logging
 import os
 import re
 import time
-from typing import Any
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 
@@ -30,21 +28,8 @@ from shared import (
     S3WriteError,
     get_config_loader,
 )
-
-logger = logging.getLogger()
-logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
-
-# Configuration loader - initialized on first use
-_config_loader = None
-
-
-def _get_config():
-    """Get the configuration loader (lazy initialization)."""
-    global _config_loader
-    if _config_loader is None:
-        _config_loader = get_config_loader()
-        _config_loader.load_config()
-    return _config_loader
+from shared.powertools import logger, tracer, metrics, LambdaContext
+from aws_lambda_powertools.metrics import MetricUnit
 
 
 def get_bedrock_client(region: str):
@@ -267,6 +252,7 @@ def _normalize_capabilities(capabilities: list[str]) -> list[str]:
     return result
 
 
+@tracer.capture_method
 def fetch_console_metadata(region: str) -> dict:
     """
     Fetch extended model metadata via direct Bedrock REST API with SigV4 signing.
@@ -282,7 +268,8 @@ def fetch_console_metadata(region: str) -> dict:
         credentials = session.get_credentials()
         if not credentials:
             logger.warning(
-                f"No credentials available for console metadata fetch in {region}"
+                "No credentials available for console metadata fetch",
+                extra={"region": region},
             )
             return {}
 
@@ -459,21 +446,28 @@ def fetch_console_metadata(region: str) -> dict:
                 metadata_by_id[model_id] = meta
 
         logger.info(
-            f"Fetched console metadata for {len(metadata_by_id)} models from {region}"
+            "Fetched console metadata",
+            extra={"model_count": len(metadata_by_id), "region": region},
         )
         return metadata_by_id
 
     except (URLError, HTTPError) as e:
-        logger.warning(f"Failed to fetch console metadata from {region}: {e}")
+        logger.warning(
+            "Failed to fetch console metadata",
+            extra={"region": region, "error": str(e)},
+        )
         return {}
     except Exception as e:
-        logger.warning(f"Unexpected error fetching console metadata from {region}: {e}")
+        logger.warning(
+            "Unexpected error fetching console metadata",
+            extra={"region": region, "error": str(e)},
+        )
         return {}
 
 
 def get_documentation_links(model_id: str, provider: str) -> dict:
     """Get documentation links based on provider and model from config."""
-    config = _get_config()
+    config = get_config_loader()
     all_docs = config.get_documentation_links()
 
     # Check for Nova models (Amazon's newer models)
@@ -551,7 +545,14 @@ def process_model_data(raw_model: dict, region: str) -> dict:
     }
 
 
-def extract_models(bedrock_client: Any, region: str) -> list[dict]:
+@tracer.capture_method
+def extract_models(
+    bedrock_client,
+    region: str,
+    s3_client=None,
+    bucket: str = None,
+    execution_id: str = None,
+) -> tuple[list[dict], str | None]:
     """
     Extract all foundation models from Bedrock API.
 
@@ -560,35 +561,58 @@ def extract_models(bedrock_client: Any, region: str) -> list[dict]:
     2. Direct REST API with x-console-consumer header for extended metadata
        (context windows, descriptions, languages, capabilities, feature support)
 
-    Returns list of model dictionaries with correct snake_case schema.
+    Also caches the raw API response for reuse by downstream Lambdas (e.g., regional-availability).
+
+    Args:
+        bedrock_client: Boto3 Bedrock client
+        region: AWS region to extract models from
+        s3_client: Optional S3 client for caching
+        bucket: Optional S3 bucket for caching
+        execution_id: Optional execution ID for cache path
+
+    Returns:
+        Tuple of (list of model dictionaries, cache_key or None)
     """
     models = []
+    raw_model_summaries = []
+    cache_key = None
 
     try:
         response = bedrock_client.list_foundation_models()
         model_summaries = response.get("modelSummaries", [])
+        raw_model_summaries = model_summaries  # Store for caching
 
         for raw_model in model_summaries:
             processed = process_model_data(raw_model, region)
             models.append(processed)
 
-        logger.info(f"Extracted {len(models)} models from {region}")
+        logger.info(
+            "Extracted models from Bedrock API",
+            extra={"model_count": len(models), "region": region},
+        )
 
     except ClientError as e:
         error_code = e.response["Error"]["Code"]
         if error_code in ("AccessDeniedException", "UnrecognizedClientException"):
             logger.warning(
-                f"Access denied or region not enabled: {region} ({error_code})"
+                "Access denied or region not enabled",
+                extra={"region": region, "error_code": error_code},
             )
         elif error_code == "InvalidIdentityToken":
             logger.warning(
-                f"Invalid token for region {region} - region may require opt-in"
+                "Invalid token for region - region may require opt-in",
+                extra={"region": region},
             )
         else:
-            logger.error(f"Error listing models in {region}: {e}")
+            logger.error(
+                "Error listing models", extra={"region": region, "error": str(e)}
+            )
 
     except Exception as e:
-        logger.warning(f"Unexpected error extracting models in {region}: {e}")
+        logger.warning(
+            "Unexpected error extracting models",
+            extra={"region": region, "error": str(e)},
+        )
 
     # Fetch console metadata and populate model fields directly
     console_metadata = fetch_console_metadata(region)
@@ -632,13 +656,48 @@ def extract_models(bedrock_client: Any, region: str) -> list[dict]:
                 model["console_metadata"] = meta
 
         logger.info(
-            f"Enriched {enriched_count}/{len(models)} models with console metadata in {region}"
+            "Enriched models with console metadata",
+            extra={
+                "enriched_count": enriched_count,
+                "total_models": len(models),
+                "region": region,
+            },
         )
 
-    return models
+    # Cache raw API response for reuse by regional-availability
+    if s3_client and bucket and execution_id and raw_model_summaries:
+        cache_key = (
+            f"executions/{execution_id}/cache/list_foundation_models_{region}.json"
+        )
+        try:
+            cache_data = {
+                "region": region,
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "model_summaries": raw_model_summaries,
+            }
+            write_to_s3(s3_client, bucket, cache_key, cache_data)
+            logger.info(
+                "Cached raw model data for downstream use",
+                extra={
+                    "region": region,
+                    "cache_key": cache_key,
+                    "model_count": len(raw_model_summaries),
+                },
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to cache model data, continuing without cache",
+                extra={"region": region, "error": str(e)},
+            )
+            cache_key = None
+
+    return models, cache_key
 
 
-def lambda_handler(event: dict, context: Any) -> dict:
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """
     Lambda handler for model extraction.
 
@@ -654,7 +713,8 @@ def lambda_handler(event: dict, context: Any) -> dict:
             "status": "SUCCESS",
             "region": "us-east-1",
             "s3Key": "executions/{id}/models/us-east-1.json",
-            "modelCount": 108
+            "modelCount": 108,
+            "cacheKey": "executions/{id}/cache/list_foundation_models_us-east-1.json"
         }
     """
     start_time = time.time()
@@ -674,11 +734,31 @@ def lambda_handler(event: dict, context: Any) -> dict:
     s3_key = event.get("s3Key", f"test/models/{region}.json")
     dry_run = event.get("dryRun", False)
 
-    logger.info(f"Extracting models from region: {region}")
+    # Extract execution_id from s3Key for caching
+    # Format: executions/{execution_id}/models/{region}.json
+    execution_id = None
+    if s3_key and s3_key.startswith("executions/"):
+        parts = s3_key.split("/")
+        if len(parts) >= 2:
+            execution_id = parts[1]
+
+    logger.info(
+        "Starting model extraction",
+        extra={"region": region, "execution_id": execution_id},
+    )
 
     try:
         bedrock_client = get_bedrock_client(region)
-        models = extract_models(bedrock_client, region)
+        s3_client = get_s3_client() if s3_bucket else None
+
+        # Extract models and cache raw API response
+        models, cache_key = extract_models(
+            bedrock_client,
+            region,
+            s3_client=s3_client,
+            bucket=s3_bucket,
+            execution_id=execution_id,
+        )
 
         output_data = {
             "metadata": {
@@ -692,16 +772,35 @@ def lambda_handler(event: dict, context: Any) -> dict:
         }
 
         if not dry_run and s3_bucket:
-            s3_client = get_s3_client()
             write_to_s3(s3_client, s3_bucket, s3_key, output_data)
         else:
             logger.info(
-                f"Dry run - would write {len(models)} models to s3://{s3_bucket}/{s3_key}"
+                "Dry run - skipping S3 write",
+                extra={"model_count": len(models), "bucket": s3_bucket, "key": s3_key},
             )
 
         duration_ms = int((time.time() - start_time) * 1000)
 
-        return {
+        # Add metrics
+        metrics.add_metric(
+            name="ModelsExtracted", unit=MetricUnit.Count, value=len(models)
+        )
+        metrics.add_metric(
+            name="ExtractionDurationMs", unit=MetricUnit.Milliseconds, value=duration_ms
+        )
+        metrics.add_dimension(name="Region", value=region)
+
+        logger.info(
+            "Model extraction complete",
+            extra={
+                "model_count": len(models),
+                "region": region,
+                "duration_ms": duration_ms,
+                "cache_key": cache_key,
+            },
+        )
+
+        result = {
             "status": "SUCCESS",
             "region": region,
             "s3Key": s3_key,
@@ -709,8 +808,16 @@ def lambda_handler(event: dict, context: Any) -> dict:
             "durationMs": duration_ms,
         }
 
+        # Include cache key if caching was successful
+        if cache_key:
+            result["cacheKey"] = cache_key
+
+        return result
+
     except Exception as e:
-        logger.error(f"Failed to extract models from {region}: {e}", exc_info=True)
+        logger.exception(
+            "Failed to extract models", extra={"region": region, "error": str(e)}
+        )
         return {
             "status": "FAILED",
             "region": region,

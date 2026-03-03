@@ -16,6 +16,9 @@ from decimal import Decimal
 import boto3
 from boto3.dynamodb.conditions import Key
 
+from shared.powertools import logger, tracer, metrics, LambdaContext
+from aws_lambda_powertools.metrics import MetricUnit
+
 # Environment
 TABLE_NAME = os.environ.get("ANALYTICS_TABLE", "bedrock-profiler-analytics-dev")
 ADMIN_GROUP = os.environ.get("ADMIN_GROUP", "admins")
@@ -55,26 +58,34 @@ VALID_EVENT_TYPES = {
 SESSION_BUCKET_TTL_DAYS = 7
 
 
-def lambda_handler(event, context):
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event, context: LambdaContext):
     """Route dispatcher."""
     route_key = event.get("routeKey", "")
+
+    logger.info("Processing analytics request", extra={"route_key": route_key})
 
     if route_key == "POST /events":
         return handle_post_events(event)
     elif route_key == "GET /dashboard":
         return handle_get_dashboard(event)
     else:
+        logger.warning("Route not found", extra={"route_key": route_key})
         return response(404, {"error": "Not found"})
 
 
 # ─── POST /events ──────────────────────────────────────────────────────────
 
 
+@tracer.capture_method
 def handle_post_events(event):
     """Record anonymous usage events."""
     try:
         body = json.loads(event.get("body", "{}"))
     except (json.JSONDecodeError, TypeError):
+        logger.warning("Invalid JSON body in POST /events")
         return response(400, {"error": "Invalid JSON body"})
 
     events = body.get("events", [])
@@ -83,9 +94,14 @@ def handle_post_events(event):
     region = body.get("region", "")
 
     if not events or not auid:
+        logger.warning(
+            "Missing required fields in POST /events",
+            extra={"has_events": bool(events), "has_auid": bool(auid)},
+        )
         return response(400, {"error": "Missing required fields: events, auid"})
 
     if len(events) > 50:
+        logger.warning("Too many events in batch", extra={"event_count": len(events)})
         return response(400, {"error": "Maximum 50 events per batch"})
 
     now = datetime.now(timezone.utc)
@@ -172,6 +188,12 @@ def handle_post_events(event):
 
     _upsert_user(auid, today, country, region)
 
+    metrics.add_metric(name="EventsProcessed", unit=MetricUnit.Count, value=event_count)
+    logger.info(
+        "Analytics events processed",
+        extra={"events_processed": event_count, "country": country},
+    )
+
     return response(200, {"status": "ok", "recorded": event_count})
 
 
@@ -203,7 +225,7 @@ def _get_cognito_user_count():
         resp = client.describe_user_pool(UserPoolId=USER_POOL_ID)
         return resp["UserPool"].get("EstimatedNumberOfUsers", 0)
     except Exception as e:
-        print(f"Error getting Cognito user count: {e}")
+        logger.error("Error getting Cognito user count", extra={"error": str(e)})
         return 0
 
 
@@ -315,9 +337,11 @@ def _build_cognito_summary(cognito_items, start_date=None, end_date=None):
 # ─── GET /dashboard ────────────────────────────────────────────────────────
 
 
+@tracer.capture_method
 def handle_get_dashboard(event):
     """Return aggregated dashboard data with previous period comparison."""
     if not _is_admin(event):
+        logger.warning("Unauthorized dashboard access attempt")
         return response(403, {"error": "Forbidden"})
 
     params = event.get("queryStringParameters") or {}
@@ -335,6 +359,11 @@ def handle_get_dashboard(event):
         days = min(int(params.get("days", "30")), 365)
         end_date = now.strftime("%Y-%m-%d")
         start_date = (now - timedelta(days=days - 1)).strftime("%Y-%m-%d")
+
+    logger.info(
+        "Dashboard query",
+        extra={"start_date": start_date, "end_date": end_date, "days": days},
+    )
 
     # Previous period (same length, immediately before)
     prev_end = (datetime.strptime(start_date, "%Y-%m-%d") - timedelta(days=1)).strftime(
@@ -366,6 +395,16 @@ def handle_get_dashboard(event):
 
     # Get instant user count
     cognito_user_count = _get_cognito_user_count()
+
+    metrics.add_metric(name="DashboardQueries", unit=MetricUnit.Count, value=1)
+    logger.info(
+        "Dashboard data returned",
+        extra={
+            "total_views": summary.get("totalViews", 0),
+            "unique_users": summary.get("uniqueUsers", 0),
+            "time_series_days": len(time_series),
+        },
+    )
 
     return response(
         200,
@@ -447,7 +486,9 @@ def _count_returning_users(unique_user_ids, start_date):
                 if item.get("firstSeen", "") < start_date:
                     returning += 1
         except Exception as e:
-            print(f"Error in batch_get_item for returning users: {e}")
+            logger.error(
+                "Error in batch_get_item for returning users", extra={"error": str(e)}
+            )
     return returning
 
 
@@ -728,7 +769,7 @@ def _upsert_session_bucket(now, auid, views, events, sections, features, country
                 _increment_session_map(today, bucket, auid, "features", key, count)
 
     except Exception as e:
-        print(f"Error upserting session bucket: {e}")
+        logger.error("Error upserting session bucket", extra={"error": str(e)})
 
 
 def _increment_session_map(today, bucket, auid, map_attr, key, count):
@@ -758,7 +799,10 @@ def _increment_session_map(today, bucket, auid, map_attr, key, count):
                 ExpressionAttributeValues={":val": count},
             )
         except Exception as e:
-            print(f"Error updating session {map_attr}.{key}: {e}")
+            logger.error(
+                "Error updating session map",
+                extra={"map_attr": map_attr, "key": key, "error": str(e)},
+            )
 
 
 # ─── Aggregate Updates ─────────────────────────────────────────────────────
@@ -790,7 +834,10 @@ def _increment_map_counter(today, map_attr, key, count):
                 ExpressionAttributeValues={":val": count},
             )
         except Exception as e:
-            print(f"Error updating {map_attr}.{key}: {e}")
+            logger.error(
+                "Error updating map counter",
+                extra={"map_attr": map_attr, "key": key, "error": str(e)},
+            )
 
 
 def _update_daily_aggregate(
@@ -839,7 +886,7 @@ def _update_daily_aggregate(
             ExpressionAttributeValues=expr_values,
         )
     except Exception as e:
-        print(f"Error updating daily aggregate: {e}")
+        logger.error("Error updating daily aggregate", extra={"error": str(e)})
 
     for key, count in sections.items():
         _increment_map_counter(today, "sections", key, count)
@@ -910,7 +957,7 @@ def _upsert_user(auid, today, country, region=""):
             ExpressionAttributeValues=expr_values,
         )
     except Exception as e:
-        print(f"Error upserting user: {e}")
+        logger.error("Error upserting user", extra={"error": str(e)})
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────

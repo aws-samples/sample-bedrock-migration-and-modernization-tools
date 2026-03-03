@@ -21,12 +21,14 @@ Why no pricing data?
 
 INFERENCE_PROFILE models are captured separately via the feature-collector
 Lambda (ListInferenceProfiles / CRIS), so they are not lost.
+
+Configuration (environment variables):
+    AVAILABILITY_MAX_WORKERS: Thread pool size for parallel region queries (default: 10)
+    AVAILABILITY_REGION_TIMEOUT: Timeout for region queries in seconds (default: 30)
 """
 
-import logging
 import os
 import time
-from typing import Any
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -39,32 +41,151 @@ from shared import (
     parse_execution_id,
     validate_required_params,
     ValidationError,
+    get_cached_models,
+    is_cache_valid,
 )
+from shared.powertools import logger, tracer, metrics, LambdaContext
+from aws_lambda_powertools.metrics import MetricUnit
 
-logger = logging.getLogger()
-logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+# Configuration with defaults
+AVAILABILITY_MAX_WORKERS = int(os.environ.get("AVAILABILITY_MAX_WORKERS", "10"))
+AVAILABILITY_REGION_TIMEOUT = int(os.environ.get("AVAILABILITY_REGION_TIMEOUT", "30"))
 
 RETRY_CONFIG = Config(
     retries={"max_attempts": 3, "mode": "adaptive"},
     connect_timeout=5,
-    read_timeout=30,
+    read_timeout=AVAILABILITY_REGION_TIMEOUT,
 )
 
 
-def _discover_via_api(regions: list) -> tuple:
+@tracer.capture_method
+def _get_models_from_cache(
+    s3_client, bucket: str, cache_key: str, region: str
+) -> tuple[list[str], list[str], bool]:
+    """
+    Get model IDs from cached ListFoundationModels response.
+
+    The cache contains unfiltered model summaries, so we need to filter
+    by inference type here to match the API behavior.
+
+    Args:
+        s3_client: S3 client
+        bucket: S3 bucket name
+        cache_key: S3 key for cached data
+        region: Region name (for logging)
+
+    Returns:
+        Tuple of (on_demand_model_ids, provisioned_model_ids, cache_hit)
+    """
+    cached_data = get_cached_models(s3_client, bucket, cache_key)
+
+    if not cached_data or not is_cache_valid(cached_data):
+        logger.debug(
+            "Cache miss or invalid",
+            extra={"region": region, "cache_key": cache_key},
+        )
+        return [], [], False
+
+    model_summaries = cached_data.get("model_summaries", [])
+    on_demand_models = []
+    provisioned_models = []
+
+    for model in model_summaries:
+        model_id = model.get("modelId")
+        if not model_id:
+            continue
+
+        inference_types = model.get("inferenceTypesSupported", [])
+
+        if "ON_DEMAND" in inference_types:
+            on_demand_models.append(model_id)
+        if "PROVISIONED" in inference_types:
+            provisioned_models.append(model_id)
+
+    logger.info(
+        "Cache hit",
+        extra={
+            "region": region,
+            "on_demand_count": len(on_demand_models),
+            "provisioned_count": len(provisioned_models),
+        },
+    )
+
+    return on_demand_models, provisioned_models, True
+
+
+@tracer.capture_method
+def _discover_via_api(
+    regions: list,
+    s3_client=None,
+    bucket: str = None,
+    cache_keys: dict = None,
+) -> tuple:
     """
     Call ListFoundationModels across all regions in parallel, once for
     ON_DEMAND models and once for PROVISIONED models.
 
+    Uses cached data from model-extractor when available to reduce API calls.
+
+    Args:
+        regions: List of AWS regions to query
+        s3_client: Optional S3 client for reading cache
+        bucket: Optional S3 bucket name for cache
+        cache_keys: Optional dict mapping region to cache S3 key
+
     Returns:
         on_demand_availability:   {model_id: set(regions)}
         provisioned_availability: {model_id: set(regions)}
-        region_stats:             {region: {on_demand_count, provisioned_count, error}}
+        region_stats:             {region: {on_demand_count, provisioned_count, error, from_cache}}
+        cache_hits:               Number of regions served from cache
+        api_calls:                Number of regions that required API calls
     """
     on_demand_availability = defaultdict(set)
     provisioned_availability = defaultdict(set)
     region_stats = {}
+    cache_keys = cache_keys or {}
 
+    # Separate cached and uncached regions
+    cached_regions = [r for r in regions if r in cache_keys]
+    uncached_regions = [r for r in regions if r not in cache_keys]
+
+    cache_hits = 0
+    api_calls = 0
+
+    logger.info(
+        "Processing regions",
+        extra={
+            "cached_regions": len(cached_regions),
+            "uncached_regions": len(uncached_regions),
+            "total_regions": len(regions),
+        },
+    )
+
+    # Process cached regions first (fast, no rate limiting needed)
+    if s3_client and bucket:
+        for region in cached_regions:
+            cache_key = cache_keys[region]
+            od_models, prov_models, hit = _get_models_from_cache(
+                s3_client, bucket, cache_key, region
+            )
+
+            if hit:
+                cache_hits += 1
+                region_stats[region] = {
+                    "on_demand_count": len(od_models),
+                    "provisioned_count": len(prov_models),
+                    "error": None,
+                    "from_cache": True,
+                }
+                for mid in od_models:
+                    on_demand_availability[mid].add(region)
+                for mid in prov_models:
+                    provisioned_availability[mid].add(region)
+            else:
+                # Cache miss - add to uncached regions for API call
+                uncached_regions.append(region)
+
+    @tracer.capture_method
     def query_region(region: str):
         """Query a single region for both ON_DEMAND and PROVISIONED models."""
         try:
@@ -88,31 +209,49 @@ def _discover_via_api(regions: list) -> tuple:
 
             return region, od_models, prov_models, None
         except Exception as e:
-            logger.warning(f"Failed to query region {region}: {e}")
+            logger.warning(
+                "Failed to query region", extra={"region": region, "error": str(e)}
+            )
             return region, [], [], str(e)
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(query_region, r): r for r in regions}
-        for future in as_completed(futures):
-            region, od_models, prov_models, error = future.result()
-            region_stats[region] = {
-                "on_demand_count": len(od_models),
-                "provisioned_count": len(prov_models),
-                "error": error,
-            }
-            for mid in od_models:
-                on_demand_availability[mid].add(region)
-            for mid in prov_models:
-                provisioned_availability[mid].add(region)
+    # Process uncached regions with API calls
+    if uncached_regions:
+        with ThreadPoolExecutor(max_workers=AVAILABILITY_MAX_WORKERS) as executor:
+            futures = {executor.submit(query_region, r): r for r in uncached_regions}
+            for future in as_completed(futures):
+                region, od_models, prov_models, error = future.result()
+                api_calls += 1
+                region_stats[region] = {
+                    "on_demand_count": len(od_models),
+                    "provisioned_count": len(prov_models),
+                    "error": error,
+                    "from_cache": False,
+                }
+                for mid in od_models:
+                    on_demand_availability[mid].add(region)
+                for mid in prov_models:
+                    provisioned_availability[mid].add(region)
 
     successful = sum(1 for s in region_stats.values() if s["error"] is None)
     logger.info(
-        f"API discovery: {len(on_demand_availability)} on-demand models, "
-        f"{len(provisioned_availability)} provisioned models across "
-        f"{successful}/{len(regions)} successful regions"
+        "Discovery complete",
+        extra={
+            "on_demand_models": len(on_demand_availability),
+            "provisioned_models": len(provisioned_availability),
+            "successful_regions": successful,
+            "total_regions": len(regions),
+            "cache_hits": cache_hits,
+            "api_calls": api_calls,
+        },
     )
 
-    return on_demand_availability, provisioned_availability, region_stats
+    return (
+        on_demand_availability,
+        provisioned_availability,
+        region_stats,
+        cache_hits,
+        api_calls,
+    )
 
 
 def _build_availability_output(
@@ -166,7 +305,10 @@ def _build_availability_output(
     }
 
 
-def lambda_handler(event: dict, context: Any) -> dict:
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """
     Lambda handler for regional availability computation.
 
@@ -175,6 +317,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
             "s3Bucket": "bucket-name",
             "executionId": "exec-123",
             "regions": ["us-east-1", "us-west-2", ...],
+            "cacheKeys": {"us-east-1": "executions/.../cache/...", ...},  # optional
             "pricingS3Key": "..."   # accepted for backward compat, ignored
         }
 
@@ -182,7 +325,10 @@ def lambda_handler(event: dict, context: Any) -> dict:
         {
             "status": "SUCCESS",
             "s3Key": "executions/{id}/intermediate/regional-availability.json",
-            "regionsWithBedrock": 27
+            "regionsWithBedrock": 27,
+            "cacheHits": 2,
+            "apiCalls": 25,
+            "cacheHitRate": 7.4
         }
     """
     start_time = time.time()
@@ -203,32 +349,61 @@ def lambda_handler(event: dict, context: Any) -> dict:
     s3_bucket = event["s3Bucket"]
     execution_id = parse_execution_id(event["executionId"])
     regions = event.get("regions", [])
+    cache_keys = event.get("cacheKeys", {})  # Cache keys from model-extractor
     dry_run = event.get("dryRun", False)
 
     # Log if pricingS3Key was passed (backward compat — no longer used)
     if "pricingS3Key" in event:
         logger.info(
-            "pricingS3Key provided but no longer used — pricing data "
-            "excluded from availability (see module docstring)"
+            "pricingS3Key provided but no longer used",
+            extra={
+                "note": "pricing data excluded from availability (see module docstring)"
+            },
         )
 
     output_key = f"executions/{execution_id}/intermediate/regional-availability.json"
 
-    logger.info(f"Computing regional availability (API regions: {len(regions)})")
+    logger.info(
+        "Starting regional availability check",
+        extra={
+            "region_count": len(regions),
+            "cache_keys_provided": len(cache_keys),
+        },
+    )
 
     try:
         s3_client = get_s3_client()
 
+        cache_hits = 0
+        api_calls = 0
+
         if not dry_run:
             # Discover models via filtered ListFoundationModels calls
+            # Uses cached data from model-extractor when available
             on_demand = {}
             provisioned = {}
             region_stats = {}
             if regions:
-                on_demand, provisioned, region_stats = _discover_via_api(regions)
+                (
+                    on_demand,
+                    provisioned,
+                    region_stats,
+                    cache_hits,
+                    api_calls,
+                ) = _discover_via_api(
+                    regions,
+                    s3_client=s3_client,
+                    bucket=s3_bucket,
+                    cache_keys=cache_keys,
+                )
 
             # Build unified output (on-demand primary, provisioned secondary)
             availability = _build_availability_output(on_demand, provisioned)
+
+            # Calculate cache hit rate
+            cache_hit_rate = (
+                round(cache_hits / len(regions) * 100, 1) if regions else 0.0
+            )
 
             output_data = {
                 "metadata": {
@@ -237,11 +412,13 @@ def lambda_handler(event: dict, context: Any) -> dict:
                     "total_provisioned_models": len(
                         availability["provisioned_availability"]
                     ),
-                    "api_regions_queried": len(regions),
+                    "api_regions_queried": api_calls,
+                    "cache_hits": cache_hits,
+                    "cache_hit_rate": cache_hit_rate,
                     "collection_timestamp": time.strftime(
                         "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
                     ),
-                    "discovery_method": "api_on_demand_filtered",
+                    "discovery_method": "api_on_demand_filtered_with_cache",
                 },
                 "region_summary": availability["regions"],
                 "model_availability": availability["model_availability"],
@@ -256,15 +433,40 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
         duration_ms = int((time.time() - start_time) * 1000)
 
+        # Emit metrics
+        metrics.add_metric(
+            name="RegionsChecked", unit=MetricUnit.Count, value=len(regions)
+        )
+        metrics.add_metric(
+            name="RegionsWithBedrock", unit=MetricUnit.Count, value=regions_count
+        )
+        metrics.add_metric(name="CacheHits", unit=MetricUnit.Count, value=cache_hits)
+        metrics.add_metric(name="ApiCalls", unit=MetricUnit.Count, value=api_calls)
+
+        logger.info(
+            "Regional availability check complete",
+            extra={
+                "regions_with_bedrock": regions_count,
+                "cache_hits": cache_hits,
+                "api_calls": api_calls,
+                "duration_ms": duration_ms,
+            },
+        )
+
         return {
             "status": "SUCCESS",
             "s3Key": output_key,
             "regionsWithBedrock": regions_count,
+            "cacheHits": cache_hits,
+            "apiCalls": api_calls,
+            "cacheHitRate": round(cache_hits / len(regions) * 100, 1)
+            if regions
+            else 0.0,
             "durationMs": duration_ms,
         }
 
     except Exception as e:
-        logger.error(f"Failed to compute availability: {e}", exc_info=True)
+        logger.exception("Failed to compute availability", extra={"error": str(e)})
         return {
             "status": "FAILED",
             "errorType": type(e).__name__,

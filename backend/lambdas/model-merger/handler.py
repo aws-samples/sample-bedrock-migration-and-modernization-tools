@@ -6,11 +6,9 @@ Extracts context window sizes from model ID variants before deduplication.
 Works with the correct snake_case schema.
 """
 
-import logging
 import os
 import re
 import time
-from typing import Any
 
 from shared import (
     get_s3_client,
@@ -21,22 +19,37 @@ from shared import (
     ValidationError,
     S3ReadError,
 )
-
-logger = logging.getLogger()
-logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+from shared.model_matcher import get_model_variant_info
+from shared.powertools import logger, tracer, metrics, LambdaContext
+from aws_lambda_powertools.metrics import MetricUnit
 
 
 def get_base_model_id(model_id: str) -> str:
     """
-    Extract the base model ID by removing context window suffixes.
+    Extract the base model ID by removing context window and variant suffixes.
+
+    Uses the centralized model_matcher utility for consistent behavior across
+    all pipeline components.
 
     Examples:
         'anthropic.claude-3-5-sonnet-20240620-v1:0:18k' -> 'anthropic.claude-3-5-sonnet-20240620-v1:0'
-        'anthropic.claude-3-5-sonnet-20240620-v1:0:200k' -> 'anthropic.claude-3-5-sonnet-20240620-v1:0'
-        'anthropic.claude-3-5-sonnet-20240620-v1:0' -> 'anthropic.claude-3-5-sonnet-20240620-v1:0'
+        'amazon.nova-premier-v1:0:mm' -> 'amazon.nova-premier-v1:0'
+        'amazon.nova-reel-v1:1' -> 'amazon.nova-reel-v1:0'
+        'amazon.titan-embed-image-v1' -> 'amazon.titan-embed-image-v1:0'
     """
-    # Pattern matches :NNNk at the end (where N is a digit)
-    return re.sub(r":\d+k$", "", model_id)
+    variant_info = get_model_variant_info(model_id)
+    base_id = variant_info.get("base_id", model_id)
+
+    # Normalize version suffix (:1, :2, etc.) to :0
+    # Only if the model ends with :N where N is a single digit
+    base_id = re.sub(r":([1-9])$", ":0", base_id)
+
+    # Add :0 if model doesn't have a version suffix at all
+    # Check if model ends with :\d+ pattern
+    if not re.search(r":\d+$", base_id):
+        base_id = f"{base_id}:0"
+
+    return base_id
 
 
 def parse_variant_size(model_id: str) -> int | None:
@@ -130,7 +143,8 @@ def merge_models(all_models: list[dict]) -> dict:
                 variant_only_models[base_model_id]["model_id"] = base_model_id
 
             logger.debug(
-                f"Skipping context variant: {model_id} (base: {base_model_id})"
+                "Skipping context variant",
+                extra={"model_id": model_id, "base_model_id": base_model_id},
             )
             continue
 
@@ -152,7 +166,9 @@ def merge_models(all_models: list[dict]) -> dict:
                 models_by_id[model_id].get("inference_types_supported", [])
             )
             new_inference_types = set(model_inference_types)
-            merged_inference_types = sorted(list(existing_inference_types | new_inference_types))
+            merged_inference_types = sorted(
+                list(existing_inference_types | new_inference_types)
+            )
             models_by_id[model_id]["inference_types_supported"] = merged_inference_types
 
             # Update collection_metadata.regions_collected_from
@@ -183,13 +199,18 @@ def merge_models(all_models: list[dict]) -> dict:
             models_by_id[base_id] = variant_model
             if "extraction_regions" not in models_by_id[base_id]:
                 models_by_id[base_id]["extraction_regions"] = []
-            logger.info(f"Created base model from variant: {base_id}")
+            logger.info(
+                "Created base model from variant", extra={"base_model_id": base_id}
+            )
 
     # Attach variant context windows to base models
     for model_id, max_size in variant_context_windows.items():
         if model_id in models_by_id:
             models_by_id[model_id]["variant_context_window"] = max_size
-            logger.info(f"Variant context window for {model_id}: {max_size}")
+            logger.info(
+                "Variant context window attached",
+                extra={"model_id": model_id, "max_size": max_size},
+            )
 
     # Merge customization data from variants into base models
     for model_id, customs in variant_customizations.items():
@@ -203,7 +224,10 @@ def merge_models(all_models: list[dict]) -> dict:
             if "customization" not in models_by_id[model_id]:
                 models_by_id[model_id]["customization"] = {}
             models_by_id[model_id]["customization"]["customization_supported"] = merged
-            logger.info(f"Merged customizations for {model_id}: {merged}")
+            logger.info(
+                "Merged customizations",
+                extra={"model_id": model_id, "customizations": merged},
+            )
 
     # Merge inference_types_supported from variants into base models
     for model_id, inf_types in variant_inference_types.items():
@@ -213,7 +237,10 @@ def merge_models(all_models: list[dict]) -> dict:
             )
             merged = sorted(list(existing_inf_types | inf_types))
             models_by_id[model_id]["inference_types_supported"] = merged
-            logger.info(f"Merged inference types for {model_id}: {merged}")
+            logger.info(
+                "Merged inference types",
+                extra={"model_id": model_id, "inference_types": merged},
+            )
 
     # Group by provider
     providers = {}
@@ -228,7 +255,10 @@ def merge_models(all_models: list[dict]) -> dict:
     return providers
 
 
-def lambda_handler(event: dict, context: Any) -> dict:
+@logger.inject_lambda_context(log_event=True)
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event: dict, context: LambdaContext) -> dict:
     """
     Lambda handler for model merging.
 
@@ -237,7 +267,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
             "s3Bucket": "bucket-name",
             "executionId": "exec-123",
             "modelResults": [
-                {"status": "SUCCESS", "region": "us-east-1", "s3Key": "..."},
+                {"status": "SUCCESS", "region": "us-east-1", "s3Key": "...", "cacheKey": "..."},
                 ...
             ]
         }
@@ -247,7 +277,8 @@ def lambda_handler(event: dict, context: Any) -> dict:
             "status": "SUCCESS",
             "s3Key": "executions/{id}/merged/models.json",
             "totalModels": 108,
-            "providersCount": 17
+            "providersCount": 17,
+            "cacheKeys": {"us-east-1": "executions/{id}/cache/list_foundation_models_us-east-1.json", ...}
         }
     """
     start_time = time.time()
@@ -271,7 +302,7 @@ def lambda_handler(event: dict, context: Any) -> dict:
 
     output_key = f"executions/{execution_id}/merged/models.json"
 
-    logger.info(f"Merging models from {len(model_results)} regions")
+    logger.info("Starting model merge", extra={"region_count": len(model_results)})
 
     try:
         s3_client = get_s3_client()
@@ -279,14 +310,16 @@ def lambda_handler(event: dict, context: Any) -> dict:
         # Collect all models from successful extractors
         all_models = []
         regions_processed = []
+        cache_keys = {}  # Collect cache keys for downstream use
 
         for item in model_results:
             # Handle nested result structure from Map state
-            # Successful: { region, result: { status, s3Key } }
+            # Successful: { region, result: { status, s3Key, cacheKey } }
             # Failed: { status: "FAILED", region, error }
             nested_result = item.get("result", {})
             status = item.get("status") or nested_result.get("status")
             s3_key = item.get("s3Key") or nested_result.get("s3Key")
+            cache_key = item.get("cacheKey") or nested_result.get("cacheKey")
             region = item.get("region")
 
             if status == "SUCCESS" and s3_key:
@@ -295,9 +328,15 @@ def lambda_handler(event: dict, context: Any) -> dict:
                     models = data.get("models", [])
                     all_models.extend(models)
                     regions_processed.append(region)
-                    logger.info(f"Loaded {len(models)} models from {region}")
+                    logger.info(
+                        "Loaded models from region",
+                        extra={"model_count": len(models), "region": region},
+                    )
+                # Collect cache key if available
+                if cache_key and region:
+                    cache_keys[region] = cache_key
             else:
-                logger.warning(f"Skipping non-successful result: {item}")
+                logger.warning("Skipping non-successful result", extra={"item": item})
 
         # Merge and deduplicate
         providers = merge_models(all_models)
@@ -321,11 +360,35 @@ def lambda_handler(event: dict, context: Any) -> dict:
         if not dry_run:
             write_to_s3(s3_client, s3_bucket, output_key, output_data)
         else:
-            logger.info(f"Dry run - would write to s3://{s3_bucket}/{output_key}")
+            logger.info(
+                "Dry run - skipping S3 write",
+                extra={"bucket": s3_bucket, "key": output_key},
+            )
 
         duration_ms = int((time.time() - start_time) * 1000)
 
-        return {
+        # Add metrics
+        metrics.add_metric(
+            name="ModelsMerged", unit=MetricUnit.Count, value=total_models
+        )
+        metrics.add_metric(
+            name="ProvidersCount", unit=MetricUnit.Count, value=providers_count
+        )
+        metrics.add_metric(
+            name="MergeDurationMs", unit=MetricUnit.Milliseconds, value=duration_ms
+        )
+
+        logger.info(
+            "Model merge complete",
+            extra={
+                "total_models": total_models,
+                "providers_count": providers_count,
+                "duration_ms": duration_ms,
+                "cache_keys_count": len(cache_keys),
+            },
+        )
+
+        result = {
             "status": "SUCCESS",
             "s3Key": output_key,
             "totalModels": total_models,
@@ -333,8 +396,14 @@ def lambda_handler(event: dict, context: Any) -> dict:
             "durationMs": duration_ms,
         }
 
+        # Include cache keys for downstream use (e.g., regional-availability)
+        if cache_keys:
+            result["cacheKeys"] = cache_keys
+
+        return result
+
     except Exception as e:
-        logger.error(f"Failed to merge models: {e}", exc_info=True)
+        logger.exception("Failed to merge models", extra={"error": str(e)})
         return {
             "status": "FAILED",
             "errorType": type(e).__name__,
