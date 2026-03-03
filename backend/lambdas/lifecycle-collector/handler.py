@@ -3,18 +3,22 @@ Lifecycle Collector Lambda
 
 Scrapes model lifecycle data from AWS Bedrock documentation.
 Source: https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html
+
+Includes TTL-based caching to reduce external scraping.
 """
 
 import os
 import re
 import time
-from typing import Optional
+from datetime import datetime
+from typing import Any, Callable, Optional, Tuple
 
 import requests
 from bs4 import BeautifulSoup
 
 from shared import (
     get_s3_client,
+    read_from_s3,
     write_to_s3,
     get_config_loader,
 )
@@ -25,11 +29,94 @@ from aws_lambda_powertools.metrics import MetricUnit
 DATA_BUCKET = os.environ.get("DATA_BUCKET")
 REQUEST_TIMEOUT = 30  # seconds
 
+# Cache configuration
+LIFECYCLE_CACHE_KEY = "cache/lifecycle_data.json"
+DEFAULT_CACHE_TTL_HOURS = 24
+
 
 def get_lifecycle_url() -> str:
     """Get model lifecycle documentation URL from config."""
     config = get_config_loader()
     return config.get_documentation_url("bedrock_model_lifecycle")
+
+
+def get_cached_or_fetch(
+    s3_client: Any,
+    bucket: str,
+    cache_key: str,
+    fetch_fn: Callable[[], dict],
+    source_url: str,
+    ttl_hours: int = DEFAULT_CACHE_TTL_HOURS,
+) -> Tuple[dict, bool]:
+    """
+    Get data from cache if valid, otherwise fetch and cache.
+
+    Args:
+        s3_client: Boto3 S3 client
+        bucket: S3 bucket name
+        cache_key: S3 key for cache file
+        fetch_fn: Function to call if cache miss (returns data dict)
+        source_url: URL of the data source (for metadata)
+        ttl_hours: Cache TTL in hours (default 24)
+
+    Returns:
+        Tuple of (data, from_cache)
+    """
+    try:
+        cached = read_from_s3(s3_client, bucket, cache_key, default_on_missing=None)
+        if cached:
+            cached_at_str = cached.get("cached_at")
+            if cached_at_str:
+                cached_at = datetime.strptime(cached_at_str, "%Y-%m-%dT%H:%M:%SZ")
+                age_hours = (datetime.utcnow() - cached_at).total_seconds() / 3600
+                cache_ttl = cached.get("ttl_hours", ttl_hours)
+
+                if age_hours < cache_ttl:
+                    logger.info(
+                        "Cache hit - using cached data",
+                        extra={
+                            "cache_key": cache_key,
+                            "age_hours": round(age_hours, 1),
+                            "ttl_hours": cache_ttl,
+                        },
+                    )
+                    return cached.get("data", {}), True
+                else:
+                    logger.info(
+                        "Cache expired - fetching fresh data",
+                        extra={
+                            "cache_key": cache_key,
+                            "age_hours": round(age_hours, 1),
+                            "ttl_hours": cache_ttl,
+                        },
+                    )
+    except Exception as e:
+        logger.warning(
+            "Cache read failed, fetching fresh data",
+            extra={"cache_key": cache_key, "error": str(e)},
+        )
+
+    # Cache miss or expired - fetch fresh data
+    logger.info("Fetching fresh data from source", extra={"source_url": source_url})
+    data = fetch_fn()
+
+    # Update cache
+    cache_data = {
+        "cached_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ttl_hours": ttl_hours,
+        "source_url": source_url,
+        "data": data,
+    }
+    try:
+        write_to_s3(s3_client, bucket, cache_key, cache_data)
+        logger.info("Cache updated", extra={"cache_key": cache_key})
+    except Exception as e:
+        logger.warning(
+            "Cache write failed - continuing without caching",
+            extra={"cache_key": cache_key, "error": str(e)},
+        )
+
+    return data, False
 
 
 # Regex pattern for AWS region codes
@@ -1019,6 +1106,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             "recordCount": 150,
             "statusCounts": {"active": 100, "legacy": 30, "eol": 20},
             "regionalLifecycleCount": 150,
+            "fromCache": true,
             "durationMs": 2500
         }
     """
@@ -1034,16 +1122,27 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
     )
 
     try:
-        # Scrape lifecycle data
-        lifecycle_data = scrape_lifecycle_data()
+        s3_client = get_s3_client()
+        source_url = get_lifecycle_url()
+
+        # Scrape lifecycle data with caching
+        lifecycle_data, from_cache = get_cached_or_fetch(
+            s3_client=s3_client,
+            bucket=s3_bucket,
+            cache_key=LIFECYCLE_CACHE_KEY,
+            fetch_fn=scrape_lifecycle_data,
+            source_url=source_url,
+            ttl_hours=DEFAULT_CACHE_TTL_HOURS,
+        )
 
         # Structure the output
         output_data = {
             "metadata": {
-                "source_url": get_lifecycle_url(),
+                "source_url": source_url,
                 "record_count": lifecycle_data["total_models"],
                 "status_counts": lifecycle_data["status_counts"],
                 "regional_lifecycle_count": len(lifecycle_data["regional_lifecycle"]),
+                "from_cache": from_cache,
                 "collection_timestamp": time.strftime(
                     "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
                 ),
@@ -1056,7 +1155,6 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
 
         # Write to S3 (skip in dry run mode)
         if not dry_run and s3_bucket:
-            s3_client = get_s3_client()
             write_to_s3(s3_client, s3_bucket, s3_key, output_data)
         else:
             logger.info(
@@ -1078,6 +1176,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             extra={
                 "record_count": lifecycle_data["total_models"],
                 "status_counts": lifecycle_data["status_counts"],
+                "from_cache": from_cache,
                 "duration_ms": duration_ms,
             },
         )
@@ -1088,6 +1187,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             "recordCount": lifecycle_data["total_models"],
             "statusCounts": lifecycle_data["status_counts"],
             "regionalLifecycleCount": len(lifecycle_data["regional_lifecycle"]),
+            "fromCache": from_cache,
             "durationMs": duration_ms,
             "dryRun": dry_run,
         }

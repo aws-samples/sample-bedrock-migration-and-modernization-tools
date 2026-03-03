@@ -3,10 +3,14 @@ Token Specs Collector Lambda
 
 Fetches token specifications (context window, max output) from LiteLLM.
 Works with the correct snake_case schema.
+
+Includes TTL-based caching to reduce external API calls.
 """
 
 import json
 import time
+from datetime import datetime
+from typing import Any, Callable, Optional, Tuple
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 
@@ -20,6 +24,10 @@ from aws_lambda_powertools.metrics import MetricUnit
 RETRY_CONFIG = Config(
     retries={"max_attempts": 3, "mode": "adaptive"}, connect_timeout=10, read_timeout=30
 )
+
+# Cache configuration
+LITELLM_CACHE_KEY = "cache/litellm_model_prices.json"
+DEFAULT_CACHE_TTL_HOURS = 24
 
 
 def get_litellm_urls() -> dict:
@@ -35,10 +43,36 @@ def get_s3_client():
     return boto3.client("s3", config=RETRY_CONFIG)
 
 
-def read_from_s3(s3_client, bucket: str, key: str) -> dict:
-    """Read JSON data from S3."""
-    response = s3_client.get_object(Bucket=bucket, Key=key)
-    return json.loads(response["Body"].read().decode("utf-8"))
+def read_from_s3(
+    s3_client, bucket: str, key: str, default_on_missing: Optional[dict] = None
+) -> Optional[dict]:
+    """Read JSON data from S3.
+
+    Args:
+        s3_client: Boto3 S3 client instance.
+        bucket: S3 bucket name.
+        key: S3 object key.
+        default_on_missing: If provided, return this value when object doesn't exist.
+
+    Returns:
+        Parsed JSON data as a dictionary, or default_on_missing if object not found.
+    """
+    try:
+        response = s3_client.get_object(Bucket=bucket, Key=key)
+        return json.loads(response["Body"].read().decode("utf-8"))
+    except s3_client.exceptions.NoSuchKey:
+        if default_on_missing is not None:
+            return default_on_missing
+        raise
+    except Exception as e:
+        # Check if it's a NoSuchKey error from ClientError
+        if (
+            hasattr(e, "response")
+            and e.response.get("Error", {}).get("Code") == "NoSuchKey"
+        ):
+            if default_on_missing is not None:
+                return default_on_missing
+        raise
 
 
 def write_to_s3(s3_client, bucket: str, key: str, data: dict) -> None:
@@ -50,6 +84,85 @@ def write_to_s3(s3_client, bucket: str, key: str, data: dict) -> None:
         ContentType="application/json",
     )
     logger.info("Written to S3", extra={"bucket": bucket, "key": key})
+
+
+def get_cached_or_fetch(
+    s3_client: Any,
+    bucket: str,
+    cache_key: str,
+    fetch_fn: Callable[[], dict],
+    source_url: str,
+    ttl_hours: int = DEFAULT_CACHE_TTL_HOURS,
+) -> Tuple[dict, bool]:
+    """
+    Get data from cache if valid, otherwise fetch and cache.
+
+    Args:
+        s3_client: Boto3 S3 client
+        bucket: S3 bucket name
+        cache_key: S3 key for cache file
+        fetch_fn: Function to call if cache miss (returns data dict)
+        source_url: URL of the data source (for metadata)
+        ttl_hours: Cache TTL in hours (default 24)
+
+    Returns:
+        Tuple of (data, from_cache)
+    """
+    try:
+        cached = read_from_s3(s3_client, bucket, cache_key, default_on_missing=None)
+        if cached:
+            cached_at_str = cached.get("cached_at")
+            if cached_at_str:
+                cached_at = datetime.strptime(cached_at_str, "%Y-%m-%dT%H:%M:%SZ")
+                age_hours = (datetime.utcnow() - cached_at).total_seconds() / 3600
+                cache_ttl = cached.get("ttl_hours", ttl_hours)
+
+                if age_hours < cache_ttl:
+                    logger.info(
+                        "Cache hit - using cached data",
+                        extra={
+                            "cache_key": cache_key,
+                            "age_hours": round(age_hours, 1),
+                            "ttl_hours": cache_ttl,
+                        },
+                    )
+                    return cached.get("data", {}), True
+                else:
+                    logger.info(
+                        "Cache expired - fetching fresh data",
+                        extra={
+                            "cache_key": cache_key,
+                            "age_hours": round(age_hours, 1),
+                            "ttl_hours": cache_ttl,
+                        },
+                    )
+    except Exception as e:
+        logger.warning(
+            "Cache read failed, fetching fresh data",
+            extra={"cache_key": cache_key, "error": str(e)},
+        )
+
+    # Cache miss or expired - fetch fresh data
+    logger.info("Fetching fresh data from source", extra={"source_url": source_url})
+    data = fetch_fn()
+
+    # Update cache
+    cache_data = {
+        "cached_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ttl_hours": ttl_hours,
+        "source_url": source_url,
+        "data": data,
+    }
+    try:
+        write_to_s3(s3_client, bucket, cache_key, cache_data)
+        logger.info("Cache updated", extra={"cache_key": cache_key})
+    except Exception as e:
+        logger.warning(
+            "Cache write failed - continuing without caching",
+            extra={"cache_key": cache_key, "error": str(e)},
+        )
+
+    return data, False
 
 
 @tracer.capture_method
@@ -190,7 +303,8 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             "status": "SUCCESS",
             "s3Key": "executions/{id}/intermediate/token-specs.json",
             "modelsWithSpecs": 104,
-            "modelsWithoutSpecs": 4
+            "modelsWithoutSpecs": 4,
+            "fromCache": true
         }
     """
     start_time = time.time()
@@ -208,15 +322,30 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
     logger.info("Starting token specs collection")
 
     try:
-        # Fetch LiteLLM data (this is external, so do it even in dry run for testing)
-        litellm_data = fetch_litellm_data()
-        bedrock_models = filter_bedrock_models(litellm_data)
-
         s3_client = get_s3_client()
+
+        # Get LiteLLM source URL for cache metadata
+        urls = get_litellm_urls()
+        source_url = urls["primary"]
+
+        # Fetch LiteLLM data with caching
+        litellm_data, from_cache = get_cached_or_fetch(
+            s3_client=s3_client,
+            bucket=s3_bucket,
+            cache_key=LITELLM_CACHE_KEY,
+            fetch_fn=fetch_litellm_data,
+            source_url=source_url,
+            ttl_hours=DEFAULT_CACHE_TTL_HOURS,
+        )
+
+        bedrock_models = filter_bedrock_models(litellm_data)
 
         if not dry_run:
             # Read our models
             models_data = read_from_s3(s3_client, s3_bucket, models_s3_key)
+
+            if models_data is None:
+                raise ValueError(f"Models data not found at {models_s3_key}")
 
             # Match token specs
             token_specs = match_token_specs(models_data, bedrock_models)
@@ -234,6 +363,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
                     "models_without_specs": models_without_specs,
                     "litellm_models_available": len(bedrock_models),
                     "source": "litellm",
+                    "from_cache": from_cache,
                     "collection_timestamp": time.strftime(
                         "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
                     ),
@@ -259,6 +389,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             extra={
                 "models_with_specs": models_with_specs,
                 "models_without_specs": models_without_specs,
+                "from_cache": from_cache,
                 "duration_ms": duration_ms,
             },
         )
@@ -269,6 +400,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             "modelsWithSpecs": models_with_specs,
             "modelsWithoutSpecs": models_without_specs,
             "litellmModelsAvailable": len(bedrock_models),
+            "fromCache": from_cache,
             "durationMs": duration_ms,
         }
 

@@ -306,21 +306,25 @@ bucket/
 
 | Optimization | Implementation | Impact |
 |--------------|----------------|--------|
-| **Model extraction caching** | `model-extractor` writes to `cache/`, `regional-availability` reads | Saves 2 API calls/execution |
-| **Parallel collection** | Wave 1: 3 pricing + 2 models + 16 quotas concurrent | ~70% time reduction |
+| **Full region model caching** | `model-extractor` runs in all 27 regions, writes to `cache/` | 100% cache coverage for downstream |
+| **Inference profile caching** | `region-discovery` → `feature-collector` via S3 cache | Eliminates 27 redundant API calls |
+| **TTL-based LiteLLM caching** | 24h cache for external pricing data | Avoids repeated HTTP fetches |
+| **TTL-based lifecycle caching** | 24h cache for model lifecycle data | Avoids repeated web scraping |
+| **Dynamic region discovery** | No hardcoded regions; discovers at runtime | Auto-adapts to new AWS regions |
+| **Parallel collection** | Wave 1: 3 pricing + 27 models + 20 quotas concurrent | ~70% time reduction |
 | **Parallel enrichment** | Wave 2: 6 branches concurrent | ~50% time reduction |
 | **Adaptive retry** | Exponential backoff with jitter | Prevents cascade failures |
-| **Dual-region model extraction** | us-east-1 + us-west-2 only | Avoids 25+ redundant calls |
 
 ### Known Inefficiencies & Recommendations
 
-| Inefficiency | Current State | Recommendation | Potential Savings |
-|--------------|---------------|----------------|-------------------|
-| **Regional availability** calls all 27 regions | 54 API calls (ON_DEMAND + PROVISIONED filters) | Extend caching to all model-extractor regions | ~50 calls/execution |
-| **Feature collector** has no caching | 27 API calls to ListInferenceProfiles | Add caching layer similar to model-extractor | 25+ calls (if cached from discovery) |
-| **Mantle collector** probes each region | ~54 calls (list + probe × 27) | Batch or cache known-supported models | ~27 calls |
-| **Lifecycle scraping** re-fetches every run | 1 HTTP request/execution | Add TTL-based caching (data changes infrequently) | <1 call (cache for 24h) |
-| **Config sync** runs every execution | Regenerates frontend config each time | Only regenerate if backend config changed | N/A (lightweight) |
+| Inefficiency | Current State | Status | Notes |
+|--------------|---------------|--------|-------|
+| **Regional availability** calls all 27 regions | 54 API calls (ON_DEMAND + PROVISIONED filters) | **FIXED** | Now uses model-extractor cache (0 API calls) |
+| **Feature collector** has no caching | 27 API calls to ListInferenceProfiles | **FIXED** | Now reads from region-discovery cache |
+| **Lifecycle scraping** re-fetches every run | 1 HTTP request/execution | **FIXED** | TTL-based caching (24h) |
+| **LiteLLM pricing** re-fetches every run | 1 HTTP request/execution | **FIXED** | TTL-based caching (24h) |
+| **Mantle collector** probes each region | ~54 calls (list + probe × 27) | Open | Batch or cache known-supported models |
+| **Config sync** runs every execution | Regenerates frontend config each time | Open | Only regenerate if backend config changed |
 
 ### API Call Counts: Before vs After Caching
 
@@ -332,21 +336,16 @@ BEFORE CACHING (Hypothetical):
                                   ────────────────
                                      56 API calls
 
-AFTER CACHING (Current):
-  model-extractor (us-east-1)     →  1 API call + cache write
-  model-extractor (us-west-2)     →  1 API call + cache write
-  regional-availability           →  50 API calls (25 uncached × 2)
-                                  + 2 cache reads
-                                  ────────────────
-                                     52 API calls + 2 cache reads
-
-OPTIMAL (Future with full caching):
-  model-extractor (us-east-1)     →  1 API call + cache write
-  model-extractor (us-west-2)     →  1 API call + cache write
-  regional-availability           →  2 API calls (only filters not in cache)
+AFTER FULL CACHING (Current):
+  model-extractor (27 regions)    →  27 API calls + 27 cache writes
+  regional-availability           →  0 API calls (100% cache hits)
                                   + 27 cache reads
+  feature-collector               →  0 API calls (100% cache hits)
+                                  + 27 cache reads
+  token-specs-collector           →  0-1 API calls (TTL cache)
+  lifecycle-collector             →  0-1 API calls (TTL cache)
                                   ────────────────
-                                     4 API calls + 27 cache reads
+                                     ~29 API calls + 54 cache reads
 ```
 
 ### Execution Timing

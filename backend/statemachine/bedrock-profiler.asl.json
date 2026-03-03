@@ -4,9 +4,12 @@
   "States": {
     "DiscoverRegions": {
       "Type": "Task",
-      "Comment": "Dynamically discover AWS regions with Bedrock inference profiles",
+      "Comment": "Dynamically discover AWS regions with Bedrock inference profiles and cache profiles to S3",
       "Resource": "${RegionDiscoveryFunction}",
-      "Parameters": {},
+      "Parameters": {
+        "s3Bucket": "${S3Bucket}",
+        "executionId.$": "$$.Execution.Id"
+      },
       "ResultPath": "$.regionDiscovery",
       "Next": "InitializeExecution",
       "Catch": [
@@ -20,7 +23,7 @@
 
     "InitializeExecution": {
       "Type": "Pass",
-      "Comment": "Set up execution context with S3 paths and region lists",
+      "Comment": "Set up execution context with S3 paths, region lists, and inference profile cache keys",
       "Parameters": {
         "executionId.$": "$$.Execution.Id",
         "timestamp.$": "$$.Execution.StartTime",
@@ -32,29 +35,10 @@
             "AmazonBedrockService",
             "AmazonBedrockFoundationModels"
           ],
-          "modelRegions": [
-            "us-east-1",
-            "us-west-2"
-          ],
-          "quotaRegions": [
-            "us-east-1",
-            "us-west-2",
-            "us-east-2",
-            "eu-west-1",
-            "eu-west-2",
-            "eu-west-3",
-            "eu-central-1",
-            "eu-north-1",
-            "ap-southeast-1",
-            "ap-southeast-2",
-            "ap-southeast-3",
-            "ap-northeast-1",
-            "ap-northeast-2",
-            "ap-south-1",
-            "ca-central-1",
-            "sa-east-1"
-          ],
-          "featureRegions.$": "$.regionDiscovery.featureRegions"
+          "modelRegions.$": "$.regionDiscovery.featureRegions",
+          "quotaRegions.$": "$.regionDiscovery.featureRegions",
+          "featureRegions.$": "$.regionDiscovery.featureRegions",
+          "inferenceProfileCacheKeys.$": "$.regionDiscovery.inferenceProfileCacheKeys"
         }
       },
       "ResultPath": "$",
@@ -181,9 +165,9 @@
           "States": {
             "CollectModels": {
               "Type": "Map",
-              "Comment": "Extract models from optimal regions in parallel",
+              "Comment": "Extract models from all discovered regions in parallel",
               "ItemsPath": "$.config.modelRegions",
-              "MaxConcurrency": 2,
+              "MaxConcurrency": 10,
               "Parameters": {
                 "region.$": "$$.Map.Item.Value",
                 "s3Bucket.$": "$.config.s3Bucket",
@@ -405,13 +389,14 @@
           "States": {
             "CollectFeatures": {
               "Type": "Map",
-              "Comment": "Collect inference profiles from all regions in parallel",
+              "Comment": "Collect inference profiles from all regions in parallel (using cached profiles from region-discovery)",
               "ItemsPath": "$.config.featureRegions",
               "MaxConcurrency": 10,
               "Parameters": {
                 "region.$": "$$.Map.Item.Value",
                 "s3Bucket.$": "$.config.s3Bucket",
-                "executionId.$": "$.executionId"
+                "executionId.$": "$.executionId",
+                "inferenceProfileCacheKeys.$": "$.config.inferenceProfileCacheKeys"
               },
               "Iterator": {
                 "StartAt": "InvokeFeatureCollector",
@@ -422,7 +407,8 @@
                     "Parameters": {
                       "region.$": "$.region",
                       "s3Bucket.$": "$.s3Bucket",
-                      "s3Key.$": "States.Format('executions/{}/features/{}.json', $.executionId, $.region)"
+                      "s3Key.$": "States.Format('executions/{}/features/{}.json', $.executionId, $.region)",
+                      "inferenceProfileCacheKeys.$": "$.inferenceProfileCacheKeys"
                     },
                     "ResultPath": "$.result",
                     "Retry": [
