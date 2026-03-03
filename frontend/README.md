@@ -1,155 +1,158 @@
-# Bedrock Model Profiler - Frontend
+# Bedrock Model Profiler — Frontend
 
-A React-based web application for exploring and comparing Amazon Bedrock foundation models with pricing, regional availability, and technical specifications.
+A React-based web application for exploring, analyzing, and comparing Amazon Bedrock foundation models with pricing, regional availability, and technical specifications.
 
-## Live URL
+**Live URL**: https://d3oem6l61p8j11.cloudfront.net
 
-**Production**: https://d13th0vs8a20t3.cloudfront.net
+## Tech Stack
+
+- **React 18** — UI framework
+- **Vite** — Build tool with custom S3 proxy plugin for dev
+- **Tailwind CSS v4** — Utility-first styling
+- **Radix UI** — Accessible component primitives (Dialog, Popover, Select, Tabs, Tooltip, ScrollArea, etc.)
+- **Zustand** — State management (3 stores: comparison, favorites, auth)
+- **react-oidc-context** — AWS Cognito OIDC authentication
+- **Lucide React** — Icon library
+- **Recharts** — Analytics charts
+- **Leaflet / react-leaflet** — Regional availability maps
 
 ## Features
 
-- **Model Explorer**: Browse 108+ Bedrock models from 17 providers with filtering by provider, capabilities, modalities, and regional availability
-- **Model Comparison**: Compare up to 5 models side-by-side across pricing, availability, and technical specs
-- **Regional Pricing**: View pricing data across all Bedrock regions
-- **Responsive Design**: Fully responsive UI for mobile, tablet, and desktop
-- **Dark/Light Theme**: Toggle between dark and light modes
-
-## Prerequisites
-
-- Node.js 18+
-- npm
-- AWS CLI (for deployment)
-- AWS SAM CLI (for infrastructure deployment)
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-The dev server runs at `http://localhost:5173` and proxies data requests to S3 using your local AWS credentials.
-
-## Production Build
-
-```bash
-# Build for production
-npm run build
-
-# Preview production build locally
-npm run preview
-```
-
-## Deployment
-
-### First Time Setup
-
-Run the full infrastructure setup script:
-
-```bash
-./scripts/setup-infrastructure.sh
-```
-
-This will:
-1. Check that the backend stack exists
-2. Deploy CloudFront + S3 infrastructure
-3. Update backend with CloudFront access
-4. Build and deploy frontend files
-
-### Deploy Frontend Only
-
-If infrastructure is already deployed, deploy just the frontend files:
-
-```bash
-npm run build
-./scripts/deploy.sh
-```
-
-## Architecture
-
-### Frontend Stack
-
-```
-CloudFront Distribution
-├── Default Behavior → Frontend S3 (static files)
-└── /latest/* Behavior → Data S3 (models/pricing JSON)
-```
-
-**AWS Resources:**
-- CloudFront distribution with OAC
-- S3 bucket for static files
-- Cache policies (1 day default, 1 hour for data)
-- Security headers policy (HSTS, X-Frame-Options, etc.)
-
-### Data Flow
-
-```
-Production:
-  Browser → CloudFront → S3 buckets
-
-Development:
-  Browser → Vite (localhost:5173)
-            └→ Proxy → S3 data bucket
-```
-
-Data is fetched from:
-- Production: `/latest/bedrock_models.json`, `/latest/bedrock_pricing.json`
-- Development: `/s3-data/latest/bedrock_models.json`, `/s3-data/latest/bedrock_pricing.json` (proxied to S3)
+- **Model Explorer**: Browse/filter/search 100+ models with 13 filter types, sortable, paginated, responsive grid
+- **Model Detail**: Expanded modal with Technical Specs, Quotas (auth-gated), Pricing tabs; expandable availability pills showing In Region, CRIS, Batch, Mantle with inline detail sections
+- **Model Comparison**: Up to 5 models side-by-side across 4 tabs (Overview, Pricing, Availability, Tech Specs)
+- **Regional Availability**: Comprehensive model x region x consumption matrix (auth-gated, beta+)
+- **Favorites**: Persistent model shortlist (localStorage)
+- **Region Roadmap**: Internal planning tool for model launches (operators/admins)
+- **Usage Analytics**: Admin-only dashboards (Recharts)
+- **Dark/Light Theme**: Full theme support
 
 ## Project Structure
 
 ```
-bedrock-model-profiler_2026/
+frontend/
 ├── src/
 │   ├── components/
-│   │   ├── ui/          # Radix UI primitives (button, card, dialog, etc.)
-│   │   ├── layout/      # App shell (Layout, Sidebar, MainContent)
-│   │   ├── models/      # Model Explorer (filters, grid, cards, pagination)
-│   │   └── comparison/  # Comparison feature (tabs for overview, pricing, etc.)
+│   │   ├── ui/              # Radix UI primitives (button, card, dialog, tooltip, etc.)
+│   │   ├── layout/          # App shell (Layout, Sidebar, MainContent, ThemeProvider)
+│   │   ├── models/          # Model Explorer, ModelCard, ModelCardExpanded, RegionalAvailability
+│   │   └── comparison/      # ModelComparison + tabs (Overview, Pricing, Availability, TechSpecs)
 │   ├── config/
-│   │   └── dataSource.js    # Environment-aware data URL configuration
+│   │   ├── admin.js             # Permission functions (isAdmin, canViewQuotas, etc.)
+│   │   ├── constants.js         # Consumption labels, provider colors
+│   │   ├── generated-constants.js  # Auto-generated from backend config (sync-config.js)
+│   │   └── dataSource.js        # Environment-aware data URLs
 │   ├── hooks/
-│   │   └── useModels.js     # Core data fetching hook
+│   │   └── useModels.js         # Core data hook: fetches models + pricing, joins data
 │   ├── stores/
-│   │   └── comparisonStore.js  # Zustand store for comparison selections
-│   └── utils/
-│       └── filters.js       # Filter logic for model list
-├── infrastructure/
-│   └── template.yaml        # SAM template for CloudFront + S3
+│   │   ├── comparisonStore.js   # Selected models for comparison (persisted)
+│   │   ├── favoritesStore.js    # Favorited model IDs (persisted)
+│   │   └── authStore.js         # Cognito user state (session-only)
+│   ├── utils/
+│   │   ├── filters.js           # Filter logic: region, geo, status, capabilities, etc.
+│   │   └── regionUtils.js       # Region metadata, geo sorting
+│   ├── auth/
+│   │   └── AuthGate.jsx         # OIDC authentication wrapper
+│   └── lib/
+│       └── utils.js             # cn() classname helper
 ├── scripts/
-│   ├── deploy.sh            # Deploy frontend to S3
-│   └── setup-infrastructure.sh  # Full infrastructure setup
-├── public/                  # Static assets
-└── dist/                    # Production build output
+│   ├── deploy.sh                # S3 sync + CloudFront invalidation
+│   └── sync-config.js           # Generate frontend constants from backend config
+├── public/                      # Static assets (favicon)
+└── dist/                        # Production build output
 ```
 
-## Configuration
+## Authentication & Authorization
 
-### Environment Variables
+The frontend uses AWS Cognito OIDC for authentication via react-oidc-context.
 
-Configuration is handled via `src/config/dataSource.js`:
-- `S3_BUCKET`: Data bucket name
-- `S3_REGION`: Data bucket region
-- `S3_PREFIX`: Data path prefix (default: `latest`)
+### Configuration
 
-### Vite Proxy (Development)
+Configure via `.env` (copy from `template.env`):
 
-The development server proxies `/s3-data/*` requests to S3. Configure in `vite.config.js`.
+```bash
+VITE_COGNITO_AUTHORITY_URL=https://cognito-idp.us-east-1.amazonaws.com/us-east-1_xxxxx
+VITE_COGNITO_CLIENT_ID=your-app-client-id
+```
 
-## Tech Stack
+If environment variables are not set, the app runs without authentication.
 
-- **React 18** - UI framework
-- **Vite** - Build tool
-- **Tailwind CSS v4** - Styling
-- **Radix UI** - Accessible component primitives
-- **Zustand** - State management
-- **Lucide React** - Icons
-- **AWS SAM** - Infrastructure as code
+### User Groups
+
+User groups provide additive permissions:
+
+- **beta-access-users**: Regional Availability, Roadmap (read), Quotas
+- **region-roadmap-operators**: Roadmap editing
+- **admins**: Analytics, Changelog, all features
+
+### Permission Functions
+
+Located in `config/admin.js`:
+
+- `isAdmin(user)` — Check if user is admin
+- `canViewRoadmap(user)` — Check if user can view roadmap
+- `canViewRegionalAvailability(user)` — Check if user can view regional availability
+- `canViewQuotas(user)` — Check if user can view quota data
+- `canEditRoadmap(user)` — Check if user can edit roadmap
+- `canViewAnalytics(user)` — Check if user can view analytics
+- `canViewChangelog(user)` — Check if user can view changelog
+
+Sidebar badges show user's highest group: `BETA` / `OP` / `ADM`
+
+## Data Fetching
+
+The `useModels.js` hook loads two JSON files in parallel:
+
+- `/latest/bedrock_models.json` (~3MB)
+- `/latest/bedrock_pricing.json` (~2MB)
+
+### Environment-Aware Data Loading
+
+- **Production**: Fetched from CloudFront `/latest/*` paths
+- **Development**: Proxied via Vite S3 plugin (`/s3-data/*` → S3 bucket)
+
+### Pricing Join Logic
+
+The `getPricingForModel()` function matches model to pricing via `pricing_file_reference`. Handles 6 pricing types:
+
+- `token`
+- `image_generation`
+- `video_generation`
+- `video_second`
+- `search_unit`
+- `embedding`
+
+## Development
+
+```bash
+npm install
+npm run dev     # localhost:5173 with S3 proxy
+npm run build   # Production build to dist/
+npm run preview # Preview production build
+```
+
+The dev server proxies S3 data requests using your local AWS credentials configured via AWS CLI.
+
+## Deployment
+
+```bash
+npm run build
+./scripts/deploy.sh  # S3 sync + CloudFront invalidation
+```
+
+The deploy script syncs the `dist/` folder to S3 and invalidates the CloudFront cache.
+
+## Key Components
+
+| Component | File | Description |
+|-----------|------|-------------|
+| ModelExplorer | models/ModelExplorer.jsx | Main orchestrator: filters, sorting, pagination |
+| ModelCard | models/ModelCard.jsx | Compact model card: pricing, context, modalities, tags |
+| ModelCardExpanded | models/ModelCardExpanded.jsx | Detail modal: specs, quotas, pricing tabs + availability pills |
+| RegionalAvailability | models/RegionalAvailability.jsx | Region x model availability matrix |
+| ModelComparison | comparison/ModelComparison.jsx | Side-by-side comparison with 4 tab views |
+| Layout | layout/Layout.jsx | App shell, sidebar, theme, confidential banner |
 
 ## Related
 
-- **Backend**: See `bedrock-profiler-stepfunctions/` for the Step Functions data collection pipeline
-- **Data**: Updated daily at 6 AM UTC via EventBridge scheduler
+See `CLAUDE.md` in the repository root for complete project documentation including backend architecture, data pipeline, and deployment workflows.
