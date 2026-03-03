@@ -2007,10 +2007,7 @@ function SpecsTab({ model }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
   
-  // Data extraction (preserved from original)
-  const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window
-  const extendedContextWindow = model.specs?.extended_context_window
-  const maxOutput = model.specs?.max_output ?? model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
+  // Data extraction
   const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
   const outputModalities = model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? []
   const capabilities = model.capabilities ?? model.model_capabilities ?? []
@@ -2025,48 +2022,8 @@ function SpecsTab({ model }) {
   )]
   const languages = model.languages ?? model.languages_supported ?? []
   const documentationLinks = model.docs ?? model.documentation_links ?? {}
-  const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
   const consumptionOptions = model.consumption_options || []
   const customizations = model.customization?.customization_supported || []
-  const lifecycleStatus = model.lifecycle?.status ?? model.model_lifecycle?.status ?? model.model_status ?? 'ACTIVE'
-  
-  // Calculate total regions across all availability types
-  const onDemandRegions = model.availability?.on_demand?.regions ?? model.in_region ?? []
-  const crisRegions = model.availability?.cross_region?.regions ?? []
-  const batchRegions = model.availability?.batch?.regions ?? []
-  const mantleRegions = model.availability?.mantle?.regions ?? []
-  const totalRegions = new Set([...onDemandRegions, ...crisRegions, ...batchRegions, ...mantleRegions]).size || onDemandRegions.length
-
-  // Format large numbers with K/M suffix
-  const formatNumber = (num) => {
-    if (!num) return '—'
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
-    if (num >= 1000) return `${(num / 1000).toFixed(0)}K`
-    return num.toString()
-  }
-
-  // Get status color classes
-  const getStatusColor = (status) => {
-    const normalizedStatus = (status || 'ACTIVE').toUpperCase()
-    switch (normalizedStatus) {
-      case 'ACTIVE':
-        return isLight
-          ? 'bg-emerald-500 text-white'
-          : 'bg-emerald-500 text-white'
-      case 'LEGACY':
-        return isLight
-          ? 'bg-amber-500 text-white'
-          : 'bg-amber-500 text-white'
-      case 'EOL':
-        return isLight
-          ? 'bg-red-500 text-white'
-          : 'bg-red-500 text-white'
-      default:
-        return isLight
-          ? 'bg-stone-400 text-white'
-          : 'bg-slate-500 text-white'
-    }
-  }
 
   // Category header component
   const CategoryHeader = ({ icon: Icon, title }) => (
@@ -2083,96 +2040,12 @@ function SpecsTab({ model }) {
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-6 space-y-6">
-        {/* ═══════════════════════════════════════════════════════════════════
-            HERO SECTION - Key Metrics (always visible, prominent)
-            ═══════════════════════════════════════════════════════════════════ */}
-        <div className={cn(
-          'rounded-xl p-4 border',
-          isLight
-            ? 'bg-gradient-to-br from-stone-50 to-stone-100/50 border-stone-200'
-            : 'bg-gradient-to-br from-white/[0.04] to-white/[0.02] border-white/10'
-        )}>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Context Window */}
-            <div className={cn(
-              'rounded-lg p-3 text-center',
-              isLight ? 'bg-white/80 shadow-sm' : 'bg-white/[0.04]'
-            )}>
-              <div className={cn('text-[10px] uppercase tracking-wider font-medium mb-1', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                Context Window
-              </div>
-              <div className={cn('text-2xl font-bold tabular-nums', isLight ? 'text-stone-900' : 'text-white')}>
-                {formatNumber(contextWindow)}
-              </div>
-              {extendedContextWindow && extendedContextWindow !== contextWindow && (
-                <div className={cn('text-xs mt-0.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')}>
-                  ({formatNumber(extendedContextWindow)} extended)
-                </div>
-              )}
-            </div>
-
-            {/* Max Output */}
-            <div className={cn(
-              'rounded-lg p-3 text-center',
-              isLight ? 'bg-white/80 shadow-sm' : 'bg-white/[0.04]'
-            )}>
-              <div className={cn('text-[10px] uppercase tracking-wider font-medium mb-1', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                Max Output
-              </div>
-              <div className={cn('text-2xl font-bold tabular-nums', isLight ? 'text-stone-900' : 'text-white')}>
-                {formatNumber(maxOutput)}
-              </div>
-              <div className={cn('text-xs mt-0.5', isLight ? 'text-stone-400' : 'text-slate-500')}>
-                tokens
-              </div>
-            </div>
-
-            {/* Total Regions */}
-            <div className={cn(
-              'rounded-lg p-3 text-center',
-              isLight ? 'bg-white/80 shadow-sm' : 'bg-white/[0.04]'
-            )}>
-              <div className={cn('text-[10px] uppercase tracking-wider font-medium mb-1', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                Regions
-              </div>
-              <div className={cn('text-2xl font-bold tabular-nums', isLight ? 'text-stone-900' : 'text-white')}>
-                {totalRegions || '—'}
-              </div>
-              <div className={cn('text-xs mt-0.5', isLight ? 'text-stone-400' : 'text-slate-500')}>
-                available
-              </div>
-            </div>
-
-            {/* Lifecycle Status */}
-            <div className={cn(
-              'rounded-lg p-3 text-center',
-              isLight ? 'bg-white/80 shadow-sm' : 'bg-white/[0.04]'
-            )}>
-              <div className={cn('text-[10px] uppercase tracking-wider font-medium mb-1', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                Status
-              </div>
-              <div className="flex justify-center mt-1">
-                <span className={cn(
-                  'px-3 py-1 rounded-full text-sm font-semibold',
-                  getStatusColor(lifecycleStatus)
-                )}>
-                  {lifecycleStatus.toUpperCase()}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ═══════════════════════════════════════════════════════════════════
-            TWO-COLUMN GRID - Category Sections
-            ═══════════════════════════════════════════════════════════════════ */}
+      <div className="p-6">
+        {/* Two-column grid layout */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* ─────────────────────────────────────────────────────────────────
-              LEFT COLUMN
-              ───────────────────────────────────────────────────────────────── */}
+          {/* LEFT COLUMN */}
           <div className="space-y-6">
-            {/* ═══ MODEL CAPABILITIES ═══ */}
+            {/* MODEL CAPABILITIES */}
             <div>
               <CategoryHeader icon={Cpu} title="Model Capabilities" />
               <div className="space-y-3">
@@ -2234,7 +2107,7 @@ function SpecsTab({ model }) {
               </div>
             </div>
 
-            {/* ═══ FEATURES & INTEGRATIONS ═══ */}
+            {/* FEATURES & INTEGRATIONS */}
             <div>
               <CategoryHeader icon={Wrench} title="Features & Integrations" />
               <div className="space-y-3">
@@ -2282,11 +2155,9 @@ function SpecsTab({ model }) {
             </div>
           </div>
 
-          {/* ─────────────────────────────────────────────────────────────────
-              RIGHT COLUMN
-              ───────────────────────────────────────────────────────────────── */}
+          {/* RIGHT COLUMN */}
           <div className="space-y-6">
-            {/* ═══ AVAILABILITY & DEPLOYMENT ═══ */}
+            {/* AVAILABILITY & DEPLOYMENT */}
             <div>
               <CategoryHeader icon={Globe} title="Availability & Deployment" />
               <div className="space-y-3">
@@ -2320,7 +2191,7 @@ function SpecsTab({ model }) {
               </div>
             </div>
 
-            {/* ═══ LIFECYCLE & RESOURCES ═══ */}
+            {/* LIFECYCLE & RESOURCES */}
             <div>
               <CategoryHeader icon={Clock} title="Lifecycle & Resources" />
               <div className="space-y-3">
