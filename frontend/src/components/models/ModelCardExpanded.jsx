@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route, BarChart3, Wrench, AlertTriangle, AlertCircle } from 'lucide-react'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import {
@@ -3397,7 +3397,7 @@ export function ModelCardExpanded({
   let pricingRegions = []
   let pricingTypes = 0
   // Compute consumption options dynamically to ensure alignment with actual capabilities
-  const consumptionOptions = useMemo(() => {
+  const consumptionOptions = (() => {
     const opts = [...(model.consumption_options || [])]
     // Ensure provisioned_throughput is shown if model supports it
     if (model.provisioned_throughput?.supported && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
@@ -3416,7 +3416,7 @@ export function ModelCardExpanded({
       opts.push('batch')
     }
     return opts
-  }, [model])
+  })()
 
   if (fullPricing?.regions) {
     pricingRegions = Object.keys(fullPricing.regions)

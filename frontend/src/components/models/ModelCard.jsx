@@ -433,7 +433,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                           <span className="cursor-default">
                             {formatNumber(contextWindow)}
                             <span className={cn('ml-1', isLight ? 'text-amber-500' : 'text-emerald-400')}>
-                              / {formatNumber(extendedContext)}
+                              | {formatNumber(extendedContext)}
                             </span>
                           </span>
                         </TooltipTrigger>
