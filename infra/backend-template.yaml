@@ -145,7 +145,7 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: !Sub 'bedrock-profiler-shared-utils-${Environment}'
-      Description: Shared utilities for Bedrock Model Profiler Lambda functions - v2.6.0 Efficiency optimizations with full region caching and TTL-based external data caching
+      Description: Shared utilities for Bedrock Model Profiler Lambda functions - v2.7.0 LiteLLM enrichment for Mantle-only models
       ContentUri: ../backend/layers/common/
       CompatibleRuntimes:
         - python3.11

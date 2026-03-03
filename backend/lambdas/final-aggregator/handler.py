@@ -29,6 +29,9 @@ from shared.model_matcher import (
 from shared.powertools import logger, tracer, metrics, LambdaContext
 from aws_lambda_powertools.metrics import MetricUnit
 
+# Cache key for LiteLLM data (same as token-specs-collector)
+LITELLM_CACHE_KEY = "cache/litellm_model_prices.json"
+
 
 @tracer.capture_method
 def aggregate_quotas(quota_results: list[dict], s3_client: Any, bucket: str) -> dict:
@@ -445,6 +448,147 @@ def _derive_model_name_from_id(mantle_id: str) -> str:
     return " ".join(result_words)
 
 
+def get_litellm_specs_for_mantle_model(mantle_id: str, litellm_data: dict) -> dict:
+    """
+    Get LiteLLM specifications for a Mantle-only model using fuzzy matching.
+
+    The LiteLLM data uses different key formats than Mantle model IDs:
+    - LiteLLM: `bedrock/qwen.qwen3-32b-v1:0`, `bedrock/zai.glm-4.7`
+    - Mantle: `qwen.qwen3-32b`, `zai.glm-4.6`
+
+    Matching strategy:
+    1. Try exact match (after normalizing LiteLLM key)
+    2. Try with/without version suffix (-v1:0, :0)
+    3. Try partial matching (model ID contains LiteLLM key or vice versa)
+    4. Use calculate_match_score for fuzzy matching
+
+    Args:
+        mantle_id: The Mantle model ID (e.g., "qwen.qwen3-32b")
+        litellm_data: Raw LiteLLM data dict from cache (the "data" field)
+
+    Returns:
+        Dict with: context_window, max_output_tokens, supports_function_calling,
+        supports_reasoning, supports_system_messages, supports_tool_choice, source
+        Returns empty dict if no match found.
+    """
+    if not mantle_id or not litellm_data:
+        return {}
+
+    mantle_id_lower = mantle_id.lower()
+    mantle_canonical = get_canonical_model_id(mantle_id)
+
+    # Build a lookup of normalized LiteLLM keys to their data
+    litellm_lookup = {}
+    for key, data in litellm_data.items():
+        if not isinstance(data, dict):
+            continue
+
+        # Normalize the key: remove "bedrock/" prefix if present
+        normalized_key = key.lower()
+        if "/" in normalized_key:
+            normalized_key = normalized_key.split("/")[-1]
+
+        litellm_lookup[normalized_key] = {
+            "original_key": key,
+            "data": data,
+            "canonical": get_canonical_model_id(normalized_key),
+        }
+
+    # Strategy 1: Exact match on normalized key
+    if mantle_id_lower in litellm_lookup:
+        return _extract_litellm_specs(litellm_lookup[mantle_id_lower]["data"])
+
+    # Strategy 2: Canonical match
+    for normalized_key, entry in litellm_lookup.items():
+        if entry["canonical"] == mantle_canonical:
+            logger.debug(
+                f"LiteLLM canonical match: {mantle_id} -> {entry['original_key']}"
+            )
+            return _extract_litellm_specs(entry["data"])
+
+    # Strategy 3: Partial matching (substring containment)
+    # Try both directions: mantle_id in litellm_key and litellm_key in mantle_id
+    for normalized_key, entry in litellm_lookup.items():
+        # Skip if there's a semantic conflict
+        if has_semantic_conflict(mantle_id, normalized_key):
+            continue
+
+        # Check substring containment
+        if mantle_id_lower in normalized_key or normalized_key in mantle_id_lower:
+            logger.debug(
+                f"LiteLLM partial match: {mantle_id} -> {entry['original_key']}"
+            )
+            return _extract_litellm_specs(entry["data"])
+
+    # Strategy 4: Fuzzy matching using calculate_match_score
+    best_match_key = None
+    best_score = 0.0
+    best_entry = None
+
+    for normalized_key, entry in litellm_lookup.items():
+        # Skip if there's a semantic conflict
+        if has_semantic_conflict(mantle_id, normalized_key):
+            continue
+
+        score = calculate_match_score(mantle_id, normalized_key)
+        if score > best_score:
+            best_score = score
+            best_match_key = normalized_key
+            best_entry = entry
+
+    # Accept match if score is high enough (0.75 threshold - slightly lower for Mantle models)
+    if best_match_key and best_score >= 0.75:
+        logger.debug(
+            f"LiteLLM fuzzy match: {mantle_id} -> {best_entry['original_key']} "
+            f"(score: {best_score:.2f})"
+        )
+        return _extract_litellm_specs(best_entry["data"])
+
+    # No match found
+    logger.debug(f"No LiteLLM match found for Mantle model: {mantle_id}")
+    return {}
+
+
+def _extract_litellm_specs(litellm_model_data: dict) -> dict:
+    """
+    Extract relevant specifications from LiteLLM model data.
+
+    Args:
+        litellm_model_data: Raw model data from LiteLLM JSON
+
+    Returns:
+        Dict with normalized specs for use in Mantle stub
+    """
+    if not litellm_model_data:
+        return {}
+
+    # Extract context window (max_input_tokens or max_tokens)
+    context_window = litellm_model_data.get("max_input_tokens")
+    if context_window is None:
+        context_window = litellm_model_data.get("max_tokens")
+
+    # Extract max output tokens
+    max_output_tokens = litellm_model_data.get("max_output_tokens")
+
+    # Extract capability flags
+    supports_function_calling = litellm_model_data.get(
+        "supports_function_calling", False
+    )
+    supports_reasoning = litellm_model_data.get("supports_reasoning", False)
+    supports_system_messages = litellm_model_data.get("supports_system_messages", False)
+    supports_tool_choice = litellm_model_data.get("supports_tool_choice", False)
+
+    return {
+        "context_window": context_window,
+        "max_output_tokens": max_output_tokens,
+        "supports_function_calling": supports_function_calling,
+        "supports_reasoning": supports_reasoning,
+        "supports_system_messages": supports_system_messages,
+        "supports_tool_choice": supports_tool_choice,
+        "source": "litellm",
+    }
+
+
 def _find_pricing_for_mantle_stub(
     mantle_id: str, model_name: str, pricing_data: dict
 ) -> Optional[dict]:
@@ -487,12 +631,22 @@ def create_mantle_only_stub(
     regions: list,
     collection_timestamp: str,
     supports_responses_api: bool = False,
+    litellm_specs: Optional[dict] = None,
 ) -> dict:
     """
     Create a stub model entry for a Mantle-only model (not in Bedrock's ListFoundationModels).
 
     These models exist in the Mantle API but have no corresponding Bedrock foundation model.
     The stub provides minimal metadata to display the model in the UI.
+
+    Args:
+        mantle_id: The Mantle model ID
+        regions: List of regions where the model is available
+        collection_timestamp: ISO timestamp of collection
+        supports_responses_api: Whether the model supports the Responses API
+        litellm_specs: Optional dict with LiteLLM specifications (context_window,
+            max_output_tokens, supports_function_calling, supports_reasoning,
+            supports_system_messages, supports_tool_choice, source)
     """
     # Extract provider using centralized utility from model_matcher
     _, provider_name = get_provider_from_model_id(mantle_id)
@@ -551,6 +705,32 @@ def create_mantle_only_stub(
     default_bedrock_guide = config.get_documentation_url("bedrock_model_ids")
     default_pricing_guide = config.get_documentation_url("bedrock_pricing")
 
+    # Extract LiteLLM specs if provided
+    context_window = None
+    max_output_tokens = None
+    converse_source = "unknown"
+    litellm_verified = False
+    chat_features = {}
+
+    if litellm_specs:
+        context_window = litellm_specs.get("context_window")
+        max_output_tokens = litellm_specs.get("max_output_tokens")
+        converse_source = litellm_specs.get("source", "litellm")
+        litellm_verified = True
+
+        # Build chat_features from LiteLLM capability flags
+        if litellm_specs.get("supports_function_calling"):
+            chat_features["function_calling"] = True
+        if litellm_specs.get("supports_reasoning"):
+            chat_features["reasoning"] = {"embedded": True}
+        if litellm_specs.get("supports_system_messages"):
+            chat_features["system_role"] = True
+        if litellm_specs.get("supports_tool_choice"):
+            chat_features["tool_choice"] = True
+
+    # Calculate size category based on context window
+    size_category = get_size_category(context_window)
+
     return {
         "model_id": mantle_id,
         "model_arn": "",
@@ -574,7 +754,7 @@ def create_mantle_only_stub(
         "description": "",
         "short_description": "",
         "feature_support": {},
-        "chat_features": {},
+        "chat_features": chat_features,
         "consumption_options": ["mantle"],
         "cross_region_inference": {
             "supported": False,
@@ -628,15 +808,15 @@ def create_mantle_only_stub(
             "detection_method": "no_pricing_data",
         },
         "converse_data": {
-            "context_window": None,
-            "max_output_tokens": None,
-            "size_category": {"category": "Unknown", "color": "#6B7280", "tier": 0},
-            "verified": False,
-            "source": "unknown",
-            "litellm_verified": False,
+            "context_window": context_window,
+            "max_output_tokens": max_output_tokens,
+            "size_category": size_category,
+            "verified": litellm_verified,
+            "source": converse_source,
+            "litellm_verified": litellm_verified,
             "capabilities_count": 0,
             "use_cases_count": 0,
-            "regions_count": 0,
+            "regions_count": len(regions),
             "has_extended_context": False,
         },
         "has_pricing": False,
@@ -1881,11 +2061,26 @@ def build_final_models(
     mantle_by_model: dict,
     lifecycle_by_model: dict,
     regional_lifecycle: dict = None,
+    litellm_data: dict = None,
 ) -> dict:
     """Build the final comprehensive models structure in expected schema with tracing.
 
     Also creates stub entries for Mantle-only models (models that exist in the
     Mantle API but not in Bedrock's ListFoundationModels).
+
+    Args:
+        models_with_pricing: Models with pricing data from pricing-linker
+        regional_availability: Regional availability data
+        token_specs: Token specifications from token-specs-collector
+        quotas_by_region: Quotas aggregated by region
+        features_by_region: Features (inference profiles) by region
+        enriched_models: Enriched model data
+        pricing_data: Full pricing data
+        collection_timestamp: ISO timestamp of collection
+        mantle_by_model: Mantle model data by model ID
+        lifecycle_by_model: Lifecycle data by model ID
+        regional_lifecycle: Regional lifecycle data
+        litellm_data: Raw LiteLLM data for enriching Mantle-only models
     """
     logger.info("Building final models")
     providers = models_with_pricing.get("providers", {})
@@ -1968,8 +2163,26 @@ def build_final_models(
             mantle_info = mantle_by_model.get(mantle_id, {})
             regions = mantle_info.get("regions", [])
             supports_responses_api = mantle_info.get("supports_responses_api", False)
+
+            # Try to get LiteLLM specs for this Mantle-only model
+            litellm_specs = None
+            if litellm_data:
+                litellm_specs = get_litellm_specs_for_mantle_model(
+                    mantle_id, litellm_data
+                )
+                if litellm_specs:
+                    logger.info(
+                        f"Enriched Mantle-only model {mantle_id} with LiteLLM specs: "
+                        f"context_window={litellm_specs.get('context_window')}, "
+                        f"max_output={litellm_specs.get('max_output_tokens')}"
+                    )
+
             stub = create_mantle_only_stub(
-                mantle_id, regions, collection_timestamp, supports_responses_api
+                mantle_id,
+                regions,
+                collection_timestamp,
+                supports_responses_api,
+                litellm_specs=litellm_specs,
             )
 
             # Try to enrich with pricing data
@@ -2126,6 +2339,18 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             lifecycle_by_model = lifecycle_data.get("models_by_id", {})
             regional_lifecycle = lifecycle_data.get("regional_lifecycle", {})
 
+            # Read LiteLLM cache for enriching Mantle-only models
+            # The cache is written by token-specs-collector and contains raw LiteLLM data
+            litellm_cache = read_from_s3(
+                s3_client, s3_bucket, LITELLM_CACHE_KEY, default_on_missing={}
+            )
+            litellm_data = litellm_cache.get("data", {}) if litellm_cache else {}
+            if litellm_data:
+                logger.info(
+                    "Loaded LiteLLM cache for Mantle-only model enrichment",
+                    extra={"model_count": len(litellm_data)},
+                )
+
             # Aggregate quotas, features, and mantle data
             quotas_by_region = aggregate_quotas(quota_results, s3_client, s3_bucket)
             features_by_region = aggregate_features(
@@ -2146,6 +2371,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
                 mantle_by_model,
                 lifecycle_by_model,
                 regional_lifecycle,
+                litellm_data=litellm_data,
             )
 
             # Calculate statistics
