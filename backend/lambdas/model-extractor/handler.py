@@ -804,11 +804,9 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             "status": "SUCCESS",
             "region": region,
             "s3Key": s3_key,
-            "modelCount": len(models),
-            "durationMs": duration_ms,
         }
 
-        # Include cache key if caching was successful
+        # Include cache key if caching was successful (needed by downstream Lambdas)
         if cache_key:
             result["cacheKey"] = cache_key
 

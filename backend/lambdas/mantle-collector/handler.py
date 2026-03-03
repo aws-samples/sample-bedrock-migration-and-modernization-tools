@@ -362,8 +362,6 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             "status": "SUCCESS",
             "region": region,
             "s3Key": s3_key,
-            "mantleModelCount": len(models),
-            "durationMs": duration_ms,
         }
 
     except urllib.error.HTTPError as e:

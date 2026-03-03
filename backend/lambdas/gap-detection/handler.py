@@ -587,10 +587,7 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             "status": "SUCCESS",
             "s3Key": output_key,
             "shouldTriggerAgent": should_trigger,
-            "summary": report["summary"],
             "priority": trigger_decision["priority"],
-            "reasons": trigger_decision["reasons"],
-            "durationMs": duration_ms,
         }
 
     except Exception as e:

@@ -201,8 +201,6 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             "status": "SUCCESS",
             "region": region,
             "s3Key": s3_key,
-            "quotaCount": len(quotas),
-            "durationMs": duration_ms,
         }
 
     except Exception as e:
