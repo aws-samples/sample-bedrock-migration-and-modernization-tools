@@ -570,6 +570,110 @@ tables = soup.select('.table-container .table-contents table')
 
 ---
 
+## Output Data Schema (bedrock_models.json)
+
+The final output follows a hierarchical structure organized by provider:
+
+```json
+{
+  "metadata": {
+    "generated_at": "2026-03-03T12:00:00Z",
+    "execution_id": "exec-123",
+    "total_models": 123,
+    "total_providers": 18
+  },
+  "providers": {
+    "Anthropic": {
+      "models": {
+        "anthropic.claude-3-5-sonnet-20241022-v2:0": {
+          "model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+          "model_name": "Claude 3.5 Sonnet v2",
+          "model_provider": "Anthropic",
+          
+          "specs": {
+            "context_window": 200000,
+            "extended_context": null,
+            "max_output": 8192
+          },
+          
+          "modalities": {
+            "input_modalities": ["TEXT", "IMAGE"],
+            "output_modalities": ["TEXT"]
+          },
+          
+          "capabilities": ["chat", "function_calling", "image_understanding"],
+          
+          "availability": {
+            "on_demand": {
+              "supported": true,
+              "regions": ["us-east-1", "us-west-2", "eu-west-1", ...]
+            },
+            "batch": {
+              "supported": true,
+              "regions": ["us-east-1", "us-west-2"]
+            },
+            "provisioned": {
+              "supported": true,
+              "regions": ["us-east-1", "us-west-2", ...]
+            },
+            "cross_region": {
+              "supported": true,
+              "regions": ["us-east-1", "us-west-2", ...],
+              "profiles": [
+                {
+                  "profile_id": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+                  "profile_name": "US Anthropic Claude 3.5 Sonnet v2",
+                  "prefix": "us"
+                }
+              ]
+            },
+            "mantle": {
+              "supported": false,
+              "regions": []
+            }
+          },
+          
+          "lifecycle": {
+            "status": "ACTIVE",
+            "global_status": "ACTIVE",
+            "launch_date": "2024-10-22",
+            "eol_date": null
+          },
+          
+          "pricing": {
+            "available": true,
+            "reference": {
+              "provider": "Anthropic",
+              "model_key": "anthropic.claude-3-5-sonnet-20241022-v2:0"
+            }
+          },
+          
+          "quotas": {
+            "us-east-1": [...],
+            "us-west-2": [...]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Key Field Mappings (Phase 3 Restructure)
+
+| Old Field | New Field | Notes |
+|-----------|-----------|-------|
+| `specs.max_output_tokens` | `specs.max_output` | Simplified name |
+| `pricing.pricing_file_reference` | `pricing.reference` | Shortened |
+| `pricing.is_pricing_available` | `pricing.available` | Boolean flag |
+| `model_lifecycle` | `lifecycle` | Simplified |
+| `availability.batch.supported_regions` | `availability.batch.regions` | Consistent naming |
+| `availability.provisioned.provisioned_regions` | `availability.provisioned.regions` | Consistent naming |
+| `availability.cross_region.source_regions` | `availability.cross_region.regions` | Consistent naming |
+| `availability.mantle.mantle_regions` | `availability.mantle.regions` | Consistent naming |
+
+---
+
 ## Lambda-by-Lambda Reference
 
 ### Pre-Wave Lambdas (Initialization)
@@ -692,10 +796,10 @@ Located at: `backend/config/profiler-config.json`
 
 | Metric | Value |
 |--------|-------|
-| **Total Models** | ~108 |
-| **Total Providers** | ~17 |
+| **Total Models** | ~123 |
+| **Total Providers** | ~18 |
 | **Pricing Entries** | ~3,500 |
-| **Regions Covered** | ~27 |
+| **Regions Covered** | ~33 |
 | **Quotas per Region** | ~45 |
 | **Inference Profiles** | ~50+ |
 | **Mantle Models** | ~30+ |

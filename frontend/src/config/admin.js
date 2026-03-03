@@ -68,5 +68,11 @@ export function getSectionBadge(user, sectionId) {
     if (hasGroup(user, GROUPS.BETA)) return BADGES.BETA
   }
 
+  if (sectionId === 'quotas') {
+    if (hasGroup(user, GROUPS.ADMINS)) return BADGES.ADM
+    if (hasGroup(user, GROUPS.OPERATORS)) return BADGES.OP
+    if (hasGroup(user, GROUPS.BETA)) return BADGES.BETA
+  }
+
   return null
 }

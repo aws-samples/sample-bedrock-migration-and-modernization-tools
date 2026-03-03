@@ -455,6 +455,24 @@ region_configuration.geo_region_options →  geo_region_options
 model_configuration.context_thresholds  →  model_config.context_thresholds
 ```
 
+### Static Configuration Data
+
+The following data is stored statically in `profiler-config.json` rather than fetched from APIs:
+
+| Data Type | Location in Config | Source | Update Frequency |
+|-----------|-------------------|--------|------------------|
+| **IATA Airport Codes** | `region_coordinates[].iata` | AWS MediaConvert docs + IATA standard | Manual (when new regions added) |
+| **Region Coordinates** | `region_coordinates[].lat/lng` | AWS infrastructure docs | Manual |
+| **Provider Colors** | `provider_colors` | Brand guidelines | Manual |
+| **Context Window Specs** | `context_window_specs` | Anthropic/provider docs | Self-healing agent |
+| **Provider Patterns** | `provider_patterns` | Model naming conventions | Self-healing agent |
+
+#### IATA Airport Codes Reference
+
+IATA codes are used for display in the Regional Availability page tooltips. See [AWS_REGION_IATA_CODES.md](./AWS_REGION_IATA_CODES.md) for the complete mapping and sources.
+
+Primary source: https://docs.aws.amazon.com/mediaconvert/latest/ug/usage-report-understand.html
+
 ---
 
 ## Self-Healing System
@@ -629,3 +647,5 @@ All Mermaid diagrams can be rendered at https://mermaid.live or in any Mermaid-c
 | 2026-03-03 | Initial architecture document |
 | 2026-03-03 | Added caching system documentation |
 | 2026-03-03 | Added self-healing enhancement details |
+| 2026-03-03 | Added IATA airport codes to region configuration |
+| 2026-03-03 | Updated data schema documentation for Phase 3 restructure |

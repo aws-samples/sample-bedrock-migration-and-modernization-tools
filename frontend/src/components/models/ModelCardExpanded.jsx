@@ -18,7 +18,7 @@ import { Separator } from '@/components/ui/separator'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
-import { canViewQuotas } from '@/config/admin'
+import { canViewQuotas, getSectionBadge } from '@/config/admin'
 import { getRegionName, getRegionInfo, geoGroups as regionGeoGroups } from '@/utils/regionUtils'
 
 // Provider color mapping - using actual brand colors (Tailwind classes)
@@ -3748,7 +3748,17 @@ export function ModelCardExpanded({
                   </TabsTrigger>
                   {showQuotas && (
                     <TabsTrigger value="quotas" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
-                      Service Quotas
+                      <span className="flex items-center gap-2">
+                        Service Quotas
+                        {getSectionBadge(user, 'quotas') && (
+                          <span className={cn(
+                            'text-[9px] font-bold leading-none px-1.5 py-0.5 rounded-full border',
+                            isLight ? getSectionBadge(user, 'quotas').light : getSectionBadge(user, 'quotas').dark
+                          )}>
+                            {getSectionBadge(user, 'quotas').text}
+                          </span>
+                        )}
+                      </span>
                     </TabsTrigger>
                   )}
                   <TabsTrigger value="pricing" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">

@@ -532,11 +532,11 @@ export function useModels() {
       if (m.availability?.cross_region?.regions) {
         m.availability.cross_region.regions.forEach(r => regions.add(r))
       }
-      if (m.availability?.batch?.supported_regions) {
-        m.availability.batch.supported_regions.forEach(r => regions.add(r))
+      if (m.availability?.batch?.regions) {
+        m.availability.batch.regions.forEach(r => regions.add(r))
       }
-      if (m.availability?.provisioned?.provisioned_regions) {
-        m.availability.provisioned.provisioned_regions.forEach(r => regions.add(r))
+      if (m.availability?.provisioned?.regions) {
+        m.availability.provisioned.regions.forEach(r => regions.add(r))
       }
       if (m.availability?.mantle?.regions) {
         m.availability.mantle.regions.forEach(r => regions.add(r))
