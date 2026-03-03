@@ -538,8 +538,8 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               />
               {(() => {
                 const onDemandRegions = model.availability?.on_demand?.regions || model.in_region || []
-                const crisRegions = model.availability?.cross_region?.source_regions || model.cross_region_inference?.source_regions || []
-                const mantleRegions = model.availability?.mantle?.mantle_regions || []
+                const crisRegions = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []
+                const mantleRegions = model.availability?.mantle?.regions || []
                 const allRegions = new Set([...onDemandRegions, ...crisRegions, ...mantleRegions])
                 const totalRegionCount = allRegions.size
                 return (

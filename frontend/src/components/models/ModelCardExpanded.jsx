@@ -616,7 +616,7 @@ function CrossRegionInferenceSection({ crisData }) {
   const isLight = theme === 'light'
 
   const profiles = crisData.profiles || []
-  const sourceRegions = crisData.source_regions || []
+  const sourceRegions = crisData.regions || []
 
   // Helper to get profile fields (handles both field naming conventions)
   const getProfileId = (p) => p.profile_id || p.inference_profile_id
@@ -1025,7 +1025,7 @@ function MantleInferenceSection({ mantleData }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const { theme } = useTheme()
   const isLight = theme === 'light'
-  const regions = mantleData.mantle_regions || []
+  const regions = mantleData.regions || []
   const grouped = groupRegionsByGeo(regions)
 
   return (
@@ -1140,7 +1140,7 @@ function AvailabilitySummary({ model }) {
     {
       label: 'Cross-Region (CRIS)',
       supported: isMantleOnly ? false : !!crisData.supported,
-      count: isMantleOnly ? 0 : (crisData.source_regions?.length ?? crisData.profiles_count ?? 0),
+      count: isMantleOnly ? 0 : (crisData.regions?.length ?? crisData.profiles_count ?? 0),
       detail: () => <CrossRegionInferenceSection crisData={crisData} />,
     },
     {
@@ -1152,7 +1152,7 @@ function AvailabilitySummary({ model }) {
     {
       label: 'Mantle',
       supported: !!mantleData.supported,
-      count: mantleData.total_mantle_regions ?? mantleData.mantle_regions?.length ?? 0,
+      count: mantleData.regions?.length ?? 0,
       highlight: isMantleOnly,
       detail: () => <MantleInferenceSection mantleData={mantleData} />,
     },
@@ -3368,7 +3368,7 @@ export function ModelCardExpanded({
   const streamingSupported = model.streaming ?? model.streaming_supported
   const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported
   const mantleSupported = model.availability?.mantle?.supported
-  const mantleRegions = model.availability?.mantle?.mantle_regions ?? []
+  const mantleRegions = model.availability?.mantle?.regions ?? []
   const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
   const outputModalities = model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? []
 
@@ -3570,7 +3570,7 @@ export function ModelCardExpanded({
                       Availability
                     </h3>
                     {(() => {
-                      const crisRegions = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
+                      const crisRegions = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []
                       const allRegions = new Set([...regions, ...crisRegions, ...mantleRegions])
                       return (
                         <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>

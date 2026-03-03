@@ -21,12 +21,12 @@ vi.mock('@/hooks/useModels', () => ({
           },
           cross_region: {
             supported: true,
-            source_regions: ['us-east-1'],
+            regions: ['us-east-1'],
             profiles: []
           },
           mantle: {
             supported: false,
-            mantle_regions: []
+            regions: []
           }
         }
       },
@@ -40,12 +40,12 @@ vi.mock('@/hooks/useModels', () => ({
           },
           cross_region: {
             supported: false,
-            source_regions: [],
+            regions: [],
             profiles: []
           },
           mantle: {
             supported: false,
-            mantle_regions: []
+            regions: []
           }
         }
       }

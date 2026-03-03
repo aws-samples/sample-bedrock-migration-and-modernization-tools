@@ -112,13 +112,13 @@ const MODEL_COL_WIDTH = 280
  *
  * Data sources:
  * - availability.on_demand.regions: actual ON_DEMAND availability from regional-availability Lambda
- * - availability.cross_region.source_regions: CRIS source regions
- * - availability.mantle.mantle_regions: Mantle engine regions
+ * - availability.cross_region.regions: CRIS source regions
+ * - availability.mantle.regions: Mantle engine regions
  */
 function getRegionAvailability(model, regionCode) {
   const inRegionList = model.availability?.on_demand?.regions ?? model.in_region ?? []
-  const crisRegions = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
-  const mantleRegions = model.availability?.mantle?.mantle_regions ?? []
+  const crisRegions = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []
+  const mantleRegions = model.availability?.mantle?.regions ?? []
 
   // in_region is the source of truth for ON_DEMAND availability (no fallback)
   const onDemand = inRegionList.includes(regionCode)
@@ -191,7 +191,7 @@ const AvailabilityCell = memo(function AvailabilityCell({ model, regionCode, reg
   const hasCrisForSelectedScope = (model, regionCode, selectedScopes) => {
     if (!selectedScopes || selectedScopes.size === 0) {
       // No filter - check if any CRIS profile exists for this region
-      const sourceRegions = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions
+      const sourceRegions = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions
       return sourceRegions?.includes(regionCode) || false
     }
     
@@ -503,8 +503,8 @@ export function RegionalAvailability() {
     const usedRegions = new Set()
     models.forEach(m => {
       ;(m.availability?.on_demand?.regions ?? m.in_region ?? []).forEach(r => usedRegions.add(r))
-      ;(m.availability?.cross_region?.source_regions ?? m.cross_region_inference?.source_regions ?? []).forEach(r => usedRegions.add(r))
-      ;(m.availability?.mantle?.mantle_regions ?? []).forEach(r => usedRegions.add(r))
+      ;(m.availability?.cross_region?.regions ?? m.cross_region_inference?.source_regions ?? []).forEach(r => usedRegions.add(r))
+      ;(m.availability?.mantle?.regions ?? []).forEach(r => usedRegions.add(r))
     })
 
     // Known regions that appear in the data (preserves defined order)
@@ -1156,8 +1156,8 @@ export function RegionalAvailability() {
 
                     {!isCollapsed && providerModels.map((model) => {
                       const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
-                      const crisRegions = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
-                      const mantleRegions = model.availability?.mantle?.mantle_regions ?? []
+                      const crisRegions = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []
+  const mantleRegions = model.availability?.mantle?.regions ?? []
                       const allRegions = new Set([...regions, ...crisRegions, ...mantleRegions])
                       const regionCount = allRegions.size
                       const isHovered = hoveredRow === model.model_id

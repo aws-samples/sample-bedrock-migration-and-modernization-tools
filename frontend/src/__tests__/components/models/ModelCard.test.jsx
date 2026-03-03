@@ -43,7 +43,7 @@ const mockModelWithConsumptionOptions = {
     },
     cross_region: {
       supported: true,
-      source_regions: ['us-east-1']
+      regions: ['us-east-1']
     },
     mantle: {
       supported: false

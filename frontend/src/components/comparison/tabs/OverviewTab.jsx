@@ -289,8 +289,8 @@ function RadarTooltip({ active, payload, label, isLight }) {
 // Helper to get all regions for a model (on-demand + CRIS + Mantle)
 function getAllModelRegions(model) {
   const onDemand = model.availability?.on_demand?.regions ?? model.in_region ?? []
-  const cris = model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []
-  const mantle = model.availability?.mantle?.mantle_regions ?? []
+  const cris = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []
+  const mantle = model.availability?.mantle?.regions ?? []
   return [...new Set([...onDemand, ...cris, ...mantle])]
 }
 

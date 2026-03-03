@@ -31,7 +31,7 @@ const mockModelWithAllOptions = {
     },
     cross_region: {
       supported: true,
-      source_regions: ['us-east-1'],
+      regions: ['us-east-1'],
       profiles: []
     },
     batch: {
@@ -40,7 +40,7 @@ const mockModelWithAllOptions = {
     },
     mantle: {
       supported: true,
-      mantle_regions: ['us-east-1']
+      regions: ['us-east-1']
     },
     provisioned: {
       supported: true,
@@ -87,7 +87,7 @@ function AvailabilitySummary({ model }) {
     {
       label: 'Cross-Region (CRIS)',
       supported: isMantleOnly ? false : !!crisData.supported,
-      count: isMantleOnly ? 0 : (crisData.source_regions?.length ?? 0),
+      count: isMantleOnly ? 0 : (crisData.regions?.length ?? 0),
     },
     {
       label: 'Batch',
@@ -97,7 +97,7 @@ function AvailabilitySummary({ model }) {
     {
       label: 'Mantle',
       supported: !!mantleData.supported,
-      count: mantleData.mantle_regions?.length ?? 0,
+      count: mantleData.regions?.length ?? 0,
     },
   ]
 

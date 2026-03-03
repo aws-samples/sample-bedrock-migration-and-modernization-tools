@@ -529,8 +529,8 @@ export function useModels() {
       if (m.availability?.on_demand?.regions) {
         m.availability.on_demand.regions.forEach(r => regions.add(r))
       }
-      if (m.availability?.cross_region?.source_regions) {
-        m.availability.cross_region.source_regions.forEach(r => regions.add(r))
+      if (m.availability?.cross_region?.regions) {
+        m.availability.cross_region.regions.forEach(r => regions.add(r))
       }
       if (m.availability?.batch?.supported_regions) {
         m.availability.batch.supported_regions.forEach(r => regions.add(r))
@@ -538,8 +538,8 @@ export function useModels() {
       if (m.availability?.provisioned?.provisioned_regions) {
         m.availability.provisioned.provisioned_regions.forEach(r => regions.add(r))
       }
-      if (m.availability?.mantle?.mantle_regions) {
-        m.availability.mantle.mantle_regions.forEach(r => regions.add(r))
+      if (m.availability?.mantle?.regions) {
+        m.availability.mantle.regions.forEach(r => regions.add(r))
       }
     })
 

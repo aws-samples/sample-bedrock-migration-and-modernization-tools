@@ -96,7 +96,7 @@ export const awsRegions = DEFAULT_AWS_REGIONS
 /**
  * Build a dynamic AWS regions list from model data.
  * Extracts all unique regions from models[].availability.on_demand.regions and
- * models[].availability.cross_region.source_regions, then returns sorted
+ * models[].availability.cross_region.regions, then returns sorted
  * { value, label, geo } entries.
  *
  * Falls back to DEFAULT_AWS_REGIONS if models is empty.
@@ -109,11 +109,11 @@ export function buildAwsRegionsFromModels(models) {
     if (m.availability?.on_demand?.regions) {
       m.availability.on_demand.regions.forEach(r => regionCodes.add(r))
     }
-    if (m.availability?.cross_region?.source_regions) {
-      m.availability.cross_region.source_regions.forEach(r => regionCodes.add(r))
+    if (m.availability?.cross_region?.regions) {
+      m.availability.cross_region.regions.forEach(r => regionCodes.add(r))
     }
-    if (m.availability?.mantle?.mantle_regions) {
-      m.availability.mantle.mantle_regions.forEach(r => regionCodes.add(r))
+    if (m.availability?.mantle?.regions) {
+      m.availability.mantle.regions.forEach(r => regionCodes.add(r))
     }
   })
 
@@ -417,8 +417,8 @@ export function applyFilters(models, filters) {
       }
       filtered = filtered.filter(m =>
         m.availability?.on_demand?.regions?.some(regionMatchesGeo) ||
-        m.availability?.cross_region?.source_regions?.some(regionMatchesGeo) ||
-        m.availability?.mantle?.mantle_regions?.some(regionMatchesGeo)
+        m.availability?.cross_region?.regions?.some(regionMatchesGeo) ||
+        m.availability?.mantle?.regions?.some(regionMatchesGeo)
       )
     }
   }
@@ -553,8 +553,8 @@ export function applyFilters(models, filters) {
   if (filters.primaryRegion && filters.primaryRegion !== 'all') {
     const modelAvailableInRegion = (m, region) =>
       m.availability?.on_demand?.regions?.includes(region) ||
-      m.availability?.cross_region?.source_regions?.includes(region) ||
-      m.availability?.mantle?.mantle_regions?.includes(region)
+      m.availability?.cross_region?.regions?.includes(region) ||
+      m.availability?.mantle?.regions?.includes(region)
 
     if (isGeoSelection(filters.primaryRegion)) {
       // GEO selection - filter models available in ANY region within that geo

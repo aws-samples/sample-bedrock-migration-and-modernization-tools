@@ -75,7 +75,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
     const effectiveContext = Math.max(baseContext || 0, extendedContext || 0)
     const hasLongCtx = detectLongContext(pricing, region) || (extendedContext != null && extendedContext > (baseContext || 0))
     const isMantleOnly = model.availability?.mantle?.only
-    const mantleRegions = model.availability?.mantle?.mantle_regions ?? []
+    const mantleRegions = model.availability?.mantle?.regions ?? []
     return {
       model,
       region,
@@ -88,7 +88,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       streamingSupported: model.streaming ?? model.streaming_supported ?? false,
       crisSupported: isMantleOnly ? false : (model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false),
       crisProfilesCount: model.availability?.cross_region?.profiles_count ?? model.cross_region_inference?.profiles_count ?? 0,
-      crisSourceRegions: (model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []).length,
+      crisSourceRegions: (model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []).length,
       mantleSupported: model.availability?.mantle?.supported ?? false,
       mantleRegions: mantleRegions.length,
       consumptionOptions: model.consumption_options || [],
@@ -102,7 +102,7 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       // Total regions: on-demand + CRIS + Mantle
       totalRegions: new Set([
         ...(model.availability?.on_demand?.regions ?? model.in_region ?? []),
-        ...(model.availability?.cross_region?.source_regions ?? model.cross_region_inference?.source_regions ?? []),
+        ...(model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []),
         ...mantleRegions
       ]).size,
       // For Mantle-only models, show "Mantle Only" instead of empty inference types
