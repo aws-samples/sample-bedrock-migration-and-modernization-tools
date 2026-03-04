@@ -76,6 +76,24 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
     const hasLongCtx = detectLongContext(pricing, region) || (extendedContext != null && extendedContext > (baseContext || 0))
     const isMantleOnly = model.availability?.mantle?.only
     const mantleRegions = model.availability?.mantle?.regions ?? []
+    
+    // Get CRIS data with proper fallbacks
+    const crisData = model.availability?.cross_region ?? model.cross_region_inference ?? {}
+    const crisSupported = isMantleOnly ? false : (
+      crisData.supported ?? 
+      (crisData.source_regions?.length > 0) ?? 
+      (crisData.profiles?.length > 0) ??
+      false
+    )
+    
+    // Get batch data with proper fallbacks
+    const batchData = model.availability?.batch ?? model.batch_inference_supported ?? {}
+    const batchSupported = isMantleOnly ? false : (
+      batchData.supported ?? 
+      (batchData.supported_regions?.length > 0) ??
+      (model.consumption_options || []).includes('batch')
+    )
+    
     return {
       model,
       region,
@@ -86,9 +104,9 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       inputModalities: model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? [],
       outputModalities: model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? [],
       streamingSupported: model.streaming ?? model.streaming_supported ?? false,
-      crisSupported: isMantleOnly ? false : (model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false),
-      crisProfilesCount: model.availability?.cross_region?.profiles?.length ?? model.cross_region_inference?.profiles?.length ?? 0,
-      crisSourceRegions: (model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []).length,
+      crisSupported,
+      crisProfilesCount: crisData.profiles?.length ?? crisData.profiles_count ?? 0,
+      crisSourceRegions: (crisData.regions ?? crisData.source_regions ?? []).length,
       mantleSupported: model.availability?.mantle?.supported ?? false,
       mantleRegions: mantleRegions.length,
       consumptionOptions: model.consumption_options || [],
@@ -96,14 +114,15 @@ export function TechSpecsTab({ selectedModels, getPricingForModel, isLight }) {
       customizations: model.customization?.customization_supported || [],
       isActive: (model.lifecycle?.status ?? model.model_lifecycle?.status) === 'ACTIVE' || model.model_status === 'ACTIVE',
       hasLongContext: hasLongCtx,
-      batchSupported: isMantleOnly ? false : (model.availability?.batch?.supported ?? model.batch_inference_supported?.supported ?? false),
-      batchRegions: (model.availability?.batch?.regions ?? model.availability?.batch?.supported_regions ?? model.batch_inference_supported?.supported_regions ?? []).length,
+      batchSupported,
+      batchRegions: (batchData.regions ?? batchData.supported_regions ?? []).length,
       batchCoverage: null, // Removed - coverage_percentage field no longer exists
-      // Total regions: on-demand + CRIS + Mantle
+      // Total regions: on-demand + CRIS + Mantle + Batch
       totalRegions: new Set([
-        ...(model.availability?.on_demand?.regions ?? model.in_region ?? []),
-        ...(model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []),
-        ...mantleRegions
+        ...(model.availability?.on_demand?.regions ?? model.in_region ?? model.regions_available ?? []),
+        ...(crisData.regions ?? crisData.source_regions ?? []),
+        ...mantleRegions,
+        ...(batchData.regions ?? batchData.supported_regions ?? [])
       ]).size,
       // For Mantle-only models, show "Mantle Only" instead of empty inference types
       inferenceTypes: isMantleOnly ? ['MANTLE_ONLY'] : (model.inference_types_supported || []),

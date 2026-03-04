@@ -409,6 +409,12 @@ class ConfigLoader:
         """Get type conflict definitions."""
         return self.config.get("matching_configuration", {}).get("type_conflicts", [])
 
+    def get_explicit_model_mappings(self) -> dict:
+        """Get explicit model ID to pricing key mappings."""
+        return self.config.get("matching_configuration", {}).get(
+            "explicit_model_mappings", {}
+        )
+
     # =========================================================================
     # Agent Configuration Accessors
     # =========================================================================

@@ -182,13 +182,28 @@ def determine_pricing_type(usage_type: str, unit: str, description: str) -> dict
     }
 
 
-def determine_pricing_group(usage_type: str, inference_type: str) -> str:
-    """Determine the pricing group based on usage type and inference type."""
+def determine_pricing_group(
+    usage_type: str, inference_type: str, description: str = ""
+) -> str:
+    """Determine the pricing group based on usage type, inference type, and description.
+
+    This is the legacy function that returns the full group name including
+    context and geo modifiers. Kept for backward compatibility.
+    """
     usage_lower = usage_type.lower()
     inference_lower = inference_type.lower() if inference_type else ""
+    description_lower = description.lower() if description else ""
 
-    # Check for global (cross-region)
-    is_global = "global" in usage_lower or "cross-region" in usage_lower
+    # Check for global (cross-region worldwide)
+    is_global = "global" in usage_lower or "global" in description_lower
+
+    # Check for geo/regional (cross-region within geographic area)
+    # "Regional CRIS" in description, "_Geo" suffix in dimension, or "regional" in usage
+    is_geo = (
+        "regional" in usage_lower
+        or "_geo" in usage_lower
+        or "regional cris" in description_lower
+    ) and not is_global
 
     # Check for batch
     is_batch = "batch" in usage_lower
@@ -220,20 +235,147 @@ def determine_pricing_group(usage_type: str, inference_type: str) -> str:
         return "Provisioned Throughput"
     elif is_batch and is_long_context and is_global:
         return "Batch Long Context Global"
+    elif is_batch and is_long_context and is_geo:
+        return "Batch Long Context Geo"
     elif is_batch and is_long_context:
         return "Batch Long Context"
     elif is_batch and is_global:
         return "Batch Global"
+    elif is_batch and is_geo:
+        return "Batch Geo"
     elif is_batch:
         return "Batch"
     elif is_long_context and is_global:
         return "On-Demand Long Context Global"
+    elif is_long_context and is_geo:
+        return "On-Demand Long Context Geo"
     elif is_long_context:
         return "On-Demand Long Context"
     elif is_global:
         return "On-Demand Global"
+    elif is_geo:
+        return "On-Demand Geo"
     else:
         return "On-Demand"
+
+
+def determine_pricing_group_with_dimensions(
+    usage_type: str, inference_type: str, description: str = ""
+) -> dict:
+    """
+    Determine the pricing group and nested dimensions from usage type, inference type, and description.
+
+    Returns:
+        {
+            'group': 'On-Demand' | 'Batch' | 'Provisioned Throughput' | 'Custom Model',
+            'dimensions': {
+                'source': 'standard' | 'mantle',
+                'geo': None | 'regional' | 'global',
+                'tier': None | 'flex' | 'priority',
+                'context': 'standard' | 'long'
+            }
+        }
+    """
+    usage_lower = usage_type.lower()
+    inference_lower = inference_type.lower() if inference_type else ""
+    description_lower = description.lower() if description else ""
+
+    # Initialize dimensions
+    dimensions = {
+        "source": "standard",
+        "geo": None,
+        "tier": None,
+        "context": "standard",
+    }
+
+    # Detect Mantle source
+    # Mantle pricing typically has "mantle" in usage type or specific patterns
+    if "mantle" in usage_lower or "openai-compatible" in inference_lower:
+        dimensions["source"] = "mantle"
+
+    # Detect geographic dimension
+    if "global" in usage_lower or "global" in description_lower:
+        dimensions["geo"] = "global"
+    elif (
+        "regional" in usage_lower
+        or "_geo" in usage_lower
+        or "regional cris" in description_lower
+    ):
+        dimensions["geo"] = "regional"
+
+    # Detect tier dimension
+    if "flex" in usage_lower:
+        dimensions["tier"] = "flex"
+    elif "priority" in usage_lower:
+        dimensions["tier"] = "priority"
+
+    # Detect context dimension
+    if (
+        "long-context" in usage_lower
+        or "long context" in inference_lower
+        or "_lctx" in usage_lower
+        or "longcontext" in usage_lower
+    ):
+        dimensions["context"] = "long"
+
+    # Determine base group (simplified - no context/geo modifiers)
+    is_batch = "batch" in usage_lower
+    is_provisioned = (
+        "provisioned" in usage_lower
+        or "provisioned" in inference_lower
+        or "reserved" in usage_lower
+        or "_tpm_" in usage_lower
+    )
+    is_custom = "custom" in usage_lower or "fine-tun" in usage_lower
+
+    if is_custom:
+        group = "Custom Model"
+    elif is_provisioned:
+        group = "Provisioned Throughput"
+    elif is_batch:
+        group = "Batch"
+    else:
+        group = "On-Demand"
+
+    return {"group": group, "dimensions": dimensions}
+
+
+def aggregate_dimensions(pricing_entries: list) -> dict:
+    """Aggregate available dimensions from all pricing entries.
+
+    Args:
+        pricing_entries: List of pricing entry dicts with 'dimensions' field
+
+    Returns:
+        {
+            'sources': ['standard', 'mantle'],
+            'geos': ['global', 'regional'],
+            'tiers': ['flex', 'priority'],
+            'contexts': ['standard', 'long']
+        }
+    """
+    sources = set()
+    geos = set()
+    tiers = set()
+    contexts = set()
+
+    for entry in pricing_entries:
+        dims = entry.get("dimensions", {})
+        if dims.get("source"):
+            sources.add(dims["source"])
+        if dims.get("geo"):
+            geos.add(dims["geo"])
+        if dims.get("tier"):
+            tiers.add(dims["tier"])
+        if dims.get("context"):
+            contexts.add(dims["context"])
+
+    return {
+        "sources": sorted(list(sources)) if sources else ["standard"],
+        "geos": sorted(list(geos)) if geos else [],
+        "tiers": sorted(list(tiers)) if tiers else [],
+        "contexts": sorted(list(contexts)) if contexts else ["standard"],
+    }
 
 
 def clean_model_name(raw_name: str) -> str:
@@ -596,11 +738,17 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
         # Create model ID
         model_id = normalize_model_id(model_name, provider)
 
-        # Determine pricing group
-        pricing_group = determine_pricing_group(
-            info["usageType"], info["inferenceType"]
+        # Determine pricing group (legacy - full group name with modifiers)
+        legacy_pricing_group = determine_pricing_group(
+            info["usageType"], info["inferenceType"], info["description"]
         )
-        group_types_seen.add(pricing_group)
+        group_types_seen.add(legacy_pricing_group)
+
+        # Determine pricing group with dimensions (new - base group + nested dimensions)
+        group_info = determine_pricing_group_with_dimensions(
+            info["usageType"], info["inferenceType"], info["description"]
+        )
+        dimensions = group_info["dimensions"]
 
         # Get location name from config
         region_locations = get_region_locations()
@@ -633,18 +781,21 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
             "unit_label": pricing_type_info["unit_label"],
             "is_input": pricing_type_info["is_input"],
             "is_output": pricing_type_info["is_output"],
+            # New nested dimensions
+            "dimensions": dimensions,
             "pricing_characteristics": {
                 "inference_type": "on_demand"
-                if "on-demand" in pricing_group.lower()
-                else ("batch" if "batch" in pricing_group.lower() else "other"),
+                if "on-demand" in legacy_pricing_group.lower()
+                else ("batch" if "batch" in legacy_pricing_group.lower() else "other"),
                 "context_type": "long_context"
-                if "long context" in pricing_group.lower()
+                if "long context" in legacy_pricing_group.lower()
                 else "standard",
                 "geographic_scope": "global"
-                if "global" in pricing_group.lower()
+                if "global" in legacy_pricing_group.lower()
                 else "regional",
             },
-            "pricing_group": pricing_group,
+            # Keep legacy group name for backward compatibility
+            "pricing_group": legacy_pricing_group,
         }
 
         models_data[model_id]["model_name"] = model_name
@@ -653,8 +804,9 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
             "pricing_types", set()
         )
         models_data[model_id]["pricing_types"].add(pricing_type_info["pricing_type"])
+        # Use legacy_pricing_group for backward compatibility with existing 10 groups
         models_data[model_id]["regions"][region]["pricing_groups"][
-            pricing_group
+            legacy_pricing_group
         ].append(pricing_entry)
         total_entries += 1
 
@@ -689,27 +841,35 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
                 primary_pricing_type = pt
                 break
 
+        # Collect all pricing entries across all regions for dimension aggregation
+        all_entries = []
+        for region_data in model_data["regions"].values():
+            for entries in region_data["pricing_groups"].values():
+                all_entries.extend(entries)
+
+        # Aggregate available dimensions and check for mantle pricing
+        available_dims = aggregate_dimensions(all_entries)
+        has_mantle = "mantle" in available_dims.get("sources", [])
+
         model_entry = {
             "model_name": model_data["model_name"],
             "model_provider": provider,
             "pricing_types": pricing_types_list,
             "primary_pricing_type": primary_pricing_type,
+            "available_dimensions": available_dims,  # NEW: aggregated dimensions
+            "has_mantle_pricing": has_mantle,  # NEW: quick check for mantle
             "regions": {},
         }
 
         for region, region_data in model_data["regions"].items():
             pricing_groups = dict(region_data["pricing_groups"])
 
-            # Ensure 'On-Demand' exists for frontend compatibility
-            # Copy 'On-Demand Global' entries to 'On-Demand' if 'On-Demand' doesn't exist
-            if (
-                "On-Demand" not in pricing_groups
-                and "On-Demand Global" in pricing_groups
-            ):
-                pricing_groups["On-Demand"] = pricing_groups["On-Demand Global"]
-            # Same for Batch
-            if "Batch" not in pricing_groups and "Batch Global" in pricing_groups:
-                pricing_groups["Batch"] = pricing_groups["Batch Global"]
+            # NOTE: We intentionally do NOT copy Global/Geo entries to On-Demand/Batch
+            # when the base group doesn't exist. This preserves the distinction between:
+            # - True In-Region pricing (On-Demand, Batch)
+            # - CRIS Global pricing (On-Demand Global, Batch Global)
+            # - CRIS Geo pricing (On-Demand Geo, Batch Geo)
+            # The frontend handles missing groups appropriately.
 
             total_dimensions = sum(len(entries) for entries in pricing_groups.values())
             groups_count = len(pricing_groups)

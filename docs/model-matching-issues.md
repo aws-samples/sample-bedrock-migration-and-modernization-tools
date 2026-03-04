@@ -1,7 +1,7 @@
 # Model Matching & Duplication Issues
 
-> **Date**: 2026-02-26
-> **Status**: Analysis Complete
+> **Date**: 2026-03-04
+> **Status**: Analysis Complete, Claude 4.x Resolution Implemented
 > **Priority**: Medium-High
 
 ## Executive Summary
@@ -20,8 +20,10 @@ The Bedrock Model Profiler pipeline has several fuzzy matching and model ID norm
 - [Issue 2: Pricing API Model ID Format Mismatch](#issue-2-pricing-api-model-id-format-mismatch)
 - [Issue 3: Bedrock API Returns Multiple Variants](#issue-3-bedrock-api-returns-multiple-variants)
 - [Issue 4: Availability Inheritance via Fuzzy Matching](#issue-4-availability-inheritance-via-fuzzy-matching)
+- [Issue 5: Claude 4.x Matching to Claude 3.x (RESOLVED)](#issue-5-claude-4x-matching-to-claude-3x-resolved)
 - [Fuzzy Matching Locations](#fuzzy-matching-locations)
 - [Recommended Actions](#recommended-actions)
+- [Adding New Explicit Mappings](#adding-new-explicit-mappings)
 - [Files to Modify](#files-to-modify)
 
 ---
@@ -330,3 +332,113 @@ Add configuration to collapse variants at model-merger level:
 ### Cohere (Dimension variants + availability inheritance)
 - `cohere.embed-english-v3` / `cohere.embed-english-v3:0:512`
 - `cohere.embed-multilingual-v3` / `cohere.embed-multilingual-v3:0:512`
+
+### Anthropic Claude 4.x (RESOLVED)
+- `anthropic.claude-opus-4-5-20251101-v1:0` - Was incorrectly matching to Claude 3 Opus
+- `anthropic.claude-sonnet-4-5-20251022-v2:0` - Was incorrectly matching to Claude 3.5 Sonnet
+- See [Issue 5](#issue-5-claude-4x-matching-to-claude-3x-resolved) for resolution details
+
+---
+
+## Issue 5: Claude 4.x Matching to Claude 3.x (RESOLVED)
+
+### Problem Description
+
+Claude Opus 4.5 (`anthropic.claude-opus-4-5-20251101-v1:0`) was incorrectly matching to Claude 3 Opus (`anthropic.claude-3-opus`) pricing instead of its correct pricing key.
+
+**Root Cause:**
+1. The `get_canonical_model_id()` function normalizes model IDs by stripping version suffixes
+2. After normalization, "claude-opus-4-5" and "claude-3-opus" have similar fuzzy match scores
+3. The `has_semantic_conflict()` function didn't detect Claude 3 vs Claude 4 as a conflict
+
+### Solution
+
+#### 1. Explicit Model Mappings
+
+Added explicit mappings in `profiler-config.json`:
+
+```json
+{
+  "matching_configuration": {
+    "explicit_model_mappings": {
+      "anthropic.claude-opus-4-5-20251101-v1:0": "anthropic.claude-opus-4-5",
+      "anthropic.claude-opus-4-6-20260115-v1:0": "anthropic.claude-opus-4-6",
+      "anthropic.claude-sonnet-4-5-20251022-v2:0": "anthropic.claude-sonnet-4-5",
+      "anthropic.claude-sonnet-4-20250514-v1:0": "anthropic.claude-sonnet-4",
+      "anthropic.claude-haiku-4-5-20251022-v1:0": "anthropic.claude-haiku-4-5"
+    }
+  }
+}
+```
+
+#### 2. Enhanced Conflict Detection
+
+Updated `has_semantic_conflict()` in `model_matcher.py` to detect:
+- Claude major version differences (3 vs 4)
+- Both naming patterns: `claude-3-opus` and `claude-opus-4`
+
+The function now includes patterns for:
+```python
+# Check for Claude major version conflicts (3 vs 4)
+# Pattern: claude-opus-4-5 vs claude-3-opus
+claude_major_pattern = r"claude[._-]?(?:opus|sonnet|haiku)?[._-]?(\d+)"
+
+# Also check for claude-X-variant vs claude-variant-X patterns
+# e.g., claude-3-opus vs claude-opus-4
+claude_variant_pattern = r"claude[._-](\d+)[._-](opus|sonnet|haiku)"
+claude_variant_rev_pattern = r"claude[._-](opus|sonnet|haiku)[._-](\d+)"
+```
+
+#### 3. Priority Order
+
+The pricing-linker now uses this priority:
+1. **Explicit mapping** (confidence 1.0) - from config
+2. **Semantic conflict check** - blocks mismatches
+3. **Fuzzy matching** - fallback for unknown models
+
+### Verification
+
+To verify correct matching:
+
+```bash
+# Check pricing-linker logs for Claude models
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/bedrock-profiler-pricing-linker \
+  --filter-pattern "claude-opus-4" \
+  --start-time $(date -d '1 hour ago' +%s000)
+```
+
+Expected log output:
+```
+Explicit mapping match model_id=anthropic.claude-opus-4-5-20251101-v1:0 mapped_to=anthropic.claude-opus-4-5 confidence=1.0
+```
+
+---
+
+## Adding New Explicit Mappings
+
+When a new model has matching issues:
+
+1. Identify the model ID from Bedrock API
+2. Identify the correct pricing key from Pricing API
+3. Add mapping to `profiler-config.json`:
+
+```json
+{
+  "matching_configuration": {
+    "explicit_model_mappings": {
+      "new.model-id-v1:0": "new.pricing-key"
+    }
+  }
+}
+```
+
+4. Deploy config update (triggers self-healing agent)
+
+---
+
+## Related Files
+
+- `backend/config/profiler-config.json` - Explicit mappings
+- `backend/layers/common/python/shared/model_matcher.py` - Conflict detection
+- `backend/lambdas/pricing-linker/handler.py` - Matching logic

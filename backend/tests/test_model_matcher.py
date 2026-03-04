@@ -410,6 +410,52 @@ class TestHasSemanticConflict:
         assert has_semantic_conflict("deepseek.v3.1", "deepseek.v3.1") is False
 
 
+class TestClaude4xConflictDetection:
+    """Tests for Claude 4.x vs 3.x conflict detection.
+
+    These tests verify that the model_matcher correctly identifies conflicts
+    between Claude 4.x models (e.g., claude-opus-4-5) and Claude 3.x models
+    (e.g., claude-3-opus), preventing incorrect pricing matches.
+    """
+
+    def test_claude_4_vs_3_opus_conflict(self):
+        """Claude Opus 4.5 should conflict with Claude 3 Opus."""
+        assert has_semantic_conflict("claude-opus-4-5", "claude-3-opus") is True
+
+    def test_claude_4_vs_3_sonnet_conflict(self):
+        """Claude Sonnet 4.5 should conflict with Claude 3.5 Sonnet."""
+        assert has_semantic_conflict("claude-sonnet-4-5", "claude-3-5-sonnet") is True
+
+    def test_claude_3_opus_vs_sonnet_conflict(self):
+        """Existing behavior: Claude 3 Opus vs Sonnet should conflict."""
+        assert has_semantic_conflict("claude-3-opus", "claude-3-sonnet") is True
+
+    def test_claude_same_version_no_conflict(self):
+        """Same Claude version should not conflict."""
+        assert (
+            has_semantic_conflict("claude-opus-4-5", "claude-opus-4-5-20251101")
+            is False
+        )
+
+    def test_claude_full_model_ids_conflict(self):
+        """Full model IDs should detect conflict."""
+        assert (
+            has_semantic_conflict(
+                "anthropic.claude-opus-4-5-20251101-v1:0",
+                "anthropic.claude-3-opus-20240229-v1:0",
+            )
+            is True
+        )
+
+    def test_claude_4_vs_3_haiku_conflict(self):
+        """Claude 4.x Haiku should conflict with Claude 3 Haiku."""
+        assert has_semantic_conflict("claude-haiku-4", "claude-3-haiku") is True
+
+    def test_claude_4_sonnet_vs_3_opus_conflict(self):
+        """Claude 4 Sonnet should conflict with Claude 3 Opus (different version AND variant)."""
+        assert has_semantic_conflict("claude-sonnet-4", "claude-3-opus") is True
+
+
 class TestFindBestMatch:
     """Tests for find_best_match function."""
 

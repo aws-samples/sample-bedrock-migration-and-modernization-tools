@@ -45,6 +45,12 @@ def get_min_confidence_threshold() -> float:
     return get_config_loader().get_min_confidence_threshold()
 
 
+def get_explicit_model_mappings() -> dict:
+    """Get explicit model mappings from configuration."""
+    config = get_config_loader()
+    return config.get_explicit_model_mappings()
+
+
 def has_on_demand_pricing(pricing_data: dict) -> bool:
     """Check if pricing data has On-Demand pricing in at least one region."""
     if not pricing_data or not isinstance(pricing_data, dict):
@@ -154,6 +160,11 @@ def find_best_pricing_match(
     """
     Find the best matching pricing entry for a model.
 
+    Priority order:
+    1. Explicit mapping (from config) - returns 1.0 confidence
+    2. Provider-scoped matching with conflict detection
+    3. Fuzzy matching as fallback
+
     Features:
         - Provider-scoped matching: Only matches within same provider
         - Conflict detection: Blocks semantic mismatches (using centralized model_matcher)
@@ -168,6 +179,24 @@ def find_best_pricing_match(
     Returns:
         (matched_pricing_key, confidence_score)
     """
+    # Priority 1: Check explicit mappings first
+    explicit_mappings = get_explicit_model_mappings()
+    if model_id in explicit_mappings:
+        mapped_key = explicit_mappings[model_id]
+        # Find the mapped key in pricing_models
+        for pricing_key, pricing_entry in pricing_models.items():
+            canonical_pricing = get_canonical_model_id(pricing_key)
+            canonical_mapped = get_canonical_model_id(mapped_key)
+            if canonical_pricing == canonical_mapped:
+                logger.info(
+                    "Explicit mapping match",
+                    model_id=model_id,
+                    mapped_to=pricing_key,
+                    confidence=1.0,
+                )
+                return pricing_key, 1.0
+
+    # Priority 2-3: Existing fuzzy matching logic
     # Track best matches separately for On-Demand and non-On-Demand
     best_on_demand_match = None
     best_on_demand_score = 0.0

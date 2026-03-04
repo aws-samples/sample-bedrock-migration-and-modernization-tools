@@ -1099,6 +1099,16 @@
     }
   },
   "matching_configuration": {
+    "explicit_model_mappings": {
+      "anthropic.claude-opus-4-5-20251101-v1:0": "anthropic.claude-opus-4-5",
+      "anthropic.claude-opus-4-6-v1:0": "anthropic.claude-opus-4-6",
+      "anthropic.claude-opus-4-1-20250805-v1:0": "anthropic.claude-opus-4-1",
+      "anthropic.claude-opus-4-20250514-v1:0": "anthropic.claude-opus-4",
+      "anthropic.claude-sonnet-4-5-20250929-v1:0": "anthropic.claude-sonnet-4-5",
+      "anthropic.claude-sonnet-4-20250514-v1:0": "anthropic.claude-sonnet-4",
+      "anthropic.claude-sonnet-4-6:0": "anthropic.claude-sonnet-4-6",
+      "anthropic.claude-haiku-4-5-20251001-v1:0": "anthropic.claude-haiku-4-5"
+    },
     "min_confidence_threshold": 0.7,
     "size_variance_threshold": 0.3,
     "suffixes_to_remove": [
@@ -1161,7 +1171,6 @@
     "auto_apply_rules": {
       "safe_changes": [
         "provider_pattern_addition",
-        "provider_alias_addition",
         "region_addition",
         "documentation_link_addition",
         "context_window_update",

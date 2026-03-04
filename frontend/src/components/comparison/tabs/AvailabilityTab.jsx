@@ -33,12 +33,13 @@ function friendlyName(label) {
   return label.replace(/\s*\(.*\)$/, '')
 }
 
-// Helper to get all regions for a model (on-demand + CRIS + Mantle)
+// Helper to get all regions for a model (on-demand + CRIS + Mantle + Batch)
 function getAllModelRegions(model) {
-  const onDemand = model.availability?.on_demand?.regions ?? model.in_region ?? []
+  const onDemand = model.availability?.on_demand?.regions ?? model.in_region ?? model.regions_available ?? []
   const cris = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []
   const mantle = model.availability?.mantle?.regions ?? []
-  return [...new Set([...onDemand, ...cris, ...mantle])]
+  const batch = model.availability?.batch?.regions ?? model.batch_inference_supported?.supported_regions ?? []
+  return [...new Set([...onDemand, ...cris, ...mantle, ...batch])]
 }
 
 export function AvailabilityTab({ selectedModels, isLight }) {

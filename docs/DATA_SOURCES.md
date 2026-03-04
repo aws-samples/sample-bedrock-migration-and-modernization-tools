@@ -199,6 +199,73 @@ url = "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrockFoun
 
 **Purpose:** Captures models not in GetProducts API (e.g., Stability AI models)
 
+#### Pricing Entry Schema (v2)
+
+Each pricing entry now includes nested dimensions for granular filtering:
+
+```json
+{
+  "price": 0.003,
+  "unit": "1K tokens",
+  "unit_label": "per 1K tokens",
+  "pricing_type": "token",
+  "is_input": true,
+  "is_output": false,
+  "dimensions": {
+    "source": "standard",
+    "geo": null,
+    "tier": null,
+    "context": "standard"
+  },
+  "group": "On-Demand",
+  "legacy_group": "On-Demand"
+}
+```
+
+##### Dimension Definitions
+
+| Dimension | Values | Description |
+|-----------|--------|-------------|
+| `source` | `standard`, `mantle` | Pricing source - standard Bedrock or Mantle (OpenAI-compatible) |
+| `geo` | `null`, `regional`, `global` | Geographic scope - null for standard, regional for CRIS, global for cross-region |
+| `tier` | `null`, `flex`, `priority` | Service tier - null for standard, flex/priority for tiered pricing |
+| `context` | `standard`, `long` | Context window - standard or long context pricing |
+
+##### Model-Level Dimension Summary
+
+Each model includes an `available_dimensions` summary:
+
+```json
+{
+  "available_dimensions": {
+    "sources": ["standard", "mantle"],
+    "geos": ["regional"],
+    "tiers": ["flex", "priority"],
+    "contexts": ["standard", "long"]
+  },
+  "has_mantle_pricing": true
+}
+```
+
+#### Pricing Groups
+
+The system maintains 10 base pricing groups for backward compatibility:
+
+| Group | Description | Typical Use |
+|-------|-------------|-------------|
+| On-Demand | Standard pay-per-use | Default pricing |
+| On-Demand Global | Cross-region inference | Global inference profiles |
+| On-Demand Long Context | Extended context window | >128K tokens |
+| On-Demand Long Context Global | Extended + cross-region | Combined |
+| Batch | Asynchronous processing | Batch inference |
+| Batch Global | Batch + cross-region | Global batch |
+| Batch Long Context | Batch + extended context | Combined |
+| Batch Long Context Global | All combined | Full feature set |
+| Provisioned Throughput | Reserved capacity | Guaranteed throughput |
+| Custom Model | Fine-tuned models | Custom training |
+
+**Note:** Dimensions (source, geo, tier, context) provide additional filtering within groups.
+
 ---
 
 ### 2. Bedrock ListFoundationModels API
@@ -784,9 +851,22 @@ Located at: `backend/config/profiler-config.json`
 | Lambda | Configuration Used |
 |--------|-------------------|
 | `pricing-aggregator` | `provider_patterns`, `explicit_provider_names`, `region_locations` |
-| `pricing-linker` | `provider_aliases`, `min_confidence_threshold` |
+| `pricing-linker` | `provider_aliases`, `min_confidence_threshold`, `explicit_model_mappings` |
 | `model-extractor` | `documentation_links` |
 | `final-aggregator` | `context_window_specs` |
+
+---
+
+## Model Matching
+
+The pricing-linker uses a multi-stage matching algorithm:
+
+1. **Explicit Mappings** - Direct model ID to pricing key mappings (see `profiler-config.json`)
+2. **Provider Scoping** - Only matches within same provider
+3. **Conflict Detection** - Blocks semantic mismatches (see `model_matcher.py`)
+4. **Fuzzy Matching** - Similarity-based fallback
+
+For known issues and resolutions, see [Model Matching Issues](./model-matching-issues.md).
 
 ---
 

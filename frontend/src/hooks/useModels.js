@@ -160,13 +160,47 @@ function getModelPricing(model, pricingData) {
 }
 
 /**
+ * Get pricing with specific dimension filters
+ * @param {Object} model - The model object
+ * @param {Object} pricingData - The pricing data object
+ * @param {string} region - The region
+ * @param {Object} dimensionFilters - Filters for source, geo, tier, context
+ * @returns {Object} Filtered pricing data
+ */
+export function getFilteredPricing(model, pricingData, region, dimensionFilters = {}) {
+  const modelPricing = getModelPricing(model, pricingData)
+  if (!modelPricing) return null
+  
+  return extractSummaryPricing(modelPricing, region, dimensionFilters)
+}
+
+/**
+ * Get all available dimension options for a model
+ * @param {Object} model - The model object
+ * @param {Object} pricingData - The pricing data object
+ * @returns {Object} Available dimensions
+ */
+export function getAvailableDimensions(model, pricingData) {
+  const modelPricing = getModelPricing(model, pricingData)
+  if (!modelPricing) return null
+  
+  return modelPricing.available_dimensions || {
+    sources: ['standard'],
+    geos: [],
+    tiers: [],
+    contexts: ['standard']
+  }
+}
+
+/**
  * Extract summary pricing for a model in a given region
- * Handles different pricing types: token, image_generation, image, video, etc.
+ * Now handles nested dimensions (source, geo, tier, context)
  * @param {Object} modelPricing - Pricing data for a model
  * @param {string} region - Preferred region
- * @returns {Object} Pricing summary with type information
+ * @param {Object} options - Filter options for dimensions
+ * @returns {Object} Pricing summary with type and dimension information
  */
-function extractSummaryPricing(modelPricing, region = DEFAULT_REGION) {
+function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = {}) {
   const nullResult = {
     inputPrice: null,
     outputPrice: null,
@@ -176,6 +210,9 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION) {
     imagePrices: null,
     videoPrice: null,
     videoPrices: null,
+    dimensions: null,
+    availableDimensions: null,
+    hasMantlePricing: false,
   }
 
   if (!modelPricing?.regions) return nullResult
@@ -187,11 +224,46 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION) {
 
   if (!regionData?.pricing_groups) return nullResult
 
+  // Get available dimensions from model-level data
+  const availableDimensions = modelPricing.available_dimensions || {
+    sources: ['standard'],
+    geos: [],
+    tiers: [],
+    contexts: ['standard']
+  }
+
   // Get model-level pricing type info
   const primaryPricingType = modelPricing.primary_pricing_type || 'token'
 
-  // Look for On-Demand pricing first
-  const onDemand = regionData.pricing_groups['On-Demand'] || []
+  /**
+   * Filter pricing entries by dimension options
+   * @param {Array} entries - Pricing entries to filter
+   * @returns {Array} Filtered entries
+   */
+  const filterByDimensions = (entries) => {
+    if (!entries || entries.length === 0) return []
+    
+    if (!options || Object.keys(options).length === 0) {
+      // Default: prefer standard source, standard context (exclude Mantle by default)
+      return entries.filter(e => {
+        const dims = e.dimensions || {}
+        return dims.source !== 'mantle' // Exclude Mantle by default
+      })
+    }
+    
+    return entries.filter(e => {
+      const dims = e.dimensions || {}
+      if (options.source && dims.source !== options.source) return false
+      if (options.geo && dims.geo !== options.geo) return false
+      if (options.tier && dims.tier !== options.tier) return false
+      if (options.context && dims.context !== options.context) return false
+      return true
+    })
+  }
+
+  // Look for On-Demand pricing first, with dimension filtering
+  const onDemandRaw = regionData.pricing_groups['On-Demand'] || []
+  const onDemand = filterByDimensions(onDemandRaw)
 
   // Handle image generation models (per-image pricing)
   if (primaryPricingType === 'image_generation') {
@@ -244,6 +316,8 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION) {
       imagePrices: Object.keys(imagePrices).length > 0 ? imagePrices : null,
       videoPrice: null,
       videoPrices: null,
+      availableDimensions,
+      hasMantlePricing: modelPricing.has_mantle_pricing || false,
     }
   }
 
@@ -308,6 +382,8 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION) {
       imagePrices: null,
       videoPrice: defaultPrice,
       videoPrices: Object.keys(videoPrices).length > 0 ? videoPrices : null,
+      availableDimensions,
+      hasMantlePricing: modelPricing.has_mantle_pricing || false,
     }
   }
 
@@ -326,6 +402,8 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION) {
           imagePrices: null,
           videoPrice: null,
           videoPrices: null,
+          availableDimensions,
+          hasMantlePricing: modelPricing.has_mantle_pricing || false,
         }
       }
     }
@@ -346,6 +424,8 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION) {
           imagePrices: null,
           videoPrice: price,
           videoPrices: null,
+          availableDimensions,
+          hasMantlePricing: modelPricing.has_mantle_pricing || false,
         }
       }
     }
@@ -440,6 +520,8 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION) {
     imagePrices: null,
     videoPrice: null,
     videoPrices: null,
+    availableDimensions,
+    hasMantlePricing: modelPricing.has_mantle_pricing || false,
   }
 }
 

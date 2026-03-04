@@ -507,6 +507,38 @@ def has_semantic_conflict(id1: str, id2: str) -> bool:
         if ver1 != ver2:
             return True
 
+    # Check for Claude major version conflicts (3 vs 4)
+    # Pattern: claude-opus-4-5 vs claude-3-opus
+    claude_major_pattern = r"claude[._-]?(?:opus|sonnet|haiku)?[._-]?(\d+)"
+    match1 = re.search(claude_major_pattern, norm1)
+    match2 = re.search(claude_major_pattern, norm2)
+    if match1 and match2:
+        # Extract major version (first digit after claude or variant name)
+        major1 = match1.group(1)
+        major2 = match2.group(1)
+        if major1 != major2:
+            return True
+
+    # Also check for claude-X-variant vs claude-variant-X patterns
+    # e.g., claude-3-opus vs claude-opus-4
+    claude_variant_pattern = r"claude[._-](\d+)[._-](opus|sonnet|haiku)"
+    claude_variant_rev_pattern = r"claude[._-](opus|sonnet|haiku)[._-](\d+)"
+    match1_std = re.search(claude_variant_pattern, norm1)
+    match1_rev = re.search(claude_variant_rev_pattern, norm1)
+    match2_std = re.search(claude_variant_pattern, norm2)
+    match2_rev = re.search(claude_variant_rev_pattern, norm2)
+
+    # Extract versions from either pattern
+    ver1_from_std = match1_std.group(1) if match1_std else None
+    ver1_from_rev = match1_rev.group(2) if match1_rev else None
+    ver2_from_std = match2_std.group(1) if match2_std else None
+    ver2_from_rev = match2_rev.group(2) if match2_rev else None
+    ver1 = ver1_from_std or ver1_from_rev
+    ver2 = ver2_from_std or ver2_from_rev
+
+    if ver1 and ver2 and ver1 != ver2:
+        return True
+
     # Check for Llama version conflicts
     llama_ver_pattern = r"llama[._-]?(\d+)"
     match1 = re.search(llama_ver_pattern, norm1)

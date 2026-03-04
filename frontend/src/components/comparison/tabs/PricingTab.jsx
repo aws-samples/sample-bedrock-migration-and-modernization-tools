@@ -1,10 +1,32 @@
 import { useState } from 'react'
-import { DollarSign, Trophy, TrendingDown, Info, ChevronDown, ChevronRight } from 'lucide-react'
+import { DollarSign, Trophy, TrendingDown, Info, ChevronDown, ChevronRight, Zap, Globe, Package, Server } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { providerColorClasses } from '@/config/constants'
 
 const providerColors = providerColorClasses
+
+// Dimension badge component for displaying pricing dimensions
+function DimensionBadge({ dimension, value }) {
+  if (!value) return null
+  
+  const colors = {
+    mantle: 'bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-400',
+    standard: 'bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-slate-400',
+    global: 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400',
+    regional: 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400',
+    flex: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-400',
+    priority: 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400',
+    long: 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-400',
+  }
+  
+  return (
+    <span className={`px-2 py-0.5 rounded text-xs font-medium ${colors[value] || colors.standard}`}>
+      {value}
+    </span>
+  )
+}
 
 function formatPrice(price) {
   if (price === null || price === undefined) return null
@@ -13,21 +35,20 @@ function formatPrice(price) {
   return `$${price.toFixed(2)}`
 }
 
-function formatImagePrice(price) {
-  if (price === null || price === undefined) return null
-  return `$${price < 0.01 ? price.toFixed(4) : price.toFixed(2)}`
-}
-
 // Simplify pricing group names for display
 const groupLabels = {
   'On-Demand': 'In Region',
-  'On-Demand Global': 'In Region (Global/CRIS)',
+  'On-Demand Global': 'CRIS Global',
+  'On-Demand Geo': 'CRIS Geo',
   'On-Demand Long Context': 'In Region Long Context',
-  'On-Demand Long Context Global': 'Long Context (Global/CRIS)',
+  'On-Demand Long Context Global': 'Long Context CRIS Global',
+  'On-Demand Long Context Geo': 'Long Context CRIS Geo',
   'Batch': 'Batch',
-  'Batch Global': 'Batch (Global/CRIS)',
+  'Batch Global': 'Batch CRIS Global',
+  'Batch Geo': 'Batch CRIS Geo',
   'Batch Long Context': 'Batch Long Context',
-  'Batch Long Context Global': 'Batch Long Context (Global)',
+  'Batch Long Context Global': 'Batch Long Context CRIS Global',
+  'Batch Long Context Geo': 'Batch Long Context CRIS Geo',
   'Provisioned Throughput': 'Provisioned Throughput',
   'Custom Model': 'Custom Model',
 }
@@ -38,9 +59,15 @@ function simplifyDescription(item) {
   const desc = item.description || ''
 
   // For token-based items, try to determine input/output
+  // Prefer is_input/is_output flags from new structure
   const dimLower = dim.toLowerCase()
   const descLower = desc.toLowerCase()
 
+  // Use is_input/is_output flags first (new structure)
+  if (item.is_input) return 'Input'
+  if (item.is_output) return 'Output'
+  
+  // Fallback to dimension/description parsing
   if (dimLower.includes('input') || descLower.includes('input')) return 'Input'
   if (dimLower.includes('output') || descLower.includes('output')) return 'Output'
   if (dimLower.includes('cache-read') || descLower.includes('cache read')) return 'Cache Read'
@@ -125,8 +152,36 @@ function getRowKey(groupName, item) {
   return `${groupName}::${desc}`
 }
 
+// Consumption type configuration
+const consumptionTypes = {
+  on_demand: {
+    label: 'In Region',
+    icon: Zap,
+    groups: ['On-Demand', 'On-Demand Long Context'],
+    description: 'Standard on-demand pricing'
+  },
+  cross_region: {
+    label: 'Cross-Region (CRIS)',
+    icon: Globe,
+    groups: ['On-Demand Global', 'On-Demand Long Context Global'],
+    description: 'Cross-region inference'
+  },
+  batch: {
+    label: 'Batch',
+    icon: Package,
+    groups: ['Batch', 'Batch Global', 'Batch Long Context', 'Batch Long Context Global'],
+    description: 'Batch processing'
+  },
+  provisioned: {
+    label: 'Provisioned',
+    icon: Server,
+    groups: ['Provisioned Throughput'],
+    description: 'Reserved capacity'
+  }
+}
+
 function PricingGroupSection({ groupName, rows, models, pricingByModel, isLight }) {
-  const [expanded, setExpanded] = useState(groupName === 'On-Demand')
+  const [expanded, setExpanded] = useState(true)
   const label = groupLabels[groupName] || groupName
 
   // Check if any model has data for this group
@@ -235,6 +290,23 @@ function PricingGroupSection({ groupName, rows, models, pricingByModel, isLight 
                             {row.unit}
                           </span>
                         )}
+                        {/* Dimension badges */}
+                        {row.dimensions && (
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {row.dimensions.source && row.dimensions.source !== 'standard' && (
+                              <DimensionBadge dimension="source" value={row.dimensions.source} />
+                            )}
+                            {row.dimensions.geo && (
+                              <DimensionBadge dimension="geo" value={row.dimensions.geo} />
+                            )}
+                            {row.dimensions.tier && (
+                              <DimensionBadge dimension="tier" value={row.dimensions.tier} />
+                            )}
+                            {row.dimensions.context && row.dimensions.context !== 'standard' && (
+                              <DimensionBadge dimension="context" value={row.dimensions.context} />
+                            )}
+                          </div>
+                        )}
                       </div>
                     </td>
                     {models.map((m, idx) => {
@@ -301,7 +373,170 @@ function PricingGroupSection({ groupName, rows, models, pricingByModel, isLight 
   )
 }
 
+// Quick comparison table for selected consumption type
+function QuickComparisonTable({ selectedModels, pricingByModel, consumptionType, isLight }) {
+  const config = consumptionTypes[consumptionType]
+  if (!config) return null
+
+  // Get input/output prices for each model from the selected consumption type groups
+  const comparisonData = selectedModels.map((m, idx) => {
+    const modelPricing = pricingByModel[idx] || {}
+    let inputPrice = null
+    let outputPrice = null
+
+    // Look through all groups for this consumption type
+    for (const groupName of config.groups) {
+      const inputKey = `${groupName}::Input`
+      const outputKey = `${groupName}::Output`
+      
+      if (modelPricing[inputKey]?.value != null && inputPrice === null) {
+        inputPrice = modelPricing[inputKey].value
+      }
+      if (modelPricing[outputKey]?.value != null && outputPrice === null) {
+        outputPrice = modelPricing[outputKey].value
+      }
+      
+      if (inputPrice !== null && outputPrice !== null) break
+    }
+
+    return {
+      model: m.model,
+      inputPrice,
+      outputPrice,
+      hasPricing: inputPrice !== null || outputPrice !== null
+    }
+  })
+
+  // Find cheapest
+  const validInputPrices = comparisonData.filter(d => d.inputPrice != null).map(d => d.inputPrice)
+  const validOutputPrices = comparisonData.filter(d => d.outputPrice != null).map(d => d.outputPrice)
+  const minInput = validInputPrices.length > 0 ? Math.min(...validInputPrices) : null
+  const minOutput = validOutputPrices.length > 0 ? Math.min(...validOutputPrices) : null
+
+  const modelsWithPricing = comparisonData.filter(d => d.hasPricing).length
+
+  if (modelsWithPricing === 0) {
+    return (
+      <div className={cn(
+        'text-center py-6 rounded-lg border',
+        isLight
+          ? 'bg-white/80 border-stone-200/80 text-stone-500'
+          : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl text-slate-500'
+      )}>
+        <DollarSign className="h-6 w-6 mx-auto mb-2 opacity-30" />
+        <p className="text-sm">No {config.label} pricing available for selected models.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className={cn(
+      'rounded-lg border overflow-hidden',
+      isLight
+        ? 'bg-white/80 border-stone-200/80'
+        : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl'
+    )}>
+      <div className="overflow-auto">
+        <table className="w-full">
+          <thead>
+            <tr className={cn(
+              'border-b',
+              isLight ? 'border-stone-200 bg-stone-50' : 'border-white/[0.06] bg-[#1a1b1e]'
+            )}>
+              <th className={cn(
+                'px-4 py-2.5 text-left text-xs font-semibold w-32 sticky left-0 z-10',
+                isLight ? 'text-stone-700 bg-stone-50' : 'text-slate-300 bg-[#1a1b1e]'
+              )}>
+                Model
+              </th>
+              <th className={cn(
+                'px-3 py-2.5 text-center text-xs font-semibold min-w-[100px]',
+                isLight ? 'text-stone-700' : 'text-slate-300'
+              )}>
+                Input (1M)
+              </th>
+              <th className={cn(
+                'px-3 py-2.5 text-center text-xs font-semibold min-w-[100px]',
+                isLight ? 'text-stone-700' : 'text-slate-300'
+              )}>
+                Output (1M)
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {comparisonData.map((d, idx) => {
+              const isInputCheapest = d.inputPrice !== null && d.inputPrice === minInput && validInputPrices.length > 1
+              const isOutputCheapest = d.outputPrice !== null && d.outputPrice === minOutput && validOutputPrices.length > 1
+
+              return (
+                <tr
+                  key={d.model.model_id}
+                  className={cn(
+                    'border-b last:border-b-0',
+                    isLight ? 'border-stone-100' : 'border-white/[0.04]'
+                  )}
+                >
+                  <td className={cn(
+                    'px-4 py-3 sticky left-0 z-10',
+                    isLight ? 'bg-white' : 'bg-[#1a1b1e]'
+                  )}>
+                    <Badge className={cn(
+                      'text-[9px] mb-0.5',
+                      isLight ? 'text-[#faf9f5]' : 'text-white',
+                      providerColors[d.model.model_provider] || providerColors.default
+                    )}>
+                      {d.model.model_provider}
+                    </Badge>
+                    <p className={cn(
+                      'text-xs font-medium line-clamp-1',
+                      isLight ? 'text-stone-700' : 'text-slate-300'
+                    )}>
+                      {d.model.model_name || d.model.model_id}
+                    </p>
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    {d.inputPrice !== null ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <span className={cn(
+                          'text-sm font-semibold tabular-nums',
+                          isInputCheapest ? 'text-emerald-600' : isLight ? 'text-stone-900' : 'text-white'
+                        )}>
+                          {formatPrice(d.inputPrice)}
+                        </span>
+                        {isInputCheapest && <Trophy className="h-3 w-3 text-emerald-500" />}
+                      </div>
+                    ) : (
+                      <span className={cn('text-xs', isLight ? 'text-stone-300' : 'text-slate-600')}>—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    {d.outputPrice !== null ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <span className={cn(
+                          'text-sm font-semibold tabular-nums',
+                          isOutputCheapest ? 'text-emerald-600' : isLight ? 'text-stone-900' : 'text-white'
+                        )}>
+                          {formatPrice(d.outputPrice)}
+                        </span>
+                        {isOutputCheapest && <Trophy className="h-3 w-3 text-emerald-500" />}
+                      </div>
+                    ) : (
+                      <span className={cn('text-xs', isLight ? 'text-stone-300' : 'text-slate-600')}>—</span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
+  const [consumptionType, setConsumptionType] = useState('on_demand')
+
   // Calculate pricing for each model
   const pricingData = selectedModels.map(({ model, region }) => {
     const pricing = getPricingForModel?.(model, region)
@@ -321,7 +556,10 @@ export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
   const pricingByModel = pricingData.map(({ model, region, pricing }) => {
     const map = {}
     const fullPricing = pricing?.fullPricing
-    const regionData = fullPricing?.regions?.[region] || fullPricing?.regions?.['us-east-1']
+    // Try selected region first, then us-east-1, then any available region
+    const regionData = fullPricing?.regions?.[region] || 
+                       fullPricing?.regions?.['us-east-1'] || 
+                       Object.values(fullPricing?.regions || {})[0]
     const pricingGroups = regionData?.pricing_groups || {}
 
     Object.entries(pricingGroups).forEach(([groupName, items]) => {
@@ -338,11 +576,13 @@ export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
 
   // Collect all unique pricing groups and rows across all models
   const allGroups = new Map() // groupName -> Set of row keys
-  const rowMeta = {} // key -> { label, unit }
+  const rowMeta = {} // key -> { label, unit, dimensions }
 
   pricingData.forEach(({ region, pricing }) => {
     const fullPricing = pricing?.fullPricing
-    const regionData = fullPricing?.regions?.[region] || fullPricing?.regions?.['us-east-1']
+    const regionData = fullPricing?.regions?.[region] || 
+                       fullPricing?.regions?.['us-east-1'] ||
+                       Object.values(fullPricing?.regions || {})[0]
     const pricingGroups = regionData?.pricing_groups || {}
 
     Object.entries(pricingGroups).forEach(([groupName, items]) => {
@@ -359,40 +599,38 @@ export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
             key,
             label: simplifyDescription(item),
             unit: priceInfo.unit,
+            dimensions: item.dimensions || null,
           }
         }
       })
     })
   })
 
-  // Desired group order
-  const groupOrder = [
-    'On-Demand', 'On-Demand Global',
-    'On-Demand Long Context', 'On-Demand Long Context Global',
-    'Batch', 'Batch Global',
-    'Batch Long Context', 'Batch Long Context Global',
-    'Provisioned Throughput', 'Custom Model',
-  ]
-
-  const sortedGroups = [...allGroups.entries()]
+  // Filter groups by selected consumption type
+  const selectedConfig = consumptionTypes[consumptionType]
+  const filteredGroups = [...allGroups.entries()]
+    .filter(([groupName]) => selectedConfig?.groups.includes(groupName))
     .sort((a, b) => {
-      const ai = groupOrder.indexOf(a[0])
-      const bi = groupOrder.indexOf(b[0])
-      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi)
+      const ai = selectedConfig.groups.indexOf(a[0])
+      const bi = selectedConfig.groups.indexOf(b[0])
+      return ai - bi
     })
 
   // Find best on-demand prices for summary
   const validInputPrices = pricingData.filter(d => d.inputPrice !== null && d.inputPrice !== undefined)
   const validOutputPrices = pricingData.filter(d => d.outputPrice !== null && d.outputPrice !== undefined)
-  const validImagePrices = pricingData.filter(d => d.imagePrice !== null && d.imagePrice !== undefined)
 
   const minInputPrice = validInputPrices.length > 0 ? Math.min(...validInputPrices.map(d => d.inputPrice)) : null
   const minOutputPrice = validOutputPrices.length > 0 ? Math.min(...validOutputPrices.map(d => d.outputPrice)) : null
-  const minImagePrice = validImagePrices.length > 0 ? Math.min(...validImagePrices.map(d => d.imagePrice)) : null
 
   // Find ALL models that are cheapest (handles ties)
   const cheapestInputModels = minInputPrice !== null ? pricingData.filter(d => d.inputPrice === minInputPrice) : []
   const cheapestOutputModels = minOutputPrice !== null ? pricingData.filter(d => d.outputPrice === minOutputPrice) : []
+
+  // Check which consumption types have data
+  const availableTypes = Object.entries(consumptionTypes).filter(([key, config]) => {
+    return config.groups.some(groupName => allGroups.has(groupName))
+  }).map(([key]) => key)
 
   return (
     <div className="mt-4 space-y-3">
@@ -443,7 +681,7 @@ export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
             <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Pricing Groups</span>
           </div>
           <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>
-            {sortedGroups.length}
+            {allGroups.size}
           </p>
         </div>
 
@@ -461,6 +699,58 @@ export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
         </div>
       </div>
 
+      {/* Consumption Type Filter */}
+      <div className={cn(
+        'flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-lg border',
+        isLight
+          ? 'bg-stone-50/80 border-stone-200/60'
+          : 'bg-white/[0.02] border-white/[0.06]'
+      )}>
+        <span className={cn('text-xs font-medium mr-1', isLight ? 'text-stone-600' : 'text-slate-400')}>
+          Consumption:
+        </span>
+        {Object.entries(consumptionTypes).map(([key, config]) => {
+          const Icon = config.icon
+          const isAvailable = availableTypes.includes(key)
+          const isSelected = consumptionType === key
+          
+          return (
+            <Button
+              key={key}
+              variant="ghost"
+              size="sm"
+              disabled={!isAvailable}
+              className={cn(
+                'h-7 px-2.5 text-xs rounded-md gap-1.5',
+                isSelected
+                  ? isLight
+                    ? 'bg-amber-100 text-amber-800 hover:bg-amber-100'
+                    : 'bg-[#1A9E7A]/20 text-[#1A9E7A] hover:bg-[#1A9E7A]/20'
+                  : isAvailable
+                    ? isLight
+                      ? 'text-stone-600 hover:text-stone-800 hover:bg-stone-100'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]'
+                    : isLight
+                      ? 'text-stone-300 cursor-not-allowed'
+                      : 'text-slate-600 cursor-not-allowed'
+              )}
+              onClick={() => isAvailable && setConsumptionType(key)}
+            >
+              <Icon className="h-3 w-3" />
+              {config.label}
+            </Button>
+          )
+        })}
+      </div>
+
+      {/* Quick Comparison Table */}
+      <QuickComparisonTable
+        selectedModels={selectedModels}
+        pricingByModel={pricingByModel}
+        consumptionType={consumptionType}
+        isLight={isLight}
+      />
+
       {/* Region info */}
       <div className={cn(
         'flex items-center gap-2 px-3 py-2 rounded-lg text-xs',
@@ -472,8 +762,8 @@ export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
         Prices shown for us-east-1. Actual pricing may vary by region.
       </div>
 
-      {/* Pricing groups */}
-      {sortedGroups.map(([groupName, rowKeys]) => {
+      {/* Detailed Pricing groups for selected consumption type */}
+      {filteredGroups.map(([groupName, rowKeys]) => {
         const rows = [...rowKeys].map(key => rowMeta[key]).filter(Boolean)
         // Sort rows: Input before Output before others
         rows.sort((a, b) => {
@@ -499,7 +789,7 @@ export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
       })}
 
       {/* No pricing data fallback */}
-      {sortedGroups.length === 0 && (
+      {allGroups.size === 0 && (
         <div className={cn(
           'text-center py-12 rounded-lg border',
           isLight

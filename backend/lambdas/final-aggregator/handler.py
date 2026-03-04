@@ -1647,6 +1647,10 @@ def _build_model_pricing(
             "integration_timestamp": collection_timestamp,
             "reference_based": True,
         },
+        # Preserve regions data from pricing-linker (contains pricing_groups per region)
+        "regions": model_pricing_data.get("regions", {}),
+        "total_regions": model_pricing_data.get("total_regions", 0),
+        "confidence": model_pricing_data.get("confidence", 0),
     }
 
     return model_pricing, batch_inference, has_pricing, upstream_pricing_ref
@@ -1907,6 +1911,7 @@ def transform_model_to_schema(
         "features": feature_support,
         "specs": build_specs(converse_data),
         "pricing": build_pricing_alias(model_pricing),
+        "model_pricing": model_pricing,
         "quotas": model_quotas,
         "api": api_support,
     }
@@ -2414,3 +2419,6 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
             "errorType": type(e).__name__,
             "errorMessage": str(e),
         }
+
+
+# Force rebuild 1772624008

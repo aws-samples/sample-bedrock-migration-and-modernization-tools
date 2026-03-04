@@ -308,7 +308,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   // Get pricing from new pricing data source, fallback to old method
   const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
   const pricingSummary = pricingResult?.summary || extractPricing(model, preferredRegion)
-  const { inputPrice, outputPrice, pricingType, unitLabel, imagePrice, imagePrices, videoPrice, videoPrices } = pricingSummary
+  const { inputPrice, outputPrice, pricingType, unitLabel, imagePrice, imagePrices, videoPrice, videoPrices, hasMantlePricing, availableDimensions } = pricingSummary
 
   const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false
   const crisGeoScopes = getCrisGeoScopes(model)
@@ -621,9 +621,22 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                       ${outputPrice !== null ? (outputPrice < 0.01 ? outputPrice.toFixed(4) : outputPrice.toFixed(2)) : 'N/A'}
                     </p>
                   </div>
-                  <p className={cn('col-span-2 text-center text-[10px] -mt-1', isLight ? 'text-stone-400' : 'text-slate-400')}>
-                    {unitLabel || 'per 1M tokens'}
-                  </p>
+                  <div className="col-span-2 text-center -mt-1 flex items-center justify-center gap-1">
+                    <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-400')}>
+                      {unitLabel || 'per 1M tokens'}
+                    </span>
+                    {hasMantlePricing && (
+                      <span 
+                        className={cn(
+                          'text-[9px] px-1.5 py-0.5 rounded',
+                          isLight ? 'bg-purple-100 text-purple-700' : 'bg-purple-500/15 text-purple-400'
+                        )}
+                        title="Mantle (OpenAI-compatible) pricing available"
+                      >
+                        + Mantle
+                      </span>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className={cn(

@@ -667,46 +667,8 @@
     },
 
     "CheckShouldTriggerAgent": {
-      "Type": "Choice",
-      "Comment": "Check if self-healing agent should be triggered based on gap analysis",
-      "Choices": [
-        {
-          "Variable": "$.gapDetection.shouldTriggerAgent",
-          "BooleanEquals": true,
-          "Next": "InvokeSelfHealingAgent"
-        }
-      ],
-      "Default": "CopyToLatest"
-    },
-
-    "InvokeSelfHealingAgent": {
-      "Type": "Task",
-      "Resource": "${SelfHealingAgentFunction}",
-      "Comment": "Use Bedrock Claude to analyze gaps and suggest config updates",
-      "Parameters": {
-        "s3Bucket.$": "$.config.s3Bucket",
-        "executionId.$": "$.executionId",
-        "gapReportS3Key.$": "$.gapDetection.s3Key"
-      },
-      "ResultPath": "$.agentSuggestions",
-      "Retry": [
-        {
-          "ErrorEquals": ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "States.Timeout"],
-          "IntervalSeconds": 10,
-          "MaxAttempts": 2,
-          "BackoffRate": 2,
-          "JitterStrategy": "FULL",
-          "MaxDelaySeconds": 120
-        }
-      ],
-      "Catch": [
-        {
-          "ErrorEquals": ["States.ALL"],
-          "ResultPath": "$.agentError",
-          "Next": "CopyToLatest"
-        }
-      ],
-      "TimeoutSeconds": 300,
+      "Type": "Pass",
+      "Comment": "DISABLED: Self-healing agent temporarily disabled to prevent config corruption. TODO: Fix agent validation before re-enabling.",
       "Next": "CopyToLatest"
     },
 

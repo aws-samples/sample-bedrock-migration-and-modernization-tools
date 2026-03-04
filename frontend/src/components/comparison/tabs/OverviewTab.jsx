@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy, DollarSign, Globe } from 'lucide-react'
+import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy, DollarSign, Globe, ChevronDown, ChevronRight, Zap, Cpu } from 'lucide-react'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -265,6 +265,77 @@ function ModalitiesRow({ label, values, isLight, isOutput = false }) {
   )
 }
 
+// Winner row component for the Winners panel
+function WinnerRow({ icon, label, winners, value, isLight, highlight = false, modelData }) {
+  if (!winners || winners.length === 0) {
+    return (
+      <div className={cn(
+        'flex items-center justify-between py-1.5 px-2 rounded',
+        isLight ? 'bg-white/50' : 'bg-white/[0.02]'
+      )}>
+        <div className="flex items-center gap-1.5">
+          <span className={cn(isLight ? 'text-stone-400' : 'text-slate-500')}>{icon}</span>
+          <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>{label}</span>
+        </div>
+        <span className={cn('text-[10px]', isLight ? 'text-stone-300' : 'text-slate-600')}>—</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className={cn(
+      'py-1.5 px-2 rounded',
+      highlight
+        ? isLight ? 'bg-emerald-50/80' : 'bg-emerald-500/10'
+        : isLight ? 'bg-white/50' : 'bg-white/[0.02]'
+    )}>
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-1.5">
+          <span className={cn(
+            highlight ? 'text-emerald-600' : isLight ? 'text-stone-500' : 'text-slate-400'
+          )}>{icon}</span>
+          <span className={cn(
+            'text-[10px] font-medium',
+            highlight ? 'text-emerald-700' : isLight ? 'text-stone-600' : 'text-slate-400'
+          )}>{label}</span>
+        </div>
+        <span className={cn(
+          'text-[10px] font-semibold',
+          highlight ? 'text-emerald-600' : isLight ? 'text-stone-900' : 'text-white'
+        )}>{value}</span>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {winners.slice(0, 3).map((w, i) => {
+          const modelIndex = modelData.findIndex(m => m === w)
+          return (
+            <span
+              key={i}
+              className={cn(
+                'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium',
+                isLight ? 'bg-stone-100 text-stone-700' : 'bg-white/10 text-slate-300'
+              )}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: radarColors[modelIndex % radarColors.length] }}
+              />
+              {w.model.model_name?.split(' ').slice(-2).join(' ') || w.model.model_id.split('.').pop()}
+            </span>
+          )
+        })}
+        {winners.length > 3 && (
+          <span className={cn(
+            'text-[9px] px-1',
+            isLight ? 'text-stone-400' : 'text-slate-500'
+          )}>
+            +{winners.length - 3}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // Custom tooltip for the radar chart
 function RadarTooltip({ active, payload, label, isLight }) {
   if (!active || !payload?.length) return null
@@ -286,19 +357,162 @@ function RadarTooltip({ active, payload, label, isLight }) {
   )
 }
 
-// Helper to get all regions for a model (on-demand + CRIS + Mantle)
+// Helper to get all regions for a model (on-demand + CRIS + Mantle + Batch)
 function getAllModelRegions(model) {
-  const onDemand = model.availability?.on_demand?.regions ?? model.in_region ?? []
+  const onDemand = model.availability?.on_demand?.regions ?? model.in_region ?? model.regions_available ?? []
   const cris = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []
   const mantle = model.availability?.mantle?.regions ?? []
-  return [...new Set([...onDemand, ...cris, ...mantle])]
+  const batch = model.availability?.batch?.regions ?? model.batch_inference_supported?.supported_regions ?? []
+  return [...new Set([...onDemand, ...cris, ...mantle, ...batch])]
+}
+
+// Helper to get pricing for a specific consumption type with dimension filtering
+function getPricesByType(pricing, region, type, crisSubType = 'global', dimensionFilters = {}) {
+  const fullPricing = pricing?.fullPricing
+  if (!fullPricing?.regions) return { inputPrice: null, outputPrice: null, availableRegions: [], hasData: false }
+  
+  // Try the specified region first, then us-east-1, then any available region
+  const regionData = fullPricing.regions[region] || 
+                     fullPricing.regions['us-east-1'] || 
+                     Object.values(fullPricing.regions)[0]
+  
+  if (!regionData?.pricing_groups) return { inputPrice: null, outputPrice: null, availableRegions: [], hasData: false }
+  
+  const pricingGroups = regionData.pricing_groups
+  
+  // Map pricing type to group names
+  let groupNames
+  if (type === 'cris') {
+    if (crisSubType === 'geo') {
+      groupNames = ['On-Demand Geo', 'On-Demand Long Context Geo']
+    } else {
+      groupNames = ['On-Demand Global', 'On-Demand Long Context Global']
+    }
+  } else {
+    groupNames = ['On-Demand', 'On-Demand Long Context']
+  }
+  
+  let inputPrice = null
+  let outputPrice = null
+  
+  // Check each group for pricing
+  for (const groupName of groupNames) {
+    let items = pricingGroups[groupName]
+    if (!items || items.length === 0) continue
+    
+    // Apply dimension filters if provided
+    if (Object.keys(dimensionFilters).length > 0) {
+      items = items.filter(item => {
+        const dims = item.dimensions || {}
+        if (dimensionFilters.source && dims.source !== dimensionFilters.source) return false
+        if (dimensionFilters.geo && dims.geo !== dimensionFilters.geo) return false
+        if (dimensionFilters.tier && dims.tier !== dimensionFilters.tier) return false
+        if (dimensionFilters.context && dims.context !== dimensionFilters.context) return false
+        return true
+      })
+    } else {
+      // Default: exclude Mantle pricing
+      items = items.filter(item => {
+        const dims = item.dimensions || {}
+        return dims.source !== 'mantle'
+      })
+    }
+    
+    for (const item of items) {
+      // Get price - multiply by 1000 for per-million display
+      const price = item.price_per_thousand != null 
+        ? item.price_per_thousand * 1000 
+        : item.price_per_unit
+      
+      if (price == null) continue
+      
+      const dim = (item.dimension || '').toLowerCase()
+      const desc = (item.description || '').toLowerCase()
+      
+      // Check for input pricing - prefer is_input/is_output flags from new structure
+      const isInput = item.is_input || dim.includes('input') || desc.includes('input')
+      const isOutput = item.is_output || dim.includes('output') || desc.includes('output')
+      
+      // Skip cache pricing for the main comparison
+      const isCache = dim.includes('cache') || desc.includes('cache')
+      if (isCache) continue
+      
+      if (isInput && inputPrice === null) {
+        inputPrice = price
+      }
+      if (isOutput && outputPrice === null) {
+        outputPrice = price
+      }
+      
+      // If we found both, we can stop
+      if (inputPrice !== null && outputPrice !== null) break
+    }
+    
+    // If we found pricing in this group, don't check the next one
+    if (inputPrice !== null || outputPrice !== null) break
+  }
+  
+  // Get regions that have this pricing type
+  const availableRegions = Object.keys(fullPricing.regions).filter(r => {
+    const rData = fullPricing.regions[r]
+    if (!rData?.pricing_groups) return false
+    return groupNames.some(g => rData.pricing_groups[g]?.length > 0)
+  })
+  
+  return { 
+    inputPrice, 
+    outputPrice, 
+    availableRegions,
+    hasData: inputPrice !== null || outputPrice !== null
+  }
+}
+
+function PriceRow({ label, values, isLight, priceRegions = [], pricingType }) {
+  return (
+    <tr className={cn(
+      'border-b',
+      isLight ? 'border-stone-100' : 'border-white/[0.04]'
+    )}>
+      <td className={cn(
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10',
+        isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
+      )}>
+        {label}
+      </td>
+      {values.map((data, idx) => {
+        const regions = priceRegions[idx] || []
+        const tooltipText = pricingType === 'cris'
+          ? `CRIS: Available from ${regions.length} source regions`
+          : `In Region: Available in ${regions.length} regions`
+        
+        return (
+          <td
+            key={idx}
+            className={cn(
+              'px-3 py-2.5 text-center text-sm font-medium',
+              isLight ? 'text-stone-900' : 'text-white'
+            )}
+            title={data.value !== 'N/A' ? tooltipText : undefined}
+          >
+            <div className="flex items-center justify-center gap-1 cursor-help">
+              {data.value}
+            </div>
+          </td>
+        )
+      })}
+    </tr>
+  )
 }
 
 export function OverviewTab({ selectedModels, getPricingForModel, allModels, isLight }) {
   const [scoringMode, setScoringMode] = useState('global') // 'global' or 'relative'
+  const [radarCollapsed, setRadarCollapsed] = useState(false)
+  const [pricingType, setPricingType] = useState('in_region') // 'in_region' or 'cris'
+  const [crisType, setCrisType] = useState('global') // 'global' or 'geo'
 
-  const modelData = selectedModels.map(({ model, region }) => {
+  const modelData = useMemo(() => selectedModels.map(({ model, region }) => {
     const pricing = getPricingForModel?.(model, region)
+    const priceData = getPricesByType(pricing, region, pricingType, crisType)
     const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window ?? 0
     const maxOutput = model.specs?.max_output ?? model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens ?? 0
     const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
@@ -306,8 +520,15 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
     const regions = getAllModelRegions(model)
     const isActive = (model.lifecycle?.status ?? model.model_lifecycle?.status) === 'ACTIVE' || model.model_status === 'ACTIVE'
     const streamingSupported = model.streaming ?? model.streaming_supported ?? false
-    const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false
-    const batchSupported = (model.consumption_options || []).includes('batch')
+    
+    // Get CRIS data with proper fallbacks
+    const crisData = model.availability?.cross_region ?? model.cross_region_inference ?? {}
+    const crisSupported = crisData.supported ?? (crisData.source_regions?.length > 0) ?? (crisData.profiles?.length > 0) ?? false
+    
+    // Get batch support with proper fallbacks
+    const batchData = model.availability?.batch ?? model.batch_inference_supported ?? {}
+    const batchSupported = batchData.supported ?? (batchData.supported_regions?.length > 0) ?? (model.consumption_options || []).includes('batch')
+    
     const mantleSupported = model.availability?.mantle?.supported ?? false
     const hasLongContext = detectLongContext(pricing, region)
     const extendedContext = getExtendedContextWindow(model)
@@ -332,10 +553,11 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
       hasLongContext: hasLongContext || (extendedContext != null && extendedContext > contextWindow),
       useCasesCount,
       capabilitiesCount,
-      inputPrice: pricing?.summary?.inputPrice,
-      outputPrice: pricing?.summary?.outputPrice,
+      inputPrice: priceData.inputPrice,
+      outputPrice: priceData.outputPrice,
+      priceRegions: priceData.availableRegions,
     }
-  })
+  }), [selectedModels, getPricingForModel, pricingType, crisType])
 
   // Global benchmarks from ALL models in the catalog
   const globalBenchmarks = useMemo(() => {
@@ -352,15 +574,22 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
       const effectiveCtx = Math.max(ctx, extCtx || 0)
       if (effectiveCtx > maxContext) maxContext = effectiveCtx
       
-      // Regions (total: on-demand + CRIS + Mantle)
+      // Regions (total: on-demand + CRIS + Mantle + Batch)
       const regionCount = getAllModelRegions(m).length
       if (regionCount > maxRegions) maxRegions = regionCount
       
       // Features count
       let features = 0
       if (m.streaming ?? m.streaming_supported) features++
-      if ((m.consumption_options || []).includes('batch')) features++
-      if (m.availability?.cross_region?.supported ?? m.cross_region_inference?.supported) features++
+      
+      // Batch support
+      const batchData = m.availability?.batch ?? m.batch_inference_supported ?? {}
+      if (batchData.supported ?? (batchData.supported_regions?.length > 0) ?? (m.consumption_options || []).includes('batch')) features++
+      
+      // CRIS support
+      const crisData = m.availability?.cross_region ?? m.cross_region_inference ?? {}
+      if (crisData.supported ?? (crisData.source_regions?.length > 0) ?? (crisData.profiles?.length > 0)) features++
+      
       if (m.availability?.mantle?.supported) features++
       if (features > maxFeatures) maxFeatures = features
     })
@@ -429,6 +658,118 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
 
   return (
     <div className="mt-4 space-y-4">
+      {/* Controls Header */}
+      <div className={cn(
+        'flex items-center justify-between gap-4 px-3 py-2 rounded-lg border',
+        isLight ? 'bg-stone-50/80 border-stone-200/60' : 'bg-white/[0.02] border-white/[0.06]'
+      )}>
+        {/* Scoring Mode */}
+        <div className="flex items-center gap-2">
+          <span className={cn('text-[10px] font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>
+            Scoring:
+          </span>
+          <div className={cn(
+            'inline-flex rounded-md border overflow-hidden h-6',
+            isLight ? 'border-stone-300' : 'border-[#373a40]'
+          )}>
+            <button
+              onClick={() => setScoringMode('global')}
+              title="Global: Compare against ALL 200+ models in the catalog. A score of 10 means best in the entire catalog."
+              className={cn(
+                'px-2.5 py-0.5 text-[10px] font-medium transition-colors',
+                scoringMode === 'global'
+                  ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                  : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+              )}
+            >
+              Global
+            </button>
+            <button
+              onClick={() => setScoringMode('relative')}
+              title="Relative: Compare only the selected models. Best model in your selection gets 10/10."
+              className={cn(
+                'px-2.5 py-0.5 text-[10px] font-medium transition-colors border-l',
+                isLight ? 'border-stone-300' : 'border-[#373a40]',
+                scoringMode === 'relative'
+                  ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                  : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+              )}
+            >
+              Relative
+            </button>
+          </div>
+        </div>
+
+        {/* Pricing Type */}
+        <div className="flex items-center gap-2">
+          <span className={cn('text-[10px] font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>
+            Pricing:
+          </span>
+          <div className={cn(
+            'inline-flex rounded-md border overflow-hidden h-6',
+            isLight ? 'border-stone-300' : 'border-[#373a40]'
+          )}>
+            <button
+              onClick={() => setPricingType('in_region')}
+              title="In Region: Standard on-demand pricing. Price varies by AWS region where you deploy."
+              className={cn(
+                'px-2.5 py-0.5 text-[10px] font-medium transition-colors',
+                pricingType === 'in_region'
+                  ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                  : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+              )}
+            >
+              In Region
+            </button>
+            <button
+              onClick={() => setPricingType('cris')}
+              title="CRIS: Cross-Region Inference Service. Same price from any source region, routes to optimal endpoint."
+              className={cn(
+                'px-2.5 py-0.5 text-[10px] font-medium transition-colors border-l',
+                isLight ? 'border-stone-300' : 'border-[#373a40]',
+                pricingType === 'cris'
+                  ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                  : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+              )}
+            >
+              CRIS
+            </button>
+          </div>
+          {pricingType === 'cris' && (
+            <div className={cn(
+              'inline-flex rounded-md border overflow-hidden h-6 ml-2',
+              isLight ? 'border-stone-300' : 'border-[#373a40]'
+            )}>
+              <button
+                onClick={() => setCrisType('global')}
+                title="Global CRIS: Routes to any region worldwide for optimal latency"
+                className={cn(
+                  'px-2 py-0.5 text-[10px] font-medium transition-colors',
+                  crisType === 'global'
+                    ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                    : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                )}
+              >
+                Global
+              </button>
+              <button
+                onClick={() => setCrisType('geo')}
+                title="Geo CRIS: Routes within a geographic region (e.g., EU, APAC)"
+                className={cn(
+                  'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
+                  isLight ? 'border-stone-300' : 'border-[#373a40]',
+                  crisType === 'geo'
+                    ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                    : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                )}
+              >
+                Geo
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-2">
         <div className={cn(
@@ -454,7 +795,9 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
         )}>
           <div className="flex items-center gap-1.5 mb-0.5">
             <DollarSign className={cn('h-3.5 w-3.5 text-emerald-500')} />
-            <span className={cn('text-[10px]', isLight ? 'text-emerald-700' : 'text-emerald-400')}>Cheapest Input</span>
+            <span className={cn('text-[10px]', isLight ? 'text-emerald-700' : 'text-emerald-400')}>
+              Cheapest Input ({pricingType === 'cris' ? 'CRIS' : 'In Region'})
+            </span>
           </div>
           <p className="text-lg font-bold text-emerald-600">
             {minInputPrice !== null ? `$${minInputPrice < 0.01 ? minInputPrice.toFixed(4) : minInputPrice.toFixed(2)}` : '—'}
@@ -485,7 +828,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
         </div>
       </div>
 
-      {/* Radar Chart */}
+      {/* Radar Chart + Winners Panel */}
       {modelData.length >= 2 && (
         <div className={cn(
           'rounded-lg border overflow-hidden',
@@ -493,82 +836,144 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
             ? 'bg-white/70 border-stone-200/60 backdrop-blur-xl'
             : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl'
         )}>
-          <div className={cn(
-            'px-4 py-2.5 border-b flex items-center justify-between',
-            isLight ? 'bg-stone-50/60 border-stone-200' : 'bg-white/[0.02] border-white/[0.06]'
-          )}>
+          <button
+            onClick={() => setRadarCollapsed(!radarCollapsed)}
+            className={cn(
+              'w-full px-4 py-2.5 border-b flex items-center gap-2 transition-colors',
+              isLight ? 'bg-stone-50/60 border-stone-200 hover:bg-stone-100/60' : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04]'
+            )}
+          >
+            {radarCollapsed ? (
+              <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-500')} />
+            ) : (
+              <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-500')} />
+            )}
             <h3 className={cn('font-semibold text-xs', isLight ? 'text-stone-900' : 'text-white')}>
               Model Comparison Radar
             </h3>
-            <div className={cn(
-              'inline-flex rounded-md border overflow-hidden h-6',
-              isLight ? 'border-stone-300' : 'border-[#373a40]'
-            )}>
-              <button
-                onClick={() => setScoringMode('global')}
-                className={cn(
-                  'px-2 py-0.5 text-[10px] font-medium transition-colors',
-                  scoringMode === 'global'
-                    ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
-                    : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                )}
-              >
-                Global
-              </button>
-              <button
-                onClick={() => setScoringMode('relative')}
-                className={cn(
-                  'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
-                  isLight ? 'border-stone-300' : 'border-[#373a40]',
-                  scoringMode === 'relative'
-                    ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
-                    : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                )}
-              >
-                Relative
-              </button>
-            </div>
-          </div>
+          </button>
 
-          <div style={{ height: 380 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radarChartData} cx="50%" cy="50%" outerRadius="70%">
-                <PolarGrid
-                  stroke={isLight ? '#d6d3d1' : 'rgba(255,255,255,0.08)'}
-                  strokeDasharray="3 3"
+          {!radarCollapsed && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
+              {/* Radar Chart - takes 2 columns on large screens */}
+              <div className={cn(
+                'lg:col-span-2 lg:border-r',
+                isLight ? 'border-stone-200/60' : 'border-white/[0.06]'
+              )} style={{ height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={radarChartData} cx="50%" cy="50%" outerRadius="65%">
+                    <PolarGrid
+                      stroke={isLight ? '#d6d3d1' : 'rgba(255,255,255,0.08)'}
+                      strokeDasharray="3 3"
+                    />
+                    <PolarAngleAxis
+                      dataKey="axis"
+                      tick={{
+                        fill: isLight ? '#57534e' : '#94a3b8',
+                        fontSize: 12,
+                        fontWeight: 500,
+                      }}
+                    />
+                    <PolarRadiusAxis
+                      angle={90}
+                      domain={[0, 10]}
+                      tick={{
+                        fill: isLight ? '#a8a29e' : '#475569',
+                        fontSize: 9,
+                      }}
+                      tickCount={6}
+                    />
+                    {radarScores.map((scores, idx) => (
+                      <Radar
+                        key={scores.name}
+                        name={scores.name}
+                        dataKey={scores.name}
+                        stroke={radarColors[idx % radarColors.length]}
+                        fill={radarColors[idx % radarColors.length]}
+                        fillOpacity={0.15}
+                        strokeWidth={2}
+                      />
+                    ))}
+                    <Tooltip content={<RadarTooltip isLight={isLight} />} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Winners Panel - takes 1 column */}
+              <div className={cn(
+                'p-3 space-y-2',
+                isLight ? 'bg-stone-50/30' : 'bg-white/[0.01]'
+              )}>
+                <h4 className={cn(
+                  'text-[10px] font-semibold uppercase tracking-wide mb-2',
+                  isLight ? 'text-stone-500' : 'text-slate-500'
+                )}>
+                  Category Winners
+                </h4>
+                
+                {/* Context Window Winner */}
+                <WinnerRow
+                  icon={<Cpu className="h-3 w-3" />}
+                  label="Context Window"
+                  winners={[...contextBestSet].map(i => modelData[i])}
+                  value={formatNumber(maxEffectiveContext)}
+                  isLight={isLight}
+                  modelData={modelData}
                 />
-                <PolarAngleAxis
-                  dataKey="axis"
-                  tick={{
-                    fill: isLight ? '#57534e' : '#94a3b8',
-                    fontSize: 12,
-                    fontWeight: 500,
-                  }}
+                
+                {/* Cost Efficiency Winner (cheapest input) */}
+                <WinnerRow
+                  icon={<DollarSign className="h-3 w-3" />}
+                  label={`Cheapest (${pricingType === 'cris' ? 'CRIS' : 'In Region'})`}
+                  winners={[...inputPriceBestSet].map(i => modelData[i])}
+                  value={minInputPrice !== null ? `$${minInputPrice < 0.01 ? minInputPrice.toFixed(4) : minInputPrice.toFixed(2)}` : '—'}
+                  isLight={isLight}
+                  highlight
+                  modelData={modelData}
                 />
-                <PolarRadiusAxis
-                  angle={90}
-                  domain={[0, 10]}
-                  tick={{
-                    fill: isLight ? '#a8a29e' : '#475569',
-                    fontSize: 9,
-                  }}
-                  tickCount={6}
+                
+                {/* Availability Winner */}
+                <WinnerRow
+                  icon={<Globe className="h-3 w-3" />}
+                  label="Most Regions"
+                  winners={[...regionsBestSet].map(i => modelData[i])}
+                  value={`${maxRegions} regions`}
+                  isLight={isLight}
+                  modelData={modelData}
                 />
-                {radarScores.map((scores, idx) => (
-                  <Radar
-                    key={scores.name}
-                    name={scores.name}
-                    dataKey={scores.name}
-                    stroke={radarColors[idx % radarColors.length]}
-                    fill={radarColors[idx % radarColors.length]}
-                    fillOpacity={0.15}
-                    strokeWidth={2}
-                  />
-                ))}
-                <Tooltip content={<RadarTooltip isLight={isLight} />} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
+                
+                {/* Max Output Winner */}
+                <WinnerRow
+                  icon={<FileText className="h-3 w-3" />}
+                  label="Max Output"
+                  winners={[...outputBestSet].map(i => modelData[i])}
+                  value={formatNumber(maxOutputTokens)}
+                  isLight={isLight}
+                  modelData={modelData}
+                />
+                
+                {/* Features - show models with most features */}
+                {(() => {
+                  const featureCounts = modelData.map((d, i) => ({
+                    index: i,
+                    count: (d.streamingSupported ? 1 : 0) + (d.crisSupported ? 1 : 0) + (d.batchSupported ? 1 : 0) + (d.mantleSupported ? 1 : 0)
+                  }))
+                  const maxFeatures = Math.max(...featureCounts.map(f => f.count))
+                  const featureWinners = featureCounts.filter(f => f.count === maxFeatures).map(f => modelData[f.index])
+                  return (
+                    <WinnerRow
+                      icon={<Zap className="h-3 w-3" />}
+                      label="Most Features"
+                      winners={featureWinners}
+                      value={`${maxFeatures}/4`}
+                      isLight={isLight}
+                      modelData={modelData}
+                    />
+                  )
+                })()}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -675,17 +1080,19 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                 values={modelData.map(d => `${d.useCasesCount}`)}
                 isLight={isLight}
               />
-              <MetricRow
-                label="Input Price (1M)"
-                values={modelData.map(d => formatPrice(d.inputPrice))}
+              <PriceRow
+                label={`Input Price (1M) - ${pricingType === 'cris' ? 'CRIS' : 'In Region'}`}
+                values={modelData.map(d => ({ value: formatPrice(d.inputPrice) }))}
                 isLight={isLight}
-                bestIndices={inputPriceBestSet}
+                priceRegions={modelData.map(d => d.priceRegions)}
+                pricingType={pricingType}
               />
-              <MetricRow
-                label="Output Price (1M)"
-                values={modelData.map(d => formatPrice(d.outputPrice))}
+              <PriceRow
+                label={`Output Price (1M) - ${pricingType === 'cris' ? 'CRIS' : 'In Region'}`}
+                values={modelData.map(d => ({ value: formatPrice(d.outputPrice) }))}
                 isLight={isLight}
-                bestIndices={outputPriceBestSet}
+                priceRegions={modelData.map(d => d.priceRegions)}
+                pricingType={pricingType}
               />
               <BooleanRow
                 label="Active"
