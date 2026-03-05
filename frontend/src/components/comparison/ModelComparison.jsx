@@ -241,10 +241,61 @@ function AddModelSearch({ isLight, models, addModel, isModelSelected }) {
   )
 }
 
-function EmptyState({ isLight, onNavigateToExplorer }) {
+function EmptyState({ isLight, onNavigateToExplorer, models, addModel, isModelSelected }) {
+  const [query, setQuery] = useState('')
+  const [providerFilter, setProviderFilter] = useState(null)
+  const inputRef = useRef(null)
+
+  // Get sorted providers list
+  const providers = useMemo(() => {
+    const provs = new Map()
+    models.forEach(m => {
+      const p = m.model_provider || 'Unknown'
+      provs.set(p, (provs.get(p) || 0) + 1)
+    })
+    return [...provs.entries()].sort((a, b) => b[1] - a[1])
+  }, [models])
+
+  // Sorted models: by provider then name
+  const sortedModels = useMemo(() =>
+    [...models].sort((a, b) => {
+      const p = (a.model_provider || '').localeCompare(b.model_provider || '')
+      if (p !== 0) return p
+      return (a.model_name || a.model_id).localeCompare(b.model_name || b.model_id)
+    }),
+    [models]
+  )
+
+  // Filter models
+  const filtered = useMemo(() => {
+    let list = sortedModels
+    if (providerFilter) {
+      list = list.filter(m => m.model_provider === providerFilter)
+    }
+    if (query.trim()) {
+      const q = query.toLowerCase()
+      list = list.filter(m =>
+        (m.model_name || '').toLowerCase().includes(q) ||
+        m.model_id.toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [sortedModels, query, providerFilter])
+
+  // Group filtered models by provider
+  const grouped = useMemo(() => {
+    const map = new Map()
+    filtered.forEach(m => {
+      const p = m.model_provider || 'Unknown'
+      if (!map.has(p)) map.set(p, [])
+      map.get(p).push(m)
+    })
+    return map
+  }, [filtered])
+
   return (
     <div className={cn(
-      'flex flex-col items-center justify-center py-20 px-4 rounded-xl border',
+      'flex flex-col items-center justify-center py-12 px-4 rounded-xl border',
       isLight
         ? 'bg-white/70 border-stone-200/60 backdrop-blur-xl shadow-[0_2px_15px_-3px_rgba(120,113,108,0.08)]'
         : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.3)]'
@@ -262,26 +313,179 @@ function EmptyState({ isLight, onNavigateToExplorer }) {
         'text-xl font-semibold mb-2',
         isLight ? 'text-stone-900' : 'text-white'
       )}>
-        No Models Selected
+        Compare Models
       </h2>
       <p className={cn(
         'text-center max-w-md mb-6',
         isLight ? 'text-stone-600' : 'text-slate-400'
       )}>
-        Select models from the Model Explorer to compare their features,
-        pricing, and availability side by side.
+        Select models to compare their features, pricing, and availability side by side.
       </p>
-      <Button
-        onClick={onNavigateToExplorer}
-        className={cn(
-          isLight
-            ? 'bg-amber-600 hover:bg-amber-700 text-[#faf9f5]'
-            : 'bg-[#1A9E7A] hover:bg-[#158567] text-[#ffffff]'
-        )}
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Go to Model Explorer
-      </Button>
+
+      {/* Inline Model Selector */}
+      <div className={cn(
+        'w-full max-w-2xl rounded-lg border',
+        isLight ? 'bg-white/80 border-stone-200/60' : 'bg-white/[0.02] border-white/[0.08]'
+      )}>
+        {/* Search input */}
+        <div className={cn(
+          'flex items-center gap-2 px-4 py-3 border-b',
+          isLight ? 'border-stone-200/60' : 'border-white/[0.06]'
+        )}>
+          <Search className={cn('h-4 w-4 flex-shrink-0', isLight ? 'text-stone-400' : 'text-slate-500')} />
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search models by name..."
+            className={cn(
+              'bg-transparent outline-none text-sm flex-1',
+              isLight ? 'text-stone-900 placeholder:text-stone-400' : 'text-white placeholder:text-slate-500'
+            )}
+          />
+          {query && (
+            <button onClick={() => setQuery('')} className="p-0.5">
+              <X className={cn('h-4 w-4', isLight ? 'text-stone-400 hover:text-stone-600' : 'text-slate-500 hover:text-slate-300')} />
+            </button>
+          )}
+        </div>
+
+        {/* Provider filter pills */}
+        <div className={cn(
+          'flex items-center gap-1.5 px-4 py-2 overflow-x-auto border-b',
+          isLight ? 'border-stone-100' : 'border-white/[0.04]'
+        )}>
+          <button
+            onClick={() => setProviderFilter(null)}
+            className={cn(
+              'px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors',
+              !providerFilter
+                ? isLight ? 'bg-amber-100 text-amber-800' : 'bg-[#1A9E7A]/20 text-[#1A9E7A]'
+                : isLight ? 'bg-stone-100 text-stone-500 hover:bg-stone-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+            )}
+          >
+            All ({models.length})
+          </button>
+          {providers.map(([prov, count]) => (
+            <button
+              key={prov}
+              onClick={() => setProviderFilter(providerFilter === prov ? null : prov)}
+              className={cn(
+                'px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors',
+                providerFilter === prov
+                  ? isLight ? 'bg-amber-100 text-amber-800' : 'bg-[#1A9E7A]/20 text-[#1A9E7A]'
+                  : isLight ? 'bg-stone-100 text-stone-500 hover:bg-stone-200' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+              )}
+            >
+              {prov} ({count})
+            </button>
+          ))}
+        </div>
+
+        {/* Results count */}
+        <div className={cn(
+          'px-4 py-1.5 text-xs border-b',
+          isLight ? 'text-stone-400 border-stone-100' : 'text-slate-500 border-white/[0.04]'
+        )}>
+          {filtered.length} model{filtered.length !== 1 ? 's' : ''}
+          {query && ` matching "${query}"`}
+        </div>
+
+        {/* Model list */}
+        <div className="overflow-y-auto" style={{ maxHeight: '320px' }}>
+          {filtered.length === 0 ? (
+            <p className={cn('px-4 py-8 text-sm text-center', isLight ? 'text-stone-500' : 'text-slate-500')}>
+              No models found
+            </p>
+          ) : (
+            [...grouped.entries()].map(([provider, provModels]) => (
+              <div key={provider}>
+                {/* Provider group header */}
+                {!providerFilter && (
+                  <div className={cn(
+                    'px-4 py-2 text-xs font-semibold uppercase tracking-wider sticky top-0',
+                    isLight ? 'bg-stone-50 text-stone-500 border-b border-stone-100' : 'bg-white/[0.02] text-slate-500 border-b border-white/[0.04]'
+                  )}>
+                    {provider} ({provModels.length})
+                  </div>
+                )}
+                {provModels.map(model => {
+                  const selected = isModelSelected(model.model_id)
+                  return (
+                    <button
+                      key={model.model_id}
+                      onClick={() => {
+                        if (!selected) {
+                          addModel(model)
+                          trackEvent('comparison_add', { modelId: model.model_id, provider: model.model_provider, modelName: model.model_name, section: 'comparison_empty' })
+                        }
+                      }}
+                      disabled={selected}
+                      className={cn(
+                        'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
+                        selected
+                          ? isLight ? 'bg-emerald-50/50' : 'bg-emerald-500/5'
+                          : isLight ? 'hover:bg-amber-50/50' : 'hover:bg-white/5',
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className={cn(
+                          'text-sm font-medium truncate',
+                          selected
+                            ? isLight ? 'text-emerald-700' : 'text-emerald-400'
+                            : isLight ? 'text-stone-900' : 'text-white'
+                        )}>
+                          {model.model_name || model.model_id}
+                        </p>
+                        <p className={cn(
+                          'text-xs truncate',
+                          isLight ? 'text-stone-400' : 'text-slate-500'
+                        )}>
+                          {model.model_id}
+                        </p>
+                      </div>
+                      {selected ? (
+                        <span className={cn(
+                          'text-xs flex-shrink-0 px-2 py-1 rounded font-medium',
+                          isLight ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-500/15 text-emerald-400'
+                        )}>
+                          ✓ Added
+                        </span>
+                      ) : (
+                        <span className={cn(
+                          'text-xs flex-shrink-0 px-2 py-1 rounded font-medium opacity-0 group-hover:opacity-100 transition-opacity',
+                          isLight ? 'bg-amber-100 text-amber-700' : 'bg-[#1A9E7A]/15 text-[#1A9E7A]'
+                        )}>
+                          <Plus className="h-3.5 w-3.5 inline mr-1" />
+                          Add
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Alternative: Go to Explorer */}
+      <div className={cn(
+        'mt-6 flex items-center gap-2 text-sm',
+        isLight ? 'text-stone-500' : 'text-slate-500'
+      )}>
+        <span>or</span>
+        <button
+          onClick={onNavigateToExplorer}
+          className={cn(
+            'font-medium underline underline-offset-2 transition-colors',
+            isLight ? 'text-amber-600 hover:text-amber-700' : 'text-[#1A9E7A] hover:text-[#22c997]'
+          )}
+        >
+          browse in Model Explorer
+        </button>
+      </div>
     </div>
   )
 }
@@ -317,7 +521,7 @@ export function ModelComparison({ onNavigateToExplorer }) {
   )
 
   if (selectedModels.length === 0) {
-    return <EmptyState isLight={isLight} onNavigateToExplorer={onNavigateToExplorer} />
+    return <EmptyState isLight={isLight} onNavigateToExplorer={onNavigateToExplorer} models={models} addModel={addModel} isModelSelected={isModelSelected} />
   }
 
   return (

@@ -4,6 +4,8 @@ import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Responsi
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { providerColorClasses } from '@/config/constants'
+import { canViewProvisionedPricing } from '@/config/admin'
+import { useAuthStore } from '@/stores/authStore'
 
 const modalityIcons = {
   TEXT: MessageSquare,
@@ -215,6 +217,27 @@ function BooleanRow({ label, values, isLight }) {
   )
 }
 
+// Section header row for the comparison table
+function SectionHeader({ label, colSpan, isLight }) {
+  return (
+    <tr className={cn(
+      'border-b',
+      isLight ? 'border-stone-200 bg-stone-50/80' : 'border-white/[0.08] bg-white/[0.02]'
+    )}>
+      <td
+        colSpan={colSpan}
+        className={cn(
+          'px-4 py-2 text-[10px] font-semibold uppercase tracking-wide',
+          isLight ? 'text-stone-500' : 'text-slate-500'
+        )}
+      >
+        {label}
+      </td>
+    </tr>
+  )
+}
+
+
 function ModalitiesRow({ label, values, isLight, isOutput = false }) {
   return (
     <tr className={cn(
@@ -358,28 +381,66 @@ function getAllModelRegions(model) {
 // Detect which pricing types are available for a model
 function getAvailablePricingTypes(pricing) {
   const fullPricing = pricing?.fullPricing
-  if (!fullPricing?.regions) return { inRegion: false, crisGlobal: false, crisGeo: false, batch: false, mantle: false }
+  if (!fullPricing?.regions) return {
+    inRegion: false, inRegionBatch: false,
+    crisGlobal: false, crisGlobalBatch: false,
+    crisGeo: false, crisGeoBatch: false,
+    mantle: false,
+    reserved1mGlobal: false, reserved1mGeo: false,
+    reserved3mGlobal: false, reserved3mGeo: false,
+    provisioned: false,
+    customModel: false,
+  }
   
-  let inRegion = false
-  let crisGlobal = false
-  let crisGeo = false
-  let batch = false
-  let mantle = false
+  const result = {
+    inRegion: false, inRegionBatch: false,
+    crisGlobal: false, crisGlobalBatch: false,
+    crisGeo: false, crisGeoBatch: false,
+    mantle: false,
+    reserved1mGlobal: false, reserved1mGeo: false,
+    reserved3mGlobal: false, reserved3mGeo: false,
+    provisioned: false,
+    customModel: false,
+  }
   
   for (const regionData of Object.values(fullPricing.regions)) {
     const groups = regionData?.pricing_groups || {}
-    if (groups['On-Demand'] || groups['On-Demand Long Context']) inRegion = true
-    if (groups['On-Demand Global'] || groups['On-Demand Long Context Global']) crisGlobal = true
-    if (groups['On-Demand Geo'] || groups['On-Demand Long Context Geo']) crisGeo = true
-    if (groups['Batch'] || groups['Batch Global'] || groups['Batch Geo']) batch = true
-    if (groups['Mantle']) mantle = true
+    
+    // In-Region
+    if (groups['On-Demand'] || groups['On-Demand Long Context']) result.inRegion = true
+    if (groups['Batch'] || groups['Batch Long Context']) result.inRegionBatch = true
+    
+    // CRIS Global
+    if (groups['On-Demand Global'] || groups['On-Demand Long Context Global']) result.crisGlobal = true
+    if (groups['Batch Global'] || groups['Batch Long Context Global']) result.crisGlobalBatch = true
+    
+    // CRIS Geo
+    if (groups['On-Demand Geo'] || groups['On-Demand Long Context Geo']) result.crisGeo = true
+    if (groups['Batch Geo'] || groups['Batch Long Context Geo']) result.crisGeoBatch = true
+    
+    // Mantle
+    if (groups['Mantle']) result.mantle = true
+    
+    // Reserved
+    if (groups['Reserved 1 Month Global']) result.reserved1mGlobal = true
+    if (groups['Reserved 1 Month Geo']) result.reserved1mGeo = true
+    if (groups['Reserved 3 Month Global']) result.reserved3mGlobal = true
+    if (groups['Reserved 3 Month Geo']) result.reserved3mGeo = true
+    
+    // Provisioned
+    if (groups['Provisioned Throughput']) result.provisioned = true
+    
+    // Custom Model
+    if (groups['Custom Model']) result.customModel = true
   }
   
-  return { inRegion, crisGlobal, crisGeo, batch, mantle }
+  return result
 }
 
 // Helper to get pricing for a specific consumption type with dimension filtering
-function getPricesByType(pricing, region, type, crisSubType = 'global', dimensionFilters = {}) {
+function getPricesByType(pricing, region, pricingType, options = {}) {
+  const { crisType = 'global', reservedTerm = '1m', reservedScope = 'global', batchMode = false } = options
+  
   const fullPricing = pricing?.fullPricing
   if (!fullPricing?.regions) return { inputPrice: null, outputPrice: null, availableRegions: [], hasData: false }
   
@@ -392,46 +453,67 @@ function getPricesByType(pricing, region, type, crisSubType = 'global', dimensio
   
   const pricingGroups = regionData.pricing_groups
   
-  // Map pricing type to group names
-  let groupNames
-  if (type === 'cris') {
-    if (crisSubType === 'geo') {
-      groupNames = ['On-Demand Geo', 'On-Demand Long Context Geo']
-    } else {
-      groupNames = ['On-Demand Global', 'On-Demand Long Context Global']
-    }
-  } else {
-    groupNames = ['On-Demand', 'On-Demand Long Context']
+  // Determine which groups to check based on pricing type
+  let groupNames = []
+  
+  switch (pricingType) {
+    case 'in_region':
+      groupNames = batchMode 
+        ? ['Batch', 'Batch Long Context']
+        : ['On-Demand', 'On-Demand Long Context']
+      break
+    case 'cris':
+      if (crisType === 'geo') {
+        groupNames = batchMode
+          ? ['Batch Geo', 'Batch Long Context Geo']
+          : ['On-Demand Geo', 'On-Demand Long Context Geo']
+      } else {
+        groupNames = batchMode
+          ? ['Batch Global', 'Batch Long Context Global']
+          : ['On-Demand Global', 'On-Demand Long Context Global']
+      }
+      break
+    case 'mantle':
+      groupNames = ['Mantle']
+      break
+    case 'reserved':
+      const term = reservedTerm === '3m' ? '3 Month' : '1 Month'
+      const scope = reservedScope === 'geo' ? 'Geo' : 'Global'
+      groupNames = [`Reserved ${term} ${scope}`]
+      break
+    case 'provisioned':
+      groupNames = ['Provisioned Throughput']
+      break
+    case 'custom_model':
+      groupNames = ['Custom Model']
+      break
+    default:
+      groupNames = ['On-Demand', 'On-Demand Long Context']
   }
   
   let inputPrice = null
   let outputPrice = null
   
-  // Check each group for pricing
   for (const groupName of groupNames) {
     let items = pricingGroups[groupName]
     if (!items || items.length === 0) continue
     
-    // Apply dimension filters if provided
-    if (Object.keys(dimensionFilters).length > 0) {
-      items = items.filter(item => {
+    // Filter out cache pricing and mantle source (unless we're looking at mantle)
+    items = items.filter(item => {
+      const dim = (item.dimension || '').toLowerCase()
+      const desc = (item.description || '').toLowerCase()
+      const isCache = dim.includes('cache') || desc.includes('cache')
+      if (isCache) return false
+      
+      // For non-mantle pricing, exclude mantle source
+      if (pricingType !== 'mantle') {
         const dims = item.dimensions || {}
-        if (dimensionFilters.source && dims.source !== dimensionFilters.source) return false
-        if (dimensionFilters.geo && dims.geo !== dimensionFilters.geo) return false
-        if (dimensionFilters.tier && dims.tier !== dimensionFilters.tier) return false
-        if (dimensionFilters.context && dims.context !== dimensionFilters.context) return false
-        return true
-      })
-    } else {
-      // Default: exclude Mantle pricing
-      items = items.filter(item => {
-        const dims = item.dimensions || {}
-        return dims.source !== 'mantle'
-      })
-    }
+        if (dims.source === 'mantle') return false
+      }
+      return true
+    })
     
     for (const item of items) {
-      // Get price - multiply by 1000 for per-million display
       const price = item.price_per_thousand != null 
         ? item.price_per_thousand * 1000 
         : item.price_per_unit
@@ -441,26 +523,15 @@ function getPricesByType(pricing, region, type, crisSubType = 'global', dimensio
       const dim = (item.dimension || '').toLowerCase()
       const desc = (item.description || '').toLowerCase()
       
-      // Check for input pricing - prefer is_input/is_output flags from new structure
       const isInput = item.is_input || dim.includes('input') || desc.includes('input')
       const isOutput = item.is_output || dim.includes('output') || desc.includes('output')
       
-      // Skip cache pricing for the main comparison
-      const isCache = dim.includes('cache') || desc.includes('cache')
-      if (isCache) continue
+      if (isInput && inputPrice === null) inputPrice = price
+      if (isOutput && outputPrice === null) outputPrice = price
       
-      if (isInput && inputPrice === null) {
-        inputPrice = price
-      }
-      if (isOutput && outputPrice === null) {
-        outputPrice = price
-      }
-      
-      // If we found both, we can stop
       if (inputPrice !== null && outputPrice !== null) break
     }
     
-    // If we found pricing in this group, don't check the next one
     if (inputPrice !== null || outputPrice !== null) break
   }
   
@@ -471,15 +542,35 @@ function getPricesByType(pricing, region, type, crisSubType = 'global', dimensio
     return groupNames.some(g => rData.pricing_groups[g]?.length > 0)
   })
   
-  return { 
-    inputPrice, 
-    outputPrice, 
-    availableRegions,
-    hasData: inputPrice !== null || outputPrice !== null
+  return { inputPrice, outputPrice, availableRegions, hasData: inputPrice !== null || outputPrice !== null }
+}
+
+// Helper function to get pricing label
+function getPricingLabel(pricingType, options = {}) {
+  const { crisType, reservedTerm, reservedScope, batchMode } = options
+  
+  switch (pricingType) {
+    case 'in_region':
+      return batchMode ? 'In-Region Batch' : 'In-Region'
+    case 'cris':
+      const crisLabel = crisType === 'geo' ? 'CRIS Geo' : 'CRIS Global'
+      return batchMode ? `${crisLabel} Batch` : crisLabel
+    case 'mantle':
+      return 'Mantle'
+    case 'reserved':
+      const term = reservedTerm === '3m' ? '3M' : '1M'
+      const scope = reservedScope === 'geo' ? 'Geo' : 'Global'
+      return `Reserved ${term} ${scope}`
+    case 'provisioned':
+      return 'Provisioned'
+    case 'custom_model':
+      return 'Custom Model'
+    default:
+      return 'On-Demand'
   }
 }
 
-function PriceRow({ label, values, isLight, modelData, pricingType, crisType }) {
+function PriceRow({ label, values, isLight, bestIndices = null }) {
   return (
     <tr className={cn(
       'border-b',
@@ -492,47 +583,23 @@ function PriceRow({ label, values, isLight, modelData, pricingType, crisType }) 
         {label}
       </td>
       {values.map((data, idx) => {
-        const model = modelData[idx]
-        const availableTypes = model.availablePricingTypes
         const isNA = data.value === 'N/A'
-        
-        // Determine what pricing types this model has
-        let altText = null
-        if (isNA) {
-          if (pricingType === 'cris') {
-            if (crisType === 'global' && !availableTypes.crisGlobal) {
-              if (availableTypes.crisGeo) altText = 'Has Geo'
-              else if (availableTypes.inRegion) altText = 'In-Region only'
-            } else if (crisType === 'geo' && !availableTypes.crisGeo) {
-              if (availableTypes.crisGlobal) altText = 'Has Global'
-              else if (availableTypes.inRegion) altText = 'In-Region only'
-            }
-          } else if (pricingType === 'in_region' && !availableTypes.inRegion) {
-            if (availableTypes.crisGlobal) altText = 'CRIS only'
-            else if (availableTypes.crisGeo) altText = 'CRIS Geo only'
-          }
-        }
-        
+        const isBest = bestIndices?.has(idx)
         return (
           <td
             key={idx}
             className={cn(
               'px-3 py-2.5 text-center text-sm',
               isNA 
-                ? isLight ? 'text-stone-400' : 'text-slate-600'
-                : isLight ? 'text-stone-900 font-medium' : 'text-white font-medium'
+                ? isLight ? 'text-stone-300' : 'text-slate-700'
+                : isBest
+                  ? 'text-emerald-600 font-medium'
+                  : isLight ? 'text-stone-900 font-medium' : 'text-white font-medium'
             )}
           >
-            <div className="flex flex-col items-center gap-0.5">
-              <span>{data.value}</span>
-              {altText && (
-                <span className={cn(
-                  'text-[9px] px-1.5 py-0.5 rounded',
-                  isLight ? 'bg-amber-100 text-amber-700' : 'bg-amber-500/20 text-amber-400'
-                )}>
-                  {altText}
-                </span>
-              )}
+            <div className="flex items-center justify-center gap-1">
+              {data.value}
+              {isBest && !isNA && <Trophy className="h-3 w-3 text-emerald-500 flex-shrink-0" />}
             </div>
           </td>
         )
@@ -543,12 +610,24 @@ function PriceRow({ label, values, isLight, modelData, pricingType, crisType }) 
 
 export function OverviewTab({ selectedModels, getPricingForModel, allModels, isLight }) {
   const [radarCollapsed, setRadarCollapsed] = useState(false)
-  const [pricingType, setPricingType] = useState('in_region') // 'in_region' or 'cris'
+  const [pricingType, setPricingType] = useState('in_region') // 'in_region', 'cris', 'mantle', 'reserved', 'provisioned', 'custom_model'
   const [crisType, setCrisType] = useState('global') // 'global' or 'geo'
+  const [reservedTerm, setReservedTerm] = useState('1m') // '1m' or '3m'
+  const [reservedScope, setReservedScope] = useState('global') // 'global' or 'geo'
+  const [batchMode, setBatchMode] = useState(false) // toggle for batch pricing
+
+  // Get user for permission check
+  const user = useAuthStore(s => s.user)
+  const canViewProvisioned = canViewProvisionedPricing(user)
 
   const modelData = useMemo(() => selectedModels.map(({ model, region }) => {
     const pricing = getPricingForModel?.(model, region)
-    const priceData = getPricesByType(pricing, region, pricingType, crisType)
+    const priceData = getPricesByType(pricing, region, pricingType, {
+      crisType,
+      reservedTerm,
+      reservedScope,
+      batchMode,
+    })
     const availablePricingTypes = getAvailablePricingTypes(pricing)
     const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window ?? 0
     const maxOutput = model.specs?.max_output ?? model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens ?? 0
@@ -595,7 +674,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
       priceRegions: priceData.availableRegions,
       availablePricingTypes,
     }
-  }), [selectedModels, getPricingForModel, pricingType, crisType])
+  }), [selectedModels, getPricingForModel, pricingType, crisType, reservedTerm, reservedScope, batchMode])
 
   // Relative benchmarks from only the compared models
   const relativeBenchmarks = useMemo(() => {
@@ -667,7 +746,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
           <div className="flex items-center gap-1.5 mb-0.5">
             <DollarSign className={cn('h-3.5 w-3.5 text-emerald-500')} />
             <span className={cn('text-[10px]', isLight ? 'text-emerald-700' : 'text-emerald-400')}>
-              Cheapest Input ({pricingType === 'cris' ? 'CRIS' : 'In Region'})
+              Cheapest Input ({getPricingLabel(pricingType, { crisType, reservedTerm, reservedScope, batchMode })})
             </span>
           </div>
           <p className="text-lg font-bold text-emerald-600">
@@ -730,115 +809,206 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
             </button>
             
             {/* Pricing Selector */}
-            <div className="flex items-center gap-2 px-4 py-2">
-              <span className={cn('text-[10px] font-medium', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                Pricing:
-              </span>
-              {/* Calculate how many models have each pricing type */}
-              {(() => {
-                const inRegionCount = modelData.filter(d => d.availablePricingTypes.inRegion).length
-                const crisGlobalCount = modelData.filter(d => d.availablePricingTypes.crisGlobal).length
-                const crisGeoCount = modelData.filter(d => d.availablePricingTypes.crisGeo).length
+            <div className="flex items-center gap-2 px-4 py-2 flex-wrap">
+              {/* Main pricing type buttons */}
+              <div className={cn(
+                'inline-flex rounded-md border overflow-hidden h-6',
+                isLight ? 'border-stone-300' : 'border-[#373a40]'
+              )}>
+                {/* In-Region */}
+                <button
+                  onClick={() => setPricingType('in_region')}
+                  className={cn(
+                    'px-2 py-0.5 text-[10px] font-medium transition-colors',
+                    pricingType === 'in_region'
+                      ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                      : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                  )}
+                >
+                  In-Region
+                </button>
                 
-                return (
-                  <>
-                    <div className={cn(
-                      'inline-flex rounded-md border overflow-hidden h-6',
-                      isLight ? 'border-stone-300' : 'border-[#373a40]'
-                    )}>
-                      <button
-                        onClick={() => setPricingType('in_region')}
-                        title={`In Region: Standard on-demand pricing. ${inRegionCount}/${modelData.length} models have this.`}
-                        className={cn(
-                          'px-2.5 py-0.5 text-[10px] font-medium transition-colors flex items-center gap-1',
-                          pricingType === 'in_region'
-                            ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
-                            : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                        )}
-                      >
-                        In Region
-                        <span className={cn(
-                          'text-[8px] px-1 rounded',
-                          pricingType === 'in_region'
-                            ? 'bg-white/20'
-                            : isLight ? 'bg-stone-200' : 'bg-white/10'
-                        )}>
-                          {inRegionCount}/{modelData.length}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => setPricingType('cris')}
-                        title={`CRIS: Cross-Region Inference Service. ${crisType === 'geo' ? crisGeoCount : crisGlobalCount}/${modelData.length} models have this.`}
-                        className={cn(
-                          'px-2.5 py-0.5 text-[10px] font-medium transition-colors border-l flex items-center gap-1',
-                          isLight ? 'border-stone-300' : 'border-[#373a40]',
-                          pricingType === 'cris'
-                            ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
-                            : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                        )}
-                      >
-                        CRIS
-                        <span className={cn(
-                          'text-[8px] px-1 rounded',
-                          pricingType === 'cris'
-                            ? 'bg-white/20'
-                            : isLight ? 'bg-stone-200' : 'bg-white/10'
-                        )}>
-                          {crisType === 'geo' ? crisGeoCount : crisGlobalCount}/{modelData.length}
-                        </span>
-                      </button>
-                    </div>
-                    {pricingType === 'cris' && (
-                      <div className={cn(
-                        'inline-flex rounded-md border overflow-hidden h-6',
-                        isLight ? 'border-stone-300' : 'border-[#373a40]'
-                      )}>
-                        <button
-                          onClick={() => setCrisType('global')}
-                          title={`Global CRIS: Routes to any region worldwide. ${crisGlobalCount}/${modelData.length} models.`}
-                          className={cn(
-                            'px-2 py-0.5 text-[10px] font-medium transition-colors flex items-center gap-1',
-                            crisType === 'global'
-                              ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
-                              : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                          )}
-                        >
-                          Global
-                          <span className={cn(
-                            'text-[8px] px-1 rounded',
-                            crisType === 'global'
-                              ? 'bg-white/20'
-                              : isLight ? 'bg-stone-200' : 'bg-white/10'
-                          )}>
-                            {crisGlobalCount}
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => setCrisType('geo')}
-                          title={`Geo CRIS: Routes within a geographic region. ${crisGeoCount}/${modelData.length} models.`}
-                          className={cn(
-                            'px-2 py-0.5 text-[10px] font-medium transition-colors border-l flex items-center gap-1',
-                            isLight ? 'border-stone-300' : 'border-[#373a40]',
-                            crisType === 'geo'
-                              ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
-                              : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                          )}
-                        >
-                          Geo
-                          <span className={cn(
-                            'text-[8px] px-1 rounded',
-                            crisType === 'geo'
-                              ? 'bg-white/20'
-                              : isLight ? 'bg-stone-200' : 'bg-white/10'
-                          )}>
-                            {crisGeoCount}
-                          </span>
-                        </button>
-                      </div>
+                {/* CRIS */}
+                <button
+                  onClick={() => setPricingType('cris')}
+                  className={cn(
+                    'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
+                    isLight ? 'border-stone-300' : 'border-[#373a40]',
+                    pricingType === 'cris'
+                      ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                      : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                  )}
+                >
+                  CRIS
+                </button>
+                
+                {/* Mantle */}
+                <button
+                  onClick={() => setPricingType('mantle')}
+                  className={cn(
+                    'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
+                    isLight ? 'border-stone-300' : 'border-[#373a40]',
+                    pricingType === 'mantle'
+                      ? isLight ? 'bg-violet-600 text-white' : 'bg-violet-600 text-white'
+                      : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                  )}
+                >
+                  Mantle
+                </button>
+                
+                {/* Reserved */}
+                <button
+                  onClick={() => setPricingType('reserved')}
+                  className={cn(
+                    'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
+                    isLight ? 'border-stone-300' : 'border-[#373a40]',
+                    pricingType === 'reserved'
+                      ? isLight ? 'bg-indigo-600 text-white' : 'bg-indigo-600 text-white'
+                      : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                  )}
+                >
+                  Reserved
+                </button>
+                
+                {/* Provisioned - Admin/Beta only */}
+                {canViewProvisioned && (
+                  <button
+                    onClick={() => setPricingType('provisioned')}
+                    className={cn(
+                      'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
+                      isLight ? 'border-stone-300' : 'border-[#373a40]',
+                      pricingType === 'provisioned'
+                        ? isLight ? 'bg-purple-600 text-white' : 'bg-purple-600 text-white'
+                        : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
                     )}
-                  </>
-                )
-              })()}
+                  >
+                    Provisioned
+                  </button>
+                )}
+                
+                {/* Custom Model */}
+                <button
+                  onClick={() => setPricingType('custom_model')}
+                  className={cn(
+                    'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
+                    isLight ? 'border-stone-300' : 'border-[#373a40]',
+                    pricingType === 'custom_model'
+                      ? isLight ? 'bg-orange-600 text-white' : 'bg-orange-600 text-white'
+                      : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                  )}
+                >
+                  Custom
+                </button>
+              </div>
+              
+              {/* CRIS sub-selector: Global / Geo */}
+              {pricingType === 'cris' && (
+                <div className={cn(
+                  'inline-flex rounded-md border overflow-hidden h-6',
+                  isLight ? 'border-stone-300' : 'border-[#373a40]'
+                )}>
+                  <button
+                    onClick={() => setCrisType('global')}
+                    className={cn(
+                      'px-2 py-0.5 text-[10px] font-medium transition-colors',
+                      crisType === 'global'
+                        ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                        : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                    )}
+                  >
+                    Global
+                  </button>
+                  <button
+                    onClick={() => setCrisType('geo')}
+                    className={cn(
+                      'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
+                      isLight ? 'border-stone-300' : 'border-[#373a40]',
+                      crisType === 'geo'
+                        ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                        : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                    )}
+                  >
+                    Geo
+                  </button>
+                </div>
+              )}
+              
+              {/* Reserved sub-selectors: Term and Scope */}
+              {pricingType === 'reserved' && (
+                <>
+                  <div className={cn(
+                    'inline-flex rounded-md border overflow-hidden h-6',
+                    isLight ? 'border-stone-300' : 'border-[#373a40]'
+                  )}>
+                    <button
+                      onClick={() => setReservedTerm('1m')}
+                      className={cn(
+                        'px-2 py-0.5 text-[10px] font-medium transition-colors',
+                        reservedTerm === '1m'
+                          ? isLight ? 'bg-indigo-600 text-white' : 'bg-indigo-600 text-white'
+                          : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                      )}
+                    >
+                      1 Month
+                    </button>
+                    <button
+                      onClick={() => setReservedTerm('3m')}
+                      className={cn(
+                        'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
+                        isLight ? 'border-stone-300' : 'border-[#373a40]',
+                        reservedTerm === '3m'
+                          ? isLight ? 'bg-indigo-600 text-white' : 'bg-indigo-600 text-white'
+                          : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                      )}
+                    >
+                      3 Month
+                    </button>
+                  </div>
+                  <div className={cn(
+                    'inline-flex rounded-md border overflow-hidden h-6',
+                    isLight ? 'border-stone-300' : 'border-[#373a40]'
+                  )}>
+                    <button
+                      onClick={() => setReservedScope('global')}
+                      className={cn(
+                        'px-2 py-0.5 text-[10px] font-medium transition-colors',
+                        reservedScope === 'global'
+                          ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                          : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                      )}
+                    >
+                      Global
+                    </button>
+                    <button
+                      onClick={() => setReservedScope('geo')}
+                      className={cn(
+                        'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
+                        isLight ? 'border-stone-300' : 'border-[#373a40]',
+                        reservedScope === 'geo'
+                          ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                          : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                      )}
+                    >
+                      Geo
+                    </button>
+                  </div>
+                </>
+              )}
+              
+              {/* Batch toggle - only for In-Region and CRIS */}
+              {(pricingType === 'in_region' || pricingType === 'cris') && (
+                <button
+                  onClick={() => setBatchMode(!batchMode)}
+                  className={cn(
+                    'px-2 py-0.5 text-[10px] font-medium transition-colors rounded-md border h-6',
+                    batchMode
+                      ? isLight ? 'bg-teal-600 text-white border-teal-600' : 'bg-teal-600 text-white border-teal-600'
+                      : isLight ? 'bg-transparent text-stone-500 border-stone-300 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] border-[#373a40] hover:bg-[#2c2d32]'
+                  )}
+                >
+                  Batch
+                </button>
+              )}
             </div>
           </div>
 
@@ -913,7 +1083,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                 {/* Cost Efficiency Winner (cheapest input) */}
                 <WinnerRow
                   icon={<DollarSign className="h-3 w-3" />}
-                  label={`Cheapest (${pricingType === 'cris' ? 'CRIS' : 'In Region'})`}
+                  label={`Cheapest (${getPricingLabel(pricingType, { crisType, reservedTerm, reservedScope, batchMode })})`}
                   winners={[...inputPriceBestSet].map(i => modelData[i])}
                   value={minInputPrice !== null ? `$${minInputPrice < 0.01 ? minInputPrice.toFixed(4) : minInputPrice.toFixed(2)}` : '—'}
                   isLight={isLight}
@@ -951,43 +1121,95 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               isLight ? 'bg-stone-50/50 border-stone-200/60' : 'bg-white/[0.02] border-white/[0.06]'
             )}>
               <p className={cn(
-                'text-[10px] font-semibold uppercase tracking-wide mb-2',
+                'text-[10px] font-semibold uppercase tracking-wide mb-3',
                 isLight ? 'text-stone-500' : 'text-slate-500'
               )}>
-                How to Read the Radar
+                How Scores Are Calculated
               </p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Context Window */}
                 <div className={cn(
-                  'flex items-start gap-2 p-2 rounded',
-                  isLight ? 'bg-white/60' : 'bg-white/[0.02]'
+                  'p-3 rounded-lg border',
+                  isLight ? 'bg-white/80 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
                 )}>
-                  <Cpu className={cn('h-3.5 w-3.5 mt-0.5 flex-shrink-0', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-                  <div>
-                    <p className={cn('text-[10px] font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>Context Window</p>
-                    <p className={cn('text-[9px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Larger context = higher score</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Cpu className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+                    <p className={cn('text-[11px] font-semibold', isLight ? 'text-stone-800' : 'text-slate-200')}>
+                      Context Window
+                    </p>
                   </div>
+                  <p className={cn('text-[10px] mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                    Measures how much text the model can process at once.
+                  </p>
+                  <div className={cn(
+                    'text-[9px] font-mono px-2 py-1.5 rounded',
+                    isLight ? 'bg-stone-100 text-stone-700' : 'bg-black/20 text-slate-300'
+                  )}>
+                    Score = 10 × (model_context / max_context)
+                  </div>
+                  <p className={cn('text-[9px] mt-1.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                    Model with largest context window gets 10/10
+                  </p>
                 </div>
+
+                {/* Cost Efficiency */}
                 <div className={cn(
-                  'flex items-start gap-2 p-2 rounded',
-                  isLight ? 'bg-white/60' : 'bg-white/[0.02]'
+                  'p-3 rounded-lg border',
+                  isLight ? 'bg-white/80 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
                 )}>
-                  <DollarSign className={cn('h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-emerald-500')} />
-                  <div>
-                    <p className={cn('text-[10px] font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>Cost Efficiency</p>
-                    <p className={cn('text-[9px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Cheaper price = higher score (10 = cheapest)</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <DollarSign className={cn('h-4 w-4 text-emerald-500')} />
+                    <p className={cn('text-[11px] font-semibold', isLight ? 'text-stone-800' : 'text-slate-200')}>
+                      Cost Efficiency
+                    </p>
                   </div>
+                  <p className={cn('text-[10px] mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                    Compares total cost (input + output price per 1M tokens).
+                  </p>
+                  <div className={cn(
+                    'text-[9px] font-mono px-2 py-1.5 rounded',
+                    isLight ? 'bg-stone-100 text-stone-700' : 'bg-black/20 text-slate-300'
+                  )}>
+                    Score = 10 × (1 - model_cost / max_cost)
+                  </div>
+                  <p className={cn('text-[9px] mt-1.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                    Cheapest model gets 10/10, most expensive gets 0/10
+                  </p>
                 </div>
+
+                {/* Availability */}
                 <div className={cn(
-                  'flex items-start gap-2 p-2 rounded',
-                  isLight ? 'bg-white/60' : 'bg-white/[0.02]'
+                  'p-3 rounded-lg border',
+                  isLight ? 'bg-white/80 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
                 )}>
-                  <Globe className={cn('h-3.5 w-3.5 mt-0.5 flex-shrink-0', isLight ? 'text-blue-600' : 'text-blue-400')} />
-                  <div>
-                    <p className={cn('text-[10px] font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>Availability</p>
-                    <p className={cn('text-[9px]', isLight ? 'text-stone-500' : 'text-slate-500')}>More regions = higher score</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Globe className={cn('h-4 w-4', isLight ? 'text-blue-600' : 'text-blue-400')} />
+                    <p className={cn('text-[11px] font-semibold', isLight ? 'text-stone-800' : 'text-slate-200')}>
+                      Availability
+                    </p>
                   </div>
+                  <p className={cn('text-[10px] mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                    Counts total AWS regions where the model is available.
+                  </p>
+                  <div className={cn(
+                    'text-[9px] font-mono px-2 py-1.5 rounded',
+                    isLight ? 'bg-stone-100 text-stone-700' : 'bg-black/20 text-slate-300'
+                  )}>
+                    Score = 10 × (model_regions / max_regions)
+                  </div>
+                  <p className={cn('text-[9px] mt-1.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                    Model available in most regions gets 10/10
+                  </p>
                 </div>
               </div>
+              
+              {/* Note about relative scoring */}
+              <p className={cn(
+                'text-[9px] mt-3 text-center',
+                isLight ? 'text-stone-400' : 'text-slate-600'
+              )}>
+                All scores are relative to the selected models only — not the entire catalog.
+              </p>
             </div>
           )}
         </div>
@@ -1033,6 +1255,8 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               </tr>
             </thead>
             <tbody>
+              {/* SPECIFICATIONS */}
+              <SectionHeader label="Specifications" colSpan={modelData.length + 1} isLight={isLight} />
               <ContextRow
                 label="Context Window"
                 values={modelData.map(d => ({
@@ -1044,48 +1268,80 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                 bestIndices={contextBestSet}
               />
               <MetricRow
-                label="Max Output"
+                label="Max Output Tokens"
                 values={modelData.map(d => formatNumber(d.maxOutput))}
                 isLight={isLight}
                 bestIndices={outputBestSet}
               />
+              
+              {/* MODALITIES */}
+              <SectionHeader label="Modalities" colSpan={modelData.length + 1} isLight={isLight} />
               <ModalitiesRow
-                label="Input Modalities"
+                label="Input"
                 values={modelData.map(d => d.inputModalities)}
                 isLight={isLight}
               />
               <ModalitiesRow
-                label="Output Modalities"
+                label="Output"
                 values={modelData.map(d => d.outputModalities)}
                 isLight={isLight}
                 isOutput={true}
               />
-              <BooleanRow
-                label="Streaming"
-                values={modelData.map(d => d.streamingSupported)}
-                isLight={isLight}
-              />
-              <BooleanRow
-                label="Cross-Region (CRIS)"
-                values={modelData.map(d => d.crisSupported)}
-                isLight={isLight}
-              />
-              <BooleanRow
-                label="Mantle"
-                values={modelData.map(d => d.mantleSupported)}
-                isLight={isLight}
-              />
-              <BooleanRow
-                label="Batch Inference"
-                values={modelData.map(d => d.batchSupported)}
-                isLight={isLight}
-              />
+              
+              {/* AVAILABILITY */}
+              <SectionHeader label="Availability" colSpan={modelData.length + 1} isLight={isLight} />
               <MetricRow
-                label="Regions"
+                label="AWS Regions"
                 values={modelData.map(d => `${d.regions.length}`)}
                 isLight={isLight}
                 bestIndices={regionsBestSet}
               />
+              <BooleanRow
+                label="Active Status"
+                values={modelData.map(d => d.isActive)}
+                isLight={isLight}
+              />
+              
+              {/* PRICING */}
+              <SectionHeader label={`Pricing (${getPricingLabel(pricingType, { crisType, reservedTerm, reservedScope, batchMode })})`} colSpan={modelData.length + 1} isLight={isLight} />
+              <PriceRow
+                label="Input (per 1M tokens)"
+                values={modelData.map(d => ({ value: formatPrice(d.inputPrice) }))}
+                isLight={isLight}
+                bestIndices={inputPriceBestSet}
+              />
+              <PriceRow
+                label="Output (per 1M tokens)"
+                values={modelData.map(d => ({ value: formatPrice(d.outputPrice) }))}
+                isLight={isLight}
+                bestIndices={outputPriceBestSet}
+              />
+              
+              {/* FEATURES */}
+              <SectionHeader label="Features" colSpan={modelData.length + 1} isLight={isLight} />
+              <BooleanRow
+                label="Streaming Support"
+                values={modelData.map(d => d.streamingSupported)}
+                isLight={isLight}
+              />
+              <BooleanRow
+                label="Cross-Region Inference"
+                values={modelData.map(d => d.crisSupported)}
+                isLight={isLight}
+              />
+              <BooleanRow
+                label="Batch Processing"
+                values={modelData.map(d => d.batchSupported)}
+                isLight={isLight}
+              />
+              <BooleanRow
+                label="Mantle Support"
+                values={modelData.map(d => d.mantleSupported)}
+                isLight={isLight}
+              />
+              
+              {/* METADATA */}
+              <SectionHeader label="Metadata" colSpan={modelData.length + 1} isLight={isLight} />
               <MetricRow
                 label="Capabilities"
                 values={modelData.map(d => `${d.capabilitiesCount}`)}
@@ -1094,27 +1350,6 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               <MetricRow
                 label="Use Cases"
                 values={modelData.map(d => `${d.useCasesCount}`)}
-                isLight={isLight}
-              />
-              <PriceRow
-                label={`Input Price (1M) - ${pricingType === 'cris' ? `CRIS ${crisType === 'geo' ? 'Geo' : 'Global'}` : 'In Region'}`}
-                values={modelData.map(d => ({ value: formatPrice(d.inputPrice) }))}
-                isLight={isLight}
-                modelData={modelData}
-                pricingType={pricingType}
-                crisType={crisType}
-              />
-              <PriceRow
-                label={`Output Price (1M) - ${pricingType === 'cris' ? `CRIS ${crisType === 'geo' ? 'Geo' : 'Global'}` : 'In Region'}`}
-                values={modelData.map(d => ({ value: formatPrice(d.outputPrice) }))}
-                isLight={isLight}
-                modelData={modelData}
-                pricingType={pricingType}
-                crisType={crisType}
-              />
-              <BooleanRow
-                label="Active"
-                values={modelData.map(d => d.isActive)}
                 isLight={isLight}
               />
             </tbody>
