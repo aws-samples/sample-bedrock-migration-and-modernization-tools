@@ -355,6 +355,29 @@ function getAllModelRegions(model) {
   return [...new Set([...onDemand, ...cris, ...mantle, ...batch])]
 }
 
+// Detect which pricing types are available for a model
+function getAvailablePricingTypes(pricing) {
+  const fullPricing = pricing?.fullPricing
+  if (!fullPricing?.regions) return { inRegion: false, crisGlobal: false, crisGeo: false, batch: false, mantle: false }
+  
+  let inRegion = false
+  let crisGlobal = false
+  let crisGeo = false
+  let batch = false
+  let mantle = false
+  
+  for (const regionData of Object.values(fullPricing.regions)) {
+    const groups = regionData?.pricing_groups || {}
+    if (groups['On-Demand'] || groups['On-Demand Long Context']) inRegion = true
+    if (groups['On-Demand Global'] || groups['On-Demand Long Context Global']) crisGlobal = true
+    if (groups['On-Demand Geo'] || groups['On-Demand Long Context Geo']) crisGeo = true
+    if (groups['Batch'] || groups['Batch Global'] || groups['Batch Geo']) batch = true
+    if (groups['Mantle']) mantle = true
+  }
+  
+  return { inRegion, crisGlobal, crisGeo, batch, mantle }
+}
+
 // Helper to get pricing for a specific consumption type with dimension filtering
 function getPricesByType(pricing, region, type, crisSubType = 'global', dimensionFilters = {}) {
   const fullPricing = pricing?.fullPricing
@@ -456,7 +479,7 @@ function getPricesByType(pricing, region, type, crisSubType = 'global', dimensio
   }
 }
 
-function PriceRow({ label, values, isLight, priceRegions = [], pricingType, crisSupported = [] }) {
+function PriceRow({ label, values, isLight, modelData, pricingType, crisType }) {
   return (
     <tr className={cn(
       'border-b',
@@ -469,45 +492,45 @@ function PriceRow({ label, values, isLight, priceRegions = [], pricingType, cris
         {label}
       </td>
       {values.map((data, idx) => {
-        const regions = priceRegions[idx] || []
+        const model = modelData[idx]
+        const availableTypes = model.availablePricingTypes
         const isNA = data.value === 'N/A'
-        const hasCris = crisSupported[idx]
         
-        // Determine tooltip text based on pricing type and availability
-        let tooltipText
+        // Determine what pricing types this model has
+        let altText = null
         if (isNA) {
           if (pricingType === 'cris') {
-            tooltipText = hasCris 
-              ? 'CRIS pricing not yet available for this model'
-              : 'This model does not support Cross-Region Inference'
-          } else {
-            tooltipText = 'In-region pricing not available for this model'
+            if (crisType === 'global' && !availableTypes.crisGlobal) {
+              if (availableTypes.crisGeo) altText = 'Has Geo'
+              else if (availableTypes.inRegion) altText = 'In-Region only'
+            } else if (crisType === 'geo' && !availableTypes.crisGeo) {
+              if (availableTypes.crisGlobal) altText = 'Has Global'
+              else if (availableTypes.inRegion) altText = 'In-Region only'
+            }
+          } else if (pricingType === 'in_region' && !availableTypes.inRegion) {
+            if (availableTypes.crisGlobal) altText = 'CRIS only'
+            else if (availableTypes.crisGeo) altText = 'CRIS Geo only'
           }
-        } else {
-          tooltipText = pricingType === 'cris'
-            ? `CRIS: Available from ${regions.length} source regions`
-            : `In Region: Available in ${regions.length} regions`
         }
         
         return (
           <td
             key={idx}
             className={cn(
-              'px-3 py-2.5 text-center text-sm font-medium',
-              isNA
-                ? isLight ? 'text-stone-400' : 'text-slate-500'
-                : isLight ? 'text-stone-900' : 'text-white'
+              'px-3 py-2.5 text-center text-sm',
+              isNA 
+                ? isLight ? 'text-stone-400' : 'text-slate-600'
+                : isLight ? 'text-stone-900 font-medium' : 'text-white font-medium'
             )}
-            title={tooltipText}
           >
-            <div className="flex items-center justify-center gap-1 cursor-help">
-              {data.value}
-              {isNA && pricingType === 'cris' && !hasCris && (
+            <div className="flex flex-col items-center gap-0.5">
+              <span>{data.value}</span>
+              {altText && (
                 <span className={cn(
-                  'text-[9px] px-1 py-0.5 rounded',
-                  isLight ? 'bg-stone-100 text-stone-400' : 'bg-white/5 text-slate-500'
+                  'text-[9px] px-1.5 py-0.5 rounded',
+                  isLight ? 'bg-amber-100 text-amber-700' : 'bg-amber-500/20 text-amber-400'
                 )}>
-                  No CRIS
+                  {altText}
                 </span>
               )}
             </div>
@@ -526,6 +549,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
   const modelData = useMemo(() => selectedModels.map(({ model, region }) => {
     const pricing = getPricingForModel?.(model, region)
     const priceData = getPricesByType(pricing, region, pricingType, crisType)
+    const availablePricingTypes = getAvailablePricingTypes(pricing)
     const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window ?? 0
     const maxOutput = model.specs?.max_output ?? model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens ?? 0
     const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
@@ -569,6 +593,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
       inputPrice: priceData.inputPrice,
       outputPrice: priceData.outputPrice,
       priceRegions: priceData.availableRegions,
+      availablePricingTypes,
     }
   }), [selectedModels, getPricingForModel, pricingType, crisType])
 
@@ -709,83 +734,113 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               <span className={cn('text-[10px] font-medium', isLight ? 'text-stone-500' : 'text-slate-500')}>
                 Pricing:
               </span>
-              <div className={cn(
-                'inline-flex rounded-md border overflow-hidden h-6',
-                isLight ? 'border-stone-300' : 'border-[#373a40]'
-              )}>
-                <button
-                  onClick={() => setPricingType('in_region')}
-                  title="In Region: Standard on-demand pricing. Price varies by AWS region where you deploy."
-                  className={cn(
-                    'px-2.5 py-0.5 text-[10px] font-medium transition-colors',
-                    pricingType === 'in_region'
-                      ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
-                      : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                  )}
-                >
-                  In Region
-                </button>
-                <button
-                  onClick={() => setPricingType('cris')}
-                  title="CRIS: Cross-Region Inference Service. Same price from any source region, routes to optimal endpoint."
-                  className={cn(
-                    'px-2.5 py-0.5 text-[10px] font-medium transition-colors border-l',
-                    isLight ? 'border-stone-300' : 'border-[#373a40]',
-                    pricingType === 'cris'
-                      ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
-                      : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                  )}
-                >
-                  CRIS
-                </button>
-              </div>
-              {pricingType === 'cris' && (
-                <div className={cn(
-                  'inline-flex rounded-md border overflow-hidden h-6',
-                  isLight ? 'border-stone-300' : 'border-[#373a40]'
-                )}>
-                  <button
-                    onClick={() => setCrisType('global')}
-                    title="Global CRIS: Routes to any region worldwide for optimal latency"
-                    className={cn(
-                      'px-2 py-0.5 text-[10px] font-medium transition-colors',
-                      crisType === 'global'
-                        ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
-                        : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+              {/* Calculate how many models have each pricing type */}
+              {(() => {
+                const inRegionCount = modelData.filter(d => d.availablePricingTypes.inRegion).length
+                const crisGlobalCount = modelData.filter(d => d.availablePricingTypes.crisGlobal).length
+                const crisGeoCount = modelData.filter(d => d.availablePricingTypes.crisGeo).length
+                
+                return (
+                  <>
+                    <div className={cn(
+                      'inline-flex rounded-md border overflow-hidden h-6',
+                      isLight ? 'border-stone-300' : 'border-[#373a40]'
+                    )}>
+                      <button
+                        onClick={() => setPricingType('in_region')}
+                        title={`In Region: Standard on-demand pricing. ${inRegionCount}/${modelData.length} models have this.`}
+                        className={cn(
+                          'px-2.5 py-0.5 text-[10px] font-medium transition-colors flex items-center gap-1',
+                          pricingType === 'in_region'
+                            ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                            : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                        )}
+                      >
+                        In Region
+                        <span className={cn(
+                          'text-[8px] px-1 rounded',
+                          pricingType === 'in_region'
+                            ? 'bg-white/20'
+                            : isLight ? 'bg-stone-200' : 'bg-white/10'
+                        )}>
+                          {inRegionCount}/{modelData.length}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setPricingType('cris')}
+                        title={`CRIS: Cross-Region Inference Service. ${crisType === 'geo' ? crisGeoCount : crisGlobalCount}/${modelData.length} models have this.`}
+                        className={cn(
+                          'px-2.5 py-0.5 text-[10px] font-medium transition-colors border-l flex items-center gap-1',
+                          isLight ? 'border-stone-300' : 'border-[#373a40]',
+                          pricingType === 'cris'
+                            ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                            : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                        )}
+                      >
+                        CRIS
+                        <span className={cn(
+                          'text-[8px] px-1 rounded',
+                          pricingType === 'cris'
+                            ? 'bg-white/20'
+                            : isLight ? 'bg-stone-200' : 'bg-white/10'
+                        )}>
+                          {crisType === 'geo' ? crisGeoCount : crisGlobalCount}/{modelData.length}
+                        </span>
+                      </button>
+                    </div>
+                    {pricingType === 'cris' && (
+                      <div className={cn(
+                        'inline-flex rounded-md border overflow-hidden h-6',
+                        isLight ? 'border-stone-300' : 'border-[#373a40]'
+                      )}>
+                        <button
+                          onClick={() => setCrisType('global')}
+                          title={`Global CRIS: Routes to any region worldwide. ${crisGlobalCount}/${modelData.length} models.`}
+                          className={cn(
+                            'px-2 py-0.5 text-[10px] font-medium transition-colors flex items-center gap-1',
+                            crisType === 'global'
+                              ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                              : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                          )}
+                        >
+                          Global
+                          <span className={cn(
+                            'text-[8px] px-1 rounded',
+                            crisType === 'global'
+                              ? 'bg-white/20'
+                              : isLight ? 'bg-stone-200' : 'bg-white/10'
+                          )}>
+                            {crisGlobalCount}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => setCrisType('geo')}
+                          title={`Geo CRIS: Routes within a geographic region. ${crisGeoCount}/${modelData.length} models.`}
+                          className={cn(
+                            'px-2 py-0.5 text-[10px] font-medium transition-colors border-l flex items-center gap-1',
+                            isLight ? 'border-stone-300' : 'border-[#373a40]',
+                            crisType === 'geo'
+                              ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                              : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
+                          )}
+                        >
+                          Geo
+                          <span className={cn(
+                            'text-[8px] px-1 rounded',
+                            crisType === 'geo'
+                              ? 'bg-white/20'
+                              : isLight ? 'bg-stone-200' : 'bg-white/10'
+                          )}>
+                            {crisGeoCount}
+                          </span>
+                        </button>
+                      </div>
                     )}
-                  >
-                    Global
-                  </button>
-                  <button
-                    onClick={() => setCrisType('geo')}
-                    title="Geo CRIS: Routes within a geographic region (e.g., EU, APAC)"
-                    className={cn(
-                      'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
-                      isLight ? 'border-stone-300' : 'border-[#373a40]',
-                      crisType === 'geo'
-                        ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
-                        : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                    )}
-                  >
-                    Geo
-                  </button>
-                </div>
-              )}
+                  </>
+                )
+              })()}
             </div>
           </div>
-
-          {/* Explanatory text for radar chart */}
-          {!radarCollapsed && (
-            <div className={cn(
-              'px-4 py-2 text-[11px] border-b',
-              isLight ? 'text-stone-500 bg-stone-50/30 border-stone-200/60' : 'text-slate-400 bg-white/[0.01] border-white/[0.04]'
-            )}>
-              <strong>How to read:</strong> Each axis shows a score from 0-10 comparing the selected models. 
-              <strong> Context Window</strong> = larger is better. 
-              <strong> Cost Efficiency</strong> = cheaper is better (10 = cheapest). 
-              <strong> Availability</strong> = more regions is better.
-            </div>
-          )}
 
           {!radarCollapsed && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
@@ -885,6 +940,53 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                   isLight={isLight}
                   modelData={modelData}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Explanatory text - BELOW the radar chart */}
+          {!radarCollapsed && (
+            <div className={cn(
+              'px-4 py-3 border-t',
+              isLight ? 'bg-stone-50/50 border-stone-200/60' : 'bg-white/[0.02] border-white/[0.06]'
+            )}>
+              <p className={cn(
+                'text-[10px] font-semibold uppercase tracking-wide mb-2',
+                isLight ? 'text-stone-500' : 'text-slate-500'
+              )}>
+                How to Read the Radar
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className={cn(
+                  'flex items-start gap-2 p-2 rounded',
+                  isLight ? 'bg-white/60' : 'bg-white/[0.02]'
+                )}>
+                  <Cpu className={cn('h-3.5 w-3.5 mt-0.5 flex-shrink-0', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+                  <div>
+                    <p className={cn('text-[10px] font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>Context Window</p>
+                    <p className={cn('text-[9px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Larger context = higher score</p>
+                  </div>
+                </div>
+                <div className={cn(
+                  'flex items-start gap-2 p-2 rounded',
+                  isLight ? 'bg-white/60' : 'bg-white/[0.02]'
+                )}>
+                  <DollarSign className={cn('h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-emerald-500')} />
+                  <div>
+                    <p className={cn('text-[10px] font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>Cost Efficiency</p>
+                    <p className={cn('text-[9px]', isLight ? 'text-stone-500' : 'text-slate-500')}>Cheaper price = higher score (10 = cheapest)</p>
+                  </div>
+                </div>
+                <div className={cn(
+                  'flex items-start gap-2 p-2 rounded',
+                  isLight ? 'bg-white/60' : 'bg-white/[0.02]'
+                )}>
+                  <Globe className={cn('h-3.5 w-3.5 mt-0.5 flex-shrink-0', isLight ? 'text-blue-600' : 'text-blue-400')} />
+                  <div>
+                    <p className={cn('text-[10px] font-medium', isLight ? 'text-stone-700' : 'text-slate-300')}>Availability</p>
+                    <p className={cn('text-[9px]', isLight ? 'text-stone-500' : 'text-slate-500')}>More regions = higher score</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -995,20 +1097,20 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                 isLight={isLight}
               />
               <PriceRow
-                label={`Input Price (1M) - ${pricingType === 'cris' ? 'CRIS' : 'In Region'}`}
+                label={`Input Price (1M) - ${pricingType === 'cris' ? `CRIS ${crisType === 'geo' ? 'Geo' : 'Global'}` : 'In Region'}`}
                 values={modelData.map(d => ({ value: formatPrice(d.inputPrice) }))}
                 isLight={isLight}
-                priceRegions={modelData.map(d => d.priceRegions)}
+                modelData={modelData}
                 pricingType={pricingType}
-                crisSupported={modelData.map(d => d.crisSupported)}
+                crisType={crisType}
               />
               <PriceRow
-                label={`Output Price (1M) - ${pricingType === 'cris' ? 'CRIS' : 'In Region'}`}
+                label={`Output Price (1M) - ${pricingType === 'cris' ? `CRIS ${crisType === 'geo' ? 'Geo' : 'Global'}` : 'In Region'}`}
                 values={modelData.map(d => ({ value: formatPrice(d.outputPrice) }))}
                 isLight={isLight}
-                priceRegions={modelData.map(d => d.priceRegions)}
+                modelData={modelData}
                 pricingType={pricingType}
-                crisSupported={modelData.map(d => d.crisSupported)}
+                crisType={crisType}
               />
               <BooleanRow
                 label="Active"
