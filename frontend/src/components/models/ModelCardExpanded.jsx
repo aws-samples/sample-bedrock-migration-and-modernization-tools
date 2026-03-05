@@ -3101,18 +3101,18 @@ const PRICING_GROUP_HIERARCHY = [
     icon: Globe,
     colors: {
       light: {
-        bg: 'bg-emerald-50/80',
+        bg: 'bg-white/60',
         border: 'border-emerald-200/80',
-        headerBg: 'bg-emerald-50',
+        headerBg: 'bg-white/80',
         headerBorder: 'border-emerald-200',
         icon: 'text-emerald-600',
         text: 'text-emerald-700',
         badge: 'bg-emerald-100 text-emerald-700'
       },
       dark: {
-        bg: 'bg-emerald-500/5',
+        bg: 'bg-white/[0.02]',
         border: 'border-emerald-500/20',
-        headerBg: 'bg-emerald-500/10',
+        headerBg: 'bg-white/[0.03]',
         headerBorder: 'border-emerald-500/20',
         icon: 'text-emerald-400',
         text: 'text-emerald-400',
@@ -3140,18 +3140,18 @@ const PRICING_GROUP_HIERARCHY = [
     icon: Zap,
     colors: {
       light: {
-        bg: 'bg-amber-50/80',
+        bg: 'bg-white/60',
         border: 'border-amber-200/80',
-        headerBg: 'bg-amber-50',
+        headerBg: 'bg-white/80',
         headerBorder: 'border-amber-200',
         icon: 'text-amber-600',
         text: 'text-amber-700',
         badge: 'bg-amber-100 text-amber-700'
       },
       dark: {
-        bg: 'bg-teal-500/5',
+        bg: 'bg-white/[0.02]',
         border: 'border-teal-500/20',
-        headerBg: 'bg-teal-500/10',
+        headerBg: 'bg-white/[0.03]',
         headerBorder: 'border-teal-500/20',
         icon: 'text-[#1A9E7A]',
         text: 'text-teal-400',
@@ -3185,18 +3185,18 @@ const PRICING_GROUP_HIERARCHY = [
     icon: Clock,
     colors: {
       light: {
-        bg: 'bg-indigo-50/80',
+        bg: 'bg-white/60',
         border: 'border-indigo-200/80',
-        headerBg: 'bg-indigo-50',
+        headerBg: 'bg-white/80',
         headerBorder: 'border-indigo-200',
         icon: 'text-indigo-600',
         text: 'text-indigo-700',
         badge: 'bg-indigo-100 text-indigo-700'
       },
       dark: {
-        bg: 'bg-indigo-500/5',
+        bg: 'bg-white/[0.02]',
         border: 'border-indigo-500/20',
-        headerBg: 'bg-indigo-500/10',
+        headerBg: 'bg-white/[0.03]',
         headerBorder: 'border-indigo-500/20',
         icon: 'text-indigo-400',
         text: 'text-indigo-400',
@@ -3254,18 +3254,18 @@ const PRICING_GROUP_HIERARCHY = [
     icon: Server,
     colors: {
       light: {
-        bg: 'bg-purple-50/80',
+        bg: 'bg-white/60',
         border: 'border-purple-200/80',
-        headerBg: 'bg-purple-50',
+        headerBg: 'bg-white/80',
         headerBorder: 'border-purple-200',
         icon: 'text-purple-600',
         text: 'text-purple-700',
         badge: 'bg-purple-100 text-purple-700'
       },
       dark: {
-        bg: 'bg-purple-500/5',
+        bg: 'bg-white/[0.02]',
         border: 'border-purple-500/20',
-        headerBg: 'bg-purple-500/10',
+        headerBg: 'bg-white/[0.03]',
         headerBorder: 'border-purple-500/20',
         icon: 'text-purple-400',
         text: 'text-purple-400',
@@ -3282,18 +3282,18 @@ const PRICING_GROUP_HIERARCHY = [
     icon: Wrench,
     colors: {
       light: {
-        bg: 'bg-slate-50/80',
+        bg: 'bg-white/60',
         border: 'border-slate-200/80',
-        headerBg: 'bg-slate-50',
+        headerBg: 'bg-white/80',
         headerBorder: 'border-slate-200',
         icon: 'text-slate-600',
         text: 'text-slate-700',
         badge: 'bg-slate-100 text-slate-700'
       },
       dark: {
-        bg: 'bg-slate-500/5',
+        bg: 'bg-white/[0.02]',
         border: 'border-slate-500/20',
-        headerBg: 'bg-slate-500/10',
+        headerBg: 'bg-white/[0.03]',
         headerBorder: 'border-slate-500/20',
         icon: 'text-slate-400',
         text: 'text-slate-400',
@@ -4194,22 +4194,111 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
                           }
                           return interleaved
                         })().map((item, idx) => (
-                          <tr key={idx} className={isLight ? 'text-stone-600' : 'text-slate-400'}>
-                            <td className="px-2 py-1">
-                              <span className={cn(
-                                'inline-block w-1.5 h-1.5 rounded-full mr-1',
-                                item._type === 'input' ? 'bg-blue-500' : item._type === 'output' ? 'bg-emerald-500' : 'bg-gray-400'
-                              )} />
-                              {item._type}
-                            </td>
-                            <td className={cn('px-2 py-1 font-mono', isLight ? 'text-stone-900' : 'text-emerald-400')}>
-                              ${formatPrice(item._price)}
-                            </td>
-                            <td className="px-2 py-1">{item.region}</td>
-                            <td className="px-2 py-1 truncate max-w-[200px]" title={item.dimension || item._raw}>
-                              {item.dimension || item._raw || '-'}
-                            </td>
-                          </tr>
+                          <Popover key={idx}>
+                            <PopoverTrigger asChild>
+                              <tr 
+                                className={cn(
+                                  'cursor-pointer transition-colors',
+                                  isLight 
+                                    ? 'text-stone-600 hover:bg-stone-100/80' 
+                                    : 'text-slate-400 hover:bg-white/[0.04]'
+                                )}
+                              >
+                                <td className="px-2 py-1">
+                                  <span className={cn(
+                                    'inline-block w-1.5 h-1.5 rounded-full mr-1',
+                                    item._type === 'input' ? 'bg-blue-500' : item._type === 'output' ? 'bg-emerald-500' : 'bg-gray-400'
+                                  )} />
+                                  {item._type}
+                                </td>
+                                <td className={cn('px-2 py-1 font-mono', isLight ? 'text-stone-900' : 'text-emerald-400')}>
+                                  ${formatPrice(item._price)}
+                                </td>
+                                <td className="px-2 py-1">{item.region}</td>
+                                <td className="px-2 py-1 truncate max-w-[200px]" title={item.dimension || item._raw}>
+                                  {item.dimension || item._raw || '-'}
+                                </td>
+                              </tr>
+                            </PopoverTrigger>
+                            <PopoverContent 
+                              className={cn(
+                                'w-96 max-h-[400px] overflow-y-auto',
+                                isLight 
+                                  ? 'bg-white border-stone-200' 
+                                  : 'bg-[#1a1a1a] border-white/10'
+                              )}
+                              side="right"
+                              align="start"
+                            >
+                              <div className="p-3 space-y-3">
+                                <div className={cn(
+                                  'text-xs font-semibold pb-2 border-b flex items-center gap-2',
+                                  isLight ? 'text-stone-800 border-stone-200' : 'text-slate-200 border-white/10'
+                                )}>
+                                  <span className={cn(
+                                    'inline-block w-2 h-2 rounded-full',
+                                    item._type === 'input' ? 'bg-blue-500' : item._type === 'output' ? 'bg-emerald-500' : 'bg-gray-400'
+                                  )} />
+                                  Raw Pricing Details
+                                </div>
+                                
+                                {/* Description - prominently displayed */}
+                                {item.description && (
+                                  <div className={cn(
+                                    'p-2 rounded-lg text-xs',
+                                    isLight ? 'bg-amber-50 border border-amber-200' : 'bg-amber-900/20 border border-amber-700/30'
+                                  )}>
+                                    <div className={cn(
+                                      'text-[10px] font-medium mb-1',
+                                      isLight ? 'text-amber-700' : 'text-amber-400'
+                                    )}>
+                                      Description
+                                    </div>
+                                    <div className={isLight ? 'text-amber-900' : 'text-amber-200'}>
+                                      {item.description}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {/* All fields in a structured list */}
+                                <div className="space-y-1.5">
+                                  {Object.entries(item)
+                                    .filter(([key]) => key !== 'description') // Already shown above
+                                    .sort(([a], [b]) => {
+                                      // Priority order for common fields
+                                      const priority = ['dimension', '_type', '_price', 'price_per_unit', 'unit', 'region', 'pricing_group', 'pricing_characteristics']
+                                      const aIdx = priority.indexOf(a)
+                                      const bIdx = priority.indexOf(b)
+                                      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx
+                                      if (aIdx !== -1) return -1
+                                      if (bIdx !== -1) return 1
+                                      return a.localeCompare(b)
+                                    })
+                                    .map(([key, value]) => (
+                                      <div key={key} className="flex gap-2 text-[11px]">
+                                        <span className={cn(
+                                          'font-medium min-w-[100px] shrink-0',
+                                          isLight ? 'text-stone-500' : 'text-slate-500'
+                                        )}>
+                                          {key}:
+                                        </span>
+                                        <span className={cn(
+                                          'break-all',
+                                          isLight ? 'text-stone-800' : 'text-slate-300',
+                                          key === '_price' || key === 'price_per_unit' ? 'font-mono' : ''
+                                        )}>
+                                          {typeof value === 'object' 
+                                            ? JSON.stringify(value, null, 2)
+                                            : String(value)
+                                          }
+                                        </span>
+                                      </div>
+                                    ))
+                                  }
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         ))}
                       </tbody>
                     </table>

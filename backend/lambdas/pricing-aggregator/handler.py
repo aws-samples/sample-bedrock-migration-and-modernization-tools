@@ -212,6 +212,11 @@ def detect_reserved_pricing(
     - "Reserved_1Month", "Reserved_3Month", "Reserved_6Month" patterns
     - "no-commit" for no-commitment reserved
 
+    Exclusions:
+    - ProvisionedThroughput entries that don't contain "reserved" are NOT reserved pricing.
+      E.g., "USE1-Nova2.0Lite-ProvisionedThroughput-NoCommit-ModelUnits" is Provisioned,
+      not Reserved, even though it contains "NoCommit".
+
     Args:
         usage_type: The usagetype field from pricing API
         description: The description field from pricing API
@@ -222,6 +227,11 @@ def detect_reserved_pricing(
     """
     usage_lower = usage_type.lower() if usage_type else ""
     desc_lower = description.lower() if description else ""
+
+    # Exclude ProvisionedThroughput entries that don't have "reserved" in them
+    # ProvisionedThroughput-NoCommit is Provisioned Throughput pricing, not Reserved pricing
+    if "provisionedthroughput" in usage_lower and "reserved" not in usage_lower:
+        return False, None
 
     # Check if this is reserved pricing
     is_reserved = False
