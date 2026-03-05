@@ -72,15 +72,24 @@ function getExtendedContextWindow(model) {
 
 // Radar scoring (0-10 scale, benchmarked against relative set)
 function computeRadarScores(modelData, benchmarks) {
-  const { maxContext, maxRegions, maxCost } = benchmarks
+  const { maxContext, maxRegions, maxCost, minCost } = benchmarks
   
   return modelData.map(d => {
     // Cost Efficiency: lower price = higher score (0-10)
-    // Score = 10 × (1 - modelCost / maxCost). Cheapest = 10, most expensive = 0
+    // Models with no pricing data get 0
+    // Models with pricing: cheapest gets 10, most expensive gets 1 (not 0)
     const totalCost = (d.inputPrice || 0) + (d.outputPrice || 0)
-    const costScore = totalCost > 0 && maxCost > 0
-      ? 10 * (1 - totalCost / maxCost)
-      : 0  // No pricing data = 0 (unknown, not mid-range)
+    let costScore = 0
+    if (totalCost > 0 && maxCost > 0) {
+      if (maxCost === minCost) {
+        // All models with pricing have the same cost - give them all 10
+        costScore = 10
+      } else {
+        // Scale from 1 (most expensive) to 10 (cheapest)
+        // Formula: 10 - 9 * (cost - minCost) / (maxCost - minCost)
+        costScore = 10 - 9 * (totalCost - minCost) / (maxCost - minCost)
+      }
+    }
     
     // Context Window: relative to the max context window
     const effectiveCtx = d.effectiveContextWindow || d.contextWindow
@@ -680,9 +689,10 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
   const relativeBenchmarks = useMemo(() => {
     const allCosts = modelData.map(d => ((d.inputPrice || 0) + (d.outputPrice || 0))).filter(c => c > 0)
     const maxCost = allCosts.length > 0 ? Math.max(...allCosts) : 1
+    const minCost = allCosts.length > 0 ? Math.min(...allCosts) : 0
     const maxContext = Math.max(...modelData.map(d => d.effectiveContextWindow || d.contextWindow), 1)
     const maxRegions = Math.max(...modelData.map(d => d.regions.length), 1)
-    return { maxContext, maxRegions, maxCost }
+    return { maxContext, maxRegions, maxCost, minCost }
   }, [modelData])
 
   // Radar chart data
