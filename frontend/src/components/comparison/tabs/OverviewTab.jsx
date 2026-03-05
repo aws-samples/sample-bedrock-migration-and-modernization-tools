@@ -754,15 +754,15 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
 
         <div className={cn(
           'px-3 py-2.5 rounded-lg border',
-          isLight ? 'bg-emerald-50/50 border-emerald-200' : 'bg-emerald-500/10 border-emerald-500/30'
+          isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
         )}>
           <div className="flex items-center gap-1.5 mb-0.5">
-            <DollarSign className={cn('h-3.5 w-3.5 text-emerald-500')} />
-            <span className={cn('text-[10px]', isLight ? 'text-emerald-700' : 'text-emerald-400')}>
+            <DollarSign className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+            <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
               Cheapest Input ({getPricingLabel(pricingType, { crisType, reservedTerm, reservedScope, batchMode })})
             </span>
           </div>
-          <p className="text-lg font-bold text-emerald-600">
+          <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>
             {minInputPrice !== null ? `$${minInputPrice < 0.01 ? minInputPrice.toFixed(4) : minInputPrice.toFixed(2)}` : '—'}
           </p>
           {inputPriceBestSet.size > 0 && (
