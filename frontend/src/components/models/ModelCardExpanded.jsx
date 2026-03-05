@@ -2022,49 +2022,6 @@ function SpecsTab({ model, user }) {
   )]
   const languages = model.languages ?? model.languages_supported ?? []
   const documentationLinks = model.docs ?? model.documentation_links ?? {}
-  const consumptionOptions = (() => {
-    const opts = [...(model.consumption_options || [])]
-    
-    // Check if user can view provisioned
-    const canViewProvisioned = canViewProvisionedPricing(user)
-    
-    // Ensure on_demand is shown if model has in-region availability
-    const onDemandData = model.availability?.on_demand
-    if (onDemandData?.supported && !opts.includes('on_demand')) {
-      opts.push('on_demand')
-    }
-    
-    // Ensure mantle is shown if model supports it
-    const mantleData = model.availability?.mantle
-    if (mantleData?.supported && !opts.includes('mantle')) {
-      opts.push('mantle')
-    }
-    
-    // Ensure cross_region_inference is shown if model supports it
-    const crisData = model.availability?.cross_region ?? model.cross_region_inference
-    if (crisData?.supported && !opts.includes('cross_region_inference')) {
-      opts.push('cross_region_inference')
-    }
-    
-    // Ensure batch is shown if model supports it
-    const batchData = model.availability?.batch ?? model.batch_inference_supported
-    if (batchData?.supported && !opts.includes('batch')) {
-      opts.push('batch')
-    }
-    
-    // Ensure provisioned_throughput is shown if model supports it AND user has permission
-    const provisionedData = model.availability?.provisioned ?? model.provisioned_throughput
-    if (provisionedData?.supported && canViewProvisioned && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
-      opts.push('provisioned_throughput')
-    }
-    
-    // Filter out provisioned for non-privileged users
-    if (!canViewProvisioned) {
-      return opts.filter(opt => opt !== 'provisioned_throughput' && opt !== 'provisioned')
-    }
-    
-    return opts
-  })()
   const customizations = model.customization?.customization_supported || []
 
   // Category header component
@@ -2208,40 +2165,7 @@ function SpecsTab({ model, user }) {
                   <AvailabilitySummary model={model} />
                 </CollapsibleSection>
 
-                {/* Consumption Options - Collapsed by default */}
-                {consumptionOptions.length > 0 && (
-                  <CollapsibleSection title="Consumption Options" icon={Server} defaultExpanded={false}>
-                    <div className="flex flex-wrap gap-1.5">
-                      {consumptionOptions.map(opt => {
-                        const labels = {
-                          'on_demand': 'In Region',
-                          'batch': 'Batch',
-                          'provisioned': 'Provisioned',
-                          'provisioned_throughput': 'Provisioned',
-                          'cross_region_inference': 'Cross-Region Inference',
-                          'mantle': 'Mantle Inference',
-                          'reserved': 'Reserved'
-                        }
-                        const isProvisionedOpt = opt === 'provisioned' || opt === 'provisioned_throughput'
-                        return (
-                          <span key={opt} className="inline-flex items-center gap-1">
-                            <Badge variant="info" className="text-xs">
-                              {labels[opt] || opt}
-                            </Badge>
-                            {isProvisionedOpt && getSectionBadge(user, 'availability') && (
-                              <span className={cn(
-                                'text-[8px] px-1 py-0.5 rounded border font-medium',
-                                isLight ? getSectionBadge(user, 'availability').light : getSectionBadge(user, 'availability').dark
-                              )}>
-                                {getSectionBadge(user, 'availability').text}
-                              </span>
-                            )}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  </CollapsibleSection>
-                )}
+
               </div>
             </div>
 
@@ -4741,85 +4665,8 @@ export function ModelCardExpanded({
     }
   }
 
-  // Compute pricing stats (must be before consumptionOptions to detect Reserved pricing)
+  // Compute pricing stats
   const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
-  const fullPricing = pricingResult?.fullPricing
-  const legacyPricing = model.pricing ?? model.model_pricing ?? model.comprehensive_pricing ?? {}
-  const legacyByRegion = legacyPricing.by_region || {}
-  let pricingRegions = []
-  let pricingTypes = 0
-
-  // Compute consumption options dynamically to ensure alignment with actual capabilities
-  const consumptionOptions = (() => {
-    const opts = [...(model.consumption_options || [])]
-    
-    // Check if user can view provisioned
-    const canViewProvisioned = canViewProvisionedPricing(user)
-    
-    // Ensure provisioned_throughput is shown if model supports it AND user has permission
-    const provisionedData = model.availability?.provisioned ?? model.provisioned_throughput
-    if (provisionedData?.supported && canViewProvisioned && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
-      opts.push('provisioned_throughput')
-    }
-    
-    // Check for Reserved pricing from pricing data
-    const hasReservedPricing = (() => {
-      if (!fullPricing?.regions) return false
-      for (const regionData of Object.values(fullPricing.regions)) {
-        if (regionData?.pricing_groups) {
-          if (Object.keys(regionData.pricing_groups).some(g => g.startsWith('Reserved'))) {
-            return true
-          }
-        }
-      }
-      return false
-    })()
-    
-    // Add reserved option if model has reserved pricing
-    if (hasReservedPricing && !opts.includes('reserved')) {
-      opts.push('reserved')
-    }
-    
-    // Ensure mantle is shown if model supports it
-    const mantleData = model.availability?.mantle
-    if (mantleData?.supported && !opts.includes('mantle')) {
-      opts.push('mantle')
-    }
-    // Ensure cross_region_inference is shown if model supports it
-    const crisData = model.availability?.cross_region ?? model.cross_region_inference
-    if (crisData?.supported && !opts.includes('cross_region_inference')) {
-      opts.push('cross_region_inference')
-    }
-    // Ensure batch is shown if model supports it
-    const batchData = model.availability?.batch ?? model.batch_inference_supported
-    if (batchData?.supported && !opts.includes('batch')) {
-      opts.push('batch')
-    }
-    
-    // Filter out provisioned_throughput if user doesn't have permission
-    if (!canViewProvisioned) {
-      return opts.filter(opt => opt !== 'provisioned_throughput' && opt !== 'provisioned')
-    }
-    
-    return opts
-  })()
-
-  if (fullPricing?.regions) {
-    pricingRegions = Object.keys(fullPricing.regions)
-    const pricingGroups = new Set()
-    for (const regionData of Object.values(fullPricing.regions)) {
-      if (regionData?.pricing_groups) {
-        for (const groupName of Object.keys(regionData.pricing_groups)) {
-          pricingGroups.add(groupName)
-        }
-      }
-    }
-    pricingTypes = pricingGroups.size
-  } else if (Object.keys(legacyByRegion).length > 0) {
-    pricingRegions = Object.keys(legacyByRegion)
-    pricingTypes = 2 // On-Demand and Provisioned
-  }
-
   return (
     <TooltipProvider>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -4946,41 +4793,6 @@ export function ModelCardExpanded({
               {/* Tab-specific stats */}
               {activeTab === 'specs' && (
                 <>
-                  {/* Availability */}
-                  <div className="space-y-3">
-                    <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                      Availability
-                    </h3>
-                    {(() => {
-                      const crisRegions = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []
-                      const batchRegions = model.availability?.batch?.regions ?? []
-                      const provisionedRegions = model.availability?.provisioned?.regions ?? []
-                      const allRegions = new Set([...regions, ...crisRegions, ...batchRegions, ...provisionedRegions, ...mantleRegions])
-                      return (
-                        <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
-                          <div className="flex items-center justify-between">
-                            <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Regions</p>
-                            <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>{allRegions.size}</p>
-                          </div>
-                        </div>
-                      )
-                    })()}
-                    {mantleRegions.length > 0 && (
-                      <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
-                        <div className="flex items-center justify-between">
-                          <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Mantle Regions</p>
-                          <p className={cn('text-lg font-bold', isLight ? 'text-violet-700' : 'text-violet-400')}>{mantleRegions.length}</p>
-                        </div>
-                      </div>
-                    )}
-                    <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
-                      <div className="flex items-center justify-between">
-                        <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Capabilities</p>
-                        <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>{capabilities.length}</p>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Features */}
                   <div className="space-y-3">
                     <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-slate-400')}>
@@ -5095,49 +4907,7 @@ export function ModelCardExpanded({
                 </div>
               )}
 
-              {activeTab === 'pricing' && (
-                <div className="space-y-3">
-                  <h3 className={cn('text-xs font-semibold uppercase tracking-wider', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                    Pricing Summary
-                  </h3>
-                  <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
-                    <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>Regions</p>
-                    <p className={cn('text-xl font-bold', isLight ? 'text-emerald-700' : 'text-emerald-400')}>{pricingRegions.length}</p>
-                  </div>
-                  {consumptionOptions.length > 0 && (
-                    <div className={cn('rounded-lg p-3 border', isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]')}>
-                      <p className={cn('text-xs mb-2', isLight ? 'text-stone-500' : 'text-slate-400')}>Consumption</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {consumptionOptions.map(opt => {
-                          const labels = { 
-                            'on_demand': 'In Region', 
-                            'batch': 'Batch', 
-                            'provisioned': 'Provisioned', 
-                            'provisioned_throughput': 'Provisioned',
-                            'cross_region_inference': 'Cross-Region', 
-                            'mantle': 'Mantle',
-                            'reserved': 'Reserved'
-                          }
-                          const isProvisionedOpt = opt === 'provisioned' || opt === 'provisioned_throughput'
-                          return (
-                            <span key={opt} className="inline-flex items-center gap-1">
-                              <Badge variant="info" className="text-[10px]">{labels[opt] || opt}</Badge>
-                              {isProvisionedOpt && getSectionBadge(user, 'availability') && (
-                                <span className={cn(
-                                  'text-[8px] px-1 py-0.5 rounded border font-medium',
-                                  isLight ? getSectionBadge(user, 'availability').light : getSectionBadge(user, 'availability').dark
-                                )}>
-                                  {getSectionBadge(user, 'availability').text}
-                                </span>
-                              )}
-                            </span>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+
             </div>
 
             {/* Right Content - Tabs */}
