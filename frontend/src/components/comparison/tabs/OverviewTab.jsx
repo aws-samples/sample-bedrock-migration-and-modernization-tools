@@ -287,72 +287,75 @@ function ModalitiesRow({ label, values, isLight, isOutput = false }) {
 }
 
 // Winner row component for the Winners panel
-function WinnerRow({ icon, label, winners, value, isLight, highlight = false, modelData }) {
-  if (!winners || winners.length === 0) {
-    return (
-      <div className={cn(
-        'flex items-center justify-between py-1.5 px-2 rounded',
-        isLight ? 'bg-white/50' : 'bg-white/[0.02]'
-      )}>
-        <div className="flex items-center gap-1.5">
-          <span className={cn(isLight ? 'text-stone-400' : 'text-slate-500')}>{icon}</span>
-          <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>{label}</span>
-        </div>
-        <span className={cn('text-[10px]', isLight ? 'text-stone-300' : 'text-slate-600')}>—</span>
-      </div>
-    )
-  }
-
+function WinnerRow({ icon, label, winners, value, isLight, modelData }) {
+  const hasWinners = winners && winners.length > 0
+  
   return (
     <div className={cn(
-      'py-1.5 px-2 rounded',
-      highlight
-        ? isLight ? 'bg-emerald-50/80' : 'bg-emerald-500/10'
-        : isLight ? 'bg-white/50' : 'bg-white/[0.02]'
+      'py-2 px-3 rounded-lg border',
+      isLight 
+        ? 'bg-white/60 border-stone-200/40' 
+        : 'bg-white/[0.02] border-white/[0.04]'
     )}>
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-1.5">
+      {/* Header row with label and value */}
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
           <span className={cn(
-            highlight ? 'text-emerald-600' : isLight ? 'text-stone-500' : 'text-slate-400'
+            isLight ? 'text-stone-400' : 'text-slate-500'
           )}>{icon}</span>
           <span className={cn(
-            'text-[10px] font-medium',
-            highlight ? 'text-emerald-700' : isLight ? 'text-stone-600' : 'text-slate-400'
+            'text-xs font-medium',
+            isLight ? 'text-stone-700' : 'text-slate-300'
           )}>{label}</span>
         </div>
         <span className={cn(
-          'text-[10px] font-semibold',
-          highlight ? 'text-emerald-600' : isLight ? 'text-stone-900' : 'text-white'
-        )}>{value}</span>
+          'text-xs font-semibold',
+          hasWinners
+            ? isLight ? 'text-stone-900' : 'text-white'
+            : isLight ? 'text-stone-300' : 'text-slate-600'
+        )}>
+          {hasWinners ? value : '—'}
+        </span>
       </div>
-      <div className="flex flex-wrap gap-1">
-        {winners.slice(0, 3).map((w, i) => {
-          const modelIndex = modelData.findIndex(m => m === w)
-          return (
-            <span
-              key={i}
-              className={cn(
-                'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium',
-                isLight ? 'bg-stone-100 text-stone-700' : 'bg-white/10 text-slate-300'
-              )}
-            >
+      
+      {/* Winner models */}
+      {hasWinners ? (
+        <div className="flex flex-wrap gap-1">
+          {winners.slice(0, 3).map((w, i) => {
+            const modelIndex = modelData.findIndex(m => m === w)
+            return (
               <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: radarColors[modelIndex % radarColors.length] }}
-              />
-              {w.model.model_name?.split(' ').slice(-2).join(' ') || w.model.model_id.split('.').pop()}
+                key={i}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium',
+                  isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/[0.06] text-slate-400'
+                )}
+              >
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: radarColors[modelIndex % radarColors.length] }}
+                />
+                {w.model.model_name?.split(' ').slice(-2).join(' ') || w.model.model_id.split('.').pop()}
+              </span>
+            )
+          })}
+          {winners.length > 3 && (
+            <span className={cn(
+              'text-[10px] px-1.5 py-0.5',
+              isLight ? 'text-stone-400' : 'text-slate-500'
+            )}>
+              +{winners.length - 3} more
             </span>
-          )
-        })}
-        {winners.length > 3 && (
-          <span className={cn(
-            'text-[9px] px-1',
-            isLight ? 'text-stone-400' : 'text-slate-500'
-          )}>
-            +{winners.length - 3}
-          </span>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        <p className={cn(
+          'text-[10px]',
+          isLight ? 'text-stone-400' : 'text-slate-600'
+        )}>
+          No data available
+        </p>
+      )}
     </div>
   )
 }
@@ -1071,11 +1074,11 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               {/* Winners Panel - takes 1 column */}
               <div className={cn(
                 'p-3 space-y-2',
-                isLight ? 'bg-stone-50/30' : 'bg-white/[0.01]'
+                isLight ? 'bg-stone-50/50' : 'bg-white/[0.01]'
               )}>
                 <h4 className={cn(
-                  'text-[10px] font-semibold uppercase tracking-wide mb-2',
-                  isLight ? 'text-stone-500' : 'text-slate-500'
+                  'text-xs font-semibold mb-3',
+                  isLight ? 'text-stone-700' : 'text-slate-300'
                 )}>
                   Category Winners
                 </h4>
@@ -1097,7 +1100,6 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                   winners={[...inputPriceBestSet].map(i => modelData[i])}
                   value={minInputPrice !== null ? `$${minInputPrice < 0.01 ? minInputPrice.toFixed(4) : minInputPrice.toFixed(2)}` : '—'}
                   isLight={isLight}
-                  highlight
                   modelData={modelData}
                 />
                 
