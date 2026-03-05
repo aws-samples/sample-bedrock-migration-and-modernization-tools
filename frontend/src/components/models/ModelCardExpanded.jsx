@@ -18,7 +18,7 @@ import { Separator } from '@/components/ui/separator'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
-import { canViewQuotas, getSectionBadge } from '@/config/admin'
+import { canViewQuotas, canViewProvisionedPricing, getSectionBadge } from '@/config/admin'
 import { getRegionName, getRegionInfo, geoGroups as regionGeoGroups } from '@/utils/regionUtils'
 
 // Provider color mapping - using actual brand colors (Tailwind classes)
@@ -2003,7 +2003,7 @@ function LifecycleDetailsSection({ model, isLight }) {
   )
 }
 
-function SpecsTab({ model }) {
+function SpecsTab({ model, user }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
   
@@ -2022,7 +2022,49 @@ function SpecsTab({ model }) {
   )]
   const languages = model.languages ?? model.languages_supported ?? []
   const documentationLinks = model.docs ?? model.documentation_links ?? {}
-  const consumptionOptions = model.consumption_options || []
+  const consumptionOptions = (() => {
+    const opts = [...(model.consumption_options || [])]
+    
+    // Check if user can view provisioned
+    const canViewProvisioned = canViewProvisionedPricing(user)
+    
+    // Ensure on_demand is shown if model has in-region availability
+    const onDemandData = model.availability?.on_demand
+    if (onDemandData?.supported && !opts.includes('on_demand')) {
+      opts.push('on_demand')
+    }
+    
+    // Ensure mantle is shown if model supports it
+    const mantleData = model.availability?.mantle
+    if (mantleData?.supported && !opts.includes('mantle')) {
+      opts.push('mantle')
+    }
+    
+    // Ensure cross_region_inference is shown if model supports it
+    const crisData = model.availability?.cross_region ?? model.cross_region_inference
+    if (crisData?.supported && !opts.includes('cross_region_inference')) {
+      opts.push('cross_region_inference')
+    }
+    
+    // Ensure batch is shown if model supports it
+    const batchData = model.availability?.batch ?? model.batch_inference_supported
+    if (batchData?.supported && !opts.includes('batch')) {
+      opts.push('batch')
+    }
+    
+    // Ensure provisioned_throughput is shown if model supports it AND user has permission
+    const provisionedData = model.availability?.provisioned ?? model.provisioned_throughput
+    if (provisionedData?.supported && canViewProvisioned && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
+      opts.push('provisioned_throughput')
+    }
+    
+    // Filter out provisioned for non-privileged users
+    if (!canViewProvisioned) {
+      return opts.filter(opt => opt !== 'provisioned_throughput' && opt !== 'provisioned')
+    }
+    
+    return opts
+  })()
   const customizations = model.customization?.customization_supported || []
 
   // Category header component
@@ -2175,14 +2217,26 @@ function SpecsTab({ model }) {
                           'on_demand': 'In Region',
                           'batch': 'Batch',
                           'provisioned': 'Provisioned',
-                          'provisioned_throughput': 'Provisioned Throughput',
+                          'provisioned_throughput': 'Provisioned',
                           'cross_region_inference': 'Cross-Region Inference',
-                          'mantle': 'Mantle Inference'
+                          'mantle': 'Mantle Inference',
+                          'reserved': 'Reserved'
                         }
+                        const isProvisionedOpt = opt === 'provisioned' || opt === 'provisioned_throughput'
                         return (
-                          <Badge key={opt} variant="info" className="text-xs">
-                            {labels[opt] || opt}
-                          </Badge>
+                          <span key={opt} className="inline-flex items-center gap-1">
+                            <Badge variant="info" className="text-xs">
+                              {labels[opt] || opt}
+                            </Badge>
+                            {isProvisionedOpt && getSectionBadge(user, 'availability') && (
+                              <span className={cn(
+                                'text-[8px] px-1 py-0.5 rounded border font-medium',
+                                isLight ? getSectionBadge(user, 'availability').light : getSectionBadge(user, 'availability').dark
+                              )}>
+                                {getSectionBadge(user, 'availability').text}
+                              </span>
+                            )}
+                          </span>
                         )
                       })}
                     </div>
@@ -3666,9 +3720,8 @@ function CRISPricingSection({
   )
 }
 
-function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }) {
+function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', user }) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [pricingView, setPricingView] = useState('byType') // 'byType' | 'byRegion'
   const [expandedSections, setExpandedSections] = useState({})
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -3882,41 +3935,6 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
     }
     return displayPrice
   }
-
-  // ============================================
-  // VIEW TOGGLE COMPONENT
-  // ============================================
-  const ViewToggle = () => (
-    <div className={cn(
-      'inline-flex items-center rounded-lg p-0.5',
-      isLight
-        ? 'bg-stone-100/80 border border-stone-200/50'
-        : 'bg-white/5 border border-white/10'
-    )}>
-      {[
-        { key: 'byType', label: 'By Type', icon: Layers },
-        { key: 'byRegion', label: 'By Region', icon: Globe }
-      ].map(({ key, label, icon: Icon }) => (
-        <button
-          key={key}
-          onClick={() => setPricingView(key)}
-          className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all',
-            pricingView === key
-              ? isLight
-                ? 'bg-white text-stone-900 shadow-sm'
-                : 'bg-white/10 text-white shadow-sm'
-              : isLight
-                ? 'text-stone-500 hover:text-stone-700'
-                : 'text-slate-400 hover:text-white'
-          )}
-        >
-          <Icon className="h-3.5 w-3.5" />
-          {label}
-        </button>
-      ))}
-    </div>
-  )
 
   // ============================================
   // VIEW 1: BY TYPE (Hierarchy-Based View)
@@ -4260,41 +4278,69 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
                                   </div>
                                 )}
                                 
-                                {/* All fields in a structured list */}
-                                <div className="space-y-1.5">
-                                  {Object.entries(item)
-                                    .filter(([key]) => key !== 'description') // Already shown above
-                                    .sort(([a], [b]) => {
-                                      // Priority order for common fields
-                                      const priority = ['dimension', '_type', '_price', 'price_per_unit', 'unit', 'region', 'pricing_group', 'pricing_characteristics']
-                                      const aIdx = priority.indexOf(a)
-                                      const bIdx = priority.indexOf(b)
-                                      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx
-                                      if (aIdx !== -1) return -1
-                                      if (bIdx !== -1) return 1
-                                      return a.localeCompare(b)
-                                    })
-                                    .map(([key, value]) => (
-                                      <div key={key} className="flex gap-2 text-[11px]">
-                                        <span className={cn(
-                                          'font-medium min-w-[100px] shrink-0',
-                                          isLight ? 'text-stone-500' : 'text-slate-500'
-                                        )}>
-                                          {key}:
-                                        </span>
-                                        <span className={cn(
-                                          'break-all',
-                                          isLight ? 'text-stone-800' : 'text-slate-300',
-                                          key === '_price' || key === 'price_per_unit' ? 'font-mono' : ''
-                                        )}>
-                                          {typeof value === 'object' 
-                                            ? JSON.stringify(value, null, 2)
-                                            : String(value)
-                                          }
-                                        </span>
-                                      </div>
-                                    ))
-                                  }
+                                {/* Essential fields only */}
+                                <div className="space-y-1.5 text-[11px]">
+                                  <div className="flex gap-2">
+                                    <span className={cn(
+                                      'font-medium w-20 shrink-0',
+                                      isLight ? 'text-stone-500' : 'text-slate-500'
+                                    )}>
+                                      Dimension:
+                                    </span>
+                                    <span className={cn(
+                                      'break-all',
+                                      isLight ? 'text-stone-800' : 'text-slate-300'
+                                    )}>
+                                      {item.dimension || 'N/A'}
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <span className={cn(
+                                      'font-medium w-20 shrink-0',
+                                      isLight ? 'text-stone-500' : 'text-slate-500'
+                                    )}>
+                                      Price:
+                                    </span>
+                                    <span className={cn(
+                                      'font-mono',
+                                      isLight ? 'text-stone-800' : 'text-slate-300'
+                                    )}>
+                                      ${formatPrice(item._price ?? item.price_per_unit)}
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <span className={cn(
+                                      'font-medium w-20 shrink-0',
+                                      isLight ? 'text-stone-500' : 'text-slate-500'
+                                    )}>
+                                      Unit:
+                                    </span>
+                                    <span className={isLight ? 'text-stone-800' : 'text-slate-300'}>
+                                      {item.unit || item._unit || 'N/A'}
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <span className={cn(
+                                      'font-medium w-20 shrink-0',
+                                      isLight ? 'text-stone-500' : 'text-slate-500'
+                                    )}>
+                                      Region:
+                                    </span>
+                                    <span className={isLight ? 'text-stone-800' : 'text-slate-300'}>
+                                      {item.region || 'N/A'}
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <span className={cn(
+                                      'font-medium w-20 shrink-0',
+                                      isLight ? 'text-stone-500' : 'text-slate-500'
+                                    )}>
+                                      Group:
+                                    </span>
+                                    <span className={isLight ? 'text-stone-800' : 'text-slate-300'}>
+                                      {item.pricing_group || item._groupName || 'N/A'}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </PopoverContent>
@@ -4446,6 +4492,23 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
                   </TooltipContent>
                 </Tooltip>
               )}
+              {/* Show badge for Provisioned group indicating why user can see it */}
+              {parentGroup.id === 'provisioned' && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={cn(
+                      'text-[9px] px-1.5 py-0.5 rounded border font-medium',
+                      getSectionBadge(user, 'availability')?.light || 'bg-purple-100 text-purple-700 border-purple-200/60',
+                      !isLight && (getSectionBadge(user, 'availability')?.dark || 'bg-purple-500/15 text-purple-400 border-purple-500/20')
+                    )}>
+                      {getSectionBadge(user, 'availability')?.text || 'BETA'}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">Visible to {getSectionBadge(user, 'availability')?.text === 'ADM' ? 'admins' : getSectionBadge(user, 'availability')?.text === 'OP' ? 'operators' : 'beta users'}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <Badge className={cn('text-[10px]', colors.badge)}>
                 {totalRegions} regions
               </Badge>
@@ -4486,8 +4549,14 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
       )
     }
 
+    // Check if user can view provisioned pricing
+    const canViewProvisioned = canViewProvisionedPricing(user)
+
     // Determine which parent groups have data
     const parentGroupsWithData = PRICING_GROUP_HIERARCHY.filter(parentGroup => {
+      // Hide Provisioned group from non-privileged users
+      if (parentGroup.id === 'provisioned' && !canViewProvisioned) return false
+      
       if (parentGroup.subGroups) {
         return parentGroup.subGroups.some(sg => 
           sg.pricingGroups.some(pg => itemsByPricingGroup[pg]?.length > 0)
@@ -4517,125 +4586,6 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
       </div>
     )
   }
-  // ============================================
-  // VIEW 3: BY REGION (Simplified Geo-Based View)
-  // ============================================
-  const renderByRegionView = () => {
-    const allItems = filterItems(getAllPricingItems())
-
-    // Group by geo, then by region
-    const byGeoRegion = {}
-    allItems.forEach(item => {
-      const geo = item.geo || 'Other'
-      if (!byGeoRegion[geo]) byGeoRegion[geo] = {}
-      if (!byGeoRegion[geo][item.region]) byGeoRegion[geo][item.region] = []
-      byGeoRegion[geo][item.region].push(item)
-    })
-
-    return (
-      <div className="space-y-4">
-        {geoOrder.map(geo => {
-          const geoData = byGeoRegion[geo]
-          if (!geoData || Object.keys(geoData).length === 0) return null
-
-          const geoKey = `byRegion_${geo}`
-          const isGeoExpanded = expandedSections[geoKey] !== false // Default expanded for first geo
-
-          return (
-            <div key={geo} className={cn(
-              'rounded-lg overflow-hidden border',
-              isLight
-                ? 'bg-stone-50/80 border-stone-200/80'
-                : 'bg-white/5 border-white/10'
-            )}>
-              <button
-                className={cn(
-                  'w-full flex items-center justify-between p-3 transition-colors',
-                  isLight ? 'hover:bg-stone-100/80' : 'hover:bg-white/5'
-                )}
-                onClick={() => toggleSection(geoKey)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">{geoInfo[geo]?.icon}</span>
-                  <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
-                    {geoInfo[geo]?.name}
-                  </span>
-                  <Badge variant="secondary" className="text-[10px]">
-                    {Object.keys(geoData).length} regions
-                  </Badge>
-                </div>
-                {isGeoExpanded ? (
-                  <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
-                ) : (
-                  <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
-                )}
-              </button>
-              {isGeoExpanded && (
-                <div className={cn('px-3 pb-3 border-t space-y-2', isLight ? 'border-stone-200' : 'border-white/10')}>
-                  {Object.entries(geoData).sort(([a], [b]) => a.localeCompare(b)).map(([region, regionItems]) => {
-                    const regionKey = `${geoKey}_${region}`
-                    const isRegionExpanded = expandedSections[regionKey]
-
-                    // Sort items by type
-                    const sortedItems = [...regionItems].sort((a, b) => {
-                      const typeOrder = { input: 0, output: 1, other: 2 }
-                      return (typeOrder[a._type] ?? 2) - (typeOrder[b._type] ?? 2)
-                    })
-
-                    // Quick summary: find standard input/output prices
-                    const inputItem = sortedItems.find(i => i._type === 'input' && i._tier === 'Standard')
-                    const outputItem = sortedItems.find(i => i._type === 'output' && i._tier === 'Standard')
-
-                    return (
-                      <div key={region} className={cn(
-                        'rounded-lg overflow-hidden border mt-2',
-                        isLight ? 'bg-white border-stone-200' : 'bg-white/[0.02] border-white/[0.06]'
-                      )}>
-                        <button
-                          className={cn(
-                            'w-full flex items-center justify-between p-2 transition-colors',
-                            isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.04]'
-                          )}
-                          onClick={() => toggleSection(regionKey)}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-                            <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>
-                              {getRegionDisplayName(region)}
-                            </span>
-                            <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                              ({region})
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {inputItem && outputItem && (
-                              <span className={cn('text-xs font-mono', isLight ? 'text-emerald-600' : 'text-emerald-400')}>
-                                ${formatPrice(inputItem._price)} / ${formatPrice(outputItem._price)}
-                              </span>
-                            )}
-                            {isRegionExpanded ? (
-                              <ChevronDown className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
-                            ) : (
-                              <ChevronRight className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
-                            )}
-                          </div>
-                        </button>
-                        {isRegionExpanded && (
-                          <div className={cn('px-2 pb-2 border-t', isLight ? 'border-stone-100' : 'border-white/5')}>
-                            <PricingItemsList items={sortedItems} isLight={isLight} />
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
 
   // ============================================
   // MAIN RENDER
@@ -4643,7 +4593,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
   return (
     <ScrollArea className="h-full">
       <div className="p-6">
-        {/* Header with Search and View Toggle */}
+        {/* Header with Search */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div className="relative flex-1 max-w-md">
             <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-500')} />
@@ -4654,12 +4604,10 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
               className="pl-9"
             />
           </div>
-          <ViewToggle />
         </div>
 
         {/* View Content */}
-        {pricingView === 'byType' && renderByTypeView()}
-        {pricingView === 'byRegion' && renderByRegionView()}
+        {renderByTypeView()}
       </div>
     </ScrollArea>
   )
@@ -4793,21 +4741,45 @@ export function ModelCardExpanded({
     }
   }
 
-  // Compute pricing stats
+  // Compute pricing stats (must be before consumptionOptions to detect Reserved pricing)
   const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
   const fullPricing = pricingResult?.fullPricing
   const legacyPricing = model.pricing ?? model.model_pricing ?? model.comprehensive_pricing ?? {}
   const legacyByRegion = legacyPricing.by_region || {}
   let pricingRegions = []
   let pricingTypes = 0
+
   // Compute consumption options dynamically to ensure alignment with actual capabilities
   const consumptionOptions = (() => {
     const opts = [...(model.consumption_options || [])]
-    // Ensure provisioned_throughput is shown if model supports it
+    
+    // Check if user can view provisioned
+    const canViewProvisioned = canViewProvisionedPricing(user)
+    
+    // Ensure provisioned_throughput is shown if model supports it AND user has permission
     const provisionedData = model.availability?.provisioned ?? model.provisioned_throughput
-    if (provisionedData?.supported && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
+    if (provisionedData?.supported && canViewProvisioned && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
       opts.push('provisioned_throughput')
     }
+    
+    // Check for Reserved pricing from pricing data
+    const hasReservedPricing = (() => {
+      if (!fullPricing?.regions) return false
+      for (const regionData of Object.values(fullPricing.regions)) {
+        if (regionData?.pricing_groups) {
+          if (Object.keys(regionData.pricing_groups).some(g => g.startsWith('Reserved'))) {
+            return true
+          }
+        }
+      }
+      return false
+    })()
+    
+    // Add reserved option if model has reserved pricing
+    if (hasReservedPricing && !opts.includes('reserved')) {
+      opts.push('reserved')
+    }
+    
     // Ensure mantle is shown if model supports it
     const mantleData = model.availability?.mantle
     if (mantleData?.supported && !opts.includes('mantle')) {
@@ -4823,6 +4795,12 @@ export function ModelCardExpanded({
     if (batchData?.supported && !opts.includes('batch')) {
       opts.push('batch')
     }
+    
+    // Filter out provisioned_throughput if user doesn't have permission
+    if (!canViewProvisioned) {
+      return opts.filter(opt => opt !== 'provisioned_throughput' && opt !== 'provisioned')
+    }
+    
     return opts
   })()
 
@@ -5009,15 +4987,22 @@ export function ModelCardExpanded({
                       Features
                     </h3>
                     <div className="flex flex-wrap gap-1.5">
-                      <span className={cn(
-                        'inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
-                        streamingSupported
-                          ? isLight ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : isLight ? 'bg-stone-100 text-stone-400 border border-stone-200' : 'bg-white/[0.03] text-slate-500 border border-white/[0.06]'
-                      )}>
-                        <Radio className="h-3.5 w-3.5" />
-                        Stream
-                      </span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={cn(
+                            'inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
+                            streamingSupported
+                              ? isLight ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              : isLight ? 'bg-stone-100 text-stone-400 border border-stone-200' : 'bg-white/[0.03] text-slate-500 border border-white/[0.06]'
+                          )}>
+                            <Radio className="h-3.5 w-3.5" />
+                            Streaming
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="text-xs">Supports streaming responses</p>
+                        </TooltipContent>
+                      </Tooltip>
                       <span className={cn(
                         'inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
                         crisSupported
@@ -5124,8 +5109,29 @@ export function ModelCardExpanded({
                       <p className={cn('text-xs mb-2', isLight ? 'text-stone-500' : 'text-slate-400')}>Consumption</p>
                       <div className="flex flex-wrap gap-1.5">
                         {consumptionOptions.map(opt => {
-                          const labels = { 'on_demand': 'In Region', 'batch': 'Batch', 'provisioned': 'Provisioned', 'cross_region_inference': 'Cross-Region', 'mantle': 'Mantle' }
-                          return <Badge key={opt} variant="info" className="text-[10px]">{labels[opt] || opt}</Badge>
+                          const labels = { 
+                            'on_demand': 'In Region', 
+                            'batch': 'Batch', 
+                            'provisioned': 'Provisioned', 
+                            'provisioned_throughput': 'Provisioned',
+                            'cross_region_inference': 'Cross-Region', 
+                            'mantle': 'Mantle',
+                            'reserved': 'Reserved'
+                          }
+                          const isProvisionedOpt = opt === 'provisioned' || opt === 'provisioned_throughput'
+                          return (
+                            <span key={opt} className="inline-flex items-center gap-1">
+                              <Badge variant="info" className="text-[10px]">{labels[opt] || opt}</Badge>
+                              {isProvisionedOpt && getSectionBadge(user, 'availability') && (
+                                <span className={cn(
+                                  'text-[8px] px-1 py-0.5 rounded border font-medium',
+                                  isLight ? getSectionBadge(user, 'availability').light : getSectionBadge(user, 'availability').dark
+                                )}>
+                                  {getSectionBadge(user, 'availability').text}
+                                </span>
+                              )}
+                            </span>
+                          )
                         })}
                       </div>
                     </div>
@@ -5165,7 +5171,7 @@ export function ModelCardExpanded({
                 </TabsList>
 
                 <TabsContent value="specs" className="flex-1 mt-0 min-h-0 overflow-hidden">
-                  <SpecsTab model={model} />
+                  <SpecsTab model={model} user={user} />
                 </TabsContent>
 
                 {showQuotas && (
@@ -5175,7 +5181,7 @@ export function ModelCardExpanded({
                 )}
 
                 <TabsContent value="pricing" className="flex-1 mt-0 min-h-0 overflow-hidden">
-                  <PricingTab model={model} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} />
+                  <PricingTab model={model} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} user={user} />
                 </TabsContent>
               </Tabs>
             </div>

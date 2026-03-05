@@ -21,6 +21,9 @@ export const canViewRegionalAvailability = (user) =>
 export const canViewQuotas = (user) =>
   [GROUPS.BETA, GROUPS.OPERATORS, GROUPS.ADMINS].some(g => hasGroup(user, g))
 
+export const canViewProvisionedPricing = (user) =>
+  [GROUPS.BETA, GROUPS.OPERATORS, GROUPS.ADMINS].some(g => hasGroup(user, g))
+
 export const canEditRoadmap = (user) => hasGroup(user, GROUPS.OPERATORS)
 
 export const canViewAnalytics = (user) => hasGroup(user, GROUPS.ADMINS)

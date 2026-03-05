@@ -1217,3 +1217,23 @@ config/config-history/profiler-config.{timestamp}.json
 ```
 
 This enables rollback if auto-updates cause issues.
+
+---
+
+## Related Documentation
+
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture, component diagrams, deployment |
+| [JSON-STRUCTURE.md](./JSON-STRUCTURE.md) | Complete JSON output schema reference |
+| [backend/lambdas/README.md](../backend/lambdas/README.md) | Lambda contracts and interfaces |
+| [CLAUDE.md](../CLAUDE.md) | Development guide for Claude Code |
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-03-05 | Added related documentation cross-references |
+| 2026-03-03 | Initial comprehensive data sources documentation |

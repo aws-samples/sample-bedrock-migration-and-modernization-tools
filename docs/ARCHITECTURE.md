@@ -1,6 +1,6 @@
 # Bedrock Model Profiler - Architecture
 
-> **Version:** 1.0  
+> **Version:** 2.0  
 > **Last Updated:** March 2026  
 > **Status:** Production  
 > **Live URL:** https://d3oem6l61p8j11.cloudfront.net
@@ -11,19 +11,114 @@ This document is the **single source of truth** for understanding the Bedrock Mo
 
 ## Table of Contents
 
-1. [System Overview](#system-overview)
-2. [Data Flow](#data-flow)
-3. [External APIs & Data Sources](#external-apis--data-sources)
-4. [Efficiency Analysis](#efficiency-analysis)
-5. [Configuration](#configuration)
-6. [Self-Healing System](#self-healing-system)
-7. [Deployment](#deployment)
+1. [Overview](#overview)
+2. [High-Level Architecture](#high-level-architecture)
+3. [Data Flow](#data-flow)
+4. [AWS Services Used](#aws-services-used)
+5. [Project Structure](#project-structure)
+6. [Lambda Functions](#lambda-functions)
+7. [Efficiency Analysis](#efficiency-analysis)
+8. [Configuration](#configuration)
+9. [Self-Healing System](#self-healing-system)
+10. [Deployment](#deployment)
 
 ---
 
-## System Overview
+## Overview
 
-### High-Level Architecture
+### Purpose
+
+The **Amazon Bedrock Model Profiler** is a full-stack serverless tool for exploring, analyzing, and comparing Amazon Bedrock foundation models. It provides:
+
+- **Comprehensive Model Catalog**: 100+ models from 17+ providers
+- **Real-time Pricing Data**: Pricing across 30+ regions with multiple consumption options
+- **Regional Availability Maps**: Visual representation of model availability by region
+- **Model Comparison**: Side-by-side comparison of model specifications
+- **Self-Healing Pipeline**: AI-powered automatic configuration updates
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Self-Healing Pipeline** | Claude-powered gap detection and automatic config fixes |
+| **17 Lambda Functions** | Modular data collection and processing |
+| **Inter-Lambda Caching** | ~97% cache hit rate, ~29 API calls per execution |
+| **Daily Updates** | Automated data refresh at 6 AM UTC |
+| **Multi-Source Aggregation** | 7+ data sources combined into unified JSON |
+
+---
+
+## High-Level Architecture
+
+### ASCII Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           BEDROCK MODEL PROFILER                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌───────────────┐                                                          │
+│  │  EventBridge  │─────────────────────┐                                    │
+│  │ (Daily 6 AM)  │                     │                                    │
+│  └───────────────┘                     │                                    │
+│                                        ▼                                    │
+│                               ┌──────────────────┐                          │
+│                               │  Step Functions  │                          │
+│                               │   (Orchestrator) │                          │
+│                               └────────┬─────────┘                          │
+│                                        │                                    │
+│         ┌──────────────────────────────┼──────────────────────────────┐     │
+│         │                              │                              │     │
+│         ▼                              ▼                              ▼     │
+│  ┌──────────────┐           ┌──────────────────┐           ┌────────────┐   │
+│  │   PRICING    │           │     MODELS       │           │   QUOTAS   │   │
+│  │ • collector  │           │ • extractor      │           │ • collector│   │
+│  │ • aggregator │           │ • merger         │           │            │   │
+│  └──────┬───────┘           └────────┬─────────┘           └─────┬──────┘   │
+│         │                            │                           │          │
+│         └────────────────────────────┼───────────────────────────┘          │
+│                                      ▼                                      │
+│         ┌────────────────────────────────────────────────────────┐          │
+│         │                  ENRICHMENT PHASE                       │          │
+│         │  pricing-linker │ regional-availability │ features     │          │
+│         │  token-specs    │ mantle-collector     │ lifecycle    │          │
+│         └────────────────────────────┬───────────────────────────┘          │
+│                                      │                                      │
+│                                      ▼                                      │
+│                          ┌────────────────────┐                             │
+│                          │  final-aggregator  │                             │
+│                          └─────────┬──────────┘                             │
+│                                    │                                        │
+│                                    ▼                                        │
+│                          ┌────────────────────┐                             │
+│                          │   gap-detection    │────┐                        │
+│                          └─────────┬──────────┘    │ (if gaps)              │
+│                                    │               ▼                        │
+│                                    │    ┌────────────────────┐              │
+│                                    │    │ self-healing-agent │              │
+│                                    │    │   (Claude Opus)    │              │
+│                                    │    └─────────┬──────────┘              │
+│                                    │              │                         │
+│                                    ▼◀─────────────┘                         │
+│                          ┌────────────────────┐                             │
+│                          │   copy-to-latest   │                             │
+│                          └─────────┬──────────┘                             │
+│                                    │                                        │
+│                                    ▼                                        │
+│  ┌──────────────┐           ┌──────────────┐           ┌──────────────┐     │
+│  │   S3 Bucket  │◀──────────│   CloudFront │──────────▶│    React     │     │
+│  │   (Data)     │           │    (CDN)     │           │   Frontend   │     │
+│  └──────────────┘           └──────────────┘           └──────────────┘     │
+│                                                                             │
+│  ┌──────────────┐                                                           │
+│  │   Cognito    │───────────────────────────────────────────────────────────┤
+│  │   (Auth)     │    User Groups: beta-access-users, operators, admins      │
+│  └──────────────┘                                                           │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Mermaid Diagram
 
 ```mermaid
 graph TB
@@ -70,15 +165,6 @@ graph TB
         FE[React Frontend]
     end
 
-    subgraph "External APIs"
-        BAPI[Bedrock API]
-        PAPI[Pricing API]
-        SQAPI[Service Quotas API]
-        MAPI[Mantle API]
-        DOCS[AWS Docs]
-        LLAPI[LiteLLM GitHub]
-    end
-
     EB --> SF
     SF --> RD --> CS
     CS --> PC & ME & QC
@@ -92,13 +178,6 @@ graph TB
     SHA --> CTL
     CTL --> S3
     S3 --> CF --> FE
-
-    ME & RA & FC --> BAPI
-    PC --> PAPI
-    QC --> SQAPI
-    MC --> MAPI
-    LC --> DOCS
-    TS --> LLAPI
 ```
 
 ### Component Inventory
@@ -107,24 +186,11 @@ graph TB
 |----------------|-------|---------|
 | Lambda Functions | 17 | Data collection, processing, intelligence |
 | Step Functions | 1 | Workflow orchestration |
-| S3 Buckets | 1 | Data storage |
+| S3 Buckets | 1 | Data storage + frontend hosting |
 | CloudFront Distributions | 1 | CDN delivery |
 | EventBridge Rules | 1 | Daily trigger |
 | Lambda Layers | 1 | Shared utilities |
 | Cognito User Pool | 1 | Authentication |
-
-### Technology Stack
-
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | React 18, Vite, Tailwind CSS, Radix UI, Zustand |
-| **Backend** | Python 3.12, AWS Lambda, Step Functions |
-| **Infrastructure** | AWS SAM, CloudFormation |
-| **Data Storage** | S3 (JSON files) |
-| **CDN** | CloudFront |
-| **Auth** | Cognito OIDC |
-| **AI/ML** | Bedrock Claude Opus 4.5 (self-healing) |
-| **Observability** | Lambda Powertools, CloudWatch |
 
 ---
 
@@ -148,7 +214,7 @@ PHASE 1: PARALLEL COLLECTION (Wave 1)
   │                                                                             │
   │  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         │
   │  │ pricing-collector│   │ model-extractor │    │ quota-collector │         │
-  │  │   (×3 parallel)  │   │  (×2 regions)   │    │  (×16 regions)  │         │
+  │  │   (×3 parallel)  │   │  (×27 regions)  │    │  (×N regions)   │         │
   │  └────────┬─────────┘   └────────┬────────┘    └────────┬────────┘         │
   │           │                      │                      │                   │
   │           ▼                      ▼                      │                   │
@@ -199,7 +265,7 @@ PHASE 4: PUBLICATION
 | `pricing-collector` | Pricing API pages | Extract & normalize | Raw pricing JSON |
 | `pricing-aggregator` | 3 pricing files | Dedupe, categorize | Merged pricing |
 | `model-extractor` | Bedrock API | Add console metadata | Enriched models |
-| `model-merger` | 2 region files | Dedupe, merge metadata | Unified model list |
+| `model-merger` | 27 region files | Dedupe, merge metadata | Unified model list |
 | `pricing-linker` | Models + Pricing | Fuzzy match (>0.7) | Models with pricing refs |
 | `regional-availability` | 27 regions API | Filter ON_DEMAND/PROVISIONED | Availability map |
 | `final-aggregator` | All enrichments | Merge into final schema | Production-ready JSON |
@@ -254,23 +320,22 @@ bucket/
 
 ---
 
-## External APIs & Data Sources
+## AWS Services Used
 
-### Complete API Inventory
+### Service Summary
 
-| API | Lambda Caller | Calls/Execution | Rate Limited | Caching Status |
-|-----|---------------|-----------------|--------------|----------------|
-| **AWS Pricing API** | `pricing-collector` | ~300 (paginated × 3 service codes) | Yes (adaptive) | No |
-| **Bedrock ListFoundationModels** | `model-extractor` | 2 (us-east-1, us-west-2) | Moderate | **Yes** (→ regional-availability) |
-| **Bedrock Console REST API** | `model-extractor` | 2 (SigV4, x-console-consumer) | Low | No |
-| **Bedrock ListFoundationModels (filtered)** | `regional-availability` | ~54 (27 regions × 2 filters) | Moderate | **Yes** (reads from cache) |
-| **Bedrock ListInferenceProfiles** | `feature-collector` | ~27 (one per region) | Low | No |
-| **Bedrock ListInferenceProfiles** | `region-discovery` | ~27 (discovery phase) | Low | No |
-| **Mantle API** | `mantle-collector` | ~27 + probes | Low | No |
-| **Service Quotas API** | `quota-collector` | ~16 (quota regions) | Moderate | No |
-| **LiteLLM GitHub** | `token-specs-collector` | 1 | None | No (public URL) |
-| **AWS Docs HTML** | `lifecycle-collector` | 1 | None | No (public URL) |
-| **Bedrock InvokeModel** | `self-healing-agent` | 0-1 (conditional) | Yes | No |
+| Service | Purpose | Key APIs Used |
+|---------|---------|---------------|
+| **Cognito** | User authentication (OIDC) | User groups: beta-access-users, region-roadmap-operators, admins |
+| **Bedrock** | Model data | ListFoundationModels, ListInferenceProfiles, InvokeModel |
+| **Bedrock Console REST API** | Extended metadata | SigV4-signed requests with x-console-consumer header |
+| **Pricing API** | Pricing data | GetProducts (3 service codes: AmazonBedrock, AmazonBedrockAgent, AmazonBedrockDataAutomation) |
+| **Service Quotas** | Regional quotas | ListServiceQuotas (27+ regions) |
+| **Step Functions** | Orchestration | 4-phase workflow |
+| **S3** | Storage | Data, frontend hosting, caching, config |
+| **CloudFront** | CDN | OAC distribution |
+| **EventBridge** | Scheduling | Daily trigger at 6 AM UTC |
+| **Lambda Powertools** | Observability | Structured logging, tracing, metrics |
 
 ### API Rate Limits & Mitigations
 
@@ -281,22 +346,127 @@ bucket/
 | Service Quotas | 5 TPS | Max concurrency = 10, adaptive retry |
 | Bedrock InvokeModel | Model-dependent | Only called when gaps detected |
 
-### Retry Configuration (Step Functions)
+---
 
-```json
-{
-  "Retry": [
-    {
-      "ErrorEquals": ["ThrottlingException", "ProvisionedThroughputExceededException"],
-      "IntervalSeconds": 10,
-      "MaxAttempts": 5,
-      "BackoffRate": 2,
-      "JitterStrategy": "FULL",
-      "MaxDelaySeconds": 120
-    }
-  ]
-}
+## Project Structure
+
 ```
+bedrock-model-profiler/
+├── frontend/                    # React 18 + Vite + Tailwind CSS v4 + Radix UI
+│   ├── src/
+│   │   ├── components/         # UI components
+│   │   │   ├── ui/            # Radix UI primitives
+│   │   │   ├── models/        # Model display components
+│   │   │   └── comparison/    # Comparison feature
+│   │   ├── stores/            # Zustand state management
+│   │   ├── hooks/             # Custom React hooks
+│   │   ├── auth/              # Cognito OIDC integration
+│   │   └── config/            # App configuration
+│   ├── public/
+│   └── scripts/               # Deployment scripts
+│
+├── backend/
+│   ├── lambdas/               # 17 Python Lambda functions
+│   │   ├── region-discovery/
+│   │   ├── config-sync/
+│   │   ├── pricing-collector/
+│   │   ├── pricing-aggregator/
+│   │   ├── model-extractor/
+│   │   ├── model-merger/
+│   │   ├── quota-collector/
+│   │   ├── pricing-linker/
+│   │   ├── regional-availability/
+│   │   ├── feature-collector/
+│   │   ├── token-specs-collector/
+│   │   ├── mantle-collector/
+│   │   ├── lifecycle-collector/
+│   │   ├── final-aggregator/
+│   │   ├── gap-detection/
+│   │   ├── self-healing-agent/
+│   │   └── copy-to-latest/
+│   ├── layers/
+│   │   └── common/            # Shared utilities
+│   │       └── python/shared/
+│   │           ├── s3_utils.py
+│   │           ├── config_loader.py
+│   │           ├── model_matcher.py
+│   │           ├── cache_utils.py
+│   │           └── validation.py
+│   ├── statemachine/          # Step Functions ASL definition
+│   ├── config/                # profiler-config.json
+│   └── tests/                 # ~150 pytest tests
+│
+├── infra/                     # SAM templates (CloudFormation)
+│   ├── backend-template.yaml
+│   ├── frontend-template.yaml
+│   └── analytics-template.yaml
+│
+└── docs/                      # Documentation
+    ├── ARCHITECTURE.md        # This file
+    ├── DATA_SOURCES.md        # API documentation
+    └── JSON-STRUCTURE.md      # Output schema reference
+```
+
+### Technology Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React 18, Vite, Tailwind CSS v4, Radix UI, Zustand |
+| **Backend** | Python 3.12, AWS Lambda, Step Functions |
+| **Infrastructure** | AWS SAM, CloudFormation |
+| **Data Storage** | S3 (JSON files) |
+| **CDN** | CloudFront |
+| **Auth** | Cognito OIDC |
+| **AI/ML** | Bedrock Claude Opus 4.5 (self-healing) |
+| **Observability** | Lambda Powertools, CloudWatch |
+
+---
+
+## Lambda Functions
+
+### Function Overview
+
+| Function | Purpose | Timeout | Memory | Concurrency |
+|----------|---------|---------|--------|-------------|
+| `region-discovery` | Discover active Bedrock regions | 30s | 256MB | 1 |
+| `config-sync` | Sync frontend config | 30s | 256MB | 1 |
+| `pricing-collector` | Collect pricing per service code | 5min | 512MB | 3 |
+| `pricing-aggregator` | Merge all pricing data | 2min | 1GB | 1 |
+| `model-extractor` | Extract models per region | 1min | 256MB | 10 |
+| `model-merger` | Merge models from all regions | 1min | 512MB | 1 |
+| `quota-collector` | Collect quotas per region | 1min | 256MB | 10 |
+| `pricing-linker` | Link pricing to models | 2min | 1GB | 1 |
+| `regional-availability` | Compute availability map | 5min | 512MB | 1 |
+| `feature-collector` | Collect inference profiles | 1min | 256MB | 10 |
+| `token-specs-collector` | Fetch LiteLLM specs | 2min | 512MB | 1 |
+| `mantle-collector` | Collect Mantle models | 2min | 256MB | 10 |
+| `lifecycle-collector` | Scrape lifecycle data | 1.5min | 256MB | 1 |
+| `final-aggregator` | Merge all data | 3min | 2GB | 1 |
+| `gap-detection` | Analyze data gaps | 2min | 512MB | 1 |
+| `self-healing-agent` | AI config updates | 5min | 512MB | 1 |
+| `copy-to-latest` | Copy to production | 1min | 256MB | 1 |
+
+### Lambda Data Flow Matrix
+
+| Lambda | Produces | Consumes |
+|--------|----------|----------|
+| `region-discovery` | Active regions list, inference profile cache | - |
+| `config-sync` | frontend-config.json | profiler-config.json |
+| `pricing-collector` | Raw pricing per service code | - |
+| `pricing-aggregator` | Merged pricing JSON | Raw pricing files |
+| `model-extractor` | Models per region, API cache | - |
+| `model-merger` | Merged models JSON, cache keys | Model files per region |
+| `quota-collector` | Quotas per region | - |
+| `pricing-linker` | Models with pricing refs | Merged pricing, merged models |
+| `regional-availability` | Availability map | Model cache (from extractor) |
+| `feature-collector` | Inference profiles | Profile cache (from discovery) |
+| `token-specs-collector` | Token specs | LiteLLM external data |
+| `mantle-collector` | Mantle model list | - |
+| `lifecycle-collector` | Lifecycle data | AWS docs (web scrape) |
+| `final-aggregator` | Final JSONs | All intermediate files |
+| `gap-detection` | Gap report | Final JSONs, previous latest |
+| `self-healing-agent` | Config suggestions | Gap report, config |
+| `copy-to-latest` | latest/ files | Final JSONs |
 
 ---
 
@@ -306,46 +476,34 @@ bucket/
 
 | Optimization | Implementation | Impact |
 |--------------|----------------|--------|
-| **Full region model caching** | `model-extractor` runs in all 27 regions, writes to `cache/` | 100% cache coverage for downstream |
-| **Inference profile caching** | `region-discovery` → `feature-collector` via S3 cache | Eliminates 27 redundant API calls |
-| **TTL-based LiteLLM caching** | 24h cache for external pricing data | Avoids repeated HTTP fetches |
-| **TTL-based lifecycle caching** | 24h cache for model lifecycle data | Avoids repeated web scraping |
-| **Dynamic region discovery** | No hardcoded regions; discovers at runtime | Auto-adapts to new AWS regions |
-| **Parallel collection** | Wave 1: 3 pricing + 27 models + 20 quotas concurrent | ~70% time reduction |
+| **Full region model caching** | `model-extractor` → `cache/` | 100% cache coverage for downstream |
+| **Inference profile caching** | `region-discovery` → `feature-collector` | Eliminates 27 redundant API calls |
+| **TTL-based LiteLLM caching** | 24h cache | Avoids repeated HTTP fetches |
+| **TTL-based lifecycle caching** | 24h cache | Avoids repeated web scraping |
+| **Dynamic region discovery** | Runtime discovery | Auto-adapts to new regions |
+| **Parallel collection** | Wave 1: 3 pricing + 27 models + N quotas | ~70% time reduction |
 | **Parallel enrichment** | Wave 2: 6 branches concurrent | ~50% time reduction |
-| **Adaptive retry** | Exponential backoff with jitter | Prevents cascade failures |
-
-### Known Inefficiencies & Recommendations
-
-| Inefficiency | Current State | Status | Notes |
-|--------------|---------------|--------|-------|
-| **Regional availability** calls all 27 regions | 54 API calls (ON_DEMAND + PROVISIONED filters) | **FIXED** | Now uses model-extractor cache (0 API calls) |
-| **Feature collector** has no caching | 27 API calls to ListInferenceProfiles | **FIXED** | Now reads from region-discovery cache |
-| **Lifecycle scraping** re-fetches every run | 1 HTTP request/execution | **FIXED** | TTL-based caching (24h) |
-| **LiteLLM pricing** re-fetches every run | 1 HTTP request/execution | **FIXED** | TTL-based caching (24h) |
-| **Mantle collector** probes each region | ~54 calls (list + probe × 27) | Open | Batch or cache known-supported models |
-| **Config sync** runs every execution | Regenerates frontend config each time | Open | Only regenerate if backend config changed |
 
 ### API Call Counts: Before vs After Caching
 
 ```
 BEFORE CACHING (Hypothetical):
-  model-extractor (us-east-1)     →  1 API call
-  model-extractor (us-west-2)     →  1 API call
-  regional-availability           →  54 API calls (27 × 2 filters)
-                                  ────────────────
-                                     56 API calls
+  model-extractor (27 regions)      →  27 API calls
+  regional-availability             →  54 API calls (27 × 2 filters)
+  feature-collector                 →  27 API calls
+                                    ────────────────
+                                       108 API calls
 
 AFTER FULL CACHING (Current):
-  model-extractor (27 regions)    →  27 API calls + 27 cache writes
-  regional-availability           →  0 API calls (100% cache hits)
-                                  + 27 cache reads
-  feature-collector               →  0 API calls (100% cache hits)
-                                  + 27 cache reads
-  token-specs-collector           →  0-1 API calls (TTL cache)
-  lifecycle-collector             →  0-1 API calls (TTL cache)
-                                  ────────────────
-                                     ~29 API calls + 54 cache reads
+  model-extractor (27 regions)      →  27 API calls + 27 cache writes
+  regional-availability             →  0 API calls (100% cache hits)
+  feature-collector                 →  0 API calls (100% cache hits)
+  token-specs-collector             →  0-1 API calls (TTL cache)
+  lifecycle-collector               →  0-1 API calls (TTL cache)
+                                    ────────────────
+                                       ~29 API calls + 54 cache reads
+
+Reduction: ~73% fewer API calls
 ```
 
 ### Execution Timing
@@ -363,115 +521,64 @@ AFTER FULL CACHING (Current):
 
 ## Configuration
 
-### profiler-config.json Structure
+### profiler-config.json Overview
 
 Located at: `backend/config/profiler-config.json`
+
+| Section | Purpose |
+|---------|---------|
+| `external_urls` | API endpoints, documentation links |
+| `provider_configuration` | Provider aliases, patterns, colors, docs |
+| `region_configuration` | Region lists, coordinates, metadata |
+| `model_configuration` | Model families, variants, context specs |
+| `matching_configuration` | Fuzzy matching thresholds |
+| `agent_configuration` | Self-healing agent settings |
+| `pricing_service_codes` | AWS pricing API service codes |
+| `gap_detection_config` | Gap detection thresholds |
+
+### Key Configuration Sections
 
 ```json
 {
   "version": "1.0.0",
-  "last_updated": "2026-03-03T12:00:00Z",
-  
-  "external_urls": {
-    "pricing": { "bulk_pricing_api": "...", "pricing_api_region": "us-east-1" },
-    "documentation": { "bedrock_models_supported": "...", ... },
-    "external_data_sources": { "litellm_model_prices": "..." }
-  },
   
   "provider_configuration": {
-    "provider_aliases": { "mistral ai": ["mistral", "mistralai"], ... },
-    "provider_patterns": { "Anthropic": ["claude", "sonnet", "haiku"], ... },
-    "explicit_provider_names": { "ai21": "AI21 Labs", ... },
-    "provider_colors": { "Amazon": "#FF9900", ... },
-    "documentation_links": { "Anthropic": { "aws_bedrock_guide": "..." }, ... }
+    "provider_patterns": {
+      "Anthropic": ["claude", "sonnet", "haiku", "opus"],
+      "Amazon": ["titan", "nova", "rerank"],
+      "Meta": ["llama", "mllama"]
+    },
+    "provider_colors": {
+      "Amazon": "#FF9900",
+      "Anthropic": "#D97757"
+    }
   },
   
   "region_configuration": {
     "model_regions": ["us-east-1", "us-west-2"],
-    "quota_regions": ["us-east-1", ...],  // 16 regions
-    "feature_regions": ["us-east-1", ...], // 27 regions
-    "region_locations": { "us-east-1": "US East (N. Virginia)", ... },
-    "region_coordinates": { "us-east-1": { "lat": 38.95, "lng": -77.45, ... }, ... },
-    "aws_regions": [{ "value": "us-east-1", "label": "N. Virginia", "geo": "US" }, ...],
-    "geo_region_options": [{ "value": "US", "label": "US Regions" }, ...]
+    "quota_regions": ["us-east-1", "us-west-2", "eu-west-1", ...],
+    "feature_regions": ["us-east-1", "us-west-2", "eu-west-1", ...]
   },
   
   "model_configuration": {
-    "model_families": ["claude", "titan", "nova", ...],
-    "model_variants": ["haiku", "sonnet", "opus", ...],
     "context_window_specs": {
-      "anthropic.claude-3-5-sonnet": { "standard_context": 200000, "max_output": 8192 },
-      ...
-    },
-    "context_window_thresholds": { "small": 32000, "medium": 128000, "large": 500000 }
-  },
-  
-  "matching_configuration": {
-    "min_confidence_threshold": 0.7,
-    "size_variance_threshold": 0.3,
-    "suffixes_to_remove": ["-it", "-instruct", "-chat", ...],
-    "type_conflicts": [{ "group1": ["embed"], "group2": ["chat"] }, ...]
+      "anthropic.claude-opus-4-5": {
+        "standard_context": 200000,
+        "max_output": 64000,
+        "source": "anthropic_docs"
+      }
+    }
   },
   
   "agent_configuration": {
     "bedrock_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
-    "max_tokens": 8192,
-    "thresholds": { "unmatched_models_trigger": 5, "low_confidence_threshold": 0.6 },
-    "auto_apply_rules": { "safe_changes": [...], "requires_review": [...] }
-  },
-  
-  "pricing_service_codes": ["AmazonBedrock", "AmazonBedrockService", "AmazonBedrockFoundationModels"],
-  
-  "gap_detection_config": {
-    "context_window_variance_threshold": 0.1,
-    "enable_frontend_drift_detection": true,
-    "enable_context_window_detection": true,
-    "enable_service_code_detection": true
+    "thresholds": {
+      "unmatched_models_trigger": 5,
+      "low_confidence_threshold": 0.6
+    }
   }
 }
 ```
-
-### Environment Variables
-
-| Variable | Lambda | Default | Description |
-|----------|--------|---------|-------------|
-| `LOG_LEVEL` | All | `INFO` | Logging verbosity |
-| `AVAILABILITY_MAX_WORKERS` | regional-availability | `10` | Thread pool size |
-| `AVAILABILITY_REGION_TIMEOUT` | regional-availability | `30` | Per-region timeout (s) |
-| `POWERTOOLS_SERVICE_NAME` | All | `bedrock-profiler` | Observability service name |
-| `POWERTOOLS_METRICS_NAMESPACE` | All | `BedrockProfiler` | CloudWatch namespace |
-
-### Frontend Configuration Sync
-
-The `config-sync` Lambda extracts frontend-relevant data from `profiler-config.json`:
-
-```
-profiler-config.json                    frontend-config.json
-───────────────────                    ───────────────────
-provider_configuration.provider_colors  →  providers.colors
-region_configuration.region_locations   →  regions
-region_configuration.aws_regions        →  aws_regions
-region_configuration.geo_region_options →  geo_region_options
-model_configuration.context_thresholds  →  model_config.context_thresholds
-```
-
-### Static Configuration Data
-
-The following data is stored statically in `profiler-config.json` rather than fetched from APIs:
-
-| Data Type | Location in Config | Source | Update Frequency |
-|-----------|-------------------|--------|------------------|
-| **IATA Airport Codes** | `region_coordinates[].iata` | AWS MediaConvert docs + IATA standard | Manual (when new regions added) |
-| **Region Coordinates** | `region_coordinates[].lat/lng` | AWS infrastructure docs | Manual |
-| **Provider Colors** | `provider_colors` | Brand guidelines | Manual |
-| **Context Window Specs** | `context_window_specs` | Anthropic/provider docs | Self-healing agent |
-| **Provider Patterns** | `provider_patterns` | Model naming conventions | Self-healing agent |
-
-#### IATA Airport Codes Reference
-
-IATA codes are used for display in the Regional Availability page tooltips. See [AWS_REGION_IATA_CODES.md](./AWS_REGION_IATA_CODES.md) for the complete mapping and sources.
-
-Primary source: https://docs.aws.amazon.com/mediaconvert/latest/ug/usage-report-understand.html
 
 ---
 
@@ -479,85 +586,50 @@ Primary source: https://docs.aws.amazon.com/mediaconvert/latest/ug/usage-report-
 
 ### Architecture
 
-```mermaid
-graph LR
-    FA[final-aggregator] --> GD[gap-detection]
-    GD -->|analyze| GAPS{Gaps Found?}
-    GAPS -->|No| CTL[copy-to-latest]
-    GAPS -->|Yes| SHA[self-healing-agent]
-    SHA -->|invoke| CLAUDE[Claude Opus 4.5]
-    CLAUDE -->|suggestions| SHA
-    SHA -->|auto-apply safe| CONFIG[profiler-config.json]
-    SHA -->|store| SUGG[suggestions.json]
-    SHA --> CTL
-    CONFIG -.->|next run| IMPROVED[Improved Matching]
+```
+┌────────────────┐     ┌────────────────┐     ┌────────────────┐
+│final-aggregator│────▶│  gap-detection │────▶│  Gaps Found?   │
+└────────────────┘     └────────────────┘     └───────┬────────┘
+                                                      │
+                              ┌────────────────────────┴───────────────┐
+                              │                                        │
+                              ▼                                        ▼
+                      ┌────────────────┐                    ┌────────────────┐
+                      │ self-healing   │                    │  copy-to-latest│
+                      │    agent       │───────────────────▶│                │
+                      │ (Claude Opus)  │                    └────────────────┘
+                      └───────┬────────┘
+                              │
+                              ▼
+                      ┌────────────────┐
+                      │profiler-config │
+                      │   (updated)    │
+                      └────────────────┘
 ```
 
 ### Gap Detection Types
 
-| Gap Type | Detection Logic | Example |
-|----------|-----------------|---------|
-| **Models without pricing** | `has_pricing == false` | New model without pricing entry |
-| **Low confidence matches** | `confidence < 0.6` | Fuzzy match not confident |
-| **Unknown providers** | Not in `provider_patterns` | New provider "MiniMax" |
-| **New models** | Delta from `latest/bedrock_models.json` | Model added since last run |
-| **Context window mismatch** | Config vs API variance > 10% | Claude shows 200K, config has 180K |
-| **Unknown service codes** | Not in `pricing_service_codes` | New "AmazonBedrockAgents" code |
-| **Frontend config drift** | Backend regions ≠ frontend regions | New region not in frontend |
+| Gap Type | Detection Logic | Trigger Threshold |
+|----------|-----------------|-------------------|
+| **Models without pricing** | `has_pricing == false` | ≥5 models |
+| **Low confidence matches** | `confidence < 0.6` | ≥3 matches |
+| **Unknown providers** | Not in `provider_patterns` | Any detected |
+| **New models** | Delta from `latest/bedrock_models.json` | Any detected |
+| **Context window mismatch** | Config vs API variance > 10% | Any detected |
+| **Unknown service codes** | Not in `pricing_service_codes` | Any detected |
+| **Frontend config drift** | Backend regions ≠ frontend regions | Any drift |
 
-### Auto-Update Workflow
+### Auto-Update Rules
 
-```
-1. gap-detection runs
-   ↓
-2. If shouldTriggerAgent == true:
-   ↓
-3. self-healing-agent invokes Claude with:
-   - Gap report details
-   - Current profiler-config.json
-   - Safety rules
-   ↓
-4. Claude responds with structured suggestions:
-   {
-     "suggestions": [
-       {
-         "type": "provider_pattern_addition",
-         "target_config_path": "provider_configuration.provider_patterns.NVIDIA",
-         "suggested_value": ["nvidia", "nemotron"],
-         "auto_apply_safe": true,
-         "confidence": 0.95
-       }
-     ]
-   }
-   ↓
-5. For each suggestion where auto_apply_safe == true:
-   - Validate against max_models_affected threshold
-   - Apply to profiler-config.json
-   - Create backup in config-history/
-   ↓
-6. Store all suggestions for review
-```
-
-### Validation Rules
-
-```python
-# Applied before auto-update
-def validate_suggestion(suggestion, config):
-    # Rule 1: Check affected models ratio
-    if affected_ratio > 0.2:  # 20% threshold
-        return False, "Affects too many models"
-    
-    # Rule 2: Type-specific validation
-    if suggestion.type == "context_window_update":
-        if suggested_value.standard_context <= 0:
-            return False, "Invalid context window"
-    
-    # Rule 3: Must be in safe_changes list
-    if suggestion.type not in config.auto_apply_rules.safe_changes:
-        return False, "Requires manual review"
-    
-    return True, "Valid"
-```
+| Change Type | Auto-Apply Safe | Example |
+|-------------|-----------------|---------|
+| `provider_pattern_addition` | Yes | Add `"nemotron"` to NVIDIA patterns |
+| `context_window_update` | Yes | Update Claude context to 200K |
+| `service_code_addition` | Yes | Add new pricing service code |
+| `region_addition` | Yes | Add new region coordinates |
+| `documentation_link_addition` | Yes | Add provider doc links |
+| `provider_pattern_removal` | **No** | Requires review |
+| `threshold_change` | **No** | Requires review |
 
 ---
 
@@ -601,51 +673,24 @@ npm run build
 | `frontend-template.yaml` | Frontend: S3 bucket, CloudFront, OAC |
 | `analytics-template.yaml` | Optional: Analytics Lambda, API Gateway |
 
-### Lambda Layer Versioning
-
-The shared layer (`CommonLayer`) is versioned automatically:
-
-```yaml
-CommonLayer:
-  Type: AWS::Serverless::LayerVersion
-  Properties:
-    LayerName: bedrock-profiler-common
-    ContentUri: backend/layers/common/
-    CompatibleRuntimes:
-      - python3.12
-```
-
-Layer updates trigger new versions; Lambdas reference `!Ref CommonLayer` to get latest.
-
-### CI/CD Considerations
-
-1. **Backend changes**: Rebuild + redeploy SAM stack
-2. **Frontend changes**: `npm run build` + S3 sync + CloudFront invalidation
-3. **Config changes**: Edit `profiler-config.json` in S3 (or let self-healing auto-update)
-4. **Layer changes**: SAM deploy creates new layer version automatically
-
 ---
 
-## Appendix
-
-### Related Documentation
+## Related Documentation
 
 | Document | Description |
 |----------|-------------|
 | [DATA_SOURCES.md](./DATA_SOURCES.md) | Detailed API documentation and data schemas |
+| [JSON-STRUCTURE.md](./JSON-STRUCTURE.md) | Complete JSON output schema reference |
 | [CLAUDE.md](../CLAUDE.md) | Development guide for Claude Code |
 | [backend/lambdas/README.md](../backend/lambdas/README.md) | Lambda contracts and interfaces |
 
-### Diagram Source (Mermaid)
+---
 
-All Mermaid diagrams can be rendered at https://mermaid.live or in any Mermaid-compatible viewer.
-
-### Changelog
+## Changelog
 
 | Date | Change |
 |------|--------|
-| 2026-03-03 | Initial architecture document |
+| 2026-03-05 | Major update: Comprehensive restructure with ASCII diagrams |
 | 2026-03-03 | Added caching system documentation |
 | 2026-03-03 | Added self-healing enhancement details |
 | 2026-03-03 | Added IATA airport codes to region configuration |
-| 2026-03-03 | Updated data schema documentation for Phase 3 restructure |
