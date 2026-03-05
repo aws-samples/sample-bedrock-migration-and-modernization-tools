@@ -3089,6 +3089,223 @@ const pricingGroupInfo = {
   'Custom Model': { icon: '🎯', label: 'Custom Model' },
 }
 
+// ============================================
+// PRICING GROUP HIERARCHY FOR "BY TYPE" VIEW
+// ============================================
+// Maps pricing_group field values to parent groups and sub-groups
+// Schema: inference_mode + geographic_scope → pricing_group name
+const PRICING_GROUP_HIERARCHY = [
+  {
+    id: 'cris',
+    label: 'Cross-Region (CRIS)',
+    icon: Globe,
+    colors: {
+      light: {
+        bg: 'bg-emerald-50/80',
+        border: 'border-emerald-200/80',
+        headerBg: 'bg-emerald-50',
+        headerBorder: 'border-emerald-200',
+        icon: 'text-emerald-600',
+        text: 'text-emerald-700',
+        badge: 'bg-emerald-100 text-emerald-700'
+      },
+      dark: {
+        bg: 'bg-emerald-500/5',
+        border: 'border-emerald-500/20',
+        headerBg: 'bg-emerald-500/10',
+        headerBorder: 'border-emerald-500/20',
+        icon: 'text-emerald-400',
+        text: 'text-emerald-400',
+        badge: 'bg-emerald-500/20 text-emerald-400'
+      }
+    },
+    subGroups: [
+      {
+        id: 'global',
+        label: 'Global',
+        description: 'Same price from any source region',
+        pricingGroups: ['On-Demand Global', 'On-Demand Long Context Global', 'Batch Global', 'Batch Long Context Global']
+      },
+      {
+        id: 'geo',
+        label: 'Geo',
+        description: 'Price varies by source region',
+        pricingGroups: ['On-Demand Geo', 'On-Demand Long Context Geo', 'Batch Geo', 'Batch Long Context Geo']
+      }
+    ]
+  },
+  {
+    id: 'in_region',
+    label: 'In Region',
+    icon: Zap,
+    colors: {
+      light: {
+        bg: 'bg-amber-50/80',
+        border: 'border-amber-200/80',
+        headerBg: 'bg-amber-50',
+        headerBorder: 'border-amber-200',
+        icon: 'text-amber-600',
+        text: 'text-amber-700',
+        badge: 'bg-amber-100 text-amber-700'
+      },
+      dark: {
+        bg: 'bg-teal-500/5',
+        border: 'border-teal-500/20',
+        headerBg: 'bg-teal-500/10',
+        headerBorder: 'border-teal-500/20',
+        icon: 'text-[#1A9E7A]',
+        text: 'text-teal-400',
+        badge: 'bg-teal-500/20 text-teal-400'
+      }
+    },
+    subGroups: [
+      {
+        id: 'on_demand',
+        label: 'On-Demand',
+        description: 'Standard on-demand pricing',
+        pricingGroups: ['On-Demand', 'On-Demand Long Context']
+      },
+      {
+        id: 'batch',
+        label: 'Batch',
+        description: 'Batch processing pricing',
+        pricingGroups: ['Batch', 'Batch Long Context']
+      },
+      {
+        id: 'mantle',
+        label: 'Mantle',
+        description: 'OpenAI-compatible inference endpoint',
+        pricingGroups: ['Mantle']
+      }
+    ]
+  },
+  {
+    id: 'reserved',
+    label: 'Reserved',
+    icon: Clock,
+    colors: {
+      light: {
+        bg: 'bg-indigo-50/80',
+        border: 'border-indigo-200/80',
+        headerBg: 'bg-indigo-50',
+        headerBorder: 'border-indigo-200',
+        icon: 'text-indigo-600',
+        text: 'text-indigo-700',
+        badge: 'bg-indigo-100 text-indigo-700'
+      },
+      dark: {
+        bg: 'bg-indigo-500/5',
+        border: 'border-indigo-500/20',
+        headerBg: 'bg-indigo-500/10',
+        headerBorder: 'border-indigo-500/20',
+        icon: 'text-indigo-400',
+        text: 'text-indigo-400',
+        badge: 'bg-indigo-500/20 text-indigo-400'
+      }
+    },
+    subGroups: [
+      {
+        id: '1_month_global',
+        label: '1 Month (Global)',
+        description: '1 month commitment - same price from any source region',
+        pricingGroups: ['Reserved 1 Month Global']
+      },
+      {
+        id: '1_month_geo',
+        label: '1 Month (Geo)',
+        description: '1 month commitment - price varies by source region',
+        pricingGroups: ['Reserved 1 Month Geo']
+      },
+      {
+        id: '3_month_global',
+        label: '3 Month (Global)',
+        description: '3 month commitment - same price from any source region',
+        pricingGroups: ['Reserved 3 Month Global']
+      },
+      {
+        id: '3_month_geo',
+        label: '3 Month (Geo)',
+        description: '3 month commitment - price varies by source region',
+        pricingGroups: ['Reserved 3 Month Geo']
+      },
+      {
+        id: '6_month_global',
+        label: '6 Month (Global)',
+        description: '6 month commitment - same price from any source region',
+        pricingGroups: ['Reserved 6 Month Global']
+      },
+      {
+        id: '6_month_geo',
+        label: '6 Month (Geo)',
+        description: '6 month commitment - price varies by source region',
+        pricingGroups: ['Reserved 6 Month Geo']
+      },
+      {
+        id: 'no_commit',
+        label: 'No Commit',
+        description: 'Reserved capacity without commitment',
+        pricingGroups: ['Reserved No Commit']
+      }
+    ]
+  },
+  {
+    id: 'provisioned',
+    label: 'Provisioned',
+    icon: Server,
+    colors: {
+      light: {
+        bg: 'bg-purple-50/80',
+        border: 'border-purple-200/80',
+        headerBg: 'bg-purple-50',
+        headerBorder: 'border-purple-200',
+        icon: 'text-purple-600',
+        text: 'text-purple-700',
+        badge: 'bg-purple-100 text-purple-700'
+      },
+      dark: {
+        bg: 'bg-purple-500/5',
+        border: 'border-purple-500/20',
+        headerBg: 'bg-purple-500/10',
+        headerBorder: 'border-purple-500/20',
+        icon: 'text-purple-400',
+        text: 'text-purple-400',
+        badge: 'bg-purple-500/20 text-purple-400'
+      }
+    },
+    // No sub-groups - direct items
+    subGroups: null,
+    pricingGroups: ['Provisioned Throughput']
+  },
+  {
+    id: 'custom_model',
+    label: 'Custom Model',
+    icon: Wrench,
+    colors: {
+      light: {
+        bg: 'bg-slate-50/80',
+        border: 'border-slate-200/80',
+        headerBg: 'bg-slate-50',
+        headerBorder: 'border-slate-200',
+        icon: 'text-slate-600',
+        text: 'text-slate-700',
+        badge: 'bg-slate-100 text-slate-700'
+      },
+      dark: {
+        bg: 'bg-slate-500/5',
+        border: 'border-slate-500/20',
+        headerBg: 'bg-slate-500/10',
+        headerBorder: 'border-slate-500/20',
+        icon: 'text-slate-400',
+        text: 'text-slate-400',
+        badge: 'bg-slate-500/20 text-slate-400'
+      }
+    },
+    // No sub-groups - direct items
+    subGroups: null,
+    pricingGroups: ['Custom Model']
+  }
+]
+
 // Helper component to display regions grouped by geography
 function RegionsByGeoDisplay({ regions, getRegionDisplayName, groupRegionsByGeo, geoGroups, isLight, compact = false }) {
   const grouped = groupRegionsByGeo(regions)
@@ -3335,7 +3552,7 @@ function CRISPricingSection({
   const globalConsolidated = globalItems.length > 0 ? consolidateByTierAndType(globalItems) : {}
   const regionalConsolidated = regionalItems.length > 0 ? consolidateByTierAndType(regionalItems) : {}
 
-  const tierOrder = ['Standard', 'Cache Read', 'Cache Write', '1h Cache', 'Flex', 'Priority']
+  const tierOrder = ['Standard', 'Cache Read', 'Cache Write', '1h Cache', 'Flex', 'Priority', 'Standard (Long Context)', 'Cache Read (Long Context)', 'Cache Write (Long Context)', '1h Cache (Long Context)', 'Batch Standard', 'Batch Cache Read', 'Batch Cache Write', 'Batch 1h Cache', 'Batch Standard (Long Context)', 'Batch Cache Read (Long Context)', 'Batch Cache Write (Long Context)', 'Batch 1h Cache (Long Context)']
   const sortTiers = (tiers) => tiers.sort((a, b) => {
     const idxA = tierOrder.indexOf(a)
     const idxB = tierOrder.indexOf(b)
@@ -3530,7 +3747,20 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
     }
   }
 
-  const pricingGroupOrder = ['On-Demand Global', 'On-Demand', 'On-Demand Long Context', 'On-Demand Long Context Global', 'Batch Global', 'Batch', 'Batch Long Context', 'Batch Long Context Global', 'Provisioned Throughput', 'Custom Model']
+  const pricingGroupOrder = [
+    // CRIS (Cross-Region)
+    'On-Demand Global', 'On-Demand Geo', 'On-Demand Long Context Global', 'On-Demand Long Context Geo',
+    'Batch Global', 'Batch Geo', 'Batch Long Context Global', 'Batch Long Context Geo',
+    // In-Region
+    'On-Demand', 'On-Demand Long Context', 'Batch', 'Batch Long Context', 'Mantle',
+    // Reserved
+    'Reserved No Commit', 'Reserved No Commit Global', 'Reserved No Commit Geo',
+    'Reserved 1 Month', 'Reserved 1 Month Global', 'Reserved 1 Month Geo',
+    'Reserved 3 Month', 'Reserved 3 Month Global', 'Reserved 3 Month Geo',
+    'Reserved 6 Month', 'Reserved 6 Month Global', 'Reserved 6 Month Geo',
+    // Other
+    'Provisioned Throughput', 'Custom Model'
+  ]
   const pricingGroups = Object.keys(pricingByGroupGeoRegion).sort((a, b) => {
     const indexA = pricingGroupOrder.indexOf(a)
     const indexB = pricingGroupOrder.indexOf(b)
@@ -3548,44 +3778,35 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
     )
   }
 
-  // ============================================
-  // CONSUMPTION TYPE MAPPING FOR "BY TYPE" VIEW
-  // ============================================
-  const consumptionTypeMapping = {
-    'In Region': ['On-Demand', 'On-Demand Long Context'],
-    'CRIS': ['On-Demand Global', 'On-Demand Long Context Global'],
-    'Batch': ['Batch', 'Batch Global', 'Batch Long Context', 'Batch Long Context Global'],
-    'Provisioned': ['Provisioned Throughput'],
-    'Custom': ['Custom Model']
+
+  // Get tier from pricing label - includes inference mode (Batch) and context type (Long Context)
+  const getTierFromLabel = (label, groupName = '', dimension = '') => {
+    const groupLower = groupName.toLowerCase()
+    const dimLower = dimension.toLowerCase()
+    
+    // Check modifiers from group name OR dimension
+    const isLongContext = groupLower.includes('long context')
+    const isBatch = groupLower.includes('batch') || dimLower.includes('-batch')
+    
+    // Build tier name components
+    const prefix = isBatch ? 'Batch ' : ''
+    const lcSuffix = isLongContext ? ' (Long Context)' : ''
+    
+    // Detect tier from the label (pricing variant) or dimension
+    if (/cache[- ]?read/i.test(label)) return `${prefix}Cache Read${lcSuffix}`.trim()
+    if (/cache[- ]?write/i.test(label)) return `${prefix}Cache Write${lcSuffix}`.trim()
+    if (/1h[- ]?cache/i.test(label)) return `${prefix}1h Cache${lcSuffix}`.trim()
+    if (/\bflex\b/i.test(label) || dimLower.includes('-flex')) return `${prefix}Flex${lcSuffix}`.trim()
+    if (/\bpriority\b/i.test(label) || dimLower.includes('-priority')) return `${prefix}Priority${lcSuffix}`.trim()
+    if (/no[- ]?commit/i.test(label)) return 'No Commit'
+    if (/6[- ]?month/i.test(label)) return '6 Month'
+    if (/3[- ]?month/i.test(label)) return '3 Month'
+    if (/1[- ]?month/i.test(label)) return '1 Month'
+    
+    // Default tier - distinguish batch and long context
+    return `${prefix}Standard${lcSuffix}`.trim()
   }
 
-  const consumptionTypeInfo = {
-    'In Region': { icon: Zap, label: 'In Region', description: 'Standard on-demand pricing' },
-    'CRIS': { icon: Globe, label: 'Cross-Region (CRIS)', description: 'Cross-region inference' },
-    'CRIS-Global': { icon: Globe, label: 'Global', description: 'Global cross-region inference' },
-    'CRIS-Regional': { icon: Globe, label: 'Regional', description: 'Regional cross-region inference' },
-    'Batch': { icon: Package, label: 'Batch', description: 'Batch processing with discounts' },
-    'Provisioned': { icon: Server, label: 'Provisioned Throughput', description: 'Reserved capacity pricing' },
-    'Custom': { icon: Wrench, label: 'Custom Model', description: 'Fine-tuned model pricing' }
-  }
-
-  // Get tier from pricing label
-  const getTierFromLabel = (label, groupName = '') => {
-    // Check if this is a long context item based on group name
-    const isLongContext = groupName.toLowerCase().includes('long context')
-    
-    if (/cache\s*read/i.test(label)) return isLongContext ? 'Long Context (Cache Read)' : 'Cache Read'
-    if (/cache\s*write/i.test(label)) return isLongContext ? 'Long Context (Cache Write)' : 'Cache Write'
-    if (/1h\s*cache/i.test(label)) return isLongContext ? 'Long Context (1h Cache)' : '1h Cache'
-    if (/flex/i.test(label)) return isLongContext ? 'Long Context (Flex)' : 'Flex'
-    if (/priority/i.test(label)) return isLongContext ? 'Long Context (Priority)' : 'Priority'
-    if (/no\s*commit/i.test(label)) return 'No Commit'
-    if (/6\s*month/i.test(label)) return '6 Month'
-    if (/1\s*month/i.test(label)) return '1 Month'
-    
-    // Default tier - distinguish long context
-    return isLongContext ? 'Long Context' : 'Standard'
-  }
 
   // Group items by price to deduplicate across regions
   const groupByPrice = (items) => {
@@ -3610,7 +3831,9 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
       for (const [geo, regions] of Object.entries(geoData)) {
         for (const [region, regionItems] of Object.entries(regions)) {
           regionItems.forEach(item => {
-            const { label, type } = simplifyPricingDescription(item.description, item.dimension)
+            const { label } = simplifyPricingDescription(item.description, item.dimension)
+            // Use is_input/is_output from data, fallback to parsing if not available
+            const type = item.is_output ? 'output' : item.is_input ? 'input' : 'other'
             items.push({
               ...item,
               _label: label,
@@ -3619,7 +3842,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
               _unit: (item.unit_label || `per ${item.unit || 'unit'}`).replace(/1K tokens/gi, '1M tokens'),
               _raw: item.description || item.dimension,
               _groupName: groupName,
-              _tier: getTierFromLabel(label, groupName),
+              _tier: getTierFromLabel(label, groupName, item.dimension),
               _isLongContext: groupName.toLowerCase().includes('long context'),
               region,
               geo
@@ -3696,19 +3919,48 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
   )
 
   // ============================================
-  // VIEW 1: BY TYPE (Consumption-First Hierarchy)
+  // VIEW 1: BY TYPE (Hierarchy-Based View)
   // ============================================
   const renderByTypeView = () => {
     const allItems = filterItems(getAllPricingItems())
     
-    // Group items by consumption type
-    const byConsumptionType = {}
-    for (const [consumptionType, groupNames] of Object.entries(consumptionTypeMapping)) {
-      const typeItems = allItems.filter(item => groupNames.includes(item._groupName))
-      if (typeItems.length > 0) {
-        byConsumptionType[consumptionType] = typeItems
+    // Group items by their pricing_group field (_groupName)
+    const itemsByPricingGroup = {}
+    allItems.forEach(item => {
+      const groupName = item._groupName
+      if (!itemsByPricingGroup[groupName]) {
+        itemsByPricingGroup[groupName] = []
       }
-    }
+      itemsByPricingGroup[groupName].push(item)
+    })
+
+    // Detect if model has CRIS availability but only In-Region pricing
+    // This means the In-Region pricing also applies to CRIS
+    const consumptionOptions = model.consumption_options || []
+    const hasCrisAvailability = consumptionOptions.includes('cross_region_inference')
+    const hasCrisGeoPricing = !!(
+      itemsByPricingGroup['On-Demand Geo']?.length > 0 ||
+      itemsByPricingGroup['On-Demand Long Context Geo']?.length > 0 ||
+      itemsByPricingGroup['Batch Geo']?.length > 0
+    )
+    const hasCrisPricing = !!(
+      itemsByPricingGroup['On-Demand Global']?.length > 0 ||
+      hasCrisGeoPricing ||
+      itemsByPricingGroup['On-Demand Long Context Global']?.length > 0 ||
+      itemsByPricingGroup['Batch Global']?.length > 0
+    )
+    const hasInRegionPricing = !!(
+      itemsByPricingGroup['On-Demand']?.length > 0 ||
+      itemsByPricingGroup['On-Demand Long Context']?.length > 0
+    )
+    // Show indicator when model has CRIS availability but only In-Region pricing (no CRIS-specific pricing)
+    const showCrisUsesInRegionPricing = hasCrisAvailability && hasInRegionPricing && !hasCrisPricing
+
+    // Detect if model has In-Region availability but only CRIS Geo pricing (no In-Region pricing)
+    // CRIS Geo pricing = In-Region pricing (same price), so we show that CRIS Geo also applies to In-Region
+    const hasInRegionAvailability = consumptionOptions.includes('on_demand') || 
+                                     (model.in_region && model.in_region.length > 0)
+    const showInRegionUsesCrisGeoPricing = hasInRegionAvailability && !hasInRegionPricing && hasCrisGeoPricing
 
     // Consolidate items by tier and type, computing price ranges
     const consolidateByTierAndType = (items) => {
@@ -3770,69 +4022,343 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
       return `$${formatPrice(data.minPrice)}`
     }
 
-    // Render a consumption type section
-    const renderConsumptionSection = (consumptionType, items, subLabel = null) => {
-      const info = consumptionTypeInfo[subLabel || consumptionType]
-      const Icon = info?.icon || Zap
-      const sectionKey = `byType_${subLabel || consumptionType}`
-      // Only expand first section by default
-      const isFirstSection = consumptionType === 'CRIS'
-      const isExpanded = expandedSections[sectionKey] ?? isFirstSection
+    // Tier ordering for consistent display
+    const tierOrder = [
+      'Standard',
+      'Cache Read', 'Cache Write', '1h Cache',
+      'Flex', 'Priority',
+      'Standard (Long Context)',
+      'Cache Read (Long Context)', 'Cache Write (Long Context)',
+      '1h Cache (Long Context)', 'Flex (Long Context)', 'Priority (Long Context)',
+      'Batch Standard', 'Batch Cache Read', 'Batch Cache Write', 'Batch 1h Cache', 'Batch Standard (Long Context)', 'Batch Cache Read (Long Context)', 'Batch Cache Write (Long Context)', 'Batch 1h Cache (Long Context)', 'No Commit', '1 Month', '3 Month', '6 Month'
+    ]
 
-      // Consolidate by tier and type
+    const sortTiers = (tiers) => tiers.sort((a, b) => {
+      const idxA = tierOrder.indexOf(a)
+      const idxB = tierOrder.indexOf(b)
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB
+      if (idxA !== -1) return -1
+      if (idxB !== -1) return 1
+      return a.localeCompare(b)
+    })
+
+    // Render tier cards for a set of items
+    const renderTierCards = (items, keyPrefix) => {
       const consolidated = consolidateByTierAndType(items)
+      const sortedTiers = sortTiers(Object.keys(consolidated))
 
-      // Group tiers logically: Standard context first, then Long Context, then Cache tiers
-      const tierOrder = [
-        // Standard context tiers
-        'Standard',
-        'Cache Read',
-        'Cache Write', 
-        '1h Cache',
-        'Flex',
-        'Priority',
-        // Long context tiers (grouped together)
-        'Long Context',
-        'Long Context (Cache Read)',
-        'Long Context (Cache Write)',
-        'Long Context (1h Cache)',
-        'Long Context (Flex)',
-        'Long Context (Priority)',
-        // Commitment tiers
-        'No Commit', 
-        '1 Month', 
-        '6 Month'
-      ]
-      const sortedTiers = Object.keys(consolidated).sort((a, b) => {
-        const idxA = tierOrder.indexOf(a)
-        const idxB = tierOrder.indexOf(b)
-        if (idxA !== -1 && idxB !== -1) return idxA - idxB
-        if (idxA !== -1) return -1
-        if (idxB !== -1) return 1
-        return a.localeCompare(b)
+      return sortedTiers.filter(tier => {
+        const tierData = consolidated[tier]
+        return tierData.input?.minPrice != null || tierData.output?.minPrice != null || tierData.other?.minPrice != null
+      }).map(tier => {
+        const tierData = consolidated[tier]
+        const tierKey = `${keyPrefix}_${tier}`
+        const hasInput = tierData.input
+        const hasOutput = tierData.output
+        const hasOther = tierData.other
+        const hasInputOutput = hasInput && hasOutput
+        
+        const tierRegions = new Set([
+          ...(tierData.input?.allRegions || []),
+          ...(tierData.output?.allRegions || []),
+          ...(tierData.other?.allRegions || [])
+        ])
+        const totalTierRegions = tierRegions.size
+
+        return (
+          <div key={tier} className={cn(
+            'rounded-lg border overflow-hidden',
+            isLight ? 'bg-white border-stone-200' : 'bg-white/[0.02] border-white/[0.06]'
+          )}>
+            <button
+              onClick={() => toggleSection(tierKey)}
+              className={cn(
+                'w-full flex items-center justify-between px-3 py-2 text-left transition-colors',
+                isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.04]'
+              )}
+            >
+              <div className="flex items-center gap-3 flex-wrap min-w-0">
+                <span className={cn('text-xs font-medium flex-shrink-0', isLight ? 'text-stone-700' : 'text-slate-200')}>
+                  {tier}
+                </span>
+                {hasInputOutput && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    <span className={cn('font-mono font-semibold', isLight ? 'text-stone-900' : 'text-emerald-400')}>
+                      {formatPriceRange(tierData.input)}
+                    </span>
+                    <span className={cn(isLight ? 'text-stone-400' : 'text-slate-500')}>/</span>
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span className={cn('font-mono font-semibold', isLight ? 'text-stone-900' : 'text-emerald-400')}>
+                      {formatPriceRange(tierData.output)}
+                    </span>
+                    <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                      {tierData.input.unit}
+                    </span>
+                  </div>
+                )}
+                {hasInput && !hasOutput && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    <span className={cn(isLight ? 'text-stone-500' : 'text-slate-400')}>Input:</span>
+                    <span className={cn('font-mono font-semibold', isLight ? 'text-stone-900' : 'text-emerald-400')}>
+                      {formatPriceRange(tierData.input)}
+                    </span>
+                    <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                      {tierData.input.unit}
+                    </span>
+                  </div>
+                )}
+                {hasOutput && !hasInput && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span className={cn(isLight ? 'text-stone-500' : 'text-slate-400')}>Output:</span>
+                    <span className={cn('font-mono font-semibold', isLight ? 'text-stone-900' : 'text-emerald-400')}>
+                      {formatPriceRange(tierData.output)}
+                    </span>
+                    <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                      {tierData.output.unit}
+                    </span>
+                  </div>
+                )}
+                {hasOther && !hasInput && !hasOutput && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-400" />
+                    <span className={cn('font-mono font-semibold', isLight ? 'text-stone-900' : 'text-emerald-400')}>
+                      {formatPriceRange(tierData.other)}
+                    </span>
+                    <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                      {tierData.other.unit}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className={cn(
+                'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded flex-shrink-0',
+                isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/10 text-slate-300'
+              )}>
+                {totalTierRegions} regions
+                {expandedSections[tierKey] ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              </div>
+            </button>
+            
+            {expandedSections[tierKey] && (
+              <div className={cn(
+                'px-3 pb-3 border-t space-y-3',
+                isLight ? 'border-stone-100 bg-stone-50/50' : 'border-white/5 bg-white/[0.01]'
+              )}>
+                <div className="pt-2">
+                  <RegionsByGeoDisplay
+                    regions={[...tierRegions]}
+                    getRegionDisplayName={getRegionDisplayName}
+                    groupRegionsByGeo={groupRegionsByGeo}
+                    geoGroups={geoGroups}
+                    isLight={isLight}
+                    compact
+                  />
+                </div>
+                
+                <div className={cn(
+                  'rounded border overflow-hidden',
+                  isLight ? 'border-stone-200' : 'border-white/10'
+                )}>
+                  <div className={cn(
+                    'px-2 py-1.5 text-[10px] font-medium',
+                    isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/5 text-slate-400'
+                  )}>
+                    Raw Pricing Data
+                  </div>
+                  <div className="max-h-40 overflow-y-auto">
+                    <table className="w-full text-[10px]">
+                      <thead className={cn('sticky top-0', isLight ? 'bg-stone-50' : 'bg-[#1a1a1a]')}>
+                        <tr className={isLight ? 'text-stone-500' : 'text-slate-500'}>
+                          <th className="text-left px-2 py-1 font-medium">Type</th>
+                          <th className="text-left px-2 py-1 font-medium">Price</th>
+                          <th className="text-left px-2 py-1 font-medium">Region</th>
+                          <th className="text-left px-2 py-1 font-medium">Dimension</th>
+                        </tr>
+                      </thead>
+                      <tbody className={cn('divide-y', isLight ? 'divide-stone-100' : 'divide-white/5')}>
+                        {(() => {
+                          const inputItems = tierData.input?.rawItems || []
+                          const outputItems = tierData.output?.rawItems || []
+                          const otherItems = tierData.other?.rawItems || []
+                          
+                          // Interleave input and output items for balanced display
+                          const interleaved = []
+                          const maxLen = Math.max(inputItems.length, outputItems.length, otherItems.length)
+                          for (let i = 0; i < maxLen && interleaved.length < 30; i++) {
+                            if (inputItems[i]) interleaved.push(inputItems[i])
+                            if (outputItems[i]) interleaved.push(outputItems[i])
+                            if (otherItems[i]) interleaved.push(otherItems[i])
+                          }
+                          return interleaved
+                        })().map((item, idx) => (
+                          <tr key={idx} className={isLight ? 'text-stone-600' : 'text-slate-400'}>
+                            <td className="px-2 py-1">
+                              <span className={cn(
+                                'inline-block w-1.5 h-1.5 rounded-full mr-1',
+                                item._type === 'input' ? 'bg-blue-500' : item._type === 'output' ? 'bg-emerald-500' : 'bg-gray-400'
+                              )} />
+                              {item._type}
+                            </td>
+                            <td className={cn('px-2 py-1 font-mono', isLight ? 'text-stone-900' : 'text-emerald-400')}>
+                              ${formatPrice(item._price)}
+                            </td>
+                            <td className="px-2 py-1">{item.region}</td>
+                            <td className="px-2 py-1 truncate max-w-[200px]" title={item.dimension || item._raw}>
+                              {item.dimension || item._raw || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )
       })
+    }
+
+    // Render a sub-group section (nested inside parent group)
+    const renderSubGroup = (subGroup, items, parentId, colors, isFirstSubGroup, showInRegionEquivalence = false) => {
+      const subGroupKey = `byType_${parentId}_${subGroup.id}`
+      const isExpanded = expandedSections[subGroupKey] ?? isFirstSubGroup
+      const regionCount = new Set(items.map(i => i.region)).size
 
       return (
-        <div key={subLabel || consumptionType} className={cn(
+        <div key={subGroup.id} className={cn(
+          'rounded-lg border overflow-hidden',
+          isLight ? 'bg-white/60 border-stone-200/60' : 'bg-white/[0.02] border-white/[0.06]'
+        )}>
+          <button
+            className={cn(
+              'w-full flex items-center justify-between px-3 py-2 transition-colors',
+              isLight ? 'hover:bg-stone-50/80' : 'hover:bg-white/[0.03]'
+            )}
+            onClick={() => toggleSection(subGroupKey)}
+          >
+            <div className="flex items-center gap-2">
+              <span className={cn('text-xs font-medium', isLight ? 'text-stone-700' : 'text-slate-200')}>
+                {subGroup.label}
+              </span>
+              {subGroup.description && (
+                <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                  ({subGroup.description})
+                </span>
+              )}
+              {/* Show indicator when CRIS Geo pricing also applies to In-Region requests */}
+              {subGroup.id === 'geo' && showInRegionEquivalence && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={cn(
+                      'inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border cursor-help',
+                      isLight 
+                        ? 'bg-amber-100 text-amber-700 border-amber-200' 
+                        : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                    )}>
+                      <Zap className="h-3 w-3" />
+                      = In-Region
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    <p className="text-xs">This model has In-Region availability, and the CRIS Geo pricing shown here also applies to In-Region requests (same price).</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              <span className={cn(
+                'text-[10px] px-1.5 py-0.5 rounded',
+                isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/10 text-slate-400'
+              )}>
+                {regionCount} regions
+              </span>
+            </div>
+            {isExpanded ? (
+              <ChevronDown className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
+            ) : (
+              <ChevronRight className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
+            )}
+          </button>
+          {isExpanded && (
+            <div className={cn('px-3 pb-3 border-t space-y-2', isLight ? 'border-stone-100' : 'border-white/[0.04]')}>
+              <div className="pt-2 space-y-2">
+                {renderTierCards(items, subGroupKey)}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Render a parent group section
+    const renderParentGroup = (parentGroup, isFirstWithData) => {
+      const colors = isLight ? parentGroup.colors.light : parentGroup.colors.dark
+      const Icon = parentGroup.icon
+      const sectionKey = `byType_${parentGroup.id}`
+      const isExpanded = expandedSections[sectionKey] ?? isFirstWithData
+
+      // Collect all items for this parent group
+      let allParentItems = []
+      let subGroupsWithData = []
+
+      if (parentGroup.subGroups) {
+        // Has sub-groups - collect items per sub-group
+        parentGroup.subGroups.forEach(subGroup => {
+          const subGroupItems = subGroup.pricingGroups.flatMap(pg => itemsByPricingGroup[pg] || [])
+          if (subGroupItems.length > 0) {
+            subGroupsWithData.push({ subGroup, items: subGroupItems })
+            allParentItems.push(...subGroupItems)
+          }
+        })
+      } else if (parentGroup.pricingGroups) {
+        // No sub-groups - direct items
+        allParentItems = parentGroup.pricingGroups.flatMap(pg => itemsByPricingGroup[pg] || [])
+      }
+
+      // Skip if no data
+      if (allParentItems.length === 0) return null
+
+      const totalRegions = new Set(allParentItems.map(i => i.region)).size
+
+      return (
+        <div key={parentGroup.id} className={cn(
           'rounded-lg overflow-hidden border',
-          isLight
-            ? 'bg-stone-50/80 border-stone-200/80'
-            : 'bg-white/5 border-white/10'
+          colors.bg,
+          colors.border
         )}>
           <button
             className={cn(
               'w-full flex items-center justify-between p-3 transition-colors',
-              isLight ? 'hover:bg-stone-100/80' : 'hover:bg-white/5'
+              isLight ? 'hover:bg-white/40' : 'hover:bg-white/[0.03]'
             )}
             onClick={() => toggleSection(sectionKey)}
           >
             <div className="flex items-center gap-2">
-              <Icon className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
+              <Icon className={cn('h-4 w-4', colors.icon)} />
               <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
-                {info?.label || consumptionType}
+                {parentGroup.label}
               </span>
-              <Badge variant="secondary" className="text-[10px]">
-                {new Set(items.map(i => i.region)).size} regions
+              {/* Show indicator when In-Region pricing also applies to CRIS */}
+              {parentGroup.id === 'in_region' && showCrisUsesInRegionPricing && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded cursor-help flex items-center gap-1',
+                      isLight ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    )}>
+                      <Globe className="h-3 w-3" />
+                      = CRIS
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    <p className="text-xs">This model supports Cross-Region Inference (CRIS), and the In-Region pricing shown here also applies to CRIS requests.</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              <Badge className={cn('text-[10px]', colors.badge)}>
+                {totalRegions} regions
               </Badge>
             </div>
             {isExpanded ? (
@@ -3841,234 +4367,63 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }
               <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
             )}
           </button>
-          {isExpanded && (
-            <div className={cn('px-3 pb-3 border-t space-y-3', isLight ? 'border-stone-200' : 'border-white/10')}>
-              {sortedTiers.filter(tier => {
-                const tierData = consolidated[tier]
-                const hasInputPrice = tierData.input?.minPrice != null
-                const hasOutputPrice = tierData.output?.minPrice != null
-                const hasOtherPrice = tierData.other?.minPrice != null
-                return hasInputPrice || hasOutputPrice || hasOtherPrice
-              }).map(tier => {
-                const tierData = consolidated[tier]
-                const tierKey = `${sectionKey}_${tier}`
-                const hasInput = tierData.input
-                const hasOutput = tierData.output
-                const hasOther = tierData.other
-                const hasInputOutput = hasInput && hasOutput
-                
-                // Calculate total unique regions for this tier
-                const tierRegions = new Set([
-                  ...(tierData.input?.allRegions || []),
-                  ...(tierData.output?.allRegions || []),
-                  ...(tierData.other?.allRegions || [])
-                ])
-                const totalTierRegions = tierRegions.size
 
-                return (
-                  <div key={tier} className={cn(
-                    'rounded-lg border overflow-hidden mt-2 first:mt-0',
-                    isLight ? 'bg-white border-stone-200' : 'bg-white/[0.02] border-white/[0.06]'
-                  )}>
-                    {/* Compact header row */}
-                    <button
-                      onClick={() => toggleSection(tierKey)}
-                      className={cn(
-                        'w-full flex items-center justify-between px-3 py-2 text-left transition-colors',
-                        isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.04]'
-                      )}
-                    >
-                      <div className="flex items-center gap-3 flex-wrap min-w-0">
-                        <span className={cn('text-xs font-medium flex-shrink-0', isLight ? 'text-stone-700' : 'text-slate-200')}>
-                          {tier}
-                        </span>
-                        {hasInputOutput && (
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
-                            <span className={cn('font-mono font-semibold', isLight ? 'text-stone-900' : 'text-emerald-400')}>
-                              {formatPriceRange(tierData.input)}
-                            </span>
-                            <span className={cn(isLight ? 'text-stone-400' : 'text-slate-500')}>/</span>
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className={cn('font-mono font-semibold', isLight ? 'text-stone-900' : 'text-emerald-400')}>
-                              {formatPriceRange(tierData.output)}
-                            </span>
-                            <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
-                              {tierData.input.unit}
-                            </span>
-                          </div>
-                        )}
-                        {hasInput && !hasOutput && (
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
-                            <span className={cn(isLight ? 'text-stone-500' : 'text-slate-400')}>Input:</span>
-                            <span className={cn('font-mono font-semibold', isLight ? 'text-stone-900' : 'text-emerald-400')}>
-                              {formatPriceRange(tierData.input)}
-                            </span>
-                            <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
-                              {tierData.input.unit}
-                            </span>
-                          </div>
-                        )}
-                        {hasOutput && !hasInput && (
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className={cn(isLight ? 'text-stone-500' : 'text-slate-400')}>Output:</span>
-                            <span className={cn('font-mono font-semibold', isLight ? 'text-stone-900' : 'text-emerald-400')}>
-                              {formatPriceRange(tierData.output)}
-                            </span>
-                            <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
-                              {tierData.output.unit}
-                            </span>
-                          </div>
-                        )}
-                        {hasOther && !hasInput && !hasOutput && (
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-400" />
-                            <span className={cn('font-mono font-semibold', isLight ? 'text-stone-900' : 'text-emerald-400')}>
-                              {formatPriceRange(tierData.other)}
-                            </span>
-                            <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-500')}>
-                              {tierData.other.unit}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className={cn(
-                        'flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded flex-shrink-0',
-                        isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/10 text-slate-300'
-                      )}>
-                        {totalTierRegions} regions
-                        {expandedSections[tierKey] ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                      </div>
-                    </button>
-                    
-                    {/* Expanded content */}
-                    {expandedSections[tierKey] && (
-                      <div className={cn(
-                        'px-3 pb-3 border-t space-y-3',
-                        isLight ? 'border-stone-100 bg-stone-50/50' : 'border-white/5 bg-white/[0.01]'
-                      )}>
-                        {/* Regions */}
-                        <div className="pt-2">
-                          <RegionsByGeoDisplay
-                            regions={[...tierRegions]}
-                            getRegionDisplayName={getRegionDisplayName}
-                            groupRegionsByGeo={groupRegionsByGeo}
-                            geoGroups={geoGroups}
-                            isLight={isLight}
-                            compact
-                          />
-                        </div>
-                        
-                        {/* Raw pricing info */}
-                        <div className={cn(
-                          'rounded border overflow-hidden',
-                          isLight ? 'border-stone-200' : 'border-white/10'
-                        )}>
-                          <div className={cn(
-                            'px-2 py-1.5 text-[10px] font-medium',
-                            isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/5 text-slate-400'
-                          )}>
-                            Raw Pricing Data
-                          </div>
-                          <div className="max-h-40 overflow-y-auto">
-                            <table className="w-full text-[10px]">
-                              <thead className={cn(
-                                'sticky top-0',
-                                isLight ? 'bg-stone-50' : 'bg-[#1a1a1a]'
-                              )}>
-                                <tr className={isLight ? 'text-stone-500' : 'text-slate-500'}>
-                                  <th className="text-left px-2 py-1 font-medium">Type</th>
-                                  <th className="text-left px-2 py-1 font-medium">Price</th>
-                                  <th className="text-left px-2 py-1 font-medium">Region</th>
-                                  <th className="text-left px-2 py-1 font-medium">Dimension</th>
-                                </tr>
-                              </thead>
-                              <tbody className={cn('divide-y', isLight ? 'divide-stone-100' : 'divide-white/5')}>
-                                {[...(tierData.input?.rawItems || []), ...(tierData.output?.rawItems || []), ...(tierData.other?.rawItems || [])].slice(0, 20).map((item, idx) => (
-                                  <tr key={idx} className={isLight ? 'text-stone-600' : 'text-slate-400'}>
-                                    <td className="px-2 py-1">
-                                      <span className={cn(
-                                        'inline-block w-1.5 h-1.5 rounded-full mr-1',
-                                        item._type === 'input' ? 'bg-blue-500' : item._type === 'output' ? 'bg-emerald-500' : 'bg-gray-400'
-                                      )} />
-                                      {item._type}
-                                    </td>
-                                    <td className={cn('px-2 py-1 font-mono', isLight ? 'text-stone-900' : 'text-emerald-400')}>
-                                      ${formatPrice(item._price)}
-                                    </td>
-                                    <td className="px-2 py-1">{item.region}</td>
-                                    <td className="px-2 py-1 truncate max-w-[200px]" title={item.dimension || item._raw}>
-                                      {item.dimension || item._raw || '-'}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+          {isExpanded && (
+            <div className={cn('px-3 pb-3 border-t space-y-3', colors.headerBorder)}>
+              {parentGroup.subGroups ? (
+                // Render sub-groups
+                <div className="pt-3 space-y-3">
+                  {subGroupsWithData.map(({ subGroup, items }, idx) => 
+                    renderSubGroup(
+                      subGroup, 
+                      items, 
+                      parentGroup.id, 
+                      colors, 
+                      idx === 0,
+                      // Pass the In-Region equivalence flag only for CRIS parent group
+                      parentGroup.id === 'cris' && showInRegionUsesCrisGeoPricing
+                    )
+                  )}
+                </div>
+              ) : (
+                // Render direct tier cards (no sub-groups)
+                <div className="pt-3 space-y-2">
+                  {renderTierCards(allParentItems, sectionKey)}
+                </div>
+              )}
             </div>
           )}
         </div>
       )
     }
-    
-    // Render CRIS section with Global/Regional sub-sections
-    const renderCRISSection = (items) => {
-      // Split items into Global and Regional
-      const globalGroupNames = ['On-Demand Global', 'On-Demand Long Context Global']
-      const globalItems = items.filter(item => globalGroupNames.includes(item._groupName))
-      const regionalItems = items.filter(item => !globalGroupNames.includes(item._groupName))
-      
-      // If only one type exists, render normally
-      if (globalItems.length === 0 && regionalItems.length === 0) {
-        return renderConsumptionSection('CRIS', items)
-      }
-      
-      // Use the dedicated CRIS pricing section component
-      return (
-        <CRISPricingSection
-          key="CRIS"
-          globalItems={globalItems}
-          regionalItems={regionalItems}
-          consolidateByTierAndType={consolidateByTierAndType}
-          formatPrice={formatPrice}
-          formatPriceRange={formatPriceRange}
-          expandedSections={expandedSections}
-          toggleSection={toggleSection}
-          getRegionDisplayName={getRegionDisplayName}
-          groupRegionsByGeo={groupRegionsByGeo}
-          geoGroups={geoGroups}
-          isLight={isLight}
-        />
-      )
-    }
 
-    // Split into left/right columns
-    const leftTypes = ['CRIS', 'In Region']
-    const rightTypes = ['Batch', 'Provisioned', 'Custom']
-    
-    // Helper to render the appropriate section
-    const renderSection = (type, items) => {
-      if (type === 'CRIS') {
-        return renderCRISSection(items)
+    // Determine which parent groups have data
+    const parentGroupsWithData = PRICING_GROUP_HIERARCHY.filter(parentGroup => {
+      if (parentGroup.subGroups) {
+        return parentGroup.subGroups.some(sg => 
+          sg.pricingGroups.some(pg => itemsByPricingGroup[pg]?.length > 0)
+        )
       }
-      return renderConsumptionSection(type, items)
-    }
+      return parentGroup.pricingGroups?.some(pg => itemsByPricingGroup[pg]?.length > 0)
+    })
+
+    const firstParentWithData = parentGroupsWithData[0]?.id
+
+    // Split into columns for layout
+    const leftColumnIds = ['cris', 'in_region']
+    const rightColumnIds = ['reserved', 'provisioned', 'custom_model']
 
     return (
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="space-y-4">
-          {leftTypes.map(type => byConsumptionType[type] && renderSection(type, byConsumptionType[type]))}
+          {PRICING_GROUP_HIERARCHY
+            .filter(pg => leftColumnIds.includes(pg.id))
+            .map(pg => renderParentGroup(pg, pg.id === firstParentWithData))}
         </div>
         <div className="space-y-4">
-          {rightTypes.map(type => byConsumptionType[type] && renderSection(type, byConsumptionType[type]))}
+          {PRICING_GROUP_HIERARCHY
+            .filter(pg => rightColumnIds.includes(pg.id))
+            .map(pg => renderParentGroup(pg, pg.id === firstParentWithData))}
         </div>
       </div>
     )

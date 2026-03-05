@@ -71,6 +71,73 @@ def has_on_demand_pricing(pricing_data: dict) -> bool:
 
 
 # =============================================================================
+# Direct Match Step (Priority 0 - before fuzzy matching)
+# =============================================================================
+
+
+def try_direct_match(model_id: str, pricing_models: dict) -> tuple[str | None, float]:
+    """
+    Attempt direct matching before fuzzy matching.
+
+    Direct matching steps:
+    1. Exact match on model_id as-is
+    2. Exact match without instance version suffix (:0, :1, :2)
+    3. Canonical form exact match
+
+    Args:
+        model_id: The model identifier to match
+        pricing_models: Dict of pricing entries with provider info
+
+    Returns:
+        (matched_pricing_key, confidence_score) or (None, 0.0) if no match
+    """
+    if not model_id or not pricing_models:
+        return None, 0.0
+
+    # Step 1: Exact match as-is
+    if model_id in pricing_models:
+        logger.info(
+            "Direct exact match",
+            model_id=model_id,
+            matched_to=model_id,
+            confidence=1.0,
+        )
+        return model_id, 1.0
+
+    # Step 2: Try without instance version suffix
+    # Remove :0, :1, :2 suffixes
+    model_id_base = model_id
+    if ":" in model_id:
+        parts = model_id.rsplit(":", 1)
+        if parts[1].isdigit():
+            model_id_base = parts[0]
+            if model_id_base in pricing_models:
+                logger.info(
+                    "Direct match without version suffix",
+                    model_id=model_id,
+                    matched_to=model_id_base,
+                    confidence=0.99,
+                )
+                return model_id_base, 0.99
+
+    # Step 3: Canonical form exact match
+    canonical_model = get_canonical_model_id(model_id)
+    for pricing_key in pricing_models:
+        canonical_pricing = get_canonical_model_id(pricing_key)
+        if canonical_model == canonical_pricing:
+            logger.info(
+                "Canonical exact match",
+                model_id=model_id,
+                canonical=canonical_model,
+                matched_to=pricing_key,
+                confidence=0.98,
+            )
+            return pricing_key, 0.98
+
+    return None, 0.0
+
+
+# =============================================================================
 # PORT Feature 1: Provider-Scoped Matching
 # =============================================================================
 
@@ -161,11 +228,13 @@ def find_best_pricing_match(
     Find the best matching pricing entry for a model.
 
     Priority order:
+    0. Direct exact match (NEW - Step 0)
     1. Explicit mapping (from config) - returns 1.0 confidence
-    2. Provider-scoped matching with conflict detection
-    3. Fuzzy matching as fallback
+    2. Canonical exact match (NEW - Step 2)
+    3. Provider-scoped fuzzy matching with conflict detection
 
     Features:
+        - Direct matching first for performance
         - Provider-scoped matching: Only matches within same provider
         - Conflict detection: Blocks semantic mismatches (using centralized model_matcher)
         - On-Demand prioritization: Prefers entries with On-Demand pricing
@@ -179,7 +248,12 @@ def find_best_pricing_match(
     Returns:
         (matched_pricing_key, confidence_score)
     """
-    # Priority 1: Check explicit mappings first
+    # Priority 0: Try direct match first (NEW)
+    direct_match, direct_score = try_direct_match(model_id, pricing_models)
+    if direct_match and direct_score >= 0.95:
+        return direct_match, direct_score
+
+    # Priority 1: Check explicit mappings
     explicit_mappings = get_explicit_model_mappings()
     if model_id in explicit_mappings:
         mapped_key = explicit_mappings[model_id]

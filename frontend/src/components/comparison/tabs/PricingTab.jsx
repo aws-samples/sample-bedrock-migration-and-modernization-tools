@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DollarSign, Trophy, TrendingDown, Info, ChevronDown, ChevronRight, Zap, Globe, Package, Server } from 'lucide-react'
+import { DollarSign, Trophy, TrendingDown, Info, ChevronDown, ChevronRight, Zap, Globe, Package, Server, Cpu, Clock, Wrench } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -15,10 +15,24 @@ function DimensionBadge({ dimension, value }) {
     mantle: 'bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-400',
     standard: 'bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-slate-400',
     global: 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400',
+    cris_global: 'bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400',
     regional: 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400',
+    cris_regional: 'bg-teal-100 text-teal-800 dark:bg-teal-500/20 dark:text-teal-400',
+    in_region: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400',
     flex: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-400',
     priority: 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400',
     long: 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-400',
+    long_context: 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-400',
+    cache_read: 'bg-sky-100 text-sky-800 dark:bg-sky-500/20 dark:text-sky-400',
+    cache_write: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-400',
+    cache_write_1h: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-400',
+    reserved: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-400',
+    no_commit: 'bg-slate-100 text-slate-800 dark:bg-slate-500/20 dark:text-slate-400',
+    '1_month': 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400',
+    '3_month': 'bg-violet-100 text-violet-800 dark:bg-violet-500/20 dark:text-violet-400',
+    batch: 'bg-lime-100 text-lime-800 dark:bg-lime-500/20 dark:text-lime-400',
+    provisioned: 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-400',
+    custom_model: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-500/20 dark:text-fuchsia-400',
   }
   
   return (
@@ -39,18 +53,22 @@ function formatPrice(price) {
 const groupLabels = {
   'On-Demand': 'In Region',
   'On-Demand Global': 'CRIS Global',
-  'On-Demand Geo': 'CRIS Geo',
+  'On-Demand Geo': 'CRIS Regional',
   'On-Demand Long Context': 'In Region Long Context',
-  'On-Demand Long Context Global': 'Long Context CRIS Global',
-  'On-Demand Long Context Geo': 'Long Context CRIS Geo',
+  'On-Demand Long Context Global': 'CRIS Global Long Context',
+  'On-Demand Long Context Geo': 'CRIS Regional Long Context',
   'Batch': 'Batch',
   'Batch Global': 'Batch CRIS Global',
-  'Batch Geo': 'Batch CRIS Geo',
+  'Batch Geo': 'Batch CRIS Regional',
   'Batch Long Context': 'Batch Long Context',
   'Batch Long Context Global': 'Batch Long Context CRIS Global',
-  'Batch Long Context Geo': 'Batch Long Context CRIS Geo',
+  'Batch Long Context Geo': 'Batch Long Context CRIS Regional',
   'Provisioned Throughput': 'Provisioned Throughput',
   'Custom Model': 'Custom Model',
+  'Mantle': 'Mantle',
+  'Reserved No Commit': 'Reserved (No Commit)',
+  'Reserved 1 Month': 'Reserved (1 Month)',
+  'Reserved 3 Month': 'Reserved (3 Month)',
 }
 
 // Simplify item descriptions for comparison rows
@@ -154,29 +172,61 @@ function getRowKey(groupName, item) {
 
 // Consumption type configuration
 const consumptionTypes = {
-  on_demand: {
+  // 1. CRIS - Cross-region On-Demand only
+  cris: {
+    label: 'Cross-Region (CRIS)',
+    icon: Globe,
+    groups: [
+      'On-Demand Global', 'On-Demand Long Context Global',
+      'On-Demand Geo', 'On-Demand Long Context Geo'
+    ],
+    description: 'Cross-region inference'
+  },
+  // 2. In Region
+  in_region: {
     label: 'In Region',
     icon: Zap,
     groups: ['On-Demand', 'On-Demand Long Context'],
     description: 'Standard on-demand pricing'
   },
-  cross_region: {
-    label: 'Cross-Region (CRIS)',
-    icon: Globe,
-    groups: ['On-Demand Global', 'On-Demand Long Context Global'],
-    description: 'Cross-region inference'
+  // 3. Mantle
+  mantle: {
+    label: 'Mantle',
+    icon: Cpu,
+    groups: ['Mantle'],
+    description: 'OpenAI-compatible inference endpoint'
   },
+  // 4. Batch - ALL batch variants
   batch: {
     label: 'Batch',
     icon: Package,
-    groups: ['Batch', 'Batch Global', 'Batch Long Context', 'Batch Long Context Global'],
+    groups: [
+      'Batch',
+      'Batch Global', 'Batch Long Context Global',
+      'Batch Geo', 'Batch Long Context Geo'
+    ],
     description: 'Batch processing'
   },
+  // 5. Reserved
+  reserved: {
+    label: 'Reserved',
+    icon: Clock,
+    groups: ['Reserved No Commit', 'Reserved 1 Month', 'Reserved 3 Month'],
+    description: 'Reserved capacity with commitment terms'
+  },
+  // 6. Provisioned
   provisioned: {
     label: 'Provisioned',
     icon: Server,
     groups: ['Provisioned Throughput'],
-    description: 'Reserved capacity'
+    description: 'Dedicated throughput capacity'
+  },
+  // 7. Custom Model
+  custom_model: {
+    label: 'Custom Model',
+    icon: Wrench,
+    groups: ['Custom Model'],
+    description: 'Fine-tuned model pricing'
   }
 }
 
@@ -535,7 +585,7 @@ function QuickComparisonTable({ selectedModels, pricingByModel, consumptionType,
 }
 
 export function PricingTab({ selectedModels, getPricingForModel, isLight }) {
-  const [consumptionType, setConsumptionType] = useState('on_demand')
+  const [consumptionType, setConsumptionType] = useState('cris')
 
   // Calculate pricing for each model
   const pricingData = selectedModels.map(({ model, region }) => {

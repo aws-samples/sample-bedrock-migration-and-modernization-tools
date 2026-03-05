@@ -70,7 +70,9 @@
         "moonshot",
         "moonshot ai",
         "kimi",
-        "kimi ai"
+        "kimi ai",
+        "kimi-ai",
+        "moonshotai"
       ],
       "deepseek": [
         "deepseek"
@@ -174,7 +176,8 @@
       ],
       "Moonshot AI": [
         "kimi",
-        "moonshot"
+        "moonshot",
+        "moonshotai"
       ],
       "NVIDIA": [
         "nvidia",
@@ -1107,7 +1110,37 @@
       "anthropic.claude-sonnet-4-5-20250929-v1:0": "anthropic.claude-sonnet-4-5",
       "anthropic.claude-sonnet-4-20250514-v1:0": "anthropic.claude-sonnet-4",
       "anthropic.claude-sonnet-4-6:0": "anthropic.claude-sonnet-4-6",
-      "anthropic.claude-haiku-4-5-20251001-v1:0": "anthropic.claude-haiku-4-5"
+      "anthropic.claude-haiku-4-5-20251001-v1:0": "anthropic.claude-haiku-4-5",
+      "zai.glm-4.7-v1:0": "zai.glm-4-7",
+      "zai.glm-4.7-flash-v1:0": "zai.glm-4-7-flash",
+      "moonshotai.kimi-k2.5-v1:0": "moonshot.kimi-k2-5",
+      "mistral.mixtral-8x7b-instruct-v0:0": "mistral-ai.mixtral-8x7b",
+      "mistral.ministral-3-14b-instruct:0": "mistral-ai.ministral-14b-3-0",
+      "mistral.ministral-3-8b-instruct:0": "mistral-ai.ministral-8b-3-0",
+      "mistral.ministral-3-3b-instruct:0": "mistral-ai.ministral-3b-3-0",
+      "mistral.pixtral-large-2502-v1:0": "mistral-ai.pixtral-large-25-02",
+      "mistral.magistral-small-2509:0": "mistral-ai.magistral-small-1-2",
+      "mistral.voxtral-mini-3b-2507:0": "mistral-ai.voxtral-mini-1-0",
+      "mistral.voxtral-small-24b-2507:0": "mistral-ai.voxtral-small-1-0",
+      "mistral.devstral-2-123b:0": "mistral-ai.devstral",
+      "mistral.mistral-large-3-675b-instruct:0": "mistral-ai.mistral-large-3",
+      "mistral.mistral-7b-instruct-v0:0": "mistral-ai.mistral-7b",
+      "mistral.mistral-large-2402-v1:0": "mistral-ai.mistral-large",
+      "mistral.mistral-large-2407-v1:0": "mistral-ai.mistral-large-2407",
+      "mistral.mistral-small-2402-v1:0": "mistral-ai.mistral-small",
+      "zai.glm-4.6": "z-ai.glm-4-6",
+      "zai.glm-4.7:0": "z-ai.glm-4-7",
+      "zai.glm-4.7-flash:0": "z-ai.glm-4-7-flash",
+      "zai.glm-5": "z-ai.glm-5",
+      "deepseek.v3-v1:0": "deepseek.deepseek-v3-1",
+      "deepseek.r1-v1:0": "deepseek.r1",
+      "deepseek.v3.2:0": "deepseek.deepseek-v3-2",
+      "ai21.jamba-1-5-large-v1:0": "ai21-labs.jamba-1-5-large",
+      "ai21.jamba-1-5-mini-v1:0": "ai21-labs.jamba-1-5-mini",
+      "stability.sd3-5-large-v1:0": "stability-ai.stable-diffusion-3-5-large-v1-0",
+      "stability.stable-image-core-v1:0": "stability-ai.stable-image-core",
+      "stability.stable-image-ultra-v1:0": "stability-ai.stable-image-ultra",
+      "luma.ray-v2:0": "luma-ai.ray-v2"
     },
     "min_confidence_threshold": 0.7,
     "size_variance_threshold": 0.3,

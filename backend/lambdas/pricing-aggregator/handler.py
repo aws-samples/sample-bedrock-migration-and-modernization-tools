@@ -5,6 +5,8 @@ Merges pricing data from all three Bedrock service codes into a unified structur
 Transforms data to match the expected frontend schema with pricing_groups.
 """
 
+from __future__ import annotations
+
 import os
 import re
 import time
@@ -22,6 +24,261 @@ from shared import (
 )
 from shared.powertools import logger, tracer, metrics, LambdaContext
 from aws_lambda_powertools.metrics import MetricUnit
+
+
+# =============================================================================
+# Dimension Detection Constants
+# =============================================================================
+
+# Inference modes
+INFERENCE_MODES = {
+    "ON_DEMAND": "on_demand",
+    "BATCH": "batch",
+    "PROVISIONED": "provisioned",
+    "RESERVED": "reserved",
+    "MANTLE": "mantle",
+    "CUSTOM_MODEL": "custom_model",
+}
+
+# Geographic scopes
+GEOGRAPHIC_SCOPES = {
+    "IN_REGION": "in_region",
+    "CRIS_GLOBAL": "cris_global",
+    "CRIS_REGIONAL": "cris_regional",
+}
+
+# Context types
+CONTEXT_TYPES = {
+    "STANDARD": "standard",
+    "LONG_CONTEXT": "long_context",
+}
+
+# Cache types
+CACHE_TYPES = {
+    "NONE": None,
+    "CACHE_READ": "cache_read",
+    "CACHE_WRITE": "cache_write",
+    "CACHE_WRITE_1H": "cache_write_1h",
+}
+
+# Commitment terms (for Reserved pricing)
+COMMITMENT_TERMS = {
+    "NONE": None,
+    "NO_COMMIT": "no_commit",
+    "1_MONTH": "1_month",
+    "3_MONTH": "3_month",
+    "6_MONTH": "6_month",
+}
+
+# Tiers
+TIERS = {
+    "NONE": None,
+    "FLEX": "flex",
+    "PRIORITY": "priority",
+    "STANDARD": "standard",
+}
+
+
+# =============================================================================
+# Detection Patterns (regex and keyword-based)
+# =============================================================================
+
+# Mantle detection patterns
+MANTLE_PATTERNS = [
+    re.compile(r"mantle", re.IGNORECASE),
+    re.compile(r"openai[-_]?compatible", re.IGNORECASE),
+    re.compile(r"chat[-_]?completions", re.IGNORECASE),
+]
+
+# CRIS Regional detection patterns (distinct from Global)
+CRIS_REGIONAL_PATTERNS = [
+    re.compile(r"regional\s*cris", re.IGNORECASE),
+    re.compile(r"[-_]geo\b", re.IGNORECASE),  # Matches _geo and -geo suffixes
+    re.compile(
+        r"cross[-_]?region[-_]?geo", re.IGNORECASE
+    ),  # Explicit cross-region-geo pattern
+    re.compile(r"\bregional\b(?!.*global)", re.IGNORECASE),
+]
+
+# Reserved pricing detection patterns
+RESERVED_PATTERNS = [
+    re.compile(r"reserved", re.IGNORECASE),
+    re.compile(r"_tpm_", re.IGNORECASE),  # Tokens per minute reserved
+    re.compile(r"reserved[_-]?(\d+)[_-]?month", re.IGNORECASE),
+    re.compile(r"no[_-]?commit", re.IGNORECASE),
+]
+
+# Cache type detection patterns
+CACHE_PATTERNS = {
+    "cache_read": [
+        re.compile(r"cache[-_]?read", re.IGNORECASE),
+        re.compile(r"cached[-_]?input", re.IGNORECASE),
+    ],
+    "cache_write": [
+        re.compile(r"cache[-_]?write(?![-_]?1h)", re.IGNORECASE),
+        re.compile(r"cache[-_]?storage", re.IGNORECASE),
+    ],
+    "cache_write_1h": [
+        re.compile(r"cache[-_]?write[-_]?1h", re.IGNORECASE),
+        re.compile(r"1[-_]?hour[-_]?cache", re.IGNORECASE),
+    ],
+}
+
+# Commitment term detection patterns
+COMMITMENT_PATTERNS = {
+    "1_month": re.compile(r"1[-_]?month", re.IGNORECASE),
+    "3_month": re.compile(r"3[-_]?month", re.IGNORECASE),
+    "6_month": re.compile(r"6[-_]?month", re.IGNORECASE),
+    "no_commit": re.compile(r"no[-_]?commit", re.IGNORECASE),
+}
+
+
+def detect_mantle_pricing(
+    usage_type: str, description: str, inference_type: str = ""
+) -> bool:
+    """
+    Detect if a pricing entry is for Mantle (OpenAI-compatible) endpoint.
+
+    Mantle pricing patterns:
+    - "mantle" in usage type or description
+    - "openai-compatible" in description or inference type
+    - "chat-completions" endpoint references
+
+    Args:
+        usage_type: The usagetype field from pricing API
+        description: The description field from pricing API
+        inference_type: The inferenceType field from pricing API (optional)
+
+    Returns:
+        True if this is Mantle pricing
+    """
+    usage_lower = usage_type.lower() if usage_type else ""
+    desc_lower = description.lower() if description else ""
+    inference_lower = inference_type.lower() if inference_type else ""
+
+    # Check against Mantle patterns
+    for pattern in MANTLE_PATTERNS:
+        if (
+            pattern.search(usage_lower)
+            or pattern.search(desc_lower)
+            or pattern.search(inference_lower)
+        ):
+            return True
+
+    return False
+
+
+def detect_cris_regional(usage_type: str, description: str) -> bool:
+    """
+    Detect if a pricing entry is for CRIS Regional (cross-region within geographic area).
+
+    CRIS Regional patterns:
+    - "Regional CRIS" in description
+    - "_Geo" suffix in usagetype (e.g., USE1_InputTokenCount_Geo)
+    - "regional" in usage without "global"
+    - "cross-region-geo" in usagetype
+
+    Args:
+        usage_type: The usagetype field from pricing API
+        description: The description field from pricing API
+
+    Returns:
+        True if this is CRIS Regional pricing (not Global)
+    """
+    usage_lower = usage_type.lower() if usage_type else ""
+    desc_lower = description.lower() if description else ""
+
+    # Explicit Global check - if Global, it's not Regional
+    if "global" in usage_lower or "global" in desc_lower:
+        return False
+
+    # Check against CRIS Regional patterns
+    for pattern in CRIS_REGIONAL_PATTERNS:
+        if pattern.search(usage_lower) or pattern.search(desc_lower):
+            return True
+
+    return False
+
+
+def detect_reserved_pricing(
+    usage_type: str, description: str
+) -> tuple[bool, str | None]:
+    """
+    Detect if a pricing entry is for Reserved capacity and extract commitment term.
+
+    Reserved pricing patterns:
+    - "reserved" in usage type or description
+    - "_tpm_" (tokens per minute) in usage type
+    - "Reserved_1Month", "Reserved_3Month", "Reserved_6Month" patterns
+    - "no-commit" for no-commitment reserved
+
+    Args:
+        usage_type: The usagetype field from pricing API
+        description: The description field from pricing API
+
+    Returns:
+        Tuple of (is_reserved, commitment_term)
+        commitment_term is one of: None, "no_commit", "1_month", "3_month", "6_month"
+    """
+    usage_lower = usage_type.lower() if usage_type else ""
+    desc_lower = description.lower() if description else ""
+
+    # Check if this is reserved pricing
+    is_reserved = False
+    for pattern in RESERVED_PATTERNS:
+        if pattern.search(usage_lower) or pattern.search(desc_lower):
+            is_reserved = True
+            break
+
+    if not is_reserved:
+        return False, None
+
+    # Extract commitment term
+    commitment = None
+    for term, pattern in COMMITMENT_PATTERNS.items():
+        if pattern.search(usage_lower) or pattern.search(desc_lower):
+            commitment = term
+            break
+
+    return True, commitment
+
+
+def detect_cache_type(usage_type: str, description: str) -> str | None:
+    """
+    Detect the cache type from usage type and description.
+
+    Cache types:
+    - cache_read: Cached input tokens (reading from cache)
+    - cache_write: Writing to cache (standard)
+    - cache_write_1h: Writing to cache with 1-hour retention
+
+    Args:
+        usage_type: The usagetype field from pricing API
+        description: The description field from pricing API
+
+    Returns:
+        Cache type string or None if not cache pricing
+    """
+    usage_lower = usage_type.lower() if usage_type else ""
+    desc_lower = description.lower() if description else ""
+
+    # Check for cache_write_1h FIRST (most specific)
+    # Must check before cache_write to avoid false positives
+    for pattern in CACHE_PATTERNS.get("cache_write_1h", []):
+        if pattern.search(usage_lower) or pattern.search(desc_lower):
+            return "cache_write_1h"
+
+    # Check for cache_write (before cache_read to avoid false positives)
+    for pattern in CACHE_PATTERNS.get("cache_write", []):
+        if pattern.search(usage_lower) or pattern.search(desc_lower):
+            return "cache_write"
+
+    # Check for cache_read
+    for pattern in CACHE_PATTERNS.get("cache_read", []):
+        if pattern.search(usage_lower) or pattern.search(desc_lower):
+            return "cache_read"
+
+    return None
 
 
 def get_region_locations() -> dict:
@@ -190,20 +447,34 @@ def determine_pricing_group(
     This is the legacy function that returns the full group name including
     context and geo modifiers. Kept for backward compatibility.
     """
-    usage_lower = usage_type.lower()
+    usage_lower = usage_type.lower() if usage_type else ""
     inference_lower = inference_type.lower() if inference_type else ""
     description_lower = description.lower() if description else ""
+
+    # Check for Mantle first (highest priority)
+    if detect_mantle_pricing(usage_type, description, inference_type):
+        return "Mantle"
 
     # Check for global (cross-region worldwide)
     is_global = "global" in usage_lower or "global" in description_lower
 
-    # Check for geo/regional (cross-region within geographic area)
-    # "Regional CRIS" in description, "_Geo" suffix in dimension, or "regional" in usage
-    is_geo = (
-        "regional" in usage_lower
-        or "_geo" in usage_lower
-        or "regional cris" in description_lower
-    ) and not is_global
+    # Check for geo/regional (cross-region within geographic area) using helper
+    is_geo = detect_cris_regional(usage_type, description)
+
+    # Check for Reserved pricing (before provisioned, as reserved is more specific)
+    is_reserved, commitment = detect_reserved_pricing(usage_type, description)
+    if is_reserved:
+        # Build base reserved group name
+        if commitment:
+            base_group = f"Reserved {commitment.replace('_', ' ').title()}"
+        else:
+            base_group = "Reserved"
+        # Append Global/Geo suffix if applicable
+        if is_global:
+            return f"{base_group} Global"
+        elif is_geo:
+            return f"{base_group} Geo"
+        return base_group
 
     # Check for batch
     is_batch = "batch" in usage_lower
@@ -216,14 +487,8 @@ def determine_pricing_group(
         or "longcontext" in usage_lower
     )
 
-    # Check for provisioned/reserved capacity
-    # Includes Reserved_1Month, Reserved_3Month patterns and _tpm_ (tokens per minute)
-    is_provisioned = (
-        "provisioned" in usage_lower
-        or "provisioned" in inference_lower
-        or "reserved" in usage_lower
-        or "_tpm_" in usage_lower  # Reserved TPM pricing
-    )
+    # Check for provisioned capacity (but not reserved - already handled above)
+    is_provisioned = "provisioned" in usage_lower or "provisioned" in inference_lower
 
     # Check for custom model
     is_custom = "custom" in usage_lower or "fine-tun" in usage_lower
@@ -267,41 +532,55 @@ def determine_pricing_group_with_dimensions(
 
     Returns:
         {
-            'group': 'On-Demand' | 'Batch' | 'Provisioned Throughput' | 'Custom Model',
+            'group': 'On-Demand' | 'Batch' | 'Provisioned Throughput' | 'Reserved' | 'Mantle' | 'Custom Model',
             'dimensions': {
-                'source': 'standard' | 'mantle',
-                'geo': None | 'regional' | 'global',
-                'tier': None | 'flex' | 'priority',
-                'context': 'standard' | 'long'
+                'inference_mode': 'on_demand' | 'batch' | 'provisioned' | 'reserved' | 'mantle' | 'custom_model',
+                'geographic_scope': 'in_region' | 'cris_global' | 'cris_regional',
+                'context_type': 'standard' | 'long_context',
+                'cache_type': None | 'cache_read' | 'cache_write' | 'cache_write_1h',
+                'tier': None | 'flex' | 'priority' | 'standard',
+                'commitment': None | 'no_commit' | '1_month' | '3_month' | '6_month',
             }
         }
     """
-    usage_lower = usage_type.lower()
+    usage_lower = usage_type.lower() if usage_type else ""
     inference_lower = inference_type.lower() if inference_type else ""
     description_lower = description.lower() if description else ""
 
-    # Initialize dimensions
+    # Initialize dimensions with defaults
     dimensions = {
         "source": "standard",
-        "geo": None,
+        "inference_mode": "on_demand",
+        "geographic_scope": "in_region",
+        "context_type": "standard",
+        "cache_type": None,
         "tier": None,
-        "context": "standard",
+        "commitment": None,
     }
 
-    # Detect Mantle source
-    # Mantle pricing typically has "mantle" in usage type or specific patterns
-    if "mantle" in usage_lower or "openai-compatible" in inference_lower:
-        dimensions["source"] = "mantle"
+    # Detect Mantle pricing FIRST (highest priority)
+    if detect_mantle_pricing(usage_type, description, inference_type):
+        dimensions["inference_mode"] = "mantle"
+        dimensions["source"] = "mantle"  # Keep backward compatibility
+        return {"group": "Mantle", "dimensions": dimensions}
 
-    # Detect geographic dimension
+    # Detect geographic scope (needed for Reserved pricing too)
     if "global" in usage_lower or "global" in description_lower:
-        dimensions["geo"] = "global"
-    elif (
-        "regional" in usage_lower
-        or "_geo" in usage_lower
-        or "regional cris" in description_lower
-    ):
-        dimensions["geo"] = "regional"
+        dimensions["geographic_scope"] = "cris_global"
+    elif detect_cris_regional(usage_type, description):
+        dimensions["geographic_scope"] = "cris_regional"
+
+    # Detect Reserved pricing (before provisioned, as reserved is more specific)
+    is_reserved, commitment = detect_reserved_pricing(usage_type, description)
+    if is_reserved:
+        dimensions["inference_mode"] = "reserved"
+        dimensions["commitment"] = commitment
+        return {"group": "Reserved", "dimensions": dimensions}
+
+    # Detect cache type
+    cache_type = detect_cache_type(usage_type, description)
+    if cache_type:
+        dimensions["cache_type"] = cache_type
 
     # Detect tier dimension
     if "flex" in usage_lower:
@@ -316,26 +595,25 @@ def determine_pricing_group_with_dimensions(
         or "_lctx" in usage_lower
         or "longcontext" in usage_lower
     ):
-        dimensions["context"] = "long"
+        dimensions["context_type"] = "long_context"
 
-    # Determine base group (simplified - no context/geo modifiers)
+    # Determine base group and inference mode
     is_batch = "batch" in usage_lower
-    is_provisioned = (
-        "provisioned" in usage_lower
-        or "provisioned" in inference_lower
-        or "reserved" in usage_lower
-        or "_tpm_" in usage_lower
-    )
+    is_provisioned = "provisioned" in usage_lower or "provisioned" in inference_lower
     is_custom = "custom" in usage_lower or "fine-tun" in usage_lower
 
     if is_custom:
         group = "Custom Model"
+        dimensions["inference_mode"] = "custom_model"
     elif is_provisioned:
         group = "Provisioned Throughput"
+        dimensions["inference_mode"] = "provisioned"
     elif is_batch:
         group = "Batch"
+        dimensions["inference_mode"] = "batch"
     else:
         group = "On-Demand"
+        # inference_mode already defaults to "on_demand"
 
     return {"group": group, "dimensions": dimensions}
 
@@ -349,32 +627,63 @@ def aggregate_dimensions(pricing_entries: list) -> dict:
     Returns:
         {
             'sources': ['standard', 'mantle'],
-            'geos': ['global', 'regional'],
+            'geos': ['global', 'regional'],  # Legacy name for backward compatibility
+            'geographic_scopes': ['in_region', 'cris_global', 'cris_regional'],
             'tiers': ['flex', 'priority'],
-            'contexts': ['standard', 'long']
+            'contexts': ['standard', 'long'],  # Legacy name for backward compatibility
+            'context_types': ['standard', 'long_context'],
+            'inference_modes': ['on_demand', 'batch', 'reserved', 'mantle', ...],
+            'commitments': ['no_commit', '1_month', '3_month', '6_month'],
+            'cache_types': ['cache_read', 'cache_write', 'cache_write_1h']
         }
     """
     sources = set()
     geos = set()
+    geographic_scopes = set()
     tiers = set()
     contexts = set()
+    context_types = set()
+    inference_modes = set()
+    commitments = set()
+    cache_types = set()
 
     for entry in pricing_entries:
         dims = entry.get("dimensions", {})
         if dims.get("source"):
             sources.add(dims["source"])
+        # Handle both old "geo" and new "geographic_scope" field names
         if dims.get("geo"):
             geos.add(dims["geo"])
+        if dims.get("geographic_scope"):
+            geographic_scopes.add(dims["geographic_scope"])
         if dims.get("tier"):
             tiers.add(dims["tier"])
+        # Handle both old "context" and new "context_type" field names
         if dims.get("context"):
             contexts.add(dims["context"])
+        if dims.get("context_type"):
+            context_types.add(dims["context_type"])
+        if dims.get("inference_mode"):
+            inference_modes.add(dims["inference_mode"])
+        if dims.get("commitment"):
+            commitments.add(dims["commitment"])
+        if dims.get("cache_type"):
+            cache_types.add(dims["cache_type"])
 
     return {
         "sources": sorted(list(sources)) if sources else ["standard"],
-        "geos": sorted(list(geos)) if geos else [],
+        "geos": sorted(list(geos)) if geos else [],  # Legacy
+        "geographic_scopes": sorted(list(geographic_scopes))
+        if geographic_scopes
+        else ["in_region"],
         "tiers": sorted(list(tiers)) if tiers else [],
-        "contexts": sorted(list(contexts)) if contexts else ["standard"],
+        "contexts": sorted(list(contexts)) if contexts else ["standard"],  # Legacy
+        "context_types": sorted(list(context_types)) if context_types else ["standard"],
+        "inference_modes": sorted(list(inference_modes))
+        if inference_modes
+        else ["on_demand"],
+        "commitments": sorted(list(commitments)) if commitments else [],
+        "cache_types": sorted(list(cache_types)) if cache_types else [],
     }
 
 
@@ -793,6 +1102,7 @@ def aggregate_pricing(all_products: list[dict]) -> tuple[dict, dict]:
                 "geographic_scope": "global"
                 if "global" in legacy_pricing_group.lower()
                 else "regional",
+                "cache_type": dimensions.get("cache_type"),
             },
             # Keep legacy group name for backward compatibility
             "pricing_group": legacy_pricing_group,

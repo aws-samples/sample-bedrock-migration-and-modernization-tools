@@ -237,26 +237,39 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
 
   /**
    * Filter pricing entries by dimension options
+   * Supports both legacy dimensions (source, geo, tier, context) and new dimensions
+   * (inference_mode, geographic_scope, commitment, cache_type)
    * @param {Array} entries - Pricing entries to filter
    * @returns {Array} Filtered entries
    */
   const filterByDimensions = (entries) => {
     if (!entries || entries.length === 0) return []
     
+    // Default filter: exclude Mantle and Reserved from summary
     if (!options || Object.keys(options).length === 0) {
-      // Default: prefer standard source, standard context (exclude Mantle by default)
       return entries.filter(e => {
         const dims = e.dimensions || {}
-        return dims.source !== 'mantle' // Exclude Mantle by default
+        // Exclude Mantle (both source and inference_mode)
+        if (dims.source === 'mantle' || dims.inference_mode === 'mantle') return false
+        // Exclude Reserved
+        if (dims.inference_mode === 'reserved') return false
+        return true
       })
     }
     
+    // Custom filter: support all dimensions (legacy and new)
     return entries.filter(e => {
       const dims = e.dimensions || {}
+      // Legacy dimensions
       if (options.source && dims.source !== options.source) return false
       if (options.geo && dims.geo !== options.geo) return false
       if (options.tier && dims.tier !== options.tier) return false
       if (options.context && dims.context !== options.context) return false
+      // New dimensions
+      if (options.geographic_scope && dims.geographic_scope !== options.geographic_scope) return false
+      if (options.inference_mode && dims.inference_mode !== options.inference_mode) return false
+      if (options.commitment && dims.commitment !== options.commitment) return false
+      if (options.cache_type && dims.cache_type !== options.cache_type) return false
       return true
     })
   }

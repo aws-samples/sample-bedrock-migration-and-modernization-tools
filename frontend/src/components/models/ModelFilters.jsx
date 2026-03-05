@@ -18,6 +18,7 @@ import {
   modalityOptions,
   initialFilterState,
   countActiveFilters,
+  pricingFilterOptions,
 } from '@/utils/filters'
 import { cn } from '@/lib/utils'
 
@@ -282,6 +283,12 @@ const mantleToggleOptions = [
   { value: 'No Mantle', label: 'No' },
 ]
 
+const pricingToggleOptions = [
+  { value: 'All Models', label: 'All' },
+  { value: 'Has Pricing', label: 'Yes' },
+  { value: 'No Pricing', label: 'No' },
+]
+
 export function ModelFilters({
   filters,
   onFiltersChange,
@@ -388,6 +395,14 @@ export function ModelFilters({
         key: 'mantle',
         label: `Mantle: ${mantleLabel}`,
         onRemove: () => updateFilter('mantleSupport', 'All Models')
+      })
+    }
+
+    if (filters.pricingFilter !== 'All Models') {
+      chips.push({
+        key: 'pricingFilter',
+        label: `Pricing: ${filters.pricingFilter === 'Has Pricing' ? 'Yes' : 'No'}`,
+        onRemove: () => updateFilter('pricingFilter', 'All Models')
       })
     }
 
@@ -652,6 +667,14 @@ export function ModelFilters({
               options={mantleToggleOptions}
               value={filters.mantleSupport}
               onChange={(v) => updateFilter('mantleSupport', v)}
+              isLight={isLight}
+            />
+
+            <ToggleGroup
+              label="Pricing"
+              options={pricingToggleOptions}
+              value={filters.pricingFilter}
+              onChange={(v) => updateFilter('pricingFilter', v)}
               isLight={isLight}
             />
           </div>

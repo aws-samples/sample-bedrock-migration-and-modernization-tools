@@ -33,6 +33,8 @@ def _load_pricing_aggregator_functions():
     Since the handler has dependencies on shared modules that aren't available
     in the test environment, we extract and exec just the functions we need.
     """
+    import re
+
     source = get_handler_source("pricing-aggregator")
     lines = source.split("\n")
 
@@ -63,7 +65,44 @@ def _load_pricing_aggregator_functions():
 
         return "\n".join(func_lines)
 
-    # Extract functions
+    def extract_constant(const_name: str) -> str:
+        """Extract a constant definition from source lines."""
+        in_constant = False
+        const_lines = []
+        bracket_depth = 0
+
+        for line in lines:
+            if line.startswith(f"{const_name} = "):
+                in_constant = True
+                const_lines.append(line)
+                # Count brackets to handle multi-line definitions
+                bracket_depth += line.count("[") + line.count("{") + line.count("(")
+                bracket_depth -= line.count("]") + line.count("}") + line.count(")")
+                if bracket_depth <= 0:
+                    break
+            elif in_constant:
+                const_lines.append(line)
+                bracket_depth += line.count("[") + line.count("{") + line.count("(")
+                bracket_depth -= line.count("]") + line.count("}") + line.count(")")
+                if bracket_depth <= 0:
+                    break
+
+        return "\n".join(const_lines)
+
+    # Extract constants needed by helper functions
+    mantle_patterns_source = extract_constant("MANTLE_PATTERNS")
+    cris_regional_patterns_source = extract_constant("CRIS_REGIONAL_PATTERNS")
+    reserved_patterns_source = extract_constant("RESERVED_PATTERNS")
+    cache_patterns_source = extract_constant("CACHE_PATTERNS")
+    commitment_patterns_source = extract_constant("COMMITMENT_PATTERNS")
+
+    # Extract helper functions
+    detect_mantle_source = extract_function("detect_mantle_pricing")
+    detect_cris_regional_source = extract_function("detect_cris_regional")
+    detect_reserved_source = extract_function("detect_reserved_pricing")
+    detect_cache_source = extract_function("detect_cache_type")
+
+    # Extract main functions
     func_source = extract_function("determine_pricing_group_with_dimensions")
     if not func_source:
         raise RuntimeError("Could not find determine_pricing_group_with_dimensions")
@@ -72,8 +111,28 @@ def _load_pricing_aggregator_functions():
     if not agg_source:
         raise RuntimeError("Could not find aggregate_dimensions")
 
-    # Create a namespace and exec the functions
-    namespace = {}
+    # Create a namespace with re module (needed for patterns)
+    namespace = {"re": re}
+
+    # Execute in order: constants first, then helper functions, then main functions
+    if mantle_patterns_source:
+        exec(mantle_patterns_source, namespace)
+    if cris_regional_patterns_source:
+        exec(cris_regional_patterns_source, namespace)
+    if reserved_patterns_source:
+        exec(reserved_patterns_source, namespace)
+    if cache_patterns_source:
+        exec(cache_patterns_source, namespace)
+    if commitment_patterns_source:
+        exec(commitment_patterns_source, namespace)
+    if detect_mantle_source:
+        exec(detect_mantle_source, namespace)
+    if detect_cris_regional_source:
+        exec(detect_cris_regional_source, namespace)
+    if detect_reserved_source:
+        exec(detect_reserved_source, namespace)
+    if detect_cache_source:
+        exec(detect_cache_source, namespace)
     exec(func_source, namespace)
     exec(agg_source, namespace)
 
@@ -198,17 +257,20 @@ class TestDimensionSchema:
         )
 
     def test_dimension_geo_values(self):
-        """dimensions.geo should have None, regional, and global values."""
+        """dimensions.geographic_scope should have in_region, cris_global, and cris_regional values."""
         source = get_handler_source("pricing-aggregator")
-        # Check for geo dimension values (both initialization and assignment)
-        assert '"geo": None' in source or "'geo': None" in source
+        # Check for geographic_scope dimension values (both initialization and assignment)
         assert (
-            'dimensions["geo"] = "global"' in source
-            or "dimensions['geo'] = 'global'" in source
+            '"geographic_scope": "in_region"' in source
+            or "'geographic_scope': 'in_region'" in source
         )
         assert (
-            'dimensions["geo"] = "regional"' in source
-            or "dimensions['geo'] = 'regional'" in source
+            'dimensions["geographic_scope"] = "cris_global"' in source
+            or "dimensions['geographic_scope'] = 'cris_global'" in source
+        )
+        assert (
+            'dimensions["geographic_scope"] = "cris_regional"' in source
+            or "dimensions['geographic_scope'] = 'cris_regional'" in source
         )
 
     def test_dimension_tier_values(self):
@@ -226,13 +288,16 @@ class TestDimensionSchema:
         )
 
     def test_dimension_context_values(self):
-        """dimensions.context should have standard and long values."""
+        """dimensions.context_type should have standard and long_context values."""
         source = get_handler_source("pricing-aggregator")
-        # Check for context dimension values (both initialization and assignment)
-        assert '"context": "standard"' in source or "'context': 'standard'" in source
+        # Check for context_type dimension values (both initialization and assignment)
         assert (
-            'dimensions["context"] = "long"' in source
-            or "dimensions['context'] = 'long'" in source
+            '"context_type": "standard"' in source
+            or "'context_type': 'standard'" in source
+        )
+        assert (
+            'dimensions["context_type"] = "long_context"' in source
+            or "dimensions['context_type'] = 'long_context'" in source
         )
 
 

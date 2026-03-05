@@ -129,6 +129,7 @@ PROVIDER_ALIASES = {
     # Additional providers for Mantle API compatibility
     "moonshotai": "moonshot",
     "moonshot": "moonshot",
+    "kimi-ai": "moonshot",
     "google": "google",
     "nvidia": "nvidia",
     "openai": "openai",
@@ -468,8 +469,6 @@ def has_semantic_conflict(id1: str, id2: str) -> bool:
     Examples:
         >>> has_semantic_conflict("deepseek.v3-v1:0", "deepseek.r1")
         True
-        >>> has_semantic_conflict("deepseek.v3-v1:0", "deepseek.v3.1")
-        True
         >>> has_semantic_conflict("claude-3-sonnet", "claude-3-5-sonnet")
         True
         >>> has_semantic_conflict("claude-3-sonnet", "claude-3-opus")
@@ -552,30 +551,6 @@ def has_semantic_conflict(id1: str, id2: str) -> bool:
     is_embed2 = "embed" in norm2
     if is_embed1 != is_embed2:
         return True
-
-    # Check for API version vs semantic version conflict
-    # Pattern: model.vX-vY:Z (API version) vs model.vX.Y (semantic version)
-    # e.g., deepseek.v3-v1:0 (model v3, API v1) vs deepseek.v3.1 (model v3.1)
-    # These look similar after canonicalization but are different models
-    api_ver_pattern = r"\.v(\d+)-v(\d+)(?::\d+)?$"  # .v3-v1:0 -> model v3, API v1
-    semantic_ver_pattern = r"\.v(\d+)\.(\d+)$"  # .v3.1 -> model v3.1
-
-    api_match1 = re.search(api_ver_pattern, norm1)
-    api_match2 = re.search(api_ver_pattern, norm2)
-    sem_match1 = re.search(semantic_ver_pattern, norm1)
-    sem_match2 = re.search(semantic_ver_pattern, norm2)
-
-    # If one has API version format and other has semantic version format
-    if (api_match1 and sem_match2) or (api_match2 and sem_match1):
-        # Get the semantic version's minor part
-        if sem_match1:
-            sem_minor = sem_match1.group(2)
-        else:
-            sem_minor = sem_match2.group(2)
-        # If semantic version has non-zero minor, it's a different model
-        # e.g., v3-v1 (model v3) vs v3.1 (model v3.1) -> conflict
-        if sem_minor != "0":
-            return True
 
     # Check for DeepSeek-style version conflicts (v3.1 vs v3.2)
     # This catches cases where the model family is the same but minor version differs

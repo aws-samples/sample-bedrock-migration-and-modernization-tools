@@ -261,7 +261,156 @@ def _normalize_for_mantle_match(model_id: str) -> str:
     return get_canonical_model_id(model_id)
 
 
-def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
+def _normalize_model_name(name: str) -> str:
+    """Normalize model name for comparison (lowercase, remove hyphens/spaces/underscores)."""
+    if not name:
+        return ""
+    return name.lower().replace("-", "").replace(" ", "").replace("_", "")
+
+
+def merge_duplicate_models(providers: dict) -> dict:
+    """
+    Merge models with matching normalized names within each provider.
+
+    This handles cases where the same model appears with different IDs
+    from different sources (e.g., Bedrock API vs Mantle API).
+
+    The model with more data (has_pricing, in_region, etc.) is kept as primary,
+    and Mantle data is merged from duplicates.
+
+    Args:
+        providers: Dict of provider_name -> {"models": {model_id: model_data}}
+
+    Returns:
+        The providers dict with duplicates merged
+    """
+    for provider_name, provider_data in providers.items():
+        models = provider_data.get("models", {})
+        if not models:
+            continue
+
+        # Group models by normalized name
+        by_name: dict[str, list[tuple[str, dict]]] = {}
+        for model_id, model in models.items():
+            norm_name = _normalize_model_name(model.get("model_name", ""))
+            if norm_name:
+                if norm_name not in by_name:
+                    by_name[norm_name] = []
+                by_name[norm_name].append((model_id, model))
+
+        # Find and merge duplicates
+        to_remove: set[str] = set()
+        for norm_name, model_list in by_name.items():
+            if len(model_list) <= 1:
+                continue
+
+            # Sort by priority: has_pricing > has in_region > has model_arn
+            def priority(item: tuple[str, dict]) -> tuple[bool, bool, bool]:
+                model_id, model = item
+                return (
+                    model.get("has_pricing", False),
+                    len(model.get("in_region", [])) > 0,
+                    bool(model.get("model_arn", "")),
+                )
+
+            model_list.sort(key=priority, reverse=True)
+            primary_id, primary = model_list[0]
+
+            # Merge data from duplicates into primary
+            for dup_id, dup in model_list[1:]:
+                # Merge Mantle regions
+                primary_mantle = primary.get("availability", {}).get("mantle", {})
+                dup_mantle = dup.get("availability", {}).get("mantle", {})
+
+                if dup_mantle.get("supported") and dup_mantle.get("regions"):
+                    if not primary_mantle.get("regions"):
+                        primary_mantle["regions"] = []
+                    # Add unique regions
+                    existing = set(primary_mantle.get("regions", []))
+                    for region in dup_mantle.get("regions", []):
+                        if region not in existing:
+                            primary_mantle["regions"].append(region)
+                            existing.add(region)
+                    primary_mantle["supported"] = True
+                    primary.setdefault("availability", {})["mantle"] = primary_mantle
+
+                # Mark duplicate for removal
+                to_remove.add(dup_id)
+                logger.info(
+                    f"Merging duplicate model {dup_id} into {primary_id} "
+                    f"(normalized name: {norm_name})"
+                )
+
+        # Remove duplicates
+        for model_id in to_remove:
+            del models[model_id]
+
+    return providers
+
+
+def has_mantle_pricing(model_id: str, pricing_data: dict) -> bool:
+    """
+    Check if a model has Mantle-specific pricing in the pricing data.
+
+    Mantle pricing is identified by:
+    - pricing_group == "Mantle"
+    - dimensions.inference_mode == "mantle"
+    - dimensions.source == "mantle"
+
+    Args:
+        model_id: The model identifier
+        pricing_data: The pricing data structure
+
+    Returns:
+        True if Mantle pricing exists for this model
+    """
+    if not pricing_data:
+        return False
+
+    providers = pricing_data.get("providers", {})
+
+    # Try to find the model in pricing data
+    for provider_name, provider_data in providers.items():
+        if not isinstance(provider_data, dict):
+            continue
+
+        for pricing_key, model_pricing in provider_data.items():
+            if not isinstance(model_pricing, dict) or "regions" not in model_pricing:
+                continue
+
+            # Check if this pricing entry matches our model
+            # Use canonical matching for flexibility
+            canonical_model = get_canonical_model_id(model_id)
+            canonical_pricing = get_canonical_model_id(pricing_key)
+
+            if canonical_model != canonical_pricing:
+                continue
+
+            # Check for Mantle pricing in any region
+            for region_data in model_pricing.get("regions", {}).values():
+                pricing_groups = region_data.get("pricing_groups", {})
+
+                # Check for "Mantle" group
+                if "Mantle" in pricing_groups:
+                    return True
+
+                # Check dimensions in any group
+                for group_entries in pricing_groups.values():
+                    for entry in group_entries:
+                        dims = entry.get("dimensions", {})
+                        if dims.get("inference_mode") == "mantle":
+                            return True
+                        if dims.get("source") == "mantle":
+                            return True
+
+    return False
+
+
+def build_mantle_inference(
+    model_id: str,
+    mantle_by_model: dict,
+    pricing_data: dict = None,
+) -> dict:
     """Build mantle_inference object for a model.
 
     Uses the centralized model_matcher for fuzzy matching because the Mantle API
@@ -274,6 +423,11 @@ def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
 
     mantle_by_model values are dicts: {"regions": [...], "supports_responses_api": bool}
 
+    Args:
+        model_id: The model identifier
+        mantle_by_model: Dict of Mantle models with regions and API support
+        pricing_data: Optional pricing data to check for Mantle pricing
+
     Returns a dict with:
     - supported: bool
     - mantle_regions: list of regions
@@ -281,7 +435,13 @@ def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
     - mantle_endpoint_pattern: str
     - matched_mantle_id: str or None (the Mantle model ID that was matched)
     - supports_responses_api: bool
+    - has_pricing: bool (indicates Mantle pricing exists)
     """
+    # Check for Mantle pricing upfront
+    mantle_has_pricing = (
+        has_mantle_pricing(model_id, pricing_data) if pricing_data else False
+    )
+
     # 1. Exact match
     mantle_info = mantle_by_model.get(model_id, {})
     regions = mantle_info.get("regions", [])
@@ -292,6 +452,7 @@ def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
             "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
             "matched_mantle_id": model_id,
             "supports_responses_api": mantle_info.get("supports_responses_api", False),
+            "has_pricing": mantle_has_pricing,
         }
 
     # 2. Fuzzy match using centralized model_matcher
@@ -321,6 +482,7 @@ def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
             "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
             "matched_mantle_id": best_match_id,
             "supports_responses_api": supports_responses_api,
+            "has_pricing": mantle_has_pricing,
         }
 
     # No match found
@@ -330,6 +492,7 @@ def build_mantle_inference(model_id: str, mantle_by_model: dict) -> dict:
         "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
         "matched_mantle_id": None,
         "supports_responses_api": False,
+        "has_pricing": False,
     }
 
 
@@ -569,6 +732,7 @@ def create_mantle_only_stub(
         "mantle_regions": regions,
         "mantle_endpoint_pattern": "bedrock-mantle.{region}.api.aws",
         "supports_responses_api": supports_responses_api,
+        "has_pricing": False,  # Will be updated if pricing is found
     }
 
     # Build model_pricing structure
@@ -1256,6 +1420,7 @@ def build_availability(
         "regions": mantle_data.get("mantle_regions", []),
         "only": is_mantle_only,
         "responses_api": mantle_data.get("supports_responses_api", False),
+        "has_pricing": mantle_data.get("has_pricing", False),
     }
 
     return {
@@ -1741,8 +1906,8 @@ def transform_model_to_schema(
     # Build cross-region inference
     cross_region = build_cross_region_inference(model_id, features_by_region)
 
-    # Build Mantle inference
-    mantle = build_mantle_inference(model_id, mantle_by_model)
+    # Build Mantle inference (with pricing data to determine has_pricing)
+    mantle = build_mantle_inference(model_id, mantle_by_model, pricing_data)
 
     # Build model quotas (using snake_case model_name)
     model_quotas = build_model_quotas(
@@ -2090,7 +2255,7 @@ def build_final_models(
             )
 
             # Build Mantle inference data (needed for tracking matched IDs)
-            mantle = build_mantle_inference(model_id, mantle_by_model)
+            mantle = build_mantle_inference(model_id, mantle_by_model, pricing_data)
 
             # Track matched Mantle model ID
             if mantle.get("matched_mantle_id"):
@@ -2144,6 +2309,8 @@ def build_final_models(
                     "available": True,
                     "reference": pricing_ref,
                 }
+                # Update availability.mantle.has_pricing
+                stub["availability"]["mantle"]["has_pricing"] = True
                 batch = check_batch_inference(mantle_id, pricing_data, pricing_ref)
                 if batch.get("supported"):
                     # Update availability.batch
@@ -2170,6 +2337,9 @@ def build_final_models(
             logger.debug(
                 f"Created Mantle-only stub for {mantle_id} under provider {provider_name}"
             )
+
+    # Merge duplicate models by normalized name
+    result_providers = merge_duplicate_models(result_providers)
 
     return result_providers
 

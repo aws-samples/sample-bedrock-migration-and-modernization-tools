@@ -306,6 +306,15 @@ export function sortModels(models, sortBy, getPricingForModel, preferredRegion) 
 }
 
 /**
+ * Pricing availability filter options
+ */
+export const pricingFilterOptions = [
+  { value: 'All Models', label: 'All' },
+  { value: 'Has Pricing', label: 'Yes' },
+  { value: 'No Pricing', label: 'No' },
+]
+
+/**
  * Initial filter state
  */
 export const initialFilterState = {
@@ -317,6 +326,7 @@ export const initialFilterState = {
   crisSupport: 'All Models',
   streamingSupport: 'All Models',
   mantleSupport: 'All Models',
+  pricingFilter: 'All Models',
   consumptionOptions: [],
   useCases: [],
   modality: 'All Modalities',
@@ -383,8 +393,12 @@ export function extractModalities(models) {
 
 /**
  * Apply all filters to models
+ * @param {Array} models - Array of models to filter
+ * @param {Object} filters - Filter state object
+ * @param {Function} getPricingForModel - Optional function to get pricing for a model
+ * @returns {Array} Filtered models array
  */
-export function applyFilters(models, filters) {
+export function applyFilters(models, filters, getPricingForModel = null) {
   let filtered = [...models]
 
   // Search query
@@ -490,6 +504,20 @@ export function applyFilters(models, filters) {
     })
   }
 
+  // Pricing availability filter - use has_pricing flag from model data
+  if (filters.pricingFilter && filters.pricingFilter !== 'All Models') {
+    filtered = filtered.filter(m => {
+      const hasPricing = m.has_pricing === true
+      
+      if (filters.pricingFilter === 'Has Pricing') {
+        return hasPricing
+      } else if (filters.pricingFilter === 'No Pricing') {
+        return !hasPricing
+      }
+      return true
+    })
+  }
+
   // Context window filter
   if (filters.contextFilter && filters.contextFilter !== 'All Models') {
     filtered = filtered.filter(m => {
@@ -586,6 +614,7 @@ export function countActiveFilters(filters) {
   if (filters.crisSupport && filters.crisSupport !== 'All Models') count++
   if (filters.streamingSupport && filters.streamingSupport !== 'All Models') count++
   if (filters.mantleSupport && filters.mantleSupport !== 'All Models') count++
+  if (filters.pricingFilter && filters.pricingFilter !== 'All Models') count++
   if (filters.consumptionOptions?.length > 0) count++
   if (filters.contextFilter && filters.contextFilter !== 'All Models') count++
   if (filters.modality && filters.modality !== 'All Modalities') count++
