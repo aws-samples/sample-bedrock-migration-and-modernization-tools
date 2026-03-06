@@ -19,6 +19,11 @@ Parameters:
     Default: ''
     Description: ARN of the CloudFront distribution that needs access to the data bucket (optional)
 
+  FrontendStackName:
+    Type: String
+    Default: ''
+    Description: Name of the frontend CloudFormation stack (e.g. bedrock-profiler-frontend-prod). Used to import the CloudFront distribution ID for automatic cache invalidation.
+
   ExistingDataBucket:
     Type: String
     Default: ''
@@ -109,6 +114,7 @@ Parameters:
 
 Conditions:
   HasCloudFrontAccess: !Not [!Equals [!Ref CloudFrontDistributionArn, '']]
+  HasFrontendStack: !Not [!Equals [!Ref FrontendStackName, '']]
   ScheduleEnabledCondition: !Equals [!Ref ScheduleEnabled, 'true']
   CreateNewBucket: !Equals [!Ref ExistingDataBucket, '']
 
@@ -508,8 +514,8 @@ Resources:
       FunctionName: !Sub 'bedrock-profiler-copy-to-latest-${Environment}'
       CodeUri: ../backend/lambdas/copy-to-latest/
       Handler: handler.lambda_handler
-      Timeout: 60
-      MemorySize: 256
+      Timeout: 120
+      MemorySize: 512
       Policies:
         - Version: '2012-10-17'
           Statement:
@@ -522,6 +528,36 @@ Resources:
                 - CreateNewBucket
                 - !Sub '${DataBucket.Arn}/*'
                 - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+
+  # Cache Invalidator - Invalidates CloudFront cache after data update
+  CacheInvalidatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bedrock-profiler-cache-invalidator-${Environment}'
+      CodeUri: ../backend/lambdas/cache-invalidator/
+      Handler: handler.lambda_handler
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          CLOUDFRONT_DISTRIBUTION_ID: !If
+            - HasFrontendStack
+            - !ImportValue
+                Fn::Sub: '${FrontendStackName}-DistributionId'
+            - ''
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - cloudfront:CreateInvalidation
+              Resource: !If
+                - HasFrontendStack
+                - !Sub
+                  - 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${DistId}'
+                  - DistId: !ImportValue
+                      Fn::Sub: '${FrontendStackName}-DistributionId'
+                - !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/*'
 
   # Gap Detection - Analyzes pipeline output for data gaps
   GapDetectionFunction:
@@ -621,6 +657,7 @@ Resources:
                   - !GetAtt TokenSpecsCollectorFunction.Arn
                   - !GetAtt FinalAggregatorFunction.Arn
                   - !GetAtt CopyToLatestFunction.Arn
+                  - !GetAtt CacheInvalidatorFunction.Arn
                   - !GetAtt GapDetectionFunction.Arn
                   - !GetAtt SelfHealingAgentFunction.Arn
                   - !GetAtt MantleCollectorFunction.Arn
@@ -667,6 +704,7 @@ Resources:
         TokenSpecsCollectorFunction: !GetAtt TokenSpecsCollectorFunction.Arn
         FinalAggregatorFunction: !GetAtt FinalAggregatorFunction.Arn
         CopyToLatestFunction: !GetAtt CopyToLatestFunction.Arn
+        CacheInvalidatorFunction: !GetAtt CacheInvalidatorFunction.Arn
         GapDetectionFunction: !GetAtt GapDetectionFunction.Arn
         SelfHealingAgentFunction: !GetAtt SelfHealingAgentFunction.Arn
         MantleCollectorFunction: !GetAtt MantleCollectorFunction.Arn

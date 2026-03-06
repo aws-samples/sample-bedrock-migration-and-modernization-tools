@@ -505,7 +505,7 @@ Located at: `backend/config/profiler-config.json`
 | `external_urls` | API endpoints, documentation links |
 | `provider_configuration` | Provider aliases, patterns, colors, docs |
 | `region_configuration` | Region lists, coordinates, metadata |
-| `model_configuration` | Model families, variants, context specs |
+| `model_configuration` | Model families, variants, context specs, hidden models |
 | `matching_configuration` | Fuzzy matching thresholds, explicit mappings |
 | `agent_configuration` | Self-healing agent settings |
 | `pricing_service_codes` | AWS pricing API service codes |
@@ -528,11 +528,26 @@ Located at: `backend/config/profiler-config.json`
     },
     "min_confidence_threshold": 0.7
   },
+  "model_configuration": {
+    "hidden_models": ["zai.glm-5"]
+  },
   "agent_configuration": {
     "bedrock_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0"
   }
 }
 ```
+
+### Hiding Models from the Frontend
+
+To hide a model from the frontend without removing it from the data pipeline, add its `model_id` to the `hidden_models` array in `profiler-config.json`:
+
+```json
+"model_configuration": {
+  "hidden_models": ["zai.glm-5", "another.model-id"]
+}
+```
+
+The `final-aggregator` Lambda sets `show_model: false` on these models. The frontend's `flattenModels()` in `useModels.js` filters them out. The model data is still collected and stored — it just won't appear in any frontend view.
 
 ---
 

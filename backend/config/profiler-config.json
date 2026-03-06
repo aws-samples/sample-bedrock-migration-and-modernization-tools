@@ -982,6 +982,9 @@
       "mistral",
       "command-r"
     ],
+    "hidden_models": [
+      "zai.glm-5"
+    ],
     "context_window_thresholds": {
       "small": 32000,
       "medium": 128000,

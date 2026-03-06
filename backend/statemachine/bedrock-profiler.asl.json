@@ -691,7 +691,31 @@
           "MaxDelaySeconds": 30
         }
       ],
-      "TimeoutSeconds": 60,
+      "TimeoutSeconds": 180,
+      "Next": "InvalidateCache"
+    },
+
+    "InvalidateCache": {
+      "Type": "Task",
+      "Resource": "${CacheInvalidatorFunction}",
+      "Parameters": {},
+      "ResultPath": "$.cacheResult",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 1,
+          "BackoffRate": 2
+        }
+      ],
+      "TimeoutSeconds": 30,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.cacheError",
+          "Next": "ExecutionSucceeded"
+        }
+      ],
       "Next": "ExecutionSucceeded"
     },
 

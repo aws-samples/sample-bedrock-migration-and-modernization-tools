@@ -18,6 +18,9 @@ function flattenModels(data) {
     if (!providerData?.models) continue
 
     for (const [modelId, modelData] of Object.entries(providerData.models)) {
+      // Skip models flagged as hidden by the backend
+      if (modelData.show_model === false) continue
+
       models.push({
         ...modelData,
         model_id: modelId,
@@ -146,6 +149,18 @@ function getModelPricing(model, pricingData) {
     if (providerData?.[pricingRef.model_key]) {
       return providerData[pricingRef.model_key]
     }
+    // Fallback: reference model_key may include version suffix (e.g. "-20240307-v1:0")
+    // but pricing keys use the base form (e.g. "anthropic.claude-3-haiku")
+    // Pick the longest matching key to avoid false positives (e.g. "anthropic.claude" vs "anthropic.claude-3-haiku")
+    if (providerData) {
+      let bestKey = null
+      for (const pricingKey of Object.keys(providerData)) {
+        if (pricingRef.model_key.startsWith(pricingKey) && (!bestKey || pricingKey.length > bestKey.length)) {
+          bestKey = pricingKey
+        }
+      }
+      if (bestKey) return providerData[bestKey]
+    }
   }
 
   // Fallback: try matching by model_id directly
@@ -154,6 +169,15 @@ function getModelPricing(model, pricingData) {
     if (provider[modelId]) {
       return provider[modelId]
     }
+    // Try prefix match (model_id with version suffix → base pricing key)
+    // Pick the longest match to avoid false positives
+    let bestKey = null
+    for (const pricingKey of Object.keys(provider)) {
+      if (modelId.startsWith(pricingKey) && (!bestKey || pricingKey.length > bestKey.length)) {
+        bestKey = pricingKey
+      }
+    }
+    if (bestKey) return provider[bestKey]
   }
 
   return null

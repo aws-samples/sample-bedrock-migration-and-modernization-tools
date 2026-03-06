@@ -97,6 +97,7 @@ Each model is a complete object with the following structure:
 
 ```json
 {
+  "show_model": true,
   "model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
   "model_arn": "arn:aws:bedrock:us-east-1::foundation-model/...",
   "model_name": "Claude 3.5 Sonnet v2",
@@ -141,6 +142,7 @@ Each model is a complete object with the following structure:
 
 | Field | Type | Description | Source |
 |-------|------|-------------|--------|
+| `show_model` | boolean | Frontend visibility flag. `false` hides the model from all views. Controlled by `model_configuration.hidden_models` in `profiler-config.json` | final-aggregator / config |
 | `model_id` | string | Unique model identifier | model-extractor |
 | `model_arn` | string | Full ARN of the model | model-extractor |
 | `model_name` | string | Human-readable display name | model-extractor |

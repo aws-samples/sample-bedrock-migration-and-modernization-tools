@@ -1,12 +1,49 @@
-import { Menu } from 'lucide-react'
+import { Menu, Clock } from 'lucide-react'
+import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { useTheme } from './ThemeProvider'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { BedrockIcon } from '@/components/icons/BedrockIcon'
+import { useModels } from '@/hooks/useModels'
 
 export function MainContent({ children, className, onMenuToggle }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
+  const { metadata } = useModels()
+
+  const { lastUpdatedLabel, lastUpdatedFull } = useMemo(() => {
+    const ts = metadata?.collection_timestamp
+    if (!ts) return { lastUpdatedLabel: null, lastUpdatedFull: null }
+
+    try {
+      const d = new Date(ts)
+      const now = new Date()
+      const diffMs = now - d
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+      let label = null
+      if (diffHours < 1) label = 'Updated just now'
+      else if (diffHours < 24) label = `Updated ${diffHours}h ago`
+      else if (diffDays === 1) label = 'Updated yesterday'
+      else label = `Updated ${diffDays}d ago`
+
+      const fullDate = d.toLocaleString('en-US', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      })
+
+      return { lastUpdatedLabel: label, lastUpdatedFull: fullDate }
+    } catch {
+      return { lastUpdatedLabel: null, lastUpdatedFull: null }
+    }
+  }, [metadata])
 
   return (
     <main
@@ -65,6 +102,77 @@ export function MainContent({ children, className, onMenuToggle }) {
             Bedrock Profiler
           </span>
         </div>
+        {lastUpdatedLabel && (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className={cn(
+                  'ml-auto flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors cursor-default',
+                  isLight
+                    ? 'bg-stone-100/80 hover:bg-stone-100'
+                    : 'bg-slate-800/50 hover:bg-slate-800'
+                )}>
+                  <Clock className={cn(
+                    'h-3 w-3',
+                    isLight ? 'text-stone-500' : 'text-slate-400'
+                  )} />
+                  <span className={cn(
+                    'text-xs font-medium whitespace-nowrap',
+                    isLight ? 'text-stone-600' : 'text-slate-300'
+                  )}>
+                    {lastUpdatedLabel}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={8}>
+                <div className="text-xs">
+                  <div className="font-medium mb-0.5">Data last refreshed</div>
+                  <div className="text-muted-foreground">{lastUpdatedFull}</div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+
+      {/* Desktop Header - timestamp only */}
+      <div className={cn(
+        'hidden lg:flex sticky top-0 z-40 items-center justify-end px-6 py-3 border-b',
+        isLight
+          ? 'bg-white/70 border-stone-200/60 backdrop-blur-xl'
+          : 'bg-slate-900/70 border-slate-800/40 backdrop-blur-xl'
+      )}>
+        {lastUpdatedLabel && (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className={cn(
+                  'flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors cursor-default',
+                  isLight
+                    ? 'bg-stone-100/80 hover:bg-stone-100'
+                    : 'bg-slate-800/50 hover:bg-slate-800'
+                )}>
+                  <Clock className={cn(
+                    'h-3.5 w-3.5',
+                    isLight ? 'text-stone-500' : 'text-slate-400'
+                  )} />
+                  <span className={cn(
+                    'text-sm font-medium whitespace-nowrap',
+                    isLight ? 'text-stone-600' : 'text-slate-300'
+                  )}>
+                    {lastUpdatedLabel}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={8}>
+                <div className="text-xs">
+                  <div className="font-medium mb-0.5">Data last refreshed</div>
+                  <div className="text-muted-foreground">{lastUpdatedFull}</div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
 
       <div className="relative p-4 sm:p-6">

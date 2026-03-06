@@ -2130,7 +2130,7 @@ function SpecsTab({ model, user }) {
               <CategoryHeader icon={Globe} title="Availability & Deployment" />
               <div className="space-y-3">
                 {/* Regional Availability - Always expanded */}
-                <CollapsibleSection title="Regional Availability" icon={Globe} defaultExpanded={true}>
+                <CollapsibleSection title="Consumption Options" icon={Globe} defaultExpanded={true}>
                   <AvailabilitySummary model={model} />
                 </CollapsibleSection>
 

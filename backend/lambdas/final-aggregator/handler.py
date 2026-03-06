@@ -837,7 +837,14 @@ def create_mantle_only_stub(
         "pricing_guide": default_pricing_guide,
     }
 
+    # Determine visibility
+    hidden_models = config.config.get("model_configuration", {}).get(
+        "hidden_models", []
+    )
+
     return {
+        # Visibility flag
+        "show_model": mantle_id not in hidden_models,
         # Core identifiers
         "model_id": mantle_id,
         "model_arn": "",
@@ -2240,8 +2247,16 @@ def transform_model_to_schema(
         reserved_data=reserved_capacity,
     )
 
+    # Determine visibility (config-driven hidden models list)
+    hidden_models = config.config.get("model_configuration", {}).get(
+        "hidden_models", []
+    )
+    show_model = model_id not in hidden_models
+
     # Build the result with new field names only (Phase 3 - old fields removed)
     result = {
+        # Visibility flag (frontend uses this to filter display)
+        "show_model": show_model,
         # Core identifiers (kept)
         "model_id": model_id,
         "model_arn": model.get("model_arn", ""),
