@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { FileText, Search, Filter, Info, User, Tag, Calendar } from 'lucide-react'
+import { FileText, Search, Filter, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import changelogData from '@/data/changelog-data.json'
@@ -32,6 +32,25 @@ const TYPE_CONFIG = {
   },
 }
 
+function getRelativeTime(dateStr) {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now - date
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) return 'today'
+  if (diffDays === 1) return '1d ago'
+  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`
+  return `${Math.floor(diffDays / 365)}y ago`
+}
+
+function formatDate(dateStr) {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 export function AdminChangelog() {
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -58,6 +77,16 @@ export function AdminChangelog() {
       return matchesType && matchesSearch
     })
   }, [searchQuery, typeFilter])
+
+  const groupedEntries = useMemo(() => {
+    const groups = {}
+    filteredEntries.forEach((entry) => {
+      if (!groups[entry.date]) groups[entry.date] = []
+      groups[entry.date].push(entry)
+    })
+    // Sort dates descending (newest first)
+    return Object.entries(groups).sort(([a], [b]) => new Date(b) - new Date(a))
+  }, [filteredEntries])
 
   const typeOptions = ['all', ...Object.keys(TYPE_CONFIG)]
 
@@ -87,25 +116,6 @@ export function AdminChangelog() {
         >
           Last updated: {changelogData.lastUpdated}
         </span>
-      </div>
-
-      {/* Info Banner */}
-      <div
-        className={cn(
-          'flex items-start gap-3 p-4 rounded-xl border',
-          isLight
-            ? 'bg-amber-50/50 border-amber-200/60 text-amber-800'
-            : 'bg-[#1A9E7A]/10 border-[#1A9E7A]/20 text-[#1A9E7A]'
-        )}
-      >
-        <Info className="h-5 w-5 flex-shrink-0 mt-0.5" />
-        <div className="text-sm">
-          <p className="font-medium">How to add changelog entries</p>
-          <p className={cn('mt-1', isLight ? 'text-amber-700' : 'text-[#1A9E7A]/80')}>
-            Edit <code className="px-1.5 py-0.5 rounded bg-black/10 font-mono text-xs">frontend/src/data/changelog-data.json</code> and commit your changes.
-            Each entry should include a unique id, date, type, title, description, author, and optional tags.
-          </p>
-        </div>
       </div>
 
       {/* Filters */}
@@ -159,103 +169,145 @@ export function AdminChangelog() {
         </div>
       </div>
 
-      {/* Changelog Entries */}
-      <div className="space-y-4">
-        {filteredEntries.length === 0 ? (
-          <div
-            className={cn(
-              'flex items-center justify-center py-16 text-sm',
-              isLight ? 'text-stone-400' : 'text-slate-500'
-            )}
-          >
-            No entries found
-          </div>
-        ) : (
-          filteredEntries.map((entry) => {
-            const typeConfig = TYPE_CONFIG[entry.type] || TYPE_CONFIG.feature
-            return (
-              <div key={entry.id} className={cardCls}>
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className={cn(
-                        'text-[10px] font-bold leading-none px-2 py-1 rounded-full border uppercase',
-                        isLight ? typeConfig.light : typeConfig.dark
-                      )}
-                    >
-                      {typeConfig.label}
-                    </span>
-                    <h3
-                      className={cn(
-                        'text-base font-semibold',
-                        isLight ? 'text-stone-900' : 'text-white'
-                      )}
-                    >
-                      {entry.title}
-                    </h3>
-                  </div>
+      {/* Timeline Entries */}
+      {groupedEntries.length === 0 ? (
+        <div
+          className={cn(
+            'flex items-center justify-center py-16 text-sm',
+            isLight ? 'text-stone-400' : 'text-slate-500'
+          )}
+        >
+          No entries found
+        </div>
+      ) : (
+        <div className="relative">
+          {groupedEntries.map(([date, entries], idx) => (
+            <div key={date} className="flex gap-4 mb-4">
+              {/* Timeline dot + line */}
+              <div className="flex flex-col items-center w-8 flex-shrink-0">
+                <div
+                  className={cn(
+                    'w-3 h-3 rounded-full border-2 mt-4',
+                    isLight
+                      ? 'bg-stone-300 border-stone-400'
+                      : 'bg-slate-600 border-slate-500'
+                  )}
+                />
+                {idx < groupedEntries.length - 1 && (
                   <div
                     className={cn(
-                      'flex items-center gap-1.5 text-xs flex-shrink-0',
-                      isLight ? 'text-stone-400' : 'text-slate-500'
+                      'w-px flex-1 mt-1',
+                      isLight ? 'bg-stone-200' : 'bg-white/[0.06]'
+                    )}
+                  />
+                )}
+              </div>
+
+              {/* Content card */}
+              <div className={cn(cardCls, 'flex-1 p-4')}>
+                {/* Date header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <span
+                    className={cn(
+                      'text-lg font-bold tabular-nums',
+                      isLight ? 'text-amber-600' : 'text-[#1A9E7A]'
                     )}
                   >
-                    <Calendar className="h-3.5 w-3.5" />
-                    {entry.date}
-                  </div>
+                    {formatDate(date)}
+                  </span>
+                  <span
+                    className={cn(
+                      'text-xs px-2 py-0.5 rounded-full font-medium',
+                      isLight
+                        ? 'bg-stone-100 text-stone-400'
+                        : 'bg-white/[0.03] text-slate-500'
+                    )}
+                  >
+                    {getRelativeTime(date)}
+                  </span>
                 </div>
 
-                <p
-                  className={cn(
-                    'text-sm leading-relaxed mb-4',
-                    isLight ? 'text-stone-600' : 'text-slate-400'
-                  )}
-                >
-                  {entry.description}
-                </p>
-
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  {/* Author */}
-                  <div
-                    className={cn(
-                      'flex items-center gap-1.5 text-xs',
-                      isLight ? 'text-stone-500' : 'text-slate-500'
-                    )}
-                  >
-                    <User className="h-3.5 w-3.5" />
-                    {entry.author}
-                  </div>
-
-                  {/* Tags */}
-                  {entry.tags && entry.tags.length > 0 && (
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <Tag
-                        className={cn(
-                          'h-3.5 w-3.5',
-                          isLight ? 'text-stone-400' : 'text-slate-500'
+                {/* Entries for this date */}
+                <div className="space-y-4">
+                  {entries.map((entry, entryIdx) => {
+                    const typeConfig = TYPE_CONFIG[entry.type] || TYPE_CONFIG.feature
+                    return (
+                      <div key={entry.id}>
+                        {/* Separator between entries */}
+                        {entryIdx > 0 && (
+                          <div
+                            className={cn(
+                              'border-t mb-4',
+                              isLight ? 'border-stone-100' : 'border-white/[0.04]'
+                            )}
+                          />
                         )}
-                      />
-                      {entry.tags.map((tag) => (
-                        <span
-                          key={tag}
+
+                        {/* Type badge + Title */}
+                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                          <span
+                            className={cn(
+                              'text-[10px] font-bold leading-none px-2 py-1 rounded-full border uppercase',
+                              isLight ? typeConfig.light : typeConfig.dark
+                            )}
+                          >
+                            {typeConfig.label}
+                          </span>
+                          <h3
+                            className={cn(
+                              'text-sm font-semibold',
+                              isLight ? 'text-stone-900' : 'text-white'
+                            )}
+                          >
+                            {entry.title}
+                          </h3>
+                        </div>
+
+                        {/* Description */}
+                        <p
                           className={cn(
-                            'text-xs px-2 py-0.5 rounded-md',
-                            isLight
-                              ? 'bg-stone-100 text-stone-600'
-                              : 'bg-white/[0.06] text-slate-400'
+                            'text-sm leading-relaxed',
+                            isLight ? 'text-stone-600' : 'text-slate-400'
                           )}
                         >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                          {entry.description}
+                        </p>
+
+                        {/* Tags */}
+                        {entry.tags && entry.tags.length > 0 && (
+                          <div className="flex items-center gap-1.5 mt-2 pl-1">
+                            <ArrowRight
+                              className={cn(
+                                'w-3 h-3 shrink-0',
+                                isLight ? 'text-amber-400' : 'text-[#1A9E7A]/60'
+                              )}
+                            />
+                            <div className="flex flex-wrap gap-1">
+                              {entry.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className={cn(
+                                    'text-xs px-1.5 py-0.5 rounded border font-mono',
+                                    isLight
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                      : 'bg-[#1A9E7A]/10 text-[#1A9E7A] border-[#1A9E7A]/20'
+                                  )}
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
-            )
-          })
-        )}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

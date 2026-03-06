@@ -105,7 +105,36 @@ Daily at 6 AM UTC (Step Functions):
 
 17 Lambda functions process the data, with inter-Lambda S3 caching reducing API calls from ~480 to ~29 per execution. A self-healing system powered by Claude detects data gaps and automatically applies safe configuration fixes.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture deep dive.
+## Project Structure
+
+```
+bedrock-model-profiler/
+├── frontend/                  # React + Vite web application
+│   ├── src/components/        # UI components (models, comparison, layout)
+│   ├── src/hooks/             # Data fetching (useModels.js)
+│   ├── src/stores/            # State management (comparison, favorites, auth)
+│   └── src/config/            # Constants, permissions, data source config
+├── backend/
+│   ├── lambdas/               # 17 Python Lambda functions
+│   ├── layers/common/         # Shared utilities (model matcher, caching, config)
+│   ├── statemachine/          # Step Functions workflow definition
+│   ├── config/                # Externalized pipeline configuration
+│   └── tests/                 # ~150 tests
+├── infra/                     # SAM templates (CloudFormation)
+├── docs/                      # Architecture and design documentation
+└── setup-infrastructure.sh    # Full deployment script
+```
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture, data flow, Lambda functions |
+| [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md) | Data sources, reliability notes, fallback mechanisms |
+| [docs/DATA-SCHEMA.md](docs/DATA-SCHEMA.md) | Model JSON structure, field explanations |
+| [docs/PRICING-SCHEMA.md](docs/PRICING-SCHEMA.md) | Pricing JSON structure, groups, dimensions |
+| [backend/lambdas/README.md](backend/lambdas/README.md) | Lambda function contracts |
+| [docs/model-matching-issues.md](docs/model-matching-issues.md) | Known model matching issues |
 
 ## What You Need
 
@@ -139,37 +168,6 @@ cd infra
 sam build -t backend-template.yaml
 sam deploy --stack-name bedrock-profiler-dev --capabilities CAPABILITY_NAMED_IAM --resolve-s3
 ```
-
-## Project Structure
-
-```
-bedrock-model-profiler/
-├── frontend/                  # React + Vite web application
-│   ├── src/components/        # UI components (models, comparison, layout)
-│   ├── src/hooks/             # Data fetching (useModels.js)
-│   ├── src/stores/            # State management (comparison, favorites, auth)
-│   └── src/config/            # Constants, permissions, data source config
-├── backend/
-│   ├── lambdas/               # 17 Python Lambda functions
-│   ├── layers/common/         # Shared utilities (model matcher, caching, config)
-│   ├── statemachine/          # Step Functions workflow definition
-│   ├── config/                # Externalized pipeline configuration
-│   └── tests/                 # ~150 tests
-├── infra/                     # SAM templates (CloudFormation)
-├── docs/                      # Architecture and design documentation
-└── setup-infrastructure.sh    # Full deployment script
-```
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Detailed architecture, caching, self-healing |
-| [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) | All data sources and their schemas |
-| [backend/lambdas/README.md](backend/lambdas/README.md) | Lambda function contracts |
-| [backend/README.md](backend/README.md) | Backend pipeline architecture |
-| [frontend/README.md](frontend/README.md) | Frontend architecture and components |
-| [docs/model-matching-issues.md](docs/model-matching-issues.md) | Known model matching issues |
 
 ## Troubleshooting
 

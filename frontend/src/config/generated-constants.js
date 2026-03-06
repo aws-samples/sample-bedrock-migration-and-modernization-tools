@@ -1,6 +1,6 @@
 /**
  * Auto-generated constants from backend profiler-config.json
- * Generated at: 2026-03-05T19:59:07.902Z
+ * Generated at: 2026-03-06T12:55:18.393Z
  * Source version: 1.0.0-auto-updated-auto-updated
  * 
  * DO NOT EDIT MANUALLY - Run 'npm run sync-config' to regenerate
@@ -272,6 +272,20 @@ export const regionCoordinates = {
     "name": "Mexico City",
     "geo": "SA",
     "iata": "QRO"
+  },
+  "us-gov-west-1": {
+    "lat": 45.8696,
+    "lng": -119.688,
+    "name": "GovCloud (US-West)",
+    "geo": "GOV",
+    "iata": "PDX"
+  },
+  "us-gov-east-1": {
+    "lat": 38.9519,
+    "lng": -77.448,
+    "name": "GovCloud (US-East)",
+    "geo": "GOV",
+    "iata": "IAD"
   }
 };
 
@@ -446,6 +460,16 @@ export const awsRegions = [
     "value": "mx-central-1",
     "label": "Mexico City (mx-central-1)",
     "geo": "SA"
+  },
+  {
+    "value": "us-gov-west-1",
+    "label": "GovCloud US-West (us-gov-west-1)",
+    "geo": "GOV"
+  },
+  {
+    "value": "us-gov-east-1",
+    "label": "GovCloud US-East (us-gov-east-1)",
+    "geo": "GOV"
   }
 ];
 
@@ -482,6 +506,10 @@ export const geoRegionOptions = [
   {
     "value": "AF",
     "label": "Africa"
+  },
+  {
+    "value": "GOV",
+    "label": "GovCloud"
   }
 ];
 
@@ -493,7 +521,8 @@ export const geoPrefixMap = {
   "CA": "ca-",
   "SA": "sa-",
   "ME": "me-",
-  "AF": "af-"
+  "AF": "af-",
+  "GOV": "us-gov-"
 };
 
 // Context window size categories
@@ -506,7 +535,7 @@ export const contextWindowThresholds = {
 // Config metadata
 export const configMetadata = {
   version: "1.0.0-auto-updated-auto-updated",
-  generatedAt: "2026-03-05T19:59:07.904Z",
+  generatedAt: "2026-03-06T12:55:18.396Z",
   source: "profiler-config.json"
 };
 

@@ -356,17 +356,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
             >
               {model.model_provider}
             </Badge>
-            {model.availability?.mantle?.only && (
-              <span className={cn(
-                'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
-                isLight
-                  ? 'bg-violet-100 text-violet-700 border border-violet-200'
-                  : 'bg-violet-500/15 text-violet-400 border border-violet-500/30'
-              )}>
-                Mantle Only
-              </span>
-            )}
-            {!model.availability?.mantle?.only && (model.availability?.mantle?.supported) && (
+            {model.availability?.mantle?.supported && (
               <span className={cn(
                 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold',
                 isLight

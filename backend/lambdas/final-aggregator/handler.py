@@ -512,6 +512,62 @@ def build_provisioned_throughput(model_id: str, provisioned_availability: dict) 
     }
 
 
+def build_govcloud_availability(
+    model_id: str,
+    model_name: str,
+    govcloud_availability: dict,
+) -> dict:
+    """
+    Build GovCloud availability data for a model.
+
+    Matches the model to GovCloud availability data from pricing API using
+    model name matching (since pricing API uses model names, not IDs).
+
+    Args:
+        model_id: The model identifier
+        model_name: The model name (used for matching)
+        govcloud_availability: Dict mapping model names to GovCloud regions
+
+    Returns:
+        Dict with:
+        - supported: bool
+        - regions: list of GovCloud regions
+        - source: "pricing_api"
+    """
+    if not govcloud_availability:
+        return {"supported": False, "regions": [], "source": "pricing_api"}
+
+    # Try exact match on model name first
+    regions = govcloud_availability.get(model_name, [])
+
+    # If no exact match, try fuzzy matching
+    if not regions:
+        model_name_lower = model_name.lower() if model_name else ""
+        model_id_lower = model_id.lower() if model_id else ""
+
+        for govcloud_model_name, govcloud_regions in govcloud_availability.items():
+            govcloud_name_lower = govcloud_model_name.lower()
+
+            # Check if model name is contained in GovCloud model name or vice versa
+            if model_name_lower and (
+                model_name_lower in govcloud_name_lower
+                or govcloud_name_lower in model_name_lower
+            ):
+                regions = govcloud_regions
+                break
+
+            # Check if model ID contains the GovCloud model name
+            if model_id_lower and govcloud_name_lower in model_id_lower:
+                regions = govcloud_regions
+                break
+
+    return {
+        "supported": len(regions) > 0,
+        "regions": sorted(regions) if regions else [],
+        "source": "pricing_api",
+    }
+
+
 def _normalize_for_quota_matching(name: str) -> str:
     """
     Normalize a model name or quota model reference for exact matching.
@@ -822,6 +878,7 @@ def create_mantle_only_stub(
             batch_inference_data=batch_inference_data,
             provisioned_data=provisioned_data,
             mantle_data=mantle_data,
+            govcloud_data=None,  # Mantle-only models don't have GovCloud availability
             is_mantle_only=True,
         ),
         "modalities": modalities,
@@ -1468,6 +1525,7 @@ def build_availability(
     batch_inference_data: dict,
     provisioned_data: dict,
     mantle_data: dict,
+    govcloud_data: dict = None,
     is_mantle_only: bool = False,
     reserved_data: dict = None,
 ) -> dict:
@@ -1480,6 +1538,7 @@ def build_availability(
         batch_inference_data: Batch inference data from check_batch_inference()
         provisioned_data: Provisioned throughput data from build_provisioned_throughput()
         mantle_data: Mantle inference data from build_mantle_inference()
+        govcloud_data: GovCloud availability data (optional)
         is_mantle_only: Whether this is a Mantle-only model
         reserved_data: Reserved capacity data from build_reserved_capacity()
 
@@ -1491,6 +1550,7 @@ def build_availability(
         - provisioned: {supported, regions}
         - mantle: {supported, regions, only, responses_api}
         - reserved: {supported, regions, commitments}
+        - govcloud: {supported, regions, source}
     """
     # On-demand availability
     on_demand_regions = regional_availability if regional_availability else []
@@ -1530,6 +1590,14 @@ def build_availability(
         "commitments": reserved_data.get("commitments", []) if reserved_data else [],
     }
 
+    # GovCloud availability
+    govcloud_regions = govcloud_data.get("regions", []) if govcloud_data else []
+    govcloud = {
+        "supported": len(govcloud_regions) > 0,
+        "regions": govcloud_regions,
+        "source": "pricing_api",
+    }
+
     return {
         "on_demand": {
             "supported": len(on_demand_regions) > 0,
@@ -1540,6 +1608,7 @@ def build_availability(
         "provisioned": provisioned,
         "mantle": mantle,
         "reserved": reserved,
+        "govcloud": govcloud,
     }
 
 
@@ -1979,6 +2048,7 @@ def transform_model_to_schema(
     provisioned_throughput: dict = None,
     lifecycle_by_model: dict = None,
     regional_lifecycle: dict = None,
+    govcloud_availability: dict = None,
 ) -> dict:
     """Merge model data from all sources into final schema.
 
@@ -2151,6 +2221,13 @@ def transform_model_to_schema(
     }
     api_support = build_api_support(api_support_model, mantle, is_mantle_only=False)
 
+    # Build GovCloud availability
+    govcloud_data = build_govcloud_availability(
+        model_id,
+        model.get("model_name", ""),
+        govcloud_availability or {},
+    )
+
     # Build consolidated availability object (Phase 3 - new structure only)
     availability = build_availability(
         regional_availability=regional_availability,
@@ -2158,6 +2235,7 @@ def transform_model_to_schema(
         batch_inference_data=batch_inference,
         provisioned_data=resolved_provisioned,
         mantle_data=mantle,
+        govcloud_data=govcloud_data,
         is_mantle_only=False,
         reserved_data=reserved_capacity,
     )
@@ -2345,6 +2423,9 @@ def build_final_models(
     # Upstream uses snake_case: token_specs
     token_specs_data = token_specs.get("token_specs", {})
 
+    # Extract GovCloud availability from pricing data
+    govcloud_availability = pricing_data.get("govcloud_availability", {})
+
     result_providers = {}
     # Track which Mantle model IDs have been matched to Bedrock models
     matched_mantle_ids = set()
@@ -2398,6 +2479,7 @@ def build_final_models(
                 provisioned_throughput=provisioned,
                 lifecycle_by_model=lifecycle_by_model,
                 regional_lifecycle=regional_lifecycle,
+                govcloud_availability=govcloud_availability,
             )
 
             result_providers[provider]["models"][model_id] = transformed

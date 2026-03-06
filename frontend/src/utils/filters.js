@@ -326,7 +326,6 @@ export const initialFilterState = {
   modelStatus: 'All Status',
   crisSupport: 'All Models',
   streamingSupport: 'All Models',
-  mantleSupport: 'All Models',
   pricingFilter: 'All Models',
   consumptionOptions: [],
   useCases: [],
@@ -486,25 +485,6 @@ export function applyFilters(models, filters, getPricingForModel = null) {
     filtered = filtered.filter(m => m.streaming === supported)
   }
 
-  // Mantle support filter
-  if (filters.mantleSupport && filters.mantleSupport !== 'All Models') {
-    filtered = filtered.filter(m => {
-      const mantleSupported = m.availability?.mantle?.supported
-      const mantleOnly = m.availability?.mantle?.only
-      
-      switch (filters.mantleSupport) {
-        case 'Mantle Supported':
-          return mantleSupported
-        case 'Mantle Only':
-          return mantleOnly
-        case 'No Mantle':
-          return !mantleSupported
-        default:
-          return true
-      }
-    })
-  }
-
   // Pricing availability filter - use has_pricing flag from model data
   if (filters.pricingFilter && filters.pricingFilter !== 'All Models') {
     filtered = filtered.filter(m => {
@@ -614,7 +594,6 @@ export function countActiveFilters(filters) {
   if (filters.modelStatus && filters.modelStatus !== 'All Status') count++
   if (filters.crisSupport && filters.crisSupport !== 'All Models') count++
   if (filters.streamingSupport && filters.streamingSupport !== 'All Models') count++
-  if (filters.mantleSupport && filters.mantleSupport !== 'All Models') count++
   if (filters.pricingFilter && filters.pricingFilter !== 'All Models') count++
   if (filters.consumptionOptions?.length > 0) count++
   if (filters.contextFilter && filters.contextFilter !== 'All Models') count++

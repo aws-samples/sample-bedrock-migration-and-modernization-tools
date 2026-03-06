@@ -46,14 +46,14 @@ export function ComparisonCard({ model, onRemove }) {
           )}>
             {model.model_provider}
           </Badge>
-          {model.availability?.mantle?.only && (
+          {model.availability?.mantle?.supported && (
             <span className={cn(
               'inline-flex items-center px-1.5 py-0 rounded-full text-[9px] font-semibold',
               isLight
                 ? 'bg-violet-100 text-violet-700 border border-violet-200'
                 : 'bg-violet-500/15 text-violet-400 border border-violet-500/30'
             )}>
-              Mantle Only
+              Mantle
             </span>
           )}
           {isActive ? (

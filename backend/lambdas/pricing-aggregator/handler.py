@@ -27,6 +27,12 @@ from aws_lambda_powertools.metrics import MetricUnit
 
 
 # =============================================================================
+# GovCloud Regions
+# =============================================================================
+
+GOVCLOUD_REGIONS = ["us-gov-west-1", "us-gov-east-1"]
+
+# =============================================================================
 # Dimension Detection Constants
 # =============================================================================
 
@@ -289,6 +295,43 @@ def detect_cache_type(usage_type: str, description: str) -> str | None:
             return "cache_read"
 
     return None
+
+
+def extract_govcloud_availability(products: list[dict]) -> dict[str, list[str]]:
+    """
+    Extract which models are available in GovCloud regions from pricing data.
+
+    The Pricing API returns pricing entries for GovCloud regions (us-gov-west-1,
+    us-gov-east-1). This function extracts which models have pricing in these
+    regions, indicating they are available in GovCloud.
+
+    Args:
+        products: List of pricing product entries from the Pricing API
+
+    Returns:
+        Dict mapping model names to list of GovCloud regions where available.
+        e.g., {"Nova Pro": ["us-gov-west-1"], "Llama 3 8B": ["us-gov-west-1"]}
+    """
+    govcloud_models: dict[str, set[str]] = {}
+
+    for product in products:
+        attrs = product.get("product", {}).get("attributes", {})
+        region = attrs.get("regionCode", "")
+        model_name = attrs.get("model", "") or attrs.get("servicename", "")
+
+        if region in GOVCLOUD_REGIONS and model_name:
+            # Clean the model name
+            cleaned_name = clean_model_name(model_name)
+            if cleaned_name and cleaned_name.lower() not in [
+                "unknown",
+                "unknown model",
+            ]:
+                if cleaned_name not in govcloud_models:
+                    govcloud_models[cleaned_name] = set()
+                govcloud_models[cleaned_name].add(region)
+
+    # Convert sets to sorted lists for JSON serialization
+    return {model: sorted(list(regions)) for model, regions in govcloud_models.items()}
 
 
 def get_region_locations() -> dict:
@@ -1334,6 +1377,9 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
         # Aggregate pricing data in expected schema
         aggregated, metadata_stats = aggregate_pricing(all_products)
 
+        # Extract GovCloud availability from pricing data
+        govcloud_availability = extract_govcloud_availability(all_products)
+
         # Convert defaultdict to regular dict for JSON serialization
         aggregated = dict(aggregated)
 
@@ -1367,8 +1413,10 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
                 "pricing_standardization": "Smart conversion applied: per-million to per-thousand when needed, unit extraction from descriptions",
                 "structure": "provider > model > region > pricing_groups > dimensions",
                 "group_types_available": metadata_stats["group_types_seen"],
+                "govcloud_models_count": len(govcloud_availability),
             },
             "providers": aggregated,
+            "govcloud_availability": govcloud_availability,
         }
 
         # Write to S3

@@ -1,6 +1,6 @@
 # Bedrock Model Profiler - Architecture
 
-> **Version:** 2.0  
+> **Version:** 2.1  
 > **Last Updated:** March 2026  
 > **Status:** Production  
 > **Live URL:** https://d3oem6l61p8j11.cloudfront.net
@@ -17,9 +17,9 @@ This document is the **single source of truth** for understanding the Bedrock Mo
 4. [AWS Services Used](#aws-services-used)
 5. [Project Structure](#project-structure)
 6. [Lambda Functions](#lambda-functions)
-7. [Efficiency Analysis](#efficiency-analysis)
-8. [Configuration](#configuration)
-9. [Self-Healing System](#self-healing-system)
+7. [Caching System](#caching-system)
+8. [Self-Healing System](#self-healing-system)
+9. [Configuration](#configuration)
 10. [Deployment](#deployment)
 
 ---
@@ -49,8 +49,6 @@ The **Amazon Bedrock Model Profiler** is a full-stack serverless tool for explor
 ---
 
 ## High-Level Architecture
-
-### ASCII Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -118,68 +116,6 @@ The **Amazon Bedrock Model Profiler** is a full-stack serverless tool for explor
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Mermaid Diagram
-
-```mermaid
-graph TB
-    subgraph "Scheduled Trigger"
-        EB[EventBridge<br/>Daily @ 6 AM UTC]
-    end
-
-    subgraph "Orchestration"
-        SF[Step Functions<br/>Workflow]
-    end
-
-    subgraph "Data Collection Lambdas"
-        RD[region-discovery]
-        CS[config-sync]
-        PC[pricing-collector]
-        ME[model-extractor]
-        QC[quota-collector]
-        FC[feature-collector]
-        MC[mantle-collector]
-        LC[lifecycle-collector]
-        TS[token-specs-collector]
-    end
-
-    subgraph "Processing Lambdas"
-        PA[pricing-aggregator]
-        MM[model-merger]
-        PL[pricing-linker]
-        RA[regional-availability]
-        FA[final-aggregator]
-    end
-
-    subgraph "Intelligence Lambdas"
-        GD[gap-detection]
-        SHA[self-healing-agent]
-        CTL[copy-to-latest]
-    end
-
-    subgraph "Storage"
-        S3[(S3 Bucket)]
-    end
-
-    subgraph "Delivery"
-        CF[CloudFront CDN]
-        FE[React Frontend]
-    end
-
-    EB --> SF
-    SF --> RD --> CS
-    CS --> PC & ME & QC
-    PC --> PA
-    ME --> MM
-    PA & MM & QC --> PL & RA & FC & MC & LC & TS
-    PL & RA & FC & MC & LC & TS --> FA
-    FA --> GD
-    GD -->|if gaps| SHA
-    GD --> CTL
-    SHA --> CTL
-    CTL --> S3
-    S3 --> CF --> FE
-```
-
 ### Component Inventory
 
 | Component Type | Count | Purpose |
@@ -199,10 +135,6 @@ graph TB
 ### Complete Pipeline Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              EXECUTION PHASES                                    │
-└─────────────────────────────────────────────────────────────────────────────────┘
-
 PHASE 0: INITIALIZATION
   ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
   │ DiscoverRegions  │ ──► │ InitializeExec   │ ──► │   ConfigSync     │
@@ -281,7 +213,6 @@ bucket/
 ├── config/                              # Configuration files
 │   ├── profiler-config.json            # Backend configuration
 │   ├── frontend-config.json            # Generated frontend config
-│   ├── generated-constants.js          # Optional JS constants
 │   └── config-history/                 # Config backups from auto-updates
 │       └── profiler-config.{timestamp}.json
 │
@@ -295,7 +226,7 @@ bucket/
 │   │   └── us-west-2.json
 │   ├── cache/                           # Cached API responses for reuse
 │   │   ├── list_foundation_models_us-east-1.json
-│   │   └── list_foundation_models_us-west-2.json
+│   │   └── inference_profiles_us-east-1.json
 │   ├── quotas/{region}.json             # Service quotas
 │   ├── features/{region}.json           # Inference profiles
 │   ├── mantle/{region}.json             # Mantle models
@@ -326,10 +257,10 @@ bucket/
 
 | Service | Purpose | Key APIs Used |
 |---------|---------|---------------|
-| **Cognito** | User authentication (OIDC) | User groups: beta-access-users, region-roadmap-operators, admins |
+| **Cognito** | User authentication (OIDC) | User groups: beta-access-users, operators, admins |
 | **Bedrock** | Model data | ListFoundationModels, ListInferenceProfiles, InvokeModel |
 | **Bedrock Console REST API** | Extended metadata | SigV4-signed requests with x-console-consumer header |
-| **Pricing API** | Pricing data | GetProducts (3 service codes: AmazonBedrock, AmazonBedrockAgent, AmazonBedrockDataAutomation) |
+| **Pricing API** | Pricing data | GetProducts (3 service codes) |
 | **Service Quotas** | Regional quotas | ListServiceQuotas (27+ regions) |
 | **Step Functions** | Orchestration | 4-phase workflow |
 | **S3** | Storage | Data, frontend hosting, caching, config |
@@ -403,8 +334,9 @@ bedrock-model-profiler/
 │
 └── docs/                      # Documentation
     ├── ARCHITECTURE.md        # This file
-    ├── DATA_SOURCES.md        # API documentation
-    └── JSON-STRUCTURE.md      # Output schema reference
+    ├── DATA-SOURCES.md        # API documentation
+    ├── DATA-SCHEMA.md         # Model JSON schema
+    └── PRICING-SCHEMA.md      # Pricing JSON schema
 ```
 
 ### Technology Stack
@@ -470,115 +402,44 @@ bedrock-model-profiler/
 
 ---
 
-## Efficiency Analysis
+## Caching System
 
-### Current Optimizations
+The pipeline implements a caching layer to reduce redundant API calls between Lambdas.
 
-| Optimization | Implementation | Impact |
-|--------------|----------------|--------|
-| **Full region model caching** | `model-extractor` → `cache/` | 100% cache coverage for downstream |
-| **Inference profile caching** | `region-discovery` → `feature-collector` | Eliminates 27 redundant API calls |
-| **TTL-based LiteLLM caching** | 24h cache | Avoids repeated HTTP fetches |
-| **TTL-based lifecycle caching** | 24h cache | Avoids repeated web scraping |
-| **Dynamic region discovery** | Runtime discovery | Auto-adapts to new regions |
-| **Parallel collection** | Wave 1: 3 pricing + 27 models + N quotas | ~70% time reduction |
-| **Parallel enrichment** | Wave 2: 6 branches concurrent | ~50% time reduction |
+### Cache Types
 
-### API Call Counts: Before vs After Caching
+| Cache Type | Producer | Consumer | TTL | Location |
+|------------|----------|----------|-----|----------|
+| **Model Data** | `model-extractor` | `regional-availability` | Per-execution | `cache/list_foundation_models_{region}.json` |
+| **Inference Profiles** | `region-discovery` | `feature-collector` | Per-execution | `cache/inference_profiles_{region}.json` |
+| **LiteLLM Data** | `token-specs-collector` | Self | 24 hours | `cache/litellm_model_prices.json` |
+| **Lifecycle Data** | `lifecycle-collector` | Self | 24 hours | `cache/lifecycle_data.json` |
+
+### Cache Flow
 
 ```
-BEFORE CACHING (Hypothetical):
-  model-extractor (27 regions)      →  27 API calls
-  regional-availability             →  54 API calls (27 × 2 filters)
-  feature-collector                 →  27 API calls
-                                    ────────────────
-                                       108 API calls
-
-AFTER FULL CACHING (Current):
-  model-extractor (27 regions)      →  27 API calls + 27 cache writes
-  regional-availability             →  0 API calls (100% cache hits)
-  feature-collector                 →  0 API calls (100% cache hits)
-  token-specs-collector             →  0-1 API calls (TTL cache)
-  lifecycle-collector               →  0-1 API calls (TTL cache)
-                                    ────────────────
-                                       ~29 API calls + 54 cache reads
-
-Reduction: ~73% fewer API calls
+┌─────────────────┐     cache write      ┌─────────────────────────────────┐
+│ model-extractor │ ──────────────────►  │ S3: cache/list_foundation_      │
+│ (us-east-1)     │                      │     models_us-east-1.json       │
+└─────────────────┘                      └─────────────────────────────────┘
+                                                        │
+                                                        │ cache read
+                                                        ▼
+                                         ┌─────────────────────────────────┐
+                                         │   regional-availability         │
+                                         │   (skips API call for cached    │
+                                         │    regions)                     │
+                                         └─────────────────────────────────┘
 ```
 
-### Execution Timing
+### Cache Performance Impact
 
-| Phase | Duration | Notes |
-|-------|----------|-------|
-| Phase 0: Initialization | ~10s | Region discovery + config sync |
-| Phase 1: Wave 1 Collection | 3-5 min | Parallel (pricing slowest) |
-| Phase 2: Wave 2 Enrichment | 2-3 min | Parallel (regional-avail slowest) |
-| Phase 3: Aggregation | 1-2 min | Serial |
-| Phase 4: Publication | ~10s | S3 copy |
-| **Total** | **8-12 min** | |
-
----
-
-## Configuration
-
-### profiler-config.json Overview
-
-Located at: `backend/config/profiler-config.json`
-
-| Section | Purpose |
-|---------|---------|
-| `external_urls` | API endpoints, documentation links |
-| `provider_configuration` | Provider aliases, patterns, colors, docs |
-| `region_configuration` | Region lists, coordinates, metadata |
-| `model_configuration` | Model families, variants, context specs |
-| `matching_configuration` | Fuzzy matching thresholds |
-| `agent_configuration` | Self-healing agent settings |
-| `pricing_service_codes` | AWS pricing API service codes |
-| `gap_detection_config` | Gap detection thresholds |
-
-### Key Configuration Sections
-
-```json
-{
-  "version": "1.0.0",
-  
-  "provider_configuration": {
-    "provider_patterns": {
-      "Anthropic": ["claude", "sonnet", "haiku", "opus"],
-      "Amazon": ["titan", "nova", "rerank"],
-      "Meta": ["llama", "mllama"]
-    },
-    "provider_colors": {
-      "Amazon": "#FF9900",
-      "Anthropic": "#D97757"
-    }
-  },
-  
-  "region_configuration": {
-    "model_regions": ["us-east-1", "us-west-2"],
-    "quota_regions": ["us-east-1", "us-west-2", "eu-west-1", ...],
-    "feature_regions": ["us-east-1", "us-west-2", "eu-west-1", ...]
-  },
-  
-  "model_configuration": {
-    "context_window_specs": {
-      "anthropic.claude-opus-4-5": {
-        "standard_context": 200000,
-        "max_output": 64000,
-        "source": "anthropic_docs"
-      }
-    }
-  },
-  
-  "agent_configuration": {
-    "bedrock_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
-    "thresholds": {
-      "unmatched_models_trigger": 5,
-      "low_confidence_threshold": 0.6
-    }
-  }
-}
-```
+| Metric | Without Cache | With Cache |
+|--------|---------------|------------|
+| Model API calls | ~54 (27 regions × 2 filters) | ~27 + cache reads |
+| Inference profile calls | 27 | 0 (100% cache hits) |
+| Total API calls | ~480 | ~29 |
+| **Reduction** | - | **~94%** |
 
 ---
 
@@ -633,6 +494,48 @@ Located at: `backend/config/profiler-config.json`
 
 ---
 
+## Configuration
+
+### profiler-config.json Overview
+
+Located at: `backend/config/profiler-config.json`
+
+| Section | Purpose |
+|---------|---------|
+| `external_urls` | API endpoints, documentation links |
+| `provider_configuration` | Provider aliases, patterns, colors, docs |
+| `region_configuration` | Region lists, coordinates, metadata |
+| `model_configuration` | Model families, variants, context specs |
+| `matching_configuration` | Fuzzy matching thresholds, explicit mappings |
+| `agent_configuration` | Self-healing agent settings |
+| `pricing_service_codes` | AWS pricing API service codes |
+| `gap_detection_config` | Gap detection thresholds |
+
+### Key Configuration Example
+
+```json
+{
+  "provider_configuration": {
+    "provider_patterns": {
+      "Anthropic": ["claude", "sonnet", "haiku", "opus"],
+      "Amazon": ["titan", "nova", "rerank"],
+      "Meta": ["llama", "mllama"]
+    }
+  },
+  "matching_configuration": {
+    "explicit_model_mappings": {
+      "anthropic.claude-opus-4-5-20251101-v1:0": "anthropic.claude-opus-4-5"
+    },
+    "min_confidence_threshold": 0.7
+  },
+  "agent_configuration": {
+    "bedrock_model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0"
+  }
+}
+```
+
+---
+
 ## Deployment
 
 ### Stack Names
@@ -665,13 +568,16 @@ npm run build
 ./setup-infrastructure.sh
 ```
 
-### SAM Templates
+### Execution Timing
 
-| Template | Purpose |
-|----------|---------|
-| `backend-template.yaml` | Main backend: Lambdas, Step Functions, S3, EventBridge |
-| `frontend-template.yaml` | Frontend: S3 bucket, CloudFront, OAC |
-| `analytics-template.yaml` | Optional: Analytics Lambda, API Gateway |
+| Phase | Duration | Notes |
+|-------|----------|-------|
+| Phase 0: Initialization | ~10s | Region discovery + config sync |
+| Phase 1: Wave 1 Collection | 3-5 min | Parallel (pricing slowest) |
+| Phase 2: Wave 2 Enrichment | 2-3 min | Parallel (regional-avail slowest) |
+| Phase 3: Aggregation | 1-2 min | Serial |
+| Phase 4: Publication | ~10s | S3 copy |
+| **Total** | **8-12 min** | |
 
 ---
 
@@ -679,18 +585,18 @@ npm run build
 
 | Document | Description |
 |----------|-------------|
-| [DATA_SOURCES.md](./DATA_SOURCES.md) | Detailed API documentation and data schemas |
-| [JSON-STRUCTURE.md](./JSON-STRUCTURE.md) | Complete JSON output schema reference |
-| [CLAUDE.md](../CLAUDE.md) | Development guide for Claude Code |
+| [DATA-SOURCES.md](./DATA-SOURCES.md) | Data sources, APIs, and reliability |
+| [DATA-SCHEMA.md](./DATA-SCHEMA.md) | Model JSON schema reference |
+| [PRICING-SCHEMA.md](./PRICING-SCHEMA.md) | Pricing JSON schema reference |
 | [backend/lambdas/README.md](../backend/lambdas/README.md) | Lambda contracts and interfaces |
+| [CLAUDE.md](../CLAUDE.md) | Development guide for Claude Code |
 
 ---
 
 ## Changelog
 
-| Date | Change |
-|------|--------|
-| 2026-03-05 | Major update: Comprehensive restructure with ASCII diagrams |
-| 2026-03-03 | Added caching system documentation |
-| 2026-03-03 | Added self-healing enhancement details |
-| 2026-03-03 | Added IATA airport codes to region configuration |
+| Date | Version | Change |
+|------|---------|--------|
+| 2026-03-06 | 2.1 | Reorganized documentation, added schema references |
+| 2026-03-05 | 2.0 | Major update with comprehensive restructure |
+| 2026-03-03 | 1.1 | Added caching system documentation |

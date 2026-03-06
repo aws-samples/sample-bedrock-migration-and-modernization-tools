@@ -49,6 +49,7 @@ export const geoGroups = {
   SA: { name: 'South America', color: '#8B5CF6' },
   ME: { name: 'Middle East', color: '#EC4899' },
   AF: { name: 'Africa', color: '#14B8A6' },
+  GOV: { name: 'GovCloud', color: '#6366F1' },
 }
 
 // Consumption option labels

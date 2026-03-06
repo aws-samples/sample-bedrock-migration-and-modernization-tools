@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy, DollarSign, Globe, ChevronDown, ChevronRight, Cpu, Copy } from 'lucide-react'
+import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy, DollarSign, Globe, ChevronDown, ChevronRight, Cpu, Copy, Info } from 'lucide-react'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -113,17 +113,19 @@ function computeRadarScores(modelData, benchmarks) {
 
 const providerColors = providerColorClasses
 
-function MetricRow({ label, values, isLight, bestIndices = null }) {
+function MetricRow({ label, values, isLight, bestIndices = null, tooltip = null }) {
   return (
     <tr className={cn(
       'border-b',
       isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
-        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10',
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10 cursor-default',
         isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
       )}>
-        {label}
+        <span title={tooltip}>
+          {label}
+        </span>
       </td>
       {values.map((value, idx) => {
         const isBest = bestIndices?.has(idx)
@@ -148,17 +150,19 @@ function MetricRow({ label, values, isLight, bestIndices = null }) {
   )
 }
 
-function ContextRow({ label, values, isLight, bestIndices = null }) {
+function ContextRow({ label, values, isLight, bestIndices = null, tooltip = null }) {
   return (
     <tr className={cn(
       'border-b',
       isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
-        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10',
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10 cursor-default',
         isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
       )}>
-        {label}
+        <span title={tooltip}>
+          {label}
+        </span>
       </td>
       {values.map((data, idx) => {
         const isBest = bestIndices?.has(idx)
@@ -201,17 +205,19 @@ function ContextRow({ label, values, isLight, bestIndices = null }) {
   )
 }
 
-function BooleanRow({ label, values, isLight }) {
+function BooleanRow({ label, values, isLight, tooltip = null }) {
   return (
     <tr className={cn(
       'border-b',
       isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
-        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10',
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10 cursor-default',
         isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
       )}>
-        {label}
+        <span title={tooltip}>
+          {label}
+        </span>
       </td>
       {values.map((value, idx) => (
         <td key={idx} className="px-3 py-2.5 text-center">
@@ -226,17 +232,19 @@ function BooleanRow({ label, values, isLight }) {
   )
 }
 
-function CustomizationRow({ label, values, isLight }) {
+function CustomizationRow({ label, values, isLight, tooltip = null }) {
   return (
     <tr className={cn(
       'border-b',
       isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
-        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10',
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10 cursor-default',
         isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
       )}>
-        {label}
+        <span title={tooltip}>
+          {label}
+        </span>
       </td>
       {values.map((options, idx) => (
         <td key={idx} className="px-3 py-2.5">
@@ -255,12 +263,9 @@ function CustomizationRow({ label, values, isLight }) {
               ))}
             </div>
           ) : (
-            <span className={cn(
-              'text-sm',
-              isLight ? 'text-stone-300' : 'text-slate-700'
-            )}>
-              —
-            </span>
+            <div className="flex justify-center">
+              <X className="h-4 w-4 text-red-400/40" />
+            </div>
           )}
         </td>
       ))}
@@ -289,17 +294,19 @@ function SectionHeader({ label, colSpan, isLight }) {
 }
 
 
-function ModalitiesRow({ label, values, isLight, isOutput = false }) {
+function ModalitiesRow({ label, values, isLight, isOutput = false, tooltip = null }) {
   return (
     <tr className={cn(
       'border-b',
       isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
-        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10',
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10 cursor-default',
         isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
       )}>
-        {label}
+        <span title={tooltip}>
+          {label}
+        </span>
       </td>
       {values.map((modalities, idx) => (
         <td key={idx} className="px-3 py-2.5">
@@ -629,17 +636,19 @@ function getPricingLabel(pricingType, options = {}) {
   }
 }
 
-function PriceRow({ label, values, isLight, bestIndices = null }) {
+function PriceRow({ label, values, isLight, bestIndices = null, tooltip = null }) {
   return (
     <tr className={cn(
       'border-b',
       isLight ? 'border-stone-100' : 'border-white/[0.04]'
     )}>
       <td className={cn(
-        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10',
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10 cursor-default',
         isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
       )}>
-        {label}
+        <span title={tooltip}>
+          {label}
+        </span>
       </td>
       {values.map((data, idx) => {
         const isNA = data.value === 'N/A'
@@ -675,6 +684,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
   const [reservedScope, setReservedScope] = useState('global') // 'global' or 'geo'
   const [batchMode, setBatchMode] = useState(false) // toggle for batch pricing
   const [copiedModelId, setCopiedModelId] = useState(null) // track which model ID was copied
+  const [expandedDimension, setExpandedDimension] = useState(null) // 'context' | 'cost' | 'regions' | null
 
   // Handle copy to clipboard with visual feedback
   const handleCopyModelId = async (modelId) => {
@@ -1195,86 +1205,151 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               'px-4 py-3 border-t',
               isLight ? 'bg-stone-50/50 border-stone-200/60' : 'bg-white/[0.02] border-white/[0.06]'
             )}>
-              <p className={cn(
-                'text-[10px] font-semibold uppercase tracking-wide mb-3',
-                isLight ? 'text-stone-500' : 'text-slate-500'
-              )}>
-                How Scores Are Calculated
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Compact info buttons row */}
+              <div className="flex items-center justify-center gap-4">
                 {/* Context Window */}
-                <div className={cn(
-                  'p-3 rounded-lg border',
-                  isLight ? 'bg-white/80 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
-                )}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Cpu className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-                    <p className={cn('text-[11px] font-semibold', isLight ? 'text-stone-800' : 'text-slate-200')}>
-                      Context Window
-                    </p>
-                  </div>
-                  <p className={cn('text-[10px] mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>
-                    Measures how much text the model can process at once.
-                  </p>
-                  <div className={cn(
-                    'text-[9px] font-mono px-2 py-1.5 rounded',
-                    isLight ? 'bg-stone-100 text-stone-700' : 'bg-black/20 text-slate-300'
-                  )}>
-                    Score = 10 × (model_context / max_context)
-                  </div>
-                  <p className={cn('text-[9px] mt-1.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                    Model with largest context window gets 10/10
-                  </p>
-                </div>
+                <button
+                  onClick={() => setExpandedDimension(expandedDimension === 'context' ? null : 'context')}
+                  className={cn(
+                    'flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-200',
+                    expandedDimension === 'context'
+                      ? isLight
+                        ? 'bg-amber-100/80 text-amber-700'
+                        : 'bg-[#1A9E7A]/20 text-[#1A9E7A]'
+                      : isLight
+                        ? 'hover:bg-stone-100 text-stone-600'
+                        : 'hover:bg-white/[0.05] text-slate-400'
+                  )}
+                >
+                  <Cpu className={cn(
+                    'h-3.5 w-3.5 transition-colors',
+                    expandedDimension === 'context'
+                      ? isLight ? 'text-amber-600' : 'text-[#1A9E7A]'
+                      : isLight ? 'text-stone-500' : 'text-slate-500'
+                  )} />
+                  <span className="text-[10px] font-medium">Context Window</span>
+                  <Info className={cn(
+                    'h-3 w-3 transition-opacity',
+                    expandedDimension === 'context' ? 'opacity-70' : 'opacity-40 group-hover:opacity-60'
+                  )} />
+                </button>
 
                 {/* Cheapest */}
-                <div className={cn(
-                  'p-3 rounded-lg border',
-                  isLight ? 'bg-white/80 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
-                )}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <DollarSign className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-                    <p className={cn('text-[11px] font-semibold', isLight ? 'text-stone-800' : 'text-slate-200')}>
-                      Cheapest
-                    </p>
-                  </div>
-                  <p className={cn('text-[10px] mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>
-                    Compares total cost (input + output price per 1M tokens).
-                  </p>
-                  <div className={cn(
-                    'text-[9px] font-mono px-2 py-1.5 rounded',
-                    isLight ? 'bg-stone-100 text-stone-700' : 'bg-black/20 text-slate-300'
-                  )}>
-                    Score = 10 × (1 - model_cost / max_cost)
-                  </div>
-                  <p className={cn('text-[9px] mt-1.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                    Cheapest model gets 10/10, most expensive gets 0/10
-                  </p>
-                </div>
+                <button
+                  onClick={() => setExpandedDimension(expandedDimension === 'cost' ? null : 'cost')}
+                  className={cn(
+                    'flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-200',
+                    expandedDimension === 'cost'
+                      ? isLight
+                        ? 'bg-amber-100/80 text-amber-700'
+                        : 'bg-[#1A9E7A]/20 text-[#1A9E7A]'
+                      : isLight
+                        ? 'hover:bg-stone-100 text-stone-600'
+                        : 'hover:bg-white/[0.05] text-slate-400'
+                  )}
+                >
+                  <DollarSign className={cn(
+                    'h-3.5 w-3.5 transition-colors',
+                    expandedDimension === 'cost'
+                      ? isLight ? 'text-amber-600' : 'text-[#1A9E7A]'
+                      : isLight ? 'text-stone-500' : 'text-slate-500'
+                  )} />
+                  <span className="text-[10px] font-medium">Cheapest</span>
+                  <Info className={cn(
+                    'h-3 w-3 transition-opacity',
+                    expandedDimension === 'cost' ? 'opacity-70' : 'opacity-40 group-hover:opacity-60'
+                  )} />
+                </button>
 
                 {/* Most Regions */}
-                <div className={cn(
-                  'p-3 rounded-lg border',
-                  isLight ? 'bg-white/80 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
-                )}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Globe className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-                    <p className={cn('text-[11px] font-semibold', isLight ? 'text-stone-800' : 'text-slate-200')}>
-                      Most Regions
-                    </p>
-                  </div>
-                  <p className={cn('text-[10px] mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>
-                    Counts total AWS regions where the model is available.
-                  </p>
-                  <div className={cn(
-                    'text-[9px] font-mono px-2 py-1.5 rounded',
-                    isLight ? 'bg-stone-100 text-stone-700' : 'bg-black/20 text-slate-300'
-                  )}>
-                    Score = 10 × (model_regions / max_regions)
-                  </div>
-                  <p className={cn('text-[9px] mt-1.5', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                    Model available in most regions gets 10/10
-                  </p>
+                <button
+                  onClick={() => setExpandedDimension(expandedDimension === 'regions' ? null : 'regions')}
+                  className={cn(
+                    'flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-200',
+                    expandedDimension === 'regions'
+                      ? isLight
+                        ? 'bg-amber-100/80 text-amber-700'
+                        : 'bg-[#1A9E7A]/20 text-[#1A9E7A]'
+                      : isLight
+                        ? 'hover:bg-stone-100 text-stone-600'
+                        : 'hover:bg-white/[0.05] text-slate-400'
+                  )}
+                >
+                  <Globe className={cn(
+                    'h-3.5 w-3.5 transition-colors',
+                    expandedDimension === 'regions'
+                      ? isLight ? 'text-amber-600' : 'text-[#1A9E7A]'
+                      : isLight ? 'text-stone-500' : 'text-slate-500'
+                  )} />
+                  <span className="text-[10px] font-medium">Most Regions</span>
+                  <Info className={cn(
+                    'h-3 w-3 transition-opacity',
+                    expandedDimension === 'regions' ? 'opacity-70' : 'opacity-40 group-hover:opacity-60'
+                  )} />
+                </button>
+              </div>
+
+              {/* Expanded content panel */}
+              <div className={cn(
+                'grid transition-all duration-300 ease-in-out',
+                expandedDimension ? 'grid-rows-[1fr] mt-3' : 'grid-rows-[0fr]'
+              )}>
+                <div className="overflow-hidden">
+                  {expandedDimension && (
+                    <div className={cn(
+                      'p-3 rounded-lg border',
+                      isLight ? 'bg-white/80 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
+                    )}>
+                      {expandedDimension === 'context' && (
+                        <div className="space-y-2">
+                          <p className={cn('text-[10px]', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                            The maximum input size a model can handle. For models with multiple context options (e.g., standard and extended), the highest available context window is used.
+                          </p>
+                          <div className={cn(
+                            'text-[9px] font-mono px-2 py-1.5 rounded inline-block',
+                            isLight ? 'bg-stone-100 text-stone-700' : 'bg-black/20 text-slate-300'
+                          )}>
+                            Score = 10 × (model_context / max_context)
+                          </div>
+                          <p className={cn('text-[9px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                            Model with largest context window gets 10/10
+                          </p>
+                        </div>
+                      )}
+                      {expandedDimension === 'cost' && (
+                        <div className="space-y-2">
+                          <p className={cn('text-[10px]', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                            Compares total cost (input + output price per 1M tokens).
+                          </p>
+                          <div className={cn(
+                            'text-[9px] font-mono px-2 py-1.5 rounded inline-block',
+                            isLight ? 'bg-stone-100 text-stone-700' : 'bg-black/20 text-slate-300'
+                          )}>
+                            Score = 10 × (1 - model_cost / max_cost)
+                          </div>
+                          <p className={cn('text-[9px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                            Cheapest model gets 10/10, most expensive gets 0/10
+                          </p>
+                        </div>
+                      )}
+                      {expandedDimension === 'regions' && (
+                        <div className="space-y-2">
+                          <p className={cn('text-[10px]', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                            Counts total AWS regions where the model is available.
+                          </p>
+                          <div className={cn(
+                            'text-[9px] font-mono px-2 py-1.5 rounded inline-block',
+                            isLight ? 'bg-stone-100 text-stone-700' : 'bg-black/20 text-slate-300'
+                          )}>
+                            Score = 10 × (model_regions / max_regions)
+                          </div>
+                          <p className={cn('text-[9px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
+                            Model available in most regions gets 10/10
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -1362,6 +1437,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               <SectionHeader label="Specifications" colSpan={modelData.length + 1} isLight={isLight} />
               <ContextRow
                 label="Context Window"
+                tooltip="Maximum input size the model can process in a single request"
                 values={modelData.map(d => ({
                   formatted: formatNumber(d.effectiveContextWindow),
                   baseFormatted: d.effectiveContextWindow > d.contextWindow ? formatNumber(d.contextWindow) : null,
@@ -1372,6 +1448,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               />
               <MetricRow
                 label="Max Output Tokens"
+                tooltip="Maximum number of tokens the model can generate in a response"
                 values={modelData.map(d => formatNumber(d.maxOutput))}
                 isLight={isLight}
                 bestIndices={outputBestSet}
@@ -1381,11 +1458,13 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               <SectionHeader label="Modalities" colSpan={modelData.length + 1} isLight={isLight} />
               <ModalitiesRow
                 label="Input"
+                tooltip="Types of content the model can accept as input"
                 values={modelData.map(d => d.inputModalities)}
                 isLight={isLight}
               />
               <ModalitiesRow
                 label="Output"
+                tooltip="Types of content the model can generate"
                 values={modelData.map(d => d.outputModalities)}
                 isLight={isLight}
                 isOutput={true}
@@ -1395,12 +1474,14 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               <SectionHeader label="Availability" colSpan={modelData.length + 1} isLight={isLight} />
               <MetricRow
                 label="AWS Regions"
+                tooltip="Total number of AWS regions where this model is available (combining all consumption types)"
                 values={modelData.map(d => `${d.regions.length}`)}
                 isLight={isLight}
                 bestIndices={regionsBestSet}
               />
               <BooleanRow
                 label="Active Status"
+                tooltip="Whether the model is actively supported or in legacy/deprecated status"
                 values={modelData.map(d => d.isActive)}
                 isLight={isLight}
               />
@@ -1409,12 +1490,14 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               <SectionHeader label={`Pricing (${getPricingLabel(pricingType, { crisType, reservedTerm, reservedScope, batchMode })})`} colSpan={modelData.length + 1} isLight={isLight} />
               <PriceRow
                 label="Input (per 1M tokens)"
+                tooltip="Cost per 1 million input tokens for the selected pricing type"
                 values={modelData.map(d => ({ value: formatPrice(d.inputPrice) }))}
                 isLight={isLight}
                 bestIndices={inputPriceBestSet}
               />
               <PriceRow
                 label="Output (per 1M tokens)"
+                tooltip="Cost per 1 million output tokens for the selected pricing type"
                 values={modelData.map(d => ({ value: formatPrice(d.outputPrice) }))}
                 isLight={isLight}
                 bestIndices={outputPriceBestSet}
@@ -1424,21 +1507,25 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               <SectionHeader label="Features" colSpan={modelData.length + 1} isLight={isLight} />
               <BooleanRow
                 label="Streaming Support"
+                tooltip="Whether the model supports streaming responses in real-time"
                 values={modelData.map(d => d.streamingSupported)}
                 isLight={isLight}
               />
               <BooleanRow
                 label="Cross-Region Inference"
+                tooltip="Whether the model supports Cross-Region Inference (CRIS) for global availability"
                 values={modelData.map(d => d.crisSupported)}
                 isLight={isLight}
               />
               <BooleanRow
                 label="Batch Processing"
+                tooltip="Whether the model supports batch inference for processing multiple requests"
                 values={modelData.map(d => d.batchSupported)}
                 isLight={isLight}
               />
               <BooleanRow
                 label="Mantle Support"
+                tooltip="Whether the model is available through Amazon Mantle (OpenAI-compatible endpoint)"
                 values={modelData.map(d => d.mantleSupported)}
                 isLight={isLight}
               />
@@ -1447,16 +1534,19 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               <SectionHeader label="Additional Info" colSpan={modelData.length + 1} isLight={isLight} />
               <MetricRow
                 label="Capabilities"
+                tooltip="Number of documented capabilities this model has"
                 values={modelData.map(d => `${d.capabilitiesCount}`)}
                 isLight={isLight}
               />
               <MetricRow
                 label="Use Cases"
+                tooltip="Number of documented use cases for this model"
                 values={modelData.map(d => `${d.useCasesCount}`)}
                 isLight={isLight}
               />
               <CustomizationRow
                 label="Customization"
+                tooltip="Available customization options like fine-tuning or continued pre-training"
                 values={modelData.map(d => d.customizationOptions)}
                 isLight={isLight}
               />
