@@ -9,26 +9,30 @@ function ConfidentialBanner() {
   const isLight = theme === 'light'
   
   return (
-    <div className={cn(
-      'flex-shrink-0 text-center py-1 text-xs font-medium tracking-wide flex items-center justify-center gap-3',
-      isLight 
-        ? 'bg-stone-200 text-stone-600' 
-        : 'bg-slate-800 text-slate-400'
-    )}>
-      <span>Amazon Confidential — Internal Only - BETA</span>
-      <span className="opacity-40">•</span>
-      <a
-        href="https://quip-amazon.com/uyKFALmfnmaV/Bedrock-Model-Profiler-Report-Issues-and-Feedback"
-        target="_blank"
-        rel="noopener noreferrer"
-        className={cn(
-          'underline hover:no-underline',
-          isLight ? 'hover:text-stone-800' : 'hover:text-slate-200'
-        )}
-      >
-        Report Issues & Feedback
-      </a>
-    </div>
+<div
+  className={cn(
+    'flex-shrink-0 text-center py-1 text-xs font-medium tracking-wide flex items-center justify-center gap-3',
+    isLight 
+      ? 'bg-stone-200 text-stone-600' 
+      : 'bg-slate-800 text-slate-400'
+  )}
+>
+  <span>Amazon Confidential — Internal Only - BETA Under Development</span>
+  <span className="opacity-40">•</span>
+  <span>All data is fetched from publicly available sources</span>
+  <span className="opacity-40">•</span>
+  <a
+    href="https://quip-amazon.com/uyKFALmfnmaV/Bedrock-Model-Profiler-Report-Issues-and-Feedback"
+    target="_blank"
+    rel="noopener noreferrer"
+    className={cn(
+      'underline hover:no-underline',
+      isLight ? 'hover:text-stone-800' : 'hover:text-slate-200'
+    )}
+  >
+    Report Issues & Feedback
+  </a>
+</div>
   )
 }
 
