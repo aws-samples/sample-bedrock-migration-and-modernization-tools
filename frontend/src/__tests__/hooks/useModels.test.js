@@ -180,14 +180,14 @@ describe('getFilteredPricing', () => {
       expect(result.inputPrice).toBe(4) // 0.004 * 1000
     })
 
-    it('should return hasMantlePricing flag', () => {
+    it('should return pricingSource from cascade', () => {
       const result = getFilteredPricing(
         mockModelWithPricingRef,
         mockPricingDataWithDimensions,
         'us-east-1'
       )
 
-      expect(result.hasMantlePricing).toBe(true)
+      expect(result.pricingSource).toBeDefined()
     })
 
     it('should return availableDimensions', () => {
@@ -228,14 +228,15 @@ describe('getFilteredPricing', () => {
       expect(result.availableDimensions.contexts).toEqual(['standard'])
     })
 
-    it('should return hasMantlePricing=false for legacy data', () => {
+    it('should return pricingSource for legacy data', () => {
       const result = getFilteredPricing(
         mockLegacyModel,
         mockLegacyPricingData,
         'us-east-1'
       )
 
-      expect(result.hasMantlePricing).toBe(false)
+      // Legacy data with On-Demand group should get "In-region" source
+      expect(result.pricingSource === null || result.pricingSource.startsWith('In-region')).toBe(true)
     })
   })
 

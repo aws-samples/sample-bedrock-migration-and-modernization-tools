@@ -259,9 +259,10 @@ export function sortModels(models, sortBy, getPricingForModel, preferredRegion) 
 
   const getPrice = (model, type) => {
     if (!getPricingForModel) return null
-    const pricing = getPricingForModel(model, preferredRegion)
-    if (!pricing) return null
-    return type === 'input' ? pricing.input_price : pricing.output_price
+    const result = getPricingForModel(model, preferredRegion)
+    const summary = result?.summary
+    if (!summary) return null
+    return type === 'input' ? summary.inputPrice : summary.outputPrice
   }
 
   sorted.sort((a, b) => {

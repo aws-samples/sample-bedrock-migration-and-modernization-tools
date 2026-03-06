@@ -496,6 +496,18 @@ def has_semantic_conflict(id1: str, id2: str) -> bool:
     if family1 and family2 and family1 != family2:
         return True
 
+    # Check for legacy unversioned Claude pricing keys vs versioned Claude models.
+    # Legacy keys like "claude", "claude-instant", "claude-(100k)", "claude-instant-(100k)"
+    # should never match versioned models like "claude-3-haiku", "claude-3-5-sonnet", etc.
+    versioned_claude_pattern = r"claude[._-]\d+"
+    versioned1 = re.search(versioned_claude_pattern, norm1)
+    versioned2 = re.search(versioned_claude_pattern, norm2)
+    if bool(versioned1) != bool(versioned2):  # one is versioned, the other is not
+        # Check the unversioned side is actually a Claude model (not some other model)
+        unversioned = norm2 if versioned1 else norm1
+        if re.search(r"\.claude(?:-instant)?(?:\(|$|-\(|[^a-z]|$)", unversioned):
+            return True
+
     # Check for Claude version conflicts (3 vs 3.5)
     claude_ver_pattern = r"claude[._-]?(\d+)(?:[._-](\d+))?"
     match1 = re.search(claude_ver_pattern, norm1)

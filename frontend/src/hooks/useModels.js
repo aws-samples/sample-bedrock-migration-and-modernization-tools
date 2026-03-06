@@ -193,8 +193,104 @@ export function getAvailableDimensions(model, pricingData) {
 }
 
 /**
+ * Extract token prices (input/output) from a list of pricing entries.
+ * Applies standard filters: skip cache, long-context, reserved, latency, priority; flex fallback.
+ * @param {Array} entries - Filtered pricing entries
+ * @returns {{ inputPrice: number|null, outputPrice: number|null }}
+ */
+function extractTokenPricesFromEntries(entries) {
+  let inputPrice = null
+  let outputPrice = null
+  let flexInputPrice = null
+  let flexOutputPrice = null
+
+  for (const item of entries) {
+    const dim = (item.dimension || '').toLowerCase()
+    const desc = (item.description || '').toLowerCase()
+
+    if (dim.includes('cache') || desc.includes('cache')) continue
+    if (dim.includes('lctx') || dim.includes('long-context') || dim.includes('longcontext') ||
+        desc.includes('long context') || desc.includes('long-context')) continue
+    if (dim.includes('reserved') || dim.includes('_tpm_') ||
+        desc.includes('reserved') || desc.includes('per minute')) continue
+    if (dim.includes('latency') || desc.includes('latency')) continue
+    if (dim.includes('-priority')) continue
+
+    const isInput = item.is_input || dim.includes('input') || desc.includes('input')
+    const isOutput = item.is_output || dim.includes('output') || desc.includes('output')
+    const price = item.price_per_thousand ?? item.price_per_unit
+
+    if (price === 0 || price === null || price === undefined) continue
+
+    const isFlex = dim.includes('-flex')
+    if (isFlex) {
+      if (isInput && flexInputPrice === null) flexInputPrice = price
+      if (isOutput && flexOutputPrice === null) flexOutputPrice = price
+    } else {
+      if (isInput && inputPrice === null) inputPrice = price
+      if (isOutput && outputPrice === null) outputPrice = price
+    }
+  }
+
+  if (inputPrice === null) inputPrice = flexInputPrice
+  if (outputPrice === null) outputPrice = flexOutputPrice
+
+  return { inputPrice, outputPrice }
+}
+
+/**
+ * Select the best pricing group across all regions using a priority cascade:
+ *   1. "On-Demand Global" (same price everywhere, pick any region)
+ *   2. "On-Demand Geo" (find cheapest region)
+ *   3. "On-Demand" (find cheapest region)
+ *
+ * @param {Object} regions - modelPricing.regions
+ * @param {Function} filterByDimensions - dimension filter function
+ * @returns {{ entries: Array, pricingSource: string|null }}
+ */
+function selectBestPricingGroup(regions, filterByDimensions) {
+  const CASCADE = [
+    { group: 'On-Demand Global', sourcePrefix: 'CRIS Global' },
+    { group: 'On-Demand Geo',    sourcePrefix: 'CRIS Geo' },
+    { group: 'On-Demand',        sourcePrefix: 'In-region' },
+  ]
+
+  for (const { group, sourcePrefix } of CASCADE) {
+    let bestEntries = null
+    let bestInputPrice = Infinity
+    let bestRegion = null
+
+    for (const [regionKey, regionData] of Object.entries(regions)) {
+      if (!regionData?.pricing_groups?.[group]) continue
+      const filtered = filterByDimensions(regionData.pricing_groups[group])
+      if (filtered.length === 0) continue
+
+      // For Global, price is the same everywhere — just take the first hit
+      if (sourcePrefix === 'CRIS Global') {
+        return { entries: filtered, pricingSource: sourcePrefix }
+      }
+
+      // For Geo and On-Demand, find cheapest by input token price
+      const { inputPrice } = extractTokenPricesFromEntries(filtered)
+      if (inputPrice !== null && inputPrice < bestInputPrice) {
+        bestInputPrice = inputPrice
+        bestEntries = filtered
+        bestRegion = regionKey
+      }
+    }
+
+    if (bestEntries) {
+      const label = `${sourcePrefix} · ${bestRegion}`
+      return { entries: bestEntries, pricingSource: label }
+    }
+  }
+
+  return { entries: [], pricingSource: null }
+}
+
+/**
  * Extract summary pricing for a model in a given region
- * Now handles nested dimensions (source, geo, tier, context)
+ * Uses a Global → Geo → On-Demand cascade to find best available pricing
  * @param {Object} modelPricing - Pricing data for a model
  * @param {string} region - Preferred region
  * @param {Object} options - Filter options for dimensions
@@ -212,17 +308,10 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
     videoPrices: null,
     dimensions: null,
     availableDimensions: null,
-    hasMantlePricing: false,
+    pricingSource: null,
   }
 
   if (!modelPricing?.regions) return nullResult
-
-  const regionData = modelPricing.regions[region] ||
-                     modelPricing.regions['us-east-1'] ||
-                     modelPricing.regions['us-west-2'] ||
-                     Object.values(modelPricing.regions)[0]
-
-  if (!regionData?.pricing_groups) return nullResult
 
   // Get available dimensions from model-level data
   const availableDimensions = modelPricing.available_dimensions || {
@@ -244,7 +333,7 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
    */
   const filterByDimensions = (entries) => {
     if (!entries || entries.length === 0) return []
-    
+
     // Default filter: exclude Mantle and Reserved from summary
     if (!options || Object.keys(options).length === 0) {
       return entries.filter(e => {
@@ -256,7 +345,7 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
         return true
       })
     }
-    
+
     // Custom filter: support all dimensions (legacy and new)
     return entries.filter(e => {
       const dims = e.dimensions || {}
@@ -274,9 +363,8 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
     })
   }
 
-  // Look for On-Demand pricing first, with dimension filtering
-  const onDemandRaw = regionData.pricing_groups['On-Demand'] || []
-  const onDemand = filterByDimensions(onDemandRaw)
+  // Use cascade to find best pricing group across all regions
+  const { entries: onDemand, pricingSource } = selectBestPricingGroup(modelPricing.regions, filterByDimensions)
 
   // Handle image generation models (per-image pricing)
   if (primaryPricingType === 'image_generation') {
@@ -330,7 +418,7 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
       videoPrice: null,
       videoPrices: null,
       availableDimensions,
-      hasMantlePricing: modelPricing.has_mantle_pricing || false,
+      pricingSource,
     }
   }
 
@@ -396,7 +484,7 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
       videoPrice: defaultPrice,
       videoPrices: Object.keys(videoPrices).length > 0 ? videoPrices : null,
       availableDimensions,
-      hasMantlePricing: modelPricing.has_mantle_pricing || false,
+      pricingSource,
     }
   }
 
@@ -416,7 +504,7 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
           videoPrice: null,
           videoPrices: null,
           availableDimensions,
-          hasMantlePricing: modelPricing.has_mantle_pricing || false,
+          pricingSource,
         }
       }
     }
@@ -438,87 +526,14 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
           videoPrice: price,
           videoPrices: null,
           availableDimensions,
-          hasMantlePricing: modelPricing.has_mantle_pricing || false,
+          pricingSource,
         }
       }
     }
   }
 
-  // Handle token-based pricing (most common)
-  // First pass: look for standard pricing (no flex/priority suffix)
-  // Second pass: fall back to flex pricing if no standard found
-  let inputPrice = null
-  let outputPrice = null
-  let flexInputPrice = null
-  let flexOutputPrice = null
-
-  for (const item of onDemand) {
-    const dim = (item.dimension || '').toLowerCase()
-    const desc = (item.description || '').toLowerCase()
-
-    // Skip cache-related entries (cache-read, cache-write) - these are special pricing tiers
-    if (dim.includes('cache') || desc.includes('cache')) {
-      continue
-    }
-
-    // Skip long context entries - these have different pricing
-    if (dim.includes('lctx') || dim.includes('long-context') || dim.includes('longcontext') ||
-        desc.includes('long context') || desc.includes('long-context')) {
-      continue
-    }
-
-    // Skip reserved/committed capacity entries - these are commitment-based pricing
-    if (dim.includes('reserved') || dim.includes('_tpm_') ||
-        desc.includes('reserved') || desc.includes('per minute')) {
-      continue
-    }
-
-    // Skip latency optimized entries - these have premium pricing
-    if (dim.includes('latency') || desc.includes('latency')) {
-      continue
-    }
-
-    // Skip priority tier (most expensive)
-    if (dim.includes('-priority')) {
-      continue
-    }
-
-    const isInput = item.is_input || dim.includes('input') || desc.includes('input')
-    const isOutput = item.is_output || dim.includes('output') || desc.includes('output')
-
-    // Use price_per_thousand for tokens, price_per_unit for others
-    const price = item.price_per_thousand ?? item.price_per_unit
-
-    // Skip zero prices (usually promotional or placeholder)
-    if (price === 0 || price === null || price === undefined) {
-      continue
-    }
-
-    // Check if this is flex pricing
-    const isFlex = dim.includes('-flex')
-
-    if (isFlex) {
-      // Store flex prices as fallback
-      if (isInput && flexInputPrice === null) {
-        flexInputPrice = price
-      }
-      if (isOutput && flexOutputPrice === null) {
-        flexOutputPrice = price
-      }
-    } else {
-      // Standard pricing (preferred)
-      if (isInput && inputPrice === null) {
-        inputPrice = price
-      }
-      if (isOutput && outputPrice === null) {
-        outputPrice = price
-      }
-    }
-  }
-
-  // Fall back to flex pricing if no standard pricing found
-  if (inputPrice === null) inputPrice = flexInputPrice
-  if (outputPrice === null) outputPrice = flexOutputPrice
+  // Handle token-based pricing (most common) — use the shared helper
+  let { inputPrice, outputPrice } = extractTokenPricesFromEntries(onDemand)
 
   // Convert from per-1K to per-1M for display
   if (inputPrice !== null) inputPrice = inputPrice * 1000
@@ -534,7 +549,7 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
     videoPrice: null,
     videoPrices: null,
     availableDimensions,
-    hasMantlePricing: modelPricing.has_mantle_pricing || false,
+    pricingSource,
   }
 }
 

@@ -308,7 +308,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   // Get pricing from new pricing data source, fallback to old method
   const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
   const pricingSummary = pricingResult?.summary || extractPricing(model, preferredRegion)
-  const { inputPrice, outputPrice, pricingType, unitLabel, imagePrice, imagePrices, videoPrice, videoPrices, hasMantlePricing, availableDimensions } = pricingSummary
+  const { inputPrice, outputPrice, pricingType, unitLabel, imagePrice, imagePrices, videoPrice, videoPrices, pricingSource, availableDimensions } = pricingSummary
 
   const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false
   const crisGeoScopes = getCrisGeoScopes(model)
@@ -625,15 +625,19 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                     <span className={cn('text-[10px]', isLight ? 'text-stone-400' : 'text-slate-400')}>
                       {unitLabel || 'per 1M tokens'}
                     </span>
-                    {hasMantlePricing && (
-                      <span 
+                    {pricingSource && (
+                      <span
                         className={cn(
                           'text-[9px] px-1.5 py-0.5 rounded',
-                          isLight ? 'bg-purple-100 text-purple-700' : 'bg-purple-500/15 text-purple-400'
+                          pricingSource.startsWith('CRIS Global')
+                            ? isLight ? 'bg-indigo-100 text-indigo-700' : 'bg-indigo-500/15 text-indigo-400'
+                            : pricingSource.startsWith('CRIS Geo')
+                              ? isLight ? 'bg-teal-100 text-teal-700' : 'bg-teal-500/15 text-teal-400'
+                              : isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/10 text-slate-400'
                         )}
-                        title="Mantle (OpenAI-compatible) pricing available"
+                        title={pricingSource}
                       >
-                        + Mantle
+                        {pricingSource}
                       </span>
                     )}
                   </div>
