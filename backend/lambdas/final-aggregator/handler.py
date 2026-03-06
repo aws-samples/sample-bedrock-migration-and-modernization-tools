@@ -1129,6 +1129,10 @@ def get_consumption_options(
                     if "Provisioned Throughput" in pricing_groups:
                         options.add("provisioned_throughput")
 
+                    # Check for Reserved pricing
+                    if any(g.startswith("Reserved") for g in pricing_groups.keys()):
+                        options.add("reserved")
+
                     break  # Only need to check one region
 
     # Check for Mantle support
@@ -1142,6 +1146,7 @@ def get_consumption_options(
         "cross_region_inference",
         "mantle",
         "provisioned_throughput",
+        "reserved",
     ]
     return sorted(
         list(options), key=lambda x: order.index(x) if x in order else len(order)
@@ -1237,6 +1242,98 @@ def check_batch_inference(
         "coverage_percentage": round(coverage, 1),
         "detection_method": "pricing_data" if supported_regions else "no_pricing_data",
     }
+
+
+def build_reserved_capacity(
+    model_id: str,
+    pricing_data: dict,
+    pricing_ref: dict = None,
+) -> dict:
+    """Check if Reserved Capacity pricing exists based on pricing data.
+
+    Scans all regions' pricing_groups for any group starting with "Reserved".
+    Extracts commitment terms from group names (e.g., "Reserved 1 Month Geo" → "1_month").
+
+    Uses pricing_file_reference.model_key for accurate matching when available,
+    with fuzzy fallback (same pattern as check_batch_inference).
+    """
+    supported_regions = []
+    commitment_terms = set()
+
+    # Use pricing reference model_key if available, otherwise fall back to model_id
+    lookup_keys = []
+    if pricing_ref:
+        provider = pricing_ref.get("provider", "")
+        model_key = pricing_ref.get("model_key", "")
+        if provider and model_key:
+            lookup_keys.append((provider, model_key))
+
+    # Also try with the original model_id
+    lookup_keys.append((None, model_id))
+
+    providers = pricing_data.get("providers", {})
+
+    for provider_hint, lookup_key in lookup_keys:
+        if supported_regions:
+            break  # Already found, no need to continue
+
+        for prov_name, prov_data in providers.items():
+            if supported_regions:
+                break
+
+            # Skip if provider hint doesn't match
+            if provider_hint and prov_name.lower() != provider_hint.lower():
+                continue
+
+            if not isinstance(prov_data, dict):
+                continue
+
+            # Direct model lookup
+            model_data = prov_data.get(lookup_key)
+
+            # Fuzzy matching as fallback
+            if not model_data:
+                lookup_lower = lookup_key.lower()
+                for mid, candidate in prov_data.items():
+                    if isinstance(candidate, dict) and "regions" in candidate:
+                        mid_lower = mid.lower()
+                        if lookup_lower in mid_lower or mid_lower in lookup_lower:
+                            model_data = candidate
+                            break
+
+            if isinstance(model_data, dict) and "regions" in model_data:
+                for region, region_data in model_data.get("regions", {}).items():
+                    pricing_groups = region_data.get("pricing_groups", {})
+                    reserved_groups = [
+                        g for g in pricing_groups.keys() if g.startswith("Reserved")
+                    ]
+                    if reserved_groups:
+                        if region not in supported_regions:
+                            supported_regions.append(region)
+                        for group_name in reserved_groups:
+                            term = _parse_commitment_term(group_name)
+                            if term:
+                                commitment_terms.add(term)
+
+    return {
+        "supported": len(supported_regions) > 0,
+        "regions": sorted(supported_regions),
+        "commitments": sorted(commitment_terms),
+    }
+
+
+def _parse_commitment_term(group_name: str) -> str:
+    """Extract commitment term from a Reserved pricing group name.
+
+    Examples:
+        "Reserved 1 Month Geo" → "1_month"
+        "Reserved 3 Month Global" → "3_month"
+        "Reserved 6 Month Geo" → "6_month"
+    """
+    match = re.match(r"Reserved\s+(\d+)\s+Month", group_name)
+    if match:
+        return f"{match.group(1)}_month"
+    return ""
 
 
 def build_api_support(
@@ -1372,6 +1469,7 @@ def build_availability(
     provisioned_data: dict,
     mantle_data: dict,
     is_mantle_only: bool = False,
+    reserved_data: dict = None,
 ) -> dict:
     """
     Build consolidated availability object from component data.
@@ -1383,6 +1481,7 @@ def build_availability(
         provisioned_data: Provisioned throughput data from build_provisioned_throughput()
         mantle_data: Mantle inference data from build_mantle_inference()
         is_mantle_only: Whether this is a Mantle-only model
+        reserved_data: Reserved capacity data from build_reserved_capacity()
 
     Returns:
         Consolidated availability object with:
@@ -1391,6 +1490,7 @@ def build_availability(
         - batch: {supported, regions}
         - provisioned: {supported, regions}
         - mantle: {supported, regions, only, responses_api}
+        - reserved: {supported, regions, commitments}
     """
     # On-demand availability
     on_demand_regions = regional_availability if regional_availability else []
@@ -1423,6 +1523,13 @@ def build_availability(
         "has_pricing": mantle_data.get("has_pricing", False),
     }
 
+    # Reserved capacity
+    reserved = {
+        "supported": reserved_data.get("supported", False) if reserved_data else False,
+        "regions": reserved_data.get("regions", []) if reserved_data else [],
+        "commitments": reserved_data.get("commitments", []) if reserved_data else [],
+    }
+
     return {
         "on_demand": {
             "supported": len(on_demand_regions) > 0,
@@ -1432,6 +1539,7 @@ def build_availability(
         "batch": batch,
         "provisioned": provisioned,
         "mantle": mantle,
+        "reserved": reserved,
     }
 
 
@@ -1987,6 +2095,11 @@ def transform_model_to_schema(
         }
     )
 
+    # Build reserved capacity data
+    reserved_capacity = build_reserved_capacity(
+        model_id, pricing_data, upstream_pricing_ref
+    )
+
     # Reconcile consumption_options with actual provisioned throughput data
     if resolved_provisioned.get("supported"):
         if "provisioned_throughput" not in consumption_options:
@@ -2019,6 +2132,14 @@ def transform_model_to_schema(
         if "mantle" in consumption_options:
             consumption_options.remove("mantle")
 
+    # Reconcile consumption_options with actual reserved capacity data
+    if reserved_capacity.get("supported"):
+        if "reserved" not in consumption_options:
+            consumption_options.append("reserved")
+    else:
+        if "reserved" in consumption_options:
+            consumption_options.remove("reserved")
+
     # Get feature support and chat features from console metadata
     feature_support = console_meta.get("feature_support", {}) if console_meta else {}
     chat_features = console_meta.get("chat_features", {}) if console_meta else {}
@@ -2038,6 +2159,7 @@ def transform_model_to_schema(
         provisioned_data=resolved_provisioned,
         mantle_data=mantle,
         is_mantle_only=False,
+        reserved_data=reserved_capacity,
     )
 
     # Build the result with new field names only (Phase 3 - old fields removed)
@@ -2320,6 +2442,15 @@ def build_final_models(
                     }
                     if "batch" not in stub["consumption_options"]:
                         stub["consumption_options"].append("batch")
+                reserved = build_reserved_capacity(mantle_id, pricing_data, pricing_ref)
+                if reserved.get("supported"):
+                    stub["availability"]["reserved"] = {
+                        "supported": True,
+                        "regions": reserved.get("regions", []),
+                        "commitments": reserved.get("commitments", []),
+                    }
+                    if "reserved" not in stub["consumption_options"]:
+                        stub["consumption_options"].append("reserved")
                 logger.info(
                     f"Enriched Mantle-only model {mantle_id} with pricing from "
                     f"{pricing_ref['provider']}/{pricing_ref['model_key']}"

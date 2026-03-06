@@ -216,6 +216,11 @@ The `availability` object consolidates all consumption options:
       "only": false,
       "responses_api": true,
       "has_pricing": true
+    },
+    "reserved": {
+      "supported": true,
+      "regions": ["us-east-1", "us-west-2", "eu-west-1"],
+      "commitments": ["1_month", "3_month"]
     }
   }
 }
@@ -237,6 +242,9 @@ The `availability` object consolidates all consumption options:
 | `mantle.only` | boolean | True if ONLY available via Mantle |
 | `mantle.responses_api` | boolean | Supports Responses API |
 | `mantle.has_pricing` | boolean | Has Mantle-specific pricing |
+| `reserved.supported` | boolean | Reserved Capacity available |
+| `reserved.regions` | string[] | Regions with Reserved Capacity pricing |
+| `reserved.commitments` | string[] | Commitment terms (e.g., "1_month", "3_month") |
 
 #### Specs Object
 
@@ -473,7 +481,8 @@ This is a lightweight reference pointing to `bedrock_pricing.json`. For full pri
 | `on_demand` | Pay-per-use inference |
 | `batch` | Asynchronous batch inference |
 | `cross_region_inference` | Cross-region inference (CRIS) |
-| `provisioned_throughput` | Reserved capacity |
+| `provisioned_throughput` | Provisioned throughput capacity |
+| `reserved` | Reserved Capacity (commitment-based) |
 | `mantle` | OpenAI-compatible endpoint |
 
 #### Collection Metadata
@@ -709,7 +718,7 @@ This table shows which Lambda function contributes which data to the final outpu
     "supported_document_types": ["pdf", "txt", "docx"]
   },
   
-  "consumption_options": ["on_demand", "batch", "cross_region_inference", "mantle", "provisioned_throughput"],
+  "consumption_options": ["on_demand", "batch", "cross_region_inference", "mantle", "provisioned_throughput", "reserved"],
   
   "collection_metadata": {
     "first_discovered_at": "2024-10-22T00:00:00Z",
@@ -758,9 +767,14 @@ This table shows which Lambda function contributes which data to the final outpu
       "only": false,
       "responses_api": true,
       "has_pricing": true
+    },
+    "reserved": {
+      "supported": true,
+      "regions": ["us-east-1", "us-west-2", "eu-west-1"],
+      "commitments": ["1_month", "3_month"]
     }
   },
-  
+
   "modalities": {
     "input_modalities": ["TEXT", "IMAGE"],
     "output_modalities": ["TEXT"]
