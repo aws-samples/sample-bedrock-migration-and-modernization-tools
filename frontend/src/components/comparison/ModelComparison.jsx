@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import { GitCompare, Trash2, ArrowLeft, BarChart3, Globe, DollarSign, Cpu, ChevronDown, ChevronUp, Plus, Search, X } from 'lucide-react'
+import { GitCompare, Trash2, ArrowLeft, BarChart3, Globe, ChevronDown, ChevronUp, Plus, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -8,9 +8,8 @@ import { useComparisonStore } from '@/stores/comparisonStore'
 import { useModels } from '@/hooks/useModels'
 import { ComparisonCard } from './ComparisonCard'
 import { OverviewTab } from './tabs/OverviewTab'
-import { PricingTab } from './tabs/PricingTab'
 import { AvailabilityTab } from './tabs/AvailabilityTab'
-import { TechSpecsTab } from './tabs/TechSpecsTab'
+
 import { cn } from '@/lib/utils'
 import { providerColorClasses } from '@/config/constants'
 import { trackEvent } from '@/services/analytics'
@@ -656,18 +655,11 @@ export function ModelComparison({ onNavigateToExplorer }) {
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
           </TabsTrigger>
-          <TabsTrigger value="pricing" className="gap-1 sm:gap-2">
-            <DollarSign className="h-4 w-4" />
-            <span className="hidden sm:inline">Pricing</span>
-          </TabsTrigger>
           <TabsTrigger value="availability" className="gap-1 sm:gap-2">
             <Globe className="h-4 w-4" />
             <span className="hidden sm:inline">Availability</span>
           </TabsTrigger>
-          <TabsTrigger value="specs" className="gap-1 sm:gap-2">
-            <Cpu className="h-4 w-4" />
-            <span className="hidden sm:inline">Tech Specs</span>
-          </TabsTrigger>
+
         </TabsList>
 
         <TabsContent value="overview">
@@ -679,14 +671,6 @@ export function ModelComparison({ onNavigateToExplorer }) {
           />
         </TabsContent>
 
-        <TabsContent value="pricing">
-          <PricingTab
-            selectedModels={sortedModels}
-            getPricingForModel={getPricingForModel}
-            isLight={isLight}
-          />
-        </TabsContent>
-
         <TabsContent value="availability">
           <AvailabilityTab
             selectedModels={sortedModels}
@@ -694,13 +678,7 @@ export function ModelComparison({ onNavigateToExplorer }) {
           />
         </TabsContent>
 
-        <TabsContent value="specs">
-          <TechSpecsTab
-            selectedModels={sortedModels}
-            getPricingForModel={getPricingForModel}
-            isLight={isLight}
-          />
-        </TabsContent>
+
       </Tabs>
     </div>
   )

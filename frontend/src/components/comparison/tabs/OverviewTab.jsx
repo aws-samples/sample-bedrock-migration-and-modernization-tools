@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy, DollarSign, Globe, ChevronDown, ChevronRight, Cpu } from 'lucide-react'
+import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy, DollarSign, Globe, ChevronDown, ChevronRight, Cpu, Copy } from 'lucide-react'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -226,6 +226,48 @@ function BooleanRow({ label, values, isLight }) {
   )
 }
 
+function CustomizationRow({ label, values, isLight }) {
+  return (
+    <tr className={cn(
+      'border-b',
+      isLight ? 'border-stone-100' : 'border-white/[0.04]'
+    )}>
+      <td className={cn(
+        'px-4 py-2.5 font-medium text-xs whitespace-nowrap sticky left-0 z-10',
+        isLight ? 'text-stone-700 bg-white' : 'text-slate-300 bg-[#1a1b1e]'
+      )}>
+        {label}
+      </td>
+      {values.map((options, idx) => (
+        <td key={idx} className="px-3 py-2.5">
+          {options.length > 0 ? (
+            <div className="flex justify-center gap-1 flex-wrap">
+              {options.map(opt => (
+                <span
+                  key={opt}
+                  className={cn(
+                    'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium',
+                    isLight ? 'bg-violet-50 text-violet-600' : 'bg-violet-500/10 text-violet-400'
+                  )}
+                >
+                  {prettifyLabel(opt)}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span className={cn(
+              'text-sm',
+              isLight ? 'text-stone-300' : 'text-slate-700'
+            )}>
+              —
+            </span>
+          )}
+        </td>
+      ))}
+    </tr>
+  )
+}
+
 // Section header row for the comparison table
 function SectionHeader({ label, colSpan, isLight }) {
   return (
@@ -379,6 +421,11 @@ function RadarTooltip({ active, payload, label, isLight }) {
       ))}
     </div>
   )
+}
+
+// Convert snake_case to Title Case
+function prettifyLabel(str) {
+  return str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
 // Helper to get all regions for a model (on-demand + CRIS + Mantle + Batch)
@@ -627,6 +674,18 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
   const [reservedTerm, setReservedTerm] = useState('1m') // '1m' or '3m'
   const [reservedScope, setReservedScope] = useState('global') // 'global' or 'geo'
   const [batchMode, setBatchMode] = useState(false) // toggle for batch pricing
+  const [copiedModelId, setCopiedModelId] = useState(null) // track which model ID was copied
+
+  // Handle copy to clipboard with visual feedback
+  const handleCopyModelId = async (modelId) => {
+    try {
+      await navigator.clipboard.writeText(modelId)
+      setCopiedModelId(modelId)
+      setTimeout(() => setCopiedModelId(null), 1500)
+    } catch (err) {
+      console.error('Failed to copy model ID:', err)
+    }
+  }
 
   // Get user for permission check
   const user = useAuthStore(s => s.user)
@@ -663,6 +722,10 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
     const effectiveContextWindow = Math.max(contextWindow, extendedContext || 0)
     const useCasesCount = (model.use_cases ?? model.model_use_cases ?? []).length
     const capabilitiesCount = (model.capabilities ?? model.model_capabilities ?? []).length
+    
+    // Technical details
+    const modelId = model.model_id
+    const customizationOptions = model.customization?.customization_supported || []
 
     return {
       model,
@@ -681,6 +744,8 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
       hasLongContext: hasLongContext || (extendedContext != null && extendedContext > contextWindow),
       useCasesCount,
       capabilitiesCount,
+      modelId,
+      customizationOptions,
       inputPrice: priceData.inputPrice,
       outputPrice: priceData.outputPrice,
       priceRegions: priceData.availableRegions,
@@ -702,7 +767,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
   const radarScores = useMemo(() => computeRadarScores(modelData, relativeBenchmarks), [modelData, relativeBenchmarks])
 
   const radarChartData = useMemo(() => {
-    const axes = ['Context Window', 'Cost Efficiency', 'Availability']
+    const axes = ['Context Window', 'Cheapest', 'Most Regions']
     const scoreKeys = ['contextScore', 'costScore', 'regionScore']
     return axes.map((axis, i) => {
       const point = { axis }
@@ -823,6 +888,14 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
             
             {/* Pricing Selector */}
             <div className="flex items-center gap-2 px-4 py-2 flex-wrap">
+              {/* Label */}
+              <span className={cn(
+                'text-[10px] font-medium uppercase tracking-wider',
+                isLight ? 'text-stone-500' : 'text-slate-500'
+              )}>
+                Pricing:
+              </span>
+              
               {/* Main pricing type buttons */}
               <div className={cn(
                 'inline-flex rounded-md border overflow-hidden h-6',
@@ -862,7 +935,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                     'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
                     isLight ? 'border-stone-300' : 'border-[#373a40]',
                     pricingType === 'mantle'
-                      ? isLight ? 'bg-violet-600 text-white' : 'bg-violet-600 text-white'
+                      ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
                       : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
                   )}
                 >
@@ -876,7 +949,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                     'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
                     isLight ? 'border-stone-300' : 'border-[#373a40]',
                     pricingType === 'reserved'
-                      ? isLight ? 'bg-indigo-600 text-white' : 'bg-indigo-600 text-white'
+                      ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
                       : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
                   )}
                 >
@@ -891,7 +964,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                       'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
                       isLight ? 'border-stone-300' : 'border-[#373a40]',
                       pricingType === 'provisioned'
-                        ? isLight ? 'bg-purple-600 text-white' : 'bg-purple-600 text-white'
+                        ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
                         : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
                     )}
                   >
@@ -906,7 +979,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                     'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
                     isLight ? 'border-stone-300' : 'border-[#373a40]',
                     pricingType === 'custom_model'
-                      ? isLight ? 'bg-orange-600 text-white' : 'bg-orange-600 text-white'
+                      ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
                       : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
                   )}
                 >
@@ -925,7 +998,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                     className={cn(
                       'px-2 py-0.5 text-[10px] font-medium transition-colors',
                       crisType === 'global'
-                        ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                        ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
                         : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
                     )}
                   >
@@ -937,7 +1010,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                       'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
                       isLight ? 'border-stone-300' : 'border-[#373a40]',
                       crisType === 'geo'
-                        ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                        ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
                         : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
                     )}
                   >
@@ -958,7 +1031,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                       className={cn(
                         'px-2 py-0.5 text-[10px] font-medium transition-colors',
                         reservedTerm === '1m'
-                          ? isLight ? 'bg-indigo-600 text-white' : 'bg-indigo-600 text-white'
+                          ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
                           : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
                       )}
                     >
@@ -970,7 +1043,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                         'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
                         isLight ? 'border-stone-300' : 'border-[#373a40]',
                         reservedTerm === '3m'
-                          ? isLight ? 'bg-indigo-600 text-white' : 'bg-indigo-600 text-white'
+                          ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
                           : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
                       )}
                     >
@@ -986,7 +1059,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                       className={cn(
                         'px-2 py-0.5 text-[10px] font-medium transition-colors',
                         reservedScope === 'global'
-                          ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                          ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
                           : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
                       )}
                     >
@@ -998,7 +1071,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                         'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
                         isLight ? 'border-stone-300' : 'border-[#373a40]',
                         reservedScope === 'geo'
-                          ? isLight ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+                          ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
                           : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
                       )}
                     >
@@ -1112,16 +1185,6 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                   isLight={isLight}
                   modelData={modelData}
                 />
-                
-                {/* Max Output Winner */}
-                <WinnerRow
-                  icon={<FileText className="h-3 w-3" />}
-                  label="Max Output"
-                  winners={[...outputBestSet].map(i => modelData[i])}
-                  value={formatNumber(maxOutputTokens)}
-                  isLight={isLight}
-                  modelData={modelData}
-                />
               </div>
             </div>
           )}
@@ -1164,15 +1227,15 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                   </p>
                 </div>
 
-                {/* Cost Efficiency */}
+                {/* Cheapest */}
                 <div className={cn(
                   'p-3 rounded-lg border',
                   isLight ? 'bg-white/80 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
                 )}>
                   <div className="flex items-center gap-2 mb-2">
-                    <DollarSign className={cn('h-4 w-4 text-emerald-500')} />
+                    <DollarSign className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
                     <p className={cn('text-[11px] font-semibold', isLight ? 'text-stone-800' : 'text-slate-200')}>
-                      Cost Efficiency
+                      Cheapest
                     </p>
                   </div>
                   <p className={cn('text-[10px] mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>
@@ -1189,15 +1252,15 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                   </p>
                 </div>
 
-                {/* Availability */}
+                {/* Most Regions */}
                 <div className={cn(
                   'p-3 rounded-lg border',
                   isLight ? 'bg-white/80 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
                 )}>
                   <div className="flex items-center gap-2 mb-2">
-                    <Globe className={cn('h-4 w-4', isLight ? 'text-blue-600' : 'text-blue-400')} />
+                    <Globe className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
                     <p className={cn('text-[11px] font-semibold', isLight ? 'text-stone-800' : 'text-slate-200')}>
-                      Availability
+                      Most Regions
                     </p>
                   </div>
                   <p className={cn('text-[10px] mb-2', isLight ? 'text-stone-600' : 'text-slate-400')}>
@@ -1262,6 +1325,34 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                     )}>
                       {model.model_name || model.model_id}
                     </p>
+                    {/* Model ID with copy button */}
+                    <div className="flex items-center justify-center gap-1 mt-1">
+                      <span
+                        className={cn(
+                          'text-[9px] font-mono max-w-[100px] truncate inline-block',
+                          isLight ? 'text-stone-500' : 'text-slate-500'
+                        )}
+                        title={model.model_id}
+                      >
+                        {model.model_id}
+                      </span>
+                      <button
+                        onClick={() => handleCopyModelId(model.model_id)}
+                        className={cn(
+                          'p-0.5 rounded transition-colors flex-shrink-0',
+                          isLight
+                            ? 'text-stone-400 hover:text-amber-700 hover:bg-stone-100'
+                            : 'text-slate-600 hover:text-[#1A9E7A] hover:bg-white/[0.05]'
+                        )}
+                        title="Copy model ID"
+                      >
+                        {copiedModelId === model.model_id ? (
+                          <Check className="h-3 w-3 text-emerald-500" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -1352,8 +1443,8 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                 isLight={isLight}
               />
               
-              {/* METADATA */}
-              <SectionHeader label="Metadata" colSpan={modelData.length + 1} isLight={isLight} />
+              {/* ADDITIONAL INFO */}
+              <SectionHeader label="Additional Info" colSpan={modelData.length + 1} isLight={isLight} />
               <MetricRow
                 label="Capabilities"
                 values={modelData.map(d => `${d.capabilitiesCount}`)}
@@ -1362,6 +1453,11 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
               <MetricRow
                 label="Use Cases"
                 values={modelData.map(d => `${d.useCasesCount}`)}
+                isLight={isLight}
+              />
+              <CustomizationRow
+                label="Customization"
+                values={modelData.map(d => d.customizationOptions)}
                 isLight={isLight}
               />
             </tbody>

@@ -1,4 +1,4 @@
-import { X, Globe, MessageSquare, Image, FileText, Video, Mic, Radio, Cpu } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,35 +8,11 @@ import { providerColorClasses } from '@/config/constants'
 
 const providerColors = providerColorClasses
 
-const modalityConfig = {
-  TEXT: { icon: MessageSquare, label: 'Text' },
-  IMAGE: { icon: Image, label: 'Image' },
-  DOCUMENT: { icon: FileText, label: 'Doc' },
-  VIDEO: { icon: Video, label: 'Video' },
-  AUDIO: { icon: Mic, label: 'Audio' },
-  SPEECH: { icon: Mic, label: 'Speech' },
-}
-
-function formatNumber(num) {
-  if (typeof num !== 'number' || isNaN(num)) return 'N/A'
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
-  if (num >= 1000) return `${(num / 1000).toFixed(0)}K`
-  return num.toString()
-}
-
 export function ComparisonCard({ model, onRemove }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
-  // New field paths with fallbacks to old field names
-  const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window
-  const maxOutput = model.specs?.max_output ?? model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens
-  const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
-  const outputModalities = model.modalities?.output_modalities ?? model.model_modalities?.output_modalities ?? []
   const isActive = (model.lifecycle?.status ?? model.model_lifecycle?.status) === 'ACTIVE' || model.model_status === 'ACTIVE'
-  const streamingSupported = model.streaming ?? model.streaming_supported ?? false
-  const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported ?? false
-  const mantleSupported = model.availability?.mantle?.supported ?? false
 
   return (
     <Card className={cn(
@@ -94,85 +70,6 @@ export function ComparisonCard({ model, onRemove }) {
         )}>
           {model.model_name || model.model_id}
         </h4>
-
-        {/* Compact stats row */}
-        <div className="flex items-center gap-2 text-[10px]">
-          <span className={cn(
-            'font-medium',
-            isLight ? 'text-amber-700' : 'text-[#1A9E7A]'
-          )}>
-            {formatNumber(contextWindow)}
-          </span>
-          <span className={cn('text-[8px]', isLight ? 'text-stone-300' : 'text-slate-600')}>|</span>
-          <span className={cn(
-            'font-medium',
-            isLight ? 'text-amber-700' : 'text-[#1A9E7A]'
-          )}>
-            {formatNumber(maxOutput)}
-          </span>
-        </div>
-
-        {/* Modalities */}
-        <div className="flex flex-wrap items-center gap-1 text-[9px]">
-          {inputModalities.length > 0 && inputModalities.map(mod => {
-            const cfg = modalityConfig[mod] || { icon: MessageSquare, label: mod }
-            const Icon = cfg.icon
-            return (
-              <span key={`in-${mod}`} className={cn(
-                'flex items-center gap-0.5 px-1 py-0.5 rounded',
-                isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/5 text-slate-400'
-              )}>
-                <Icon className="h-2.5 w-2.5" />
-                {cfg.label}
-              </span>
-            )
-          })}
-          {outputModalities.filter(m => !inputModalities.includes(m)).map(mod => {
-            const cfg = modalityConfig[mod] || { icon: MessageSquare, label: mod }
-            const Icon = cfg.icon
-            return (
-              <span key={`out-${mod}`} className={cn(
-                'flex items-center gap-0.5 px-1 py-0.5 rounded',
-                isLight ? 'bg-blue-50 text-blue-600' : 'bg-blue-500/10 text-blue-400'
-              )}>
-                <Icon className="h-2.5 w-2.5" />
-                {cfg.label}
-              </span>
-            )
-          })}
-        </div>
-
-        {/* Features row */}
-        <div className="flex items-center gap-1 text-[9px]">
-          {streamingSupported && (
-            <span className={cn(
-              'flex items-center gap-0.5 px-1 py-0.5 rounded',
-              isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/5 text-slate-400'
-            )}>
-              <Radio className="h-2.5 w-2.5" />
-              Stream
-            </span>
-          )}
-          {crisSupported && (
-            <span className={cn(
-              'flex items-center gap-0.5 px-1 py-0.5 rounded',
-              isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/5 text-slate-400'
-            )}>
-              <Globe className="h-2.5 w-2.5" />
-              CRIS
-            </span>
-          )}
-          {mantleSupported && (
-            <span className={cn(
-              'flex items-center gap-0.5 px-1 py-0.5 rounded',
-              isLight ? 'bg-purple-50 text-purple-600' : 'bg-purple-500/10 text-purple-400'
-            )}>
-              <Cpu className="h-2.5 w-2.5" />
-              Mantle
-            </span>
-          )}
-        </div>
-
       </CardContent>
     </Card>
   )
