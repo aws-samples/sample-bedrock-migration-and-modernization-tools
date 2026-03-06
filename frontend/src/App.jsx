@@ -9,8 +9,7 @@ import { RegionalAvailability } from '@/components/models/RegionalAvailability'
 import { AuthGate } from '@/auth/AuthGate'
 import { initAnalytics, trackEvent, shutdownAnalytics, setUserGeo } from '@/services/analytics'
 import { useAuthStore } from '@/stores/authStore'
-import { canViewRoadmap, canViewAnalytics, canViewChangelog } from '@/config/admin'
-import { AdminChangelog } from '@/components/admin/AdminChangelog'
+import { canViewRoadmap, canViewAnalytics } from '@/config/admin'
 
 function App() {
   const prevSection = useRef(null)
@@ -64,8 +63,6 @@ function App() {
               return isAuthenticated ? <RegionalAvailability /> : <ModelExplorer />
             case 'roadmap':
               return isAuthenticated && canViewRoadmap(user) ? <RegionRoadmap /> : <ModelExplorer />
-            case 'changelog':
-              return isAuthenticated && canViewChangelog(user) ? <AdminChangelog /> : <ModelExplorer />
             default:
               return <ModelExplorer />
           }

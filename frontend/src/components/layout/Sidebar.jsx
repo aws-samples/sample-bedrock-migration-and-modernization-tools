@@ -9,7 +9,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   X,
-  FileText,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -18,7 +17,7 @@ import { ThemeToggle } from './ThemeToggle'
 import { useTheme } from './ThemeProvider'
 import { BedrockIcon } from '@/components/icons/BedrockIcon'
 import { useAuthStore } from '@/stores/authStore'
-import { canViewRoadmap, canViewAnalytics, canViewChangelog, getSectionBadge } from '@/config/admin'
+import { canViewRoadmap, canViewAnalytics, getSectionBadge } from '@/config/admin'
 
 const baseNavigationItems = [
   {
@@ -122,9 +121,6 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
     }
     if (isAuthenticated && canViewAnalytics(user)) {
       items.push({ id: 'admin', label: 'Usage', icon: BarChart3, badge: getSectionBadge(user, 'admin') })
-    }
-    if (isAuthenticated && canViewChangelog(user)) {
-      items.push({ id: 'changelog', label: 'Changelog', icon: FileText, badge: getSectionBadge(user, 'changelog') })
     }
     return items
   }, [isAuthenticated, user])
