@@ -485,10 +485,22 @@ export function applyFilters(models, filters, getPricingForModel = null) {
     filtered = filtered.filter(m => m.streaming === supported)
   }
 
-  // Pricing availability filter - use has_pricing flag from model data
+  // Pricing availability filter - use getPricingForModel if available, fallback to has_pricing flag
   if (filters.pricingFilter && filters.pricingFilter !== 'All Models') {
     filtered = filtered.filter(m => {
-      const hasPricing = m.has_pricing === true
+      // Use getPricingForModel for accurate pricing check if available
+      let hasPricing = false
+      if (getPricingForModel) {
+        const pricingResult = getPricingForModel(m, filters.primaryRegion || 'us-east-1')
+        const summary = pricingResult?.summary
+        hasPricing = summary?.inputPrice != null || 
+                     summary?.outputPrice != null || 
+                     summary?.imagePrice != null || 
+                     summary?.videoPrice != null
+      } else {
+        // Fallback to has_pricing flag
+        hasPricing = m.has_pricing === true
+      }
       
       if (filters.pricingFilter === 'Has Pricing') {
         return hasPricing

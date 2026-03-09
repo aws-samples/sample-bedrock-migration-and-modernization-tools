@@ -70,8 +70,8 @@ export function Favorites({ onNavigateToExplorer }) {
   )
 
   const filteredModels = useMemo(
-    () => applyFilters(favoriteModels, filters),
-    [favoriteModels, filters]
+    () => applyFilters(favoriteModels, filters, getPricingForModel),
+    [favoriteModels, filters, getPricingForModel]
   )
 
   // Paginate

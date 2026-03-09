@@ -2257,9 +2257,12 @@ function LifecycleDetailsSection({ model, isLight }) {
   )
 }
 
-function SpecsTab({ model, user }) {
+function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
+  
+  // Get pricing result to check if pricing data is available
+  const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion)?.summary : null
   
   // Data extraction
   const inputModalities = model.modalities?.input_modalities ?? model.model_modalities?.input_modalities ?? []
@@ -2294,6 +2297,23 @@ function SpecsTab({ model, user }) {
   return (
     <ScrollArea className="h-full">
       <div className="p-6">
+        {/* No pricing warning banner */}
+        {(!pricingResult || (pricingResult.inputPrice == null && pricingResult.outputPrice == null && pricingResult.imagePrice == null && pricingResult.videoPrice == null)) && (
+          <div className={cn(
+            'mb-4 p-3 rounded-lg border flex items-start gap-2',
+            isLight 
+              ? 'bg-amber-50 border-amber-200 text-amber-800' 
+              : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+          )}>
+            <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium">No pricing data available</p>
+              <p className={cn('text-xs mt-0.5', isLight ? 'text-amber-700' : 'text-amber-400/80')}>
+                This model is not listed in the AWS Pricing API. Please verify model availability before use.
+              </p>
+            </div>
+          </div>
+        )}
         {/* Two-column grid layout */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* LEFT COLUMN */}
@@ -2844,13 +2864,16 @@ function QuotaItemsList({ items, isLight }) {
   )
 }
 
-function QuotasTab({ model }) {
+function QuotasTab({ model, getPricingForModel, preferredRegion }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedGeos, setExpandedGeos] = useState({})
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const quotas = model.quotas ?? model.model_service_quotas ?? {}
   const allRegions = Object.keys(quotas)
+  
+  // Get pricing result to check if pricing data is available
+  const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion)?.summary : null
 
   const geoInfo = {
     'US': { icon: '🇺🇸', name: 'United States' },
@@ -3002,6 +3025,24 @@ function QuotasTab({ model }) {
           <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
           <span>These quotas are internal service quotas and may not reflect customer-facing limits.</span>
         </div>
+
+        {/* No pricing warning banner */}
+        {(!pricingResult || (pricingResult.inputPrice == null && pricingResult.outputPrice == null && pricingResult.imagePrice == null && pricingResult.videoPrice == null)) && (
+          <div className={cn(
+            'mb-4 p-3 rounded-lg border flex items-start gap-2',
+            isLight 
+              ? 'bg-amber-50 border-amber-200 text-amber-800' 
+              : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+          )}>
+            <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium">No pricing data available</p>
+              <p className={cn('text-xs mt-0.5', isLight ? 'text-amber-700' : 'text-amber-400/80')}>
+                This model is not listed in the AWS Pricing API. Please verify model availability before use.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Search Bar */}
         <div className="mb-6">
@@ -5319,12 +5360,12 @@ export function ModelCardExpanded({
                 </TabsList>
 
                 <TabsContent value="specs" className="flex-1 mt-0 min-h-0 overflow-hidden">
-                  <SpecsTab model={model} user={user} />
+                  <SpecsTab model={model} user={user} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} />
                 </TabsContent>
 
                 {showQuotas && (
                   <TabsContent value="quotas" className="flex-1 mt-0 min-h-0 overflow-hidden">
-                    <QuotasTab model={model} />
+                    <QuotasTab model={model} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} />
                   </TabsContent>
                 )}
 

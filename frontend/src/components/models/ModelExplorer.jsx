@@ -43,7 +43,7 @@ export function ModelExplorer() {
 
   // Filter and sort models
   const filteredModels = useMemo(() => {
-    const filtered = applyFilters(models, filters)
+    const filtered = applyFilters(models, filters, getPricingForModel)
     return sortModels(filtered, sortBy, getPricingForModel, filters.primaryRegion)
   }, [models, filters, sortBy, getPricingForModel])
 

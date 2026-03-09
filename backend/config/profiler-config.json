@@ -204,7 +204,11 @@
       "google": "Google",
       "openai": "OpenAI",
       "qwen": "Qwen",
-      "minimax": "MiniMax"
+      "minimax": "MiniMax",
+      "minimax ai": "MiniMax",
+      "z ai": "Z.AI",
+      "zai": "Z.AI",
+      "z.ai": "Z.AI"
     },
     "provider_colors": {
       "Amazon": "#FF9900",

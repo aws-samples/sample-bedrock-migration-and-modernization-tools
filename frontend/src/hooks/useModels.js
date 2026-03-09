@@ -296,10 +296,18 @@ function selectBestPricingGroup(regions, filterByDimensions) {
         return { entries: filtered, pricingSource: sourcePrefix }
       }
 
-      // For Geo and On-Demand, find cheapest by input token price
+      // For Geo and On-Demand, find cheapest by input token price OR unit price
       const { inputPrice } = extractTokenPricesFromEntries(filtered)
-      if (inputPrice !== null && inputPrice < bestInputPrice) {
-        bestInputPrice = inputPrice
+
+      // For non-token pricing (image, video, search_unit), use price_per_unit
+      let effectivePrice = inputPrice
+      if (effectivePrice === null) {
+        const unitPriceEntry = filtered.find(e => e.price_per_unit != null && e.price_per_unit !== 0)
+        effectivePrice = unitPriceEntry?.price_per_unit ?? null
+      }
+
+      if (effectivePrice !== null && effectivePrice < bestInputPrice) {
+        bestInputPrice = effectivePrice
         bestEntries = filtered
         bestRegion = regionKey
       }
@@ -390,7 +398,24 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
   }
 
   // Use cascade to find best pricing group across all regions
-  const { entries: onDemand, pricingSource } = selectBestPricingGroup(modelPricing.regions, filterByDimensions)
+  let { entries: onDemand, pricingSource } = selectBestPricingGroup(modelPricing.regions, filterByDimensions)
+
+  // If no pricing found with default filter (excludes Mantle), retry including Mantle
+  // This handles Mantle-only models like MiniMax M2.5
+  if (onDemand.length === 0 && (!options || Object.keys(options).length === 0)) {
+    const filterIncludingMantle = (entries) => {
+      if (!entries || entries.length === 0) return []
+      return entries.filter(e => {
+        const dims = e.dimensions || {}
+        // Only exclude Reserved, allow Mantle
+        if (dims.inference_mode === 'reserved') return false
+        return true
+      })
+    }
+    const retryResult = selectBestPricingGroup(modelPricing.regions, filterIncludingMantle)
+    onDemand = retryResult.entries
+    pricingSource = retryResult.pricingSource
+  }
 
   // Handle image generation models (per-image pricing)
   if (primaryPricingType === 'image_generation') {
