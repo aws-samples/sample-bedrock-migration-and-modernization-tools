@@ -178,7 +178,7 @@ function getProviderColor(provider) {
 }
 
 // Collapsible section component
-function CollapsibleSection({ title, icon: Icon, children, defaultExpanded = false, infoLink = null }) {
+function CollapsibleSection({ title, icon: Icon, children, defaultExpanded = false, infoLink = null, dataSource = null }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const { theme } = useTheme()
   const isLight = theme === 'light'
@@ -227,6 +227,17 @@ function CollapsibleSection({ title, icon: Icon, children, defaultExpanded = fal
             : 'border-white/[0.06] bg-white/[0.03] backdrop-blur-xl'
         )}>
           {children}
+          {dataSource && (
+            <div className={cn(
+              'mt-3 pt-2 border-t flex items-start gap-1.5 text-[10px]',
+              isLight 
+                ? 'border-stone-200/60 text-stone-400' 
+                : 'border-white/[0.04] text-slate-500'
+            )}>
+              <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
+              <span>{dataSource}</span>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -264,7 +275,7 @@ function groupRegionsByGeo(regions) {
   return grouped
 }
 
-// Regional Availability grouped by geography
+// Regional Availability grouped by geography - CRIS style
 function RegionalAvailabilityGrouped({ regions }) {
   const [expandedGroups, setExpandedGroups] = useState({})
   const { theme } = useTheme()
@@ -275,10 +286,23 @@ function RegionalAvailabilityGrouped({ regions }) {
     setExpandedGroups(prev => ({ ...prev, [group]: !prev[group] }))
   }
 
+  // Geo display names without emojis (CRIS style)
+  const geoDisplayNames = {
+    'US': 'United States',
+    'EU': 'Europe', 
+    'APAC': 'Asia Pacific',
+    'CA': 'Canada',
+    'SA': 'South America',
+    'MX': 'Mexico',
+    'ME': 'Middle East',
+    'AF': 'Africa',
+    'GOV': 'GovCloud'
+  }
+
   return (
     <div className="space-y-2">
       {Object.entries(grouped).map(([groupKey, groupRegions]) => {
-        const groupInfo = geoGroups[groupKey] || { name: groupKey, icon: '🌐' }
+        const displayName = geoDisplayNames[groupKey] || groupKey
         const isExpanded = expandedGroups[groupKey]
 
         return (
@@ -288,15 +312,18 @@ function RegionalAvailabilityGrouped({ regions }) {
           )}>
             <button
               className={cn(
-                'w-full flex items-center justify-between p-2 transition-colors',
+                'w-full flex items-center justify-between p-3 transition-colors',
                 isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
               )}
               onClick={() => toggleGroup(groupKey)}
             >
               <div className="flex items-center gap-2">
-                <span>{groupInfo.icon}</span>
-                <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>{groupInfo.name}</span>
-                <Badge variant="secondary" className="text-xs">{groupRegions.length} regions</Badge>
+                <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
+                  {displayName}
+                </span>
+                <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                  {groupRegions.length} regions
+                </span>
               </div>
               {isExpanded ? (
                 <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
@@ -305,12 +332,19 @@ function RegionalAvailabilityGrouped({ regions }) {
               )}
             </button>
             {isExpanded && (
-              <div className={cn('px-2 pb-2 border-t', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
-                <div className="flex flex-wrap gap-1.5 pt-2">
+              <div className={cn('px-3 pb-3 pt-3 border-t', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+                <div className="flex flex-wrap gap-1">
                   {groupRegions.sort().map(region => (
-                    <Badge key={region} variant="outline" className="text-xs">
-                      {getRegionDisplayName(region)} <span className={cn('font-mono ml-1', isLight ? 'text-stone-500' : 'text-slate-300')}>({region})</span>
-                    </Badge>
+                    <Tooltip key={region} delayDuration={200}>
+                      <TooltipTrigger asChild>
+                        <Badge variant="secondary" className="text-[10px] cursor-default">
+                          {getRegionDisplayName(region)}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={4}>
+                        <p className="font-mono text-xs">{region}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   ))}
                 </div>
               </div>
@@ -323,7 +357,9 @@ function RegionalAvailabilityGrouped({ regions }) {
 }
 
 // On-Demand Availability section with model ID highlight, stats, and geo-grouped regions
-function OnDemandAvailabilitySection({ model }) {
+function OnDemandAvailabilitySection({ model, govcloudData }) {
+  const [regionsExpanded, setRegionsExpanded] = useState(false)
+  const [govcloudExpanded, setGovcloudExpanded] = useState(false)
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
@@ -331,6 +367,16 @@ function OnDemandAvailabilitySection({ model }) {
   const geoCount = Object.keys(grouped).length
   const modelId = model.model_id
   const isMantleOnly = model.availability?.mantle?.only
+
+  // Check if GovCloud should be shown in On-Demand section (in_region inference type)
+  const govcloudRegions = govcloudData?.regions || []
+  const hasGovCloudInRegion = govcloudData?.supported && govcloudRegions.length > 0 && govcloudData?.inference_type === 'in_region'
+
+  const geoDisplayNames = {
+    'US': 'United States', 'EU': 'Europe', 'APAC': 'Asia Pacific',
+    'CA': 'Canada', 'SA': 'South America', 'MX': 'Mexico', 'ME': 'Middle East',
+    'AF': 'Africa', 'GOV': 'GovCloud'
+  }
 
   return (
     <div className="space-y-3">
@@ -351,8 +397,8 @@ function OnDemandAvailabilitySection({ model }) {
         </div>
       )}
 
-      {/* Model ID highlight bar */}
-      {modelId && !isMantleOnly && (
+      {/* Model ID highlight bar - only show when commercial regions are available */}
+      {modelId && !isMantleOnly && regions.length > 0 && (
         <div className={cn(
           'rounded-lg p-3 border',
           isLight ? 'bg-white border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]'
@@ -378,8 +424,13 @@ function OnDemandAvailabilitySection({ model }) {
         <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
           <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Status</p>
           <div className="flex items-center gap-1 mt-1">
-            {regions.length > 0 ? (
-              <><Check className="h-4 w-4 text-emerald-500" /><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Supported</span></>
+            {(regions.length > 0 || hasGovCloudInRegion) ? (
+              <>
+                <Check className="h-4 w-4 text-emerald-500" />
+                <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                  {regions.length > 0 ? 'Supported' : 'GovCloud Only'}
+                </span>
+              </>
             ) : (
               <><X className="h-4 w-4 text-red-400" /><span className={cn('text-sm font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>Not Available</span></>
             )}
@@ -399,11 +450,115 @@ function OnDemandAvailabilitySection({ model }) {
         )}
       </div>
 
-      {/* Geo-grouped region display */}
+      {/* Single collapsible for all regions - matches Batch style */}
       {regions.length > 0 && (
-        <div>
-          <p className={cn('text-xs font-medium mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Regions by Geography</p>
-          <RegionalAvailabilityGrouped regions={regions} />
+        <div className="space-y-2">
+          <p className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>Regions by Geo</p>
+          <div className={cn(
+            'rounded-lg border overflow-hidden',
+            isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+          )}>
+            <button
+              className={cn(
+                'w-full flex items-center justify-between p-3 transition-colors',
+                isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
+              )}
+              onClick={() => setRegionsExpanded(!regionsExpanded)}
+            >
+              <div className="flex items-center gap-2">
+                <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
+                  Available Regions
+                </span>
+                <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                  {regions.length} regions
+                </span>
+              </div>
+              {regionsExpanded ? (
+                <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+              ) : (
+                <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+              )}
+            </button>
+            {regionsExpanded && (
+              <div className={cn('px-3 pb-3 pt-3 border-t space-y-3', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+                {Object.entries(grouped).map(([geoKey, geoRegions]) => (
+                  <div key={geoKey}>
+                    <p className={cn('text-[10px] mb-2 font-medium', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                      {geoDisplayNames[geoKey] || geoKey} ({geoRegions.length})
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {geoRegions.sort().map(region => (
+                        <Tooltip key={region} delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <Badge variant="secondary" className="text-[10px] cursor-default">
+                              {getRegionDisplayName(region)}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" sideOffset={4}>
+                            <p className="font-mono text-xs">{region}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* GovCloud section for in_region inference type */}
+      {hasGovCloudInRegion && (
+        <div className={cn(
+          'rounded-lg border overflow-hidden',
+          isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+        )}>
+          <button
+            className={cn(
+              'w-full flex items-center justify-between p-3 transition-colors',
+              isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
+            )}
+            onClick={() => setGovcloudExpanded(!govcloudExpanded)}
+          >
+            <div className="flex items-center gap-2">
+              <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
+                GovCloud
+              </span>
+              <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                {govcloudRegions.length} regions
+              </span>
+            </div>
+            {govcloudExpanded ? (
+              <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+            ) : (
+              <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+            )}
+          </button>
+          {govcloudExpanded && (
+            <div className={cn('px-3 pb-3 pt-3 border-t', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+              <p className={cn('text-[10px] mb-2 font-medium', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                Regions ({govcloudRegions.length})
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {govcloudRegions.sort().map(region => (
+                  <Tooltip key={region} delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <Badge variant="secondary" className="text-[10px] cursor-default">
+                        {getRegionDisplayName(region)}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={4}>
+                      <p className="font-mono text-xs">{region}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+              <p className={cn('text-[10px] mt-2 italic', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                Available in US GovCloud regions via in-region inference
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -661,9 +816,9 @@ function CrossRegionInferenceSection({ crisData, govcloudData }) {
     profilesByScope[scope].push(data)
   }
 
-  // Check if GovCloud has regions
+  // Check if GovCloud has regions AND uses CRIS inference type
   const govcloudRegions = govcloudData?.regions || []
-  const hasGovCloud = govcloudData?.supported && govcloudRegions.length > 0
+  const hasGovCloud = govcloudData?.supported && govcloudRegions.length > 0 && govcloudData?.inference_type === 'cris'
 
   // Get available scopes sorted (global first, then alphabetically, GovCloud last)
   const availableScopes = Object.keys(profilesByScope).sort((a, b) => {
@@ -901,7 +1056,7 @@ function ProvisionedThroughputSection({ provisionedData }) {
       {/* Geo-grouped region display */}
       {regions.length > 0 && (
         <div>
-          <p className={cn('text-xs font-medium mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Regions by Geography</p>
+          <p className={cn('text-xs font-medium mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Regions by Geo</p>
           <RegionalAvailabilityGrouped regions={regions} />
         </div>
       )}
@@ -909,13 +1064,49 @@ function ProvisionedThroughputSection({ provisionedData }) {
   )
 }
 
-// Batch Inference Section with grouped regions
-function BatchInferenceSection({ batchData }) {
-  const [isExpanded, setIsExpanded] = useState(false)
+// Batch Inference Section with CRIS-style grouped regions
+function BatchInferenceSection({ batchData, crisData }) {
+  const [expandedGroups, setExpandedGroups] = useState({})
   const { theme } = useTheme()
   const isLight = theme === 'light'
-  const regions = batchData.regions ?? batchData.supported_regions ?? []
-  const grouped = groupRegionsByGeo(regions)
+  
+  // Get batch regions from different sources
+  const inRegionBatchRegions = batchData.regions ?? batchData.supported_regions ?? []
+  
+  // Check if CRIS supports batch (look for Batch Global/Geo pricing groups)
+  const crisBatchRegions = crisData?.regions || []
+  const hasCrisBatch = crisData?.supported && crisBatchRegions.length > 0
+  
+  const toggleGroup = (key) => {
+    setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const totalRegions = new Set([...inRegionBatchRegions, ...(hasCrisBatch ? crisBatchRegions : [])]).size
+
+  // Group regions by geo for display
+  const groupByGeo = (regions) => {
+    const grouped = {}
+    regions.forEach(r => {
+      let geo = 'Other'
+      if (r.startsWith('us-gov-')) geo = 'GOV'
+      else if (r.startsWith('us-')) geo = 'US'
+      else if (r.startsWith('eu-')) geo = 'EU'
+      else if (r.startsWith('ap-')) geo = 'AP'
+      else if (r.startsWith('ca-')) geo = 'CA'
+      else if (r.startsWith('sa-')) geo = 'SA'
+      else if (r.startsWith('me-') || r.startsWith('il-')) geo = 'ME'
+      else if (r.startsWith('af-')) geo = 'AF'
+      if (!grouped[geo]) grouped[geo] = []
+      grouped[geo].push(r)
+    })
+    return grouped
+  }
+
+  const geoDisplayNames = {
+    'US': 'United States', 'EU': 'Europe', 'AP': 'Asia Pacific',
+    'CA': 'Canada', 'SA': 'South America', 'ME': 'Middle East',
+    'AF': 'Africa', 'GOV': 'GovCloud', 'Other': 'Other'
+  }
 
   return (
     <div className="space-y-3">
@@ -932,54 +1123,126 @@ function BatchInferenceSection({ batchData }) {
           </div>
         </div>
         <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Regions</p>
-          <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{regions.length}</p>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Total Regions</p>
+          <p className={cn('text-lg font-bold', isLight ? 'text-amber-700' : 'text-[#1A9E7A]')}>{totalRegions}</p>
         </div>
       </div>
 
-      {/* Regions grouped by geography */}
-      {batchData.supported && regions.length > 0 && (
-        <div className={cn(
-          'rounded-lg border overflow-hidden',
-          isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
-        )}>
-          <button
-            className={cn(
-              'w-full flex items-center justify-between p-2 transition-colors',
-              isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
-            )}
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            <div className="flex items-center gap-2">
-              <Globe className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
-              <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>Available Regions</span>
-              <Badge variant="info" className="text-xs">{regions.length} regions</Badge>
-            </div>
-            {isExpanded ? (
-              <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
-            ) : (
-              <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
-            )}
-          </button>
-          {isExpanded && (
-            <div className={cn('px-2 pb-2 pt-2 space-y-2 border-t', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
-              {Object.entries(grouped).map(([geoKey, geoRegions]) => {
-                const geoInfo = geoGroups[geoKey] || { name: geoKey, icon: '🌐' }
-                return (
-                  <div key={geoKey}>
-                    <p className={cn('text-xs mb-1', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                      {geoInfo.icon} {geoInfo.name} ({geoRegions.length})
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {geoRegions.sort().map(region => (
-                        <Badge key={region} variant="outline" className="text-xs">
-                          {getRegionDisplayName(region)}
-                        </Badge>
-                      ))}
+      {/* Batch by consumption type */}
+      {batchData.supported && (
+        <div className="space-y-2">
+          <p className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>Batch Availability</p>
+          
+          {/* In-Region Batch */}
+          {inRegionBatchRegions.length > 0 && (
+            <div className={cn(
+              'rounded-lg border overflow-hidden',
+              isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+            )}>
+              <button
+                className={cn(
+                  'w-full flex items-center justify-between p-3 transition-colors',
+                  isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
+                )}
+                onClick={() => toggleGroup('in_region')}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
+                    In-Region
+                  </span>
+                  <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                    {inRegionBatchRegions.length} regions
+                  </span>
+                </div>
+                {expandedGroups['in_region'] ? (
+                  <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+                ) : (
+                  <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+                )}
+              </button>
+              {expandedGroups['in_region'] && (
+                <div className={cn('px-3 pb-3 pt-3 border-t space-y-3', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+                  {Object.entries(groupByGeo(inRegionBatchRegions)).map(([geoKey, geoRegions]) => (
+                    <div key={geoKey}>
+                      <p className={cn('text-[10px] mb-2 font-medium', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                        {geoDisplayNames[geoKey]} ({geoRegions.length})
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {geoRegions.sort().map(region => (
+                          <Tooltip key={region} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <Badge variant="secondary" className="text-[10px] cursor-default">
+                                {getRegionDisplayName(region)}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" sideOffset={4}>
+                              <p className="font-mono text-xs">{region}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CRIS Batch */}
+          {hasCrisBatch && (
+            <div className={cn(
+              'rounded-lg border overflow-hidden',
+              isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+            )}>
+              <button
+                className={cn(
+                  'w-full flex items-center justify-between p-3 transition-colors',
+                  isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
+                )}
+                onClick={() => toggleGroup('cris')}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
+                    Cross-Region (CRIS)
+                  </span>
+                  <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                    {crisBatchRegions.length} source regions
+                  </span>
+                </div>
+                {expandedGroups['cris'] ? (
+                  <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+                ) : (
+                  <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+                )}
+              </button>
+              {expandedGroups['cris'] && (
+                <div className={cn('px-3 pb-3 pt-3 border-t space-y-3', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+                  {Object.entries(groupByGeo(crisBatchRegions)).map(([geoKey, geoRegions]) => (
+                    <div key={geoKey}>
+                      <p className={cn('text-[10px] mb-2 font-medium', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                        {geoDisplayNames[geoKey]} ({geoRegions.length})
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {geoRegions.sort().map(region => (
+                          <Tooltip key={region} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <Badge variant="secondary" className="text-[10px] cursor-default">
+                                {getRegionDisplayName(region)}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" sideOffset={4}>
+                              <p className="font-mono text-xs">{region}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <p className={cn('text-[10px] italic', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                    Batch jobs can be submitted from these source regions via CRIS
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -988,13 +1251,23 @@ function BatchInferenceSection({ batchData }) {
   )
 }
 
-// Mantle Inference Section with grouped regions
+// Mantle Inference Section with CRIS-style grouped regions
 function MantleInferenceSection({ mantleData }) {
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState({})
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const regions = mantleData.regions || []
   const grouped = groupRegionsByGeo(regions)
+
+  const toggleGroup = (key) => {
+    setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const geoDisplayNames = {
+    'US': 'United States', 'EU': 'Europe', 'APAC': 'Asia Pacific',
+    'CA': 'Canada', 'SA': 'South America', 'MX': 'Mexico', 'ME': 'Middle East',
+    'AF': 'Africa', 'GOV': 'GovCloud', 'Other': 'Other'
+  }
 
   return (
     <div className="space-y-3">
@@ -1016,51 +1289,56 @@ function MantleInferenceSection({ mantleData }) {
         </div>
       </div>
 
-      {/* Regions grouped by geography */}
+      {/* Regions by geo */}
       {mantleData.supported && regions.length > 0 && (
-        <div className={cn(
-          'rounded-lg border overflow-hidden',
-          isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
-        )}>
-          <button
-            className={cn(
-              'w-full flex items-center justify-between p-2 transition-colors',
-              isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
-            )}
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            <div className="flex items-center gap-2">
-              <Globe className={cn('h-4 w-4', isLight ? 'text-violet-600' : 'text-violet-400')} />
-              <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>Available Regions</span>
-              <Badge variant="info" className="text-xs">{regions.length} regions</Badge>
-            </div>
-            {isExpanded ? (
-              <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
-            ) : (
-              <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
-            )}
-          </button>
-          {isExpanded && (
-            <div className={cn('px-2 pb-2 pt-2 space-y-2 border-t', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
-              {Object.entries(grouped).map(([geoKey, geoRegions]) => {
-                const geoInfo = geoGroups[geoKey] || { name: geoKey, icon: '🌐' }
-                return (
-                  <div key={geoKey}>
-                    <p className={cn('text-xs mb-1', isLight ? 'text-stone-600' : 'text-slate-300')}>
-                      {geoInfo.icon} {geoInfo.name} ({geoRegions.length})
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {geoRegions.sort().map(region => (
-                        <Badge key={region} variant="outline" className="text-xs">
-                          {getRegionDisplayName(region)}
-                        </Badge>
-                      ))}
-                    </div>
+        <div className="space-y-2">
+          <p className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>Regions by Geo</p>
+          {Object.entries(grouped).map(([geoKey, geoRegions]) => (
+            <div key={geoKey} className={cn(
+              'rounded-lg border overflow-hidden',
+              isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+            )}>
+              <button
+                className={cn(
+                  'w-full flex items-center justify-between p-3 transition-colors',
+                  isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
+                )}
+                onClick={() => toggleGroup(geoKey)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
+                    {geoDisplayNames[geoKey] || geoKey}
+                  </span>
+                  <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                    {geoRegions.length} regions
+                  </span>
+                </div>
+                {expandedGroups[geoKey] ? (
+                  <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+                ) : (
+                  <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+                )}
+              </button>
+              {expandedGroups[geoKey] && (
+                <div className={cn('px-3 pb-3 pt-3 border-t', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+                  <div className="flex flex-wrap gap-1">
+                    {geoRegions.sort().map(region => (
+                      <Tooltip key={region} delayDuration={200}>
+                        <TooltipTrigger asChild>
+                          <Badge variant="secondary" className="text-[10px] cursor-default">
+                            {getRegionDisplayName(region)}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" sideOffset={4}>
+                          <p className="font-mono text-xs">{region}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
                   </div>
-                )
-              })}
+                </div>
+              )}
             </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -1102,9 +1380,16 @@ function AvailabilitySummary({ model }) {
   const types = [
     {
       label: 'In Region',
-      supported: isMantleOnly ? false : (((model.availability?.on_demand?.regions ?? model.in_region)?.length > 0) || (regions.length > 0 && (model.inference_types_supported || []).includes('ON_DEMAND'))),
-      count: isMantleOnly ? 0 : ((model.availability?.on_demand?.regions ?? model.in_region)?.length ?? model.total_in_region ?? regions.length),
-      detail: () => <OnDemandAvailabilitySection model={model} />,
+      supported: isMantleOnly ? false : (
+        ((model.availability?.on_demand?.regions ?? model.in_region)?.length > 0) || 
+        (regions.length > 0 && (model.inference_types_supported || []).includes('ON_DEMAND')) ||
+        (govcloudData?.supported && govcloudData?.inference_type === 'in_region')
+      ),
+      count: isMantleOnly ? 0 : (
+        ((model.availability?.on_demand?.regions ?? model.in_region)?.length ?? model.total_in_region ?? regions.length) +
+        (govcloudData?.supported && govcloudData?.inference_type === 'in_region' ? (govcloudData?.regions?.length ?? 0) : 0)
+      ),
+      detail: () => <OnDemandAvailabilitySection model={model} govcloudData={govcloudData} />,
     },
     {
       label: 'Cross-Region (CRIS)',
@@ -1116,7 +1401,7 @@ function AvailabilitySummary({ model }) {
       label: 'Batch',
       supported: isMantleOnly ? false : !!batchData.supported,
       count: isMantleOnly ? 0 : (batchData.regions?.length ?? batchData.supported_regions?.length ?? 0),
-      detail: () => <BatchInferenceSection batchData={batchData} />,
+      detail: () => <BatchInferenceSection batchData={batchData} crisData={crisData} />,
     },
     {
       label: 'Mantle',
@@ -2018,7 +2303,12 @@ function SpecsTab({ model, user }) {
               <CategoryHeader icon={Cpu} title="Model Capabilities" />
               <div className="space-y-3">
                 {/* Modalities - Always expanded */}
-                <CollapsibleSection title="Input & Output Modalities" icon={Layers} defaultExpanded={true}>
+                <CollapsibleSection 
+                  title="Input & Output Modalities" 
+                  icon={Layers} 
+                  defaultExpanded={true}
+                  dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">Bedrock ListFoundationModels API</a></>}
+                >
                   <div className="space-y-3">
                     <div>
                       <p className={cn('text-xs mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Input</p>
@@ -2049,9 +2339,14 @@ function SpecsTab({ model, user }) {
                   </div>
                 </CollapsibleSection>
 
-                {/* Capabilities - Collapsed by default */}
+                {/* Capabilities - Expanded by default */}
                 {capabilities.length > 0 && (
-                  <CollapsibleSection title="Capabilities" icon={Zap} defaultExpanded={false}>
+                  <CollapsibleSection 
+                    title="Capabilities" 
+                    icon={Zap} 
+                    defaultExpanded={true}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">Bedrock Console API</a></>}
+                  >
                     <ExpandableTagList
                       label=""
                       items={capabilities}
@@ -2061,9 +2356,14 @@ function SpecsTab({ model, user }) {
                   </CollapsibleSection>
                 )}
 
-                {/* Use Cases - Collapsed by default */}
+                {/* Use Cases - Expanded by default */}
                 {useCases.length > 0 && (
-                  <CollapsibleSection title="Use Cases" icon={BookOpen} defaultExpanded={false}>
+                  <CollapsibleSection 
+                    title="Use Cases" 
+                    icon={BookOpen} 
+                    defaultExpanded={true}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">Bedrock Console API</a></>}
+                  >
                     <ExpandableTagList
                       label=""
                       items={useCases}
@@ -2079,16 +2379,26 @@ function SpecsTab({ model, user }) {
             <div>
               <CategoryHeader icon={Wrench} title="Features & Integrations" />
               <div className="space-y-3">
-                {/* Bedrock Features - Collapsed by default */}
+                {/* Bedrock Features - Expanded by default */}
                 {(model.features ?? model.feature_support) && (
-                  <CollapsibleSection title="Bedrock Features" icon={Layers} defaultExpanded={false}>
+                  <CollapsibleSection 
+                    title="Bedrock Features" 
+                    icon={Layers} 
+                    defaultExpanded={true}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">Bedrock Console API</a></>}
+                  >
                     <BedrockFeaturesSection featureSupport={model.features ?? model.feature_support} />
                   </CollapsibleSection>
                 )}
 
-                {/* Languages - Collapsed by default */}
+                {/* Languages - Expanded by default */}
                 {languages.length > 0 && (
-                  <CollapsibleSection title="Languages" icon={Languages} defaultExpanded={false}>
+                  <CollapsibleSection 
+                    title="Languages" 
+                    icon={Languages} 
+                    defaultExpanded={true}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">Bedrock Console API</a></>}
+                  >
                     <div className="flex flex-wrap gap-1.5">
                       {languages.map(lang => (
                         <Badge key={lang} variant="secondary" className="text-xs">{lang}</Badge>
@@ -2097,9 +2407,14 @@ function SpecsTab({ model, user }) {
                   </CollapsibleSection>
                 )}
 
-                {/* Customizations - Collapsed by default */}
+                {/* Customizations - Expanded by default */}
                 {customizations.length > 0 && (
-                  <CollapsibleSection title="Customizations" icon={Wrench} defaultExpanded={false}>
+                  <CollapsibleSection 
+                    title="Customizations" 
+                    icon={Wrench} 
+                    defaultExpanded={true}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">Bedrock ListFoundationModels API</a></>}
+                  >
                     <div className="flex flex-wrap gap-1.5">
                       {customizations.map(custom => (
                         <Badge key={custom} variant="outline" className="text-xs">{custom}</Badge>
@@ -2130,7 +2445,12 @@ function SpecsTab({ model, user }) {
               <CategoryHeader icon={Globe} title="Availability & Deployment" />
               <div className="space-y-3">
                 {/* Regional Availability - Always expanded */}
-                <CollapsibleSection title="Consumption Options" icon={Globe} defaultExpanded={true}>
+                <CollapsibleSection 
+                  title="Consumption Options" 
+                  icon={Globe} 
+                  defaultExpanded={true}
+                  dataSource={<>Sources: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">ListFoundationModels API</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListInferenceProfiles.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">ListInferenceProfiles API</a>, <a href="https://aws.amazon.com/bedrock/pricing/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">AWS Pricing API</a>, Mantle API</>}
+                >
                   <AvailabilitySummary model={model} />
                 </CollapsibleSection>
 
@@ -2142,8 +2462,13 @@ function SpecsTab({ model, user }) {
             <div>
               <CategoryHeader icon={Clock} title="Lifecycle & Resources" />
               <div className="space-y-3">
-                {/* Lifecycle Details - Collapsed by default */}
-                <CollapsibleSection title="Status & Dates" icon={Clock} defaultExpanded={false}>
+                {/* Lifecycle Details - Expanded by default */}
+                <CollapsibleSection 
+                  title="Status & Dates" 
+                  icon={Clock} 
+                  defaultExpanded={true}
+                  dataSource={<>Sources: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">AWS Model Lifecycle Docs</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">ListFoundationModels API</a>. Priority: Lifecycle Docs → ListFoundationModels</>}
+                >
                   <LifecycleDetailsSection model={model} isLight={isLight} />
                 </CollapsibleSection>
 
@@ -2707,6 +3032,19 @@ function QuotasTab({ model }) {
             {renderCategorySection('general', 'General', FileText)}
           </div>
         </div>
+
+        {/* Data Source Info */}
+        <div className={cn(
+          'mt-6 pt-4 border-t flex items-start gap-1.5 text-[10px]',
+          isLight 
+            ? 'border-stone-200/60 text-stone-400' 
+            : 'border-white/[0.04] text-slate-500'
+        )}>
+          <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
+          <span>
+            Source: <a href="https://docs.aws.amazon.com/servicequotas/latest/userguide/intro.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">AWS Service Quotas API</a> (per-region)
+          </span>
+        </div>
       </div>
     </ScrollArea>
   )
@@ -3028,10 +3366,18 @@ const pricingGroupInfo = {
   'On-Demand': { icon: '🚀', label: 'In Region' },
   'On-Demand Global': { icon: '🌐', label: 'In Region (Global/CRIS)' },
   'On-Demand Long Context': { icon: '📚', label: 'In Region Long Context' },
+  'On-Demand GovCloud': { icon: '🏛️', label: 'GovCloud On-Demand' },
+  'On-Demand GovCloud InRegion': { icon: '🏛️', label: 'GovCloud On-Demand' },
+  'On-Demand Long Context GovCloud': { icon: '🏛️', label: 'GovCloud On-Demand (Long Context)' },
+  'On-Demand Long Context GovCloud InRegion': { icon: '🏛️', label: 'GovCloud On-Demand (Long Context)' },
   'Batch': { icon: '📦', label: 'Batch' },
   'Batch Global': { icon: '🌍', label: 'Batch Global' },
   'Batch Long Context': { icon: '📖', label: 'Batch Long Context' },
   'Batch Long Context Global': { icon: '🌏', label: 'Batch Long Context Global' },
+  'Batch GovCloud': { icon: '🏛️', label: 'GovCloud Batch' },
+  'Batch GovCloud InRegion': { icon: '🏛️', label: 'GovCloud Batch' },
+  'Batch Long Context GovCloud': { icon: '🏛️', label: 'GovCloud Batch (Long Context)' },
+  'Batch Long Context GovCloud InRegion': { icon: '🏛️', label: 'GovCloud Batch (Long Context)' },
   'Provisioned Throughput': { icon: '⚡', label: 'Provisioned Throughput' },
   'Custom Model': { icon: '🎯', label: 'Custom Model' },
 }
@@ -3078,6 +3424,12 @@ const PRICING_GROUP_HIERARCHY = [
         label: 'Geo',
         description: 'Price varies by source region',
         pricingGroups: ['On-Demand Geo', 'On-Demand Long Context Geo', 'Batch Geo', 'Batch Long Context Geo']
+      },
+      {
+        id: 'govcloud',
+        label: 'GovCloud',
+        description: 'US GovCloud regions',
+        pricingGroups: ['On-Demand GovCloud', 'On-Demand Long Context GovCloud', 'Batch GovCloud', 'Batch Long Context GovCloud']
       }
     ]
   },
@@ -3123,6 +3475,12 @@ const PRICING_GROUP_HIERARCHY = [
         label: 'Mantle',
         description: 'OpenAI-compatible inference endpoint',
         pricingGroups: ['Mantle']
+      },
+      {
+        id: 'govcloud',
+        label: 'GovCloud',
+        description: 'US GovCloud regions',
+        pricingGroups: ['On-Demand GovCloud InRegion', 'On-Demand Long Context GovCloud InRegion', 'Batch GovCloud InRegion', 'Batch Long Context GovCloud InRegion']
       }
     ]
   },
@@ -3626,12 +3984,14 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
     'CA': { icon: '🇨🇦', name: 'Canada' },
     'SA': { icon: '🌎', name: 'South America' },
     'ME': { icon: '🏜️', name: 'Middle East' },
+    'GOV': { icon: '🏛️', name: 'GovCloud' },
     'Other': { icon: '📍', name: 'Other' }
   }
 
-  const geoOrder = ['US', 'EU', 'APAC', 'CA', 'SA', 'ME', 'Other']
+  const geoOrder = ['US', 'EU', 'APAC', 'CA', 'SA', 'ME', 'GOV', 'Other']
 
   const getGeoForRegion = (region) => {
+    if (region.startsWith('us-gov-')) return 'GOV'
     if (region.startsWith('us-')) return 'US'
     if (region.startsWith('eu-')) return 'EU'
     if (region.startsWith('ap-')) return 'APAC'
@@ -3655,15 +4015,38 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
   const pricingByGroupGeoRegion = {}
   let allRegions = []
 
+  // Get GovCloud inference type from model
+  const govcloudInferenceType = model.availability?.govcloud?.inference_type
+
   if (fullPricing?.regions) {
     allRegions = Object.keys(fullPricing.regions)
     for (const [region, regionData] of Object.entries(fullPricing.regions)) {
       if (!regionData?.pricing_groups) continue
       const geo = getGeoForRegion(region)
+      const isGovCloud = geo === 'GOV'
+      
       for (const [groupName, items] of Object.entries(regionData.pricing_groups)) {
-        if (!pricingByGroupGeoRegion[groupName]) pricingByGroupGeoRegion[groupName] = {}
-        if (!pricingByGroupGeoRegion[groupName][geo]) pricingByGroupGeoRegion[groupName][geo] = {}
-        pricingByGroupGeoRegion[groupName][geo][region] = items
+        // For GovCloud regions, route to appropriate virtual group based on inference_type
+        let targetGroup = groupName
+        if (isGovCloud) {
+          if (govcloudInferenceType === 'cris') {
+            // Route to CRIS GovCloud group
+            if (groupName === 'On-Demand' || groupName === 'On-Demand Geo') targetGroup = 'On-Demand GovCloud'
+            else if (groupName === 'On-Demand Long Context' || groupName === 'On-Demand Long Context Geo') targetGroup = 'On-Demand Long Context GovCloud'
+            else if (groupName === 'Batch' || groupName === 'Batch Geo') targetGroup = 'Batch GovCloud'
+            else if (groupName === 'Batch Long Context' || groupName === 'Batch Long Context Geo') targetGroup = 'Batch Long Context GovCloud'
+          } else if (govcloudInferenceType === 'in_region') {
+            // Route to In-Region GovCloud group
+            if (groupName === 'On-Demand' || groupName === 'On-Demand Geo') targetGroup = 'On-Demand GovCloud InRegion'
+            else if (groupName === 'On-Demand Long Context' || groupName === 'On-Demand Long Context Geo') targetGroup = 'On-Demand Long Context GovCloud InRegion'
+            else if (groupName === 'Batch' || groupName === 'Batch Geo') targetGroup = 'Batch GovCloud InRegion'
+            else if (groupName === 'Batch Long Context' || groupName === 'Batch Long Context Geo') targetGroup = 'Batch Long Context GovCloud InRegion'
+          }
+        }
+        
+        if (!pricingByGroupGeoRegion[targetGroup]) pricingByGroupGeoRegion[targetGroup] = {}
+        if (!pricingByGroupGeoRegion[targetGroup][geo]) pricingByGroupGeoRegion[targetGroup][geo] = {}
+        pricingByGroupGeoRegion[targetGroup][geo][region] = items
       }
     }
   } else if (Object.keys(legacyByRegion).length > 0) {
@@ -3697,8 +4080,10 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
     // CRIS (Cross-Region)
     'On-Demand Global', 'On-Demand Geo', 'On-Demand Long Context Global', 'On-Demand Long Context Geo',
     'Batch Global', 'Batch Geo', 'Batch Long Context Global', 'Batch Long Context Geo',
+    'On-Demand GovCloud', 'On-Demand Long Context GovCloud', 'Batch GovCloud', 'Batch Long Context GovCloud',
     // In-Region
     'On-Demand', 'On-Demand Long Context', 'Batch', 'Batch Long Context', 'Mantle',
+    'On-Demand GovCloud InRegion', 'On-Demand Long Context GovCloud InRegion', 'Batch GovCloud InRegion', 'Batch Long Context GovCloud InRegion',
     // Reserved
     'Reserved No Commit', 'Reserved No Commit Global', 'Reserved No Commit Geo',
     'Reserved 1 Month', 'Reserved 1 Month Global', 'Reserved 1 Month Geo',
@@ -3718,8 +4103,19 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
 
   if (allRegions.length === 0) {
     return (
-      <div className={cn('text-center py-8', isLight ? 'text-stone-600' : 'text-slate-300')}>
-        <p>No pricing information available</p>
+      <div className={cn(
+        'mb-4 p-4 rounded-lg border flex items-start gap-3',
+        isLight 
+          ? 'bg-amber-50 border-amber-200 text-amber-800' 
+          : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+      )}>
+        <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="font-medium">No pricing data available</p>
+          <p className={cn('text-sm mt-1', isLight ? 'text-amber-700' : 'text-amber-400/80')}>
+            This model is not listed in the AWS Pricing API. Please verify model availability before use.
+          </p>
+        </div>
       </div>
     )
   }
@@ -4501,6 +4897,19 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
 
         {/* View Content */}
         {renderByTypeView()}
+
+        {/* Data Source Info */}
+        <div className={cn(
+          'mt-6 pt-4 border-t flex items-start gap-1.5 text-[10px]',
+          isLight 
+            ? 'border-stone-200/60 text-stone-400' 
+            : 'border-white/[0.04] text-slate-500'
+        )}>
+          <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
+          <span>
+            Source: <a href="https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/price-list-query-api.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">AWS Price List API</a>. Display priority: CRIS Global → CRIS Geo → Mantle → In-Region
+          </span>
+        </div>
       </div>
     </ScrollArea>
   )

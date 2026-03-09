@@ -297,21 +297,27 @@ def detect_cache_type(usage_type: str, description: str) -> str | None:
     return None
 
 
-def extract_govcloud_availability(products: list[dict]) -> dict[str, list[str]]:
+def extract_govcloud_availability(products: list[dict]) -> dict[str, dict]:
     """
     Extract which models are available in GovCloud regions from pricing data.
 
     The Pricing API returns pricing entries for GovCloud regions (us-gov-west-1,
     us-gov-east-1). This function extracts which models have pricing in these
-    regions, indicating they are available in GovCloud.
+    regions and determines if they are CRIS or In-Region based on config.
 
     Args:
         products: List of pricing product entries from the Pricing API
 
     Returns:
-        Dict mapping model names to list of GovCloud regions where available.
-        e.g., {"Nova Pro": ["us-gov-west-1"], "Llama 3 8B": ["us-gov-west-1"]}
+        Dict mapping model names to availability info:
+        {
+            "Claude 3 Haiku": {
+                "regions": ["us-gov-east-1", "us-gov-west-1"],
+                "inference_type": "cris"  # or "in_region"
+            }
+        }
     """
+    config_loader = get_config_loader()
     govcloud_models: dict[str, set[str]] = {}
 
     for product in products:
@@ -330,8 +336,18 @@ def extract_govcloud_availability(products: list[dict]) -> dict[str, list[str]]:
                     govcloud_models[cleaned_name] = set()
                 govcloud_models[cleaned_name].add(region)
 
-    # Convert sets to sorted lists for JSON serialization
-    return {model: sorted(list(regions)) for model, regions in govcloud_models.items()}
+    # Build result with inference type
+    result = {}
+    for model_name, regions in govcloud_models.items():
+        # Check if this model should be CRIS in GovCloud
+        is_cris = config_loader.is_govcloud_cris_model(model_name)
+
+        result[model_name] = {
+            "regions": sorted(list(regions)),
+            "inference_type": "cris" if is_cris else "in_region",
+        }
+
+    return result
 
 
 def get_region_locations() -> dict:

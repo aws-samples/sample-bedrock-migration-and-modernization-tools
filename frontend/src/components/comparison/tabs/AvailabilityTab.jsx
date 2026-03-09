@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, memo, Fragment, useEffect } from 'react'
-import { Minus, Zap, Globe2, Package, Cpu, Filter, Check, ChevronDown, ChevronRight, MapPin, Users, Maximize2, Minimize2, ChevronsUpDown, Map } from 'lucide-react'
+import { Minus, Zap, Globe2, Cpu, Check, ChevronDown, ChevronRight, MapPin, Users, Maximize2, Minimize2, ChevronsUpDown, Map } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -10,13 +10,15 @@ import { getRegionName } from '@/utils/regionUtils'
 
 const providerColors = providerColorClasses
 
-// Consumption type definitions with colors
+// Consumption type definitions (matches Regional Availability)
 const consumptionTypes = [
-  { key: 'on_demand', label: 'On-Demand', shortLabel: 'OD', icon: Zap, color: 'emerald', dotClass: 'bg-emerald-500' },
-  { key: 'cris', label: 'CRIS', shortLabel: 'CR', icon: Globe2, color: 'sky', dotClass: 'bg-sky-500' },
-  { key: 'batch', label: 'Batch', shortLabel: 'BA', icon: Package, color: 'amber', dotClass: 'bg-amber-500' },
-  { key: 'mantle', label: 'Mantle', shortLabel: 'MA', icon: Cpu, color: 'violet', dotClass: 'bg-violet-500' },
+  { key: 'in_region', label: 'In Region', icon: Zap },
+  { key: 'cris', label: 'CRIS', icon: Globe2 },
+  { key: 'mantle', label: 'Mantle', icon: Cpu },
 ]
+
+// CRIS scope prefixes for filtering
+const CRIS_SCOPES = ['Global', 'US', 'CA', 'EU', 'APAC', 'AU', 'JP', 'GOVCLOUD']
 
 // Geo groups for filtering and collapsing
 const GEO_GROUPS = [
@@ -24,6 +26,7 @@ const GEO_GROUPS = [
   { id: 'EMEA', label: 'Europe, Middle East & Africa', geos: ['EU', 'ME', 'AF'] },
   { id: 'APAC', label: 'Asia Pacific', geos: ['AP'] },
   { id: 'LATAM', label: 'Latin America', geos: ['SA'] },
+  { id: 'GOVCLOUD', label: 'GovCloud (US)', geos: ['GOV'] },
 ]
 
 // Region rows ordered by geo (NAMER, EMEA, APAC, LATAM)
@@ -66,22 +69,29 @@ const REGION_ROWS = [
   // LATAM
   { code: 'sa-east-1', short: 'SAE1', geo: 'LATAM' },
   { code: 'mx-central-1', short: 'MXC1', geo: 'LATAM' },
+  // GOVCLOUD
+  { code: 'us-gov-west-1', short: 'UGVW', geo: 'GOVCLOUD' },
+  { code: 'us-gov-east-1', short: 'UGVE', geo: 'GOVCLOUD' },
 ]
 
 // Get regions by consumption type
 function getRegionsByType(model) {
+  const govcloud = model.availability?.govcloud
+  const govcloudRegions = govcloud?.supported ? (govcloud.regions || []) : []
+  
   return {
-    on_demand: model.availability?.on_demand?.regions ?? model.in_region ?? model.regions_available ?? [],
+    in_region: model.availability?.on_demand?.regions ?? model.in_region ?? model.regions_available ?? [],
     cris: model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? [],
-    batch: model.availability?.batch?.regions ?? model.batch_inference_supported?.supported_regions ?? [],
     mantle: model.availability?.mantle?.regions ?? [],
+    govcloud: govcloudRegions,
+    govcloud_inference_type: govcloud?.inference_type || null,
   }
 }
 
 // Get all regions for a model (combines all consumption types)
 function getAllModelRegions(model) {
   const byType = getRegionsByType(model)
-  return [...new Set([...byType.on_demand, ...byType.cris, ...byType.batch, ...byType.mantle])]
+  return [...new Set([...byType.in_region, ...byType.cris, ...byType.mantle, ...byType.govcloud])]
 }
 
 // Get short model name for display
@@ -166,7 +176,7 @@ const AvailabilityCell = memo(function AvailabilityCell({
 
 export function AvailabilityTab({ selectedModels, isLight }) {
   const [activeFilter, setActiveFilter] = useState('all')
-  const [selectedGeo, setSelectedGeo] = useState('all')
+  const [selectedGeos, setSelectedGeos] = useState(new Set())  // Multi-select for geo/scope
   const [collapsedGeos, setCollapsedGeos] = useState(new Set())
   const [isMapFullscreen, setIsMapFullscreen] = useState(false)
   const tableContainerRef = useRef(null)
@@ -216,7 +226,7 @@ export function AvailabilityTab({ selectedModels, isLight }) {
     )
   }, [selectedModels])
 
-  // Filter regions based on consumption type and geo
+  // Filter regions based on consumption type and geo (multi-select)
   const visibleRegions = useMemo(() => {
     // Start with all known regions that have data
     let regions = REGION_ROWS.filter(r => {
@@ -227,13 +237,26 @@ export function AvailabilityTab({ selectedModels, isLight }) {
       return modelData.some(({ byType }) => byType[activeFilter]?.includes(r.code))
     })
 
-    // Filter by geo
-    if (selectedGeo !== 'all') {
-      regions = regions.filter(r => r.geo === selectedGeo)
+    // Filter by geo (multi-select)
+    if (selectedGeos.size > 0) {
+      if (activeFilter === 'cris') {
+        // For CRIS, handle GOVCLOUD specially
+        const hasGovCloud = selectedGeos.has('GOVCLOUD')
+        if (hasGovCloud && selectedGeos.size === 1) {
+          // Only GOVCLOUD selected - show only GovCloud regions
+          regions = regions.filter(r => r.geo === 'GOVCLOUD')
+        } else {
+          // Filter by selected geos (map CRIS scopes to geos)
+          regions = regions.filter(r => selectedGeos.has(r.geo))
+        }
+      } else {
+        // For other views, filter by geo
+        regions = regions.filter(r => selectedGeos.has(r.geo))
+      }
     }
 
     return regions
-  }, [modelData, activeFilter, selectedGeo])
+  }, [modelData, activeFilter, selectedGeos])
 
   // Group visible regions by geo
   const regionsByGeo = useMemo(() => {
@@ -249,19 +272,6 @@ export function AvailabilityTab({ selectedModels, isLight }) {
     })
     return grouped
   }, [visibleRegions])
-
-  // Count regions per filter
-  const filterCounts = useMemo(() => {
-    const counts = { all: allRegions.length }
-    consumptionTypes.forEach(ct => {
-      const regions = new Set()
-      modelData.forEach(({ byType }) => {
-        byType[ct.key]?.forEach(r => regions.add(r))
-      })
-      counts[ct.key] = regions.size
-    })
-    return counts
-  }, [allRegions, modelData])
 
   // Total regions in table (only counts regions that are in REGION_ROWS)
   const totalRegionsInTable = useMemo(() => {
@@ -438,110 +448,92 @@ export function AvailabilityTab({ selectedModels, isLight }) {
         </div>
       </div>
 
-      {/* Filter Bar - Consumption + Geo */}
-      <div className={cn(
-        'p-3 rounded-lg border',
-        isLight ? 'bg-white/70 border-stone-200/60' : 'bg-white/[0.03] border-white/[0.06]'
-      )}>
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Consumption Type Filters */}
-          <div className="flex items-center gap-2">
-            <Filter className={cn('h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-500')} />
-            <div className="flex flex-wrap gap-1.5">
-              {/* All filter */}
+      {/* Filter Bar - matches Regional Availability style */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Tier 1: Primary filter pills */}
+          {[
+            { id: 'all', label: 'All', icon: null },
+            { id: 'cris', label: 'CRIS', icon: Globe2 },
+            { id: 'mantle', label: 'Mantle', icon: Cpu },
+            { id: 'in_region', label: 'In Region', icon: Zap },
+          ].map(view => (
+            <button
+              key={view.id}
+              onClick={() => {
+                setActiveFilter(view.id)
+                setSelectedGeos(new Set())
+              }}
+              className={cn(
+                'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border flex items-center gap-1',
+                activeFilter === view.id
+                  ? isLight
+                    ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+                    : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
+                  : isLight
+                    ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+                    : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
+              )}
+            >
+              {view.icon && <view.icon className="w-3 h-3" />}
+              {view.label}
+            </button>
+          ))}
+
+          {/* Divider */}
+          <div className={cn('w-px h-5 mx-1', isLight ? 'bg-stone-200' : 'bg-white/[0.08]')} />
+
+          {/* Tier 2: Geo / CRIS scope pills */}
+          <span className={cn('text-[10px] uppercase tracking-wider font-medium mr-1', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
+            {activeFilter === 'cris' ? 'Scope' : 'Geo'}
+          </span>
+
+          {/* "All" pill */}
+          <button
+            onClick={() => setSelectedGeos(new Set())}
+            className={cn(
+              'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+              selectedGeos.size === 0
+                ? isLight
+                  ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+                  : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
+                : isLight
+                  ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+                  : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
+            )}
+          >
+            All
+          </button>
+
+          {/* Dynamic pills based on view */}
+          {(activeFilter === 'cris' ? CRIS_SCOPES : GEO_GROUPS.map(g => g.id)).map(id => {
+            const isSelected = selectedGeos.has(id)
+            return (
               <button
-                onClick={() => setActiveFilter('all')}
+                key={id}
+                onClick={() => {
+                  setSelectedGeos(prev => {
+                    const next = new Set(prev)
+                    if (next.has(id)) next.delete(id)
+                    else next.add(id)
+                    return next
+                  })
+                }}
                 className={cn(
-                  'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all border',
-                  activeFilter === 'all'
+                  'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+                  isSelected
                     ? isLight
-                      ? 'bg-amber-700 text-white border-amber-700 shadow-sm'
-                      : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm'
+                      ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+                      : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
                     : isLight
-                      ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'
-                      : 'bg-white/[0.03] text-slate-400 border-white/[0.06] hover:bg-white/[0.06]'
+                      ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+                      : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
                 )}
               >
-                All ({filterCounts.all})
+                {id}
               </button>
-              {/* Consumption type filters */}
-              {consumptionTypes.map(ct => {
-                const Icon = ct.icon
-                const isActive = activeFilter === ct.key
-                return (
-                  <button
-                    key={ct.key}
-                    onClick={() => {
-                      setActiveFilter(ct.key)
-                      setSelectedGeo('all') // Reset geo filter
-                    }}
-                    className={cn(
-                      'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all border flex items-center gap-1',
-                      isActive && (isLight
-                        ? 'bg-amber-700 text-white border-amber-700 shadow-sm'
-                        : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'),
-                      !isActive && (isLight
-                        ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'
-                        : 'bg-white/[0.03] text-slate-400 border-white/[0.06] hover:bg-white/[0.06]')
-                    )}
-                  >
-                    <Icon className="h-3 w-3" />
-                    {ct.label} ({filterCounts[ct.key]})
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Geo Filters - only show when activeFilter is 'all' */}
-          {activeFilter === 'all' && (
-            <>
-              {/* Divider */}
-              <div className={cn('w-px h-6 hidden sm:block', isLight ? 'bg-stone-200' : 'bg-white/[0.08]')} />
-
-              {/* Geo Filters */}
-              <div className="flex items-center gap-2">
-                <span className={cn('text-[10px] uppercase tracking-wider font-medium', isLight ? 'text-stone-400' : 'text-slate-500')}>
-                  Geo
-                </span>
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={() => { setSelectedGeo('all'); tableContainerRef.current?.scrollTo({ top: 0 }) }}
-                    className={cn(
-                      'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all border',
-                      selectedGeo === 'all'
-                        ? isLight
-                          ? 'bg-amber-700 text-white border-amber-700 shadow-sm'
-                          : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm'
-                        : isLight
-                          ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'
-                          : 'bg-white/[0.03] text-slate-400 border-white/[0.06] hover:bg-white/[0.06]'
-                    )}
-                  >
-                    All
-                  </button>
-                  {GEO_GROUPS.map(geo => (
-                    <button
-                      key={geo.id}
-                      onClick={() => { setSelectedGeo(geo.id); tableContainerRef.current?.scrollTo({ top: 0 }) }}
-                      className={cn(
-                        'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all border',
-                        selectedGeo === geo.id
-                          ? isLight
-                            ? 'bg-amber-700 text-white border-amber-700 shadow-sm'
-                            : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm'
-                          : isLight
-                            ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'
-                            : 'bg-white/[0.03] text-slate-400 border-white/[0.06] hover:bg-white/[0.06]'
-                      )}
-                    >
-                      {geo.id}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
+            )
+          })}
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Star, GitCompare, ExternalLink, Globe, MessageSquare, Image, FileText, Video, Mic, Check, X, MapPin, Radio, ArrowRight, CheckCircle2, Copy, Search, Clock, Cpu } from 'lucide-react'
+import { Star, GitCompare, ExternalLink, Globe, MessageSquare, Image, FileText, Video, Mic, Check, X, MapPin, Radio, ArrowRight, CheckCircle2, Copy, Search, Clock, Cpu, AlertTriangle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -635,9 +635,12 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               ) : (
                 <div className={cn(
                   'text-center text-xs py-2 rounded-md',
-                  isLight ? 'bg-stone-100/60 text-stone-500' : 'bg-white/5 text-[#b0b1b5]'
+                  isLight ? 'bg-amber-50 text-amber-700' : 'bg-amber-500/10 text-amber-400'
                 )}>
-                  Pricing unavailable
+                  <div className="flex items-center justify-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    <span>No pricing in API — verify availability</span>
+                  </div>
                 </div>
               )}
             </div>

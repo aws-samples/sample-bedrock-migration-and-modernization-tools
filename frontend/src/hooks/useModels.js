@@ -264,9 +264,10 @@ function extractTokenPricesFromEntries(entries) {
 
 /**
  * Select the best pricing group across all regions using a priority cascade:
- *   1. "On-Demand Global" (same price everywhere, pick any region)
- *   2. "On-Demand Geo" (find cheapest region)
- *   3. "On-Demand" (find cheapest region)
+ *   1. "On-Demand Global" (CRIS Global - same price everywhere)
+ *   2. "On-Demand Geo" (CRIS Geo - find cheapest region)
+ *   3. "Mantle" (Mantle pricing)
+ *   4. "On-Demand" (In-region - find cheapest region)
  *
  * @param {Object} regions - modelPricing.regions
  * @param {Function} filterByDimensions - dimension filter function
@@ -276,6 +277,7 @@ function selectBestPricingGroup(regions, filterByDimensions) {
   const CASCADE = [
     { group: 'On-Demand Global', sourcePrefix: 'CRIS Global' },
     { group: 'On-Demand Geo',    sourcePrefix: 'CRIS Geo' },
+    { group: 'Mantle',           sourcePrefix: 'Mantle' },
     { group: 'On-Demand',        sourcePrefix: 'In-region' },
   ]
 

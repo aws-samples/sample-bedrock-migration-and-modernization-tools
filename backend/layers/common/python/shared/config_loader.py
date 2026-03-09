@@ -434,6 +434,53 @@ class ConfigLoader:
         )
 
     # =========================================================================
+    # GovCloud Configuration Accessors
+    # =========================================================================
+
+    def get_govcloud_regions(self) -> list:
+        """Get list of GovCloud regions."""
+        return self.config.get("govcloud_configuration", {}).get(
+            "govcloud_regions", ["us-gov-west-1", "us-gov-east-1"]
+        )
+
+    def get_govcloud_cris_models(self) -> list:
+        """
+        Get list of model patterns that should be marked as CRIS in GovCloud.
+
+        Models matching these patterns will be categorized as CRIS in GovCloud regions.
+        All other GovCloud models default to In-Region.
+
+        Returns:
+            List of model name patterns (e.g., ["claude-3-haiku", "claude-3-5-sonnet"])
+        """
+        return self.config.get("govcloud_configuration", {}).get(
+            "govcloud_cris_models", []
+        )
+
+    def is_govcloud_cris_model(self, model_name: str) -> bool:
+        """
+        Check if a model should be marked as CRIS in GovCloud.
+
+        Args:
+            model_name: The model name to check (e.g., "Claude 3 Haiku", "claude-3-haiku")
+
+        Returns:
+            True if the model matches any CRIS pattern for GovCloud
+        """
+        if not model_name:
+            return False
+
+        model_lower = model_name.lower().replace(" ", "-").replace("_", "-")
+        cris_patterns = self.get_govcloud_cris_models()
+
+        for pattern in cris_patterns:
+            pattern_lower = pattern.lower().replace(" ", "-").replace("_", "-")
+            if pattern_lower in model_lower:
+                return True
+
+        return False
+
+    # =========================================================================
     # External URL Accessors
     # =========================================================================
 

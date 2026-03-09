@@ -526,26 +526,51 @@ def build_govcloud_availability(
     Args:
         model_id: The model identifier
         model_name: The model name (used for matching)
-        govcloud_availability: Dict mapping model names to GovCloud regions
+        govcloud_availability: Dict mapping model names to GovCloud info:
+            {
+                "model_name": {
+                    "regions": ["us-gov-west-1", ...],
+                    "inference_type": "cris" | "in_region"
+                }
+            }
 
     Returns:
         Dict with:
         - supported: bool
         - regions: list of GovCloud regions
+        - inference_type: "cris" | "in_region" | None
         - source: "pricing_api"
     """
     if not govcloud_availability:
-        return {"supported": False, "regions": [], "source": "pricing_api"}
+        return {
+            "supported": False,
+            "regions": [],
+            "inference_type": None,
+            "source": "pricing_api",
+        }
 
     # Try exact match on model name first
-    regions = govcloud_availability.get(model_name, [])
+    govcloud_info = govcloud_availability.get(model_name, {})
+
+    # Handle both old format (list) and new format (dict)
+    if isinstance(govcloud_info, list):
+        # Old format: just a list of regions
+        regions = govcloud_info
+        inference_type = None
+    elif isinstance(govcloud_info, dict):
+        # New format: dict with regions and inference_type
+        regions = govcloud_info.get("regions", [])
+        inference_type = govcloud_info.get("inference_type")
+    else:
+        regions = []
+        inference_type = None
 
     # If no exact match, try fuzzy matching
     if not regions:
         model_name_lower = model_name.lower() if model_name else ""
         model_id_lower = model_id.lower() if model_id else ""
 
-        for govcloud_model_name, govcloud_regions in govcloud_availability.items():
+        for govcloud_model_name, govcloud_data in govcloud_availability.items():
             govcloud_name_lower = govcloud_model_name.lower()
 
             # Check if model name is contained in GovCloud model name or vice versa
@@ -553,17 +578,29 @@ def build_govcloud_availability(
                 model_name_lower in govcloud_name_lower
                 or govcloud_name_lower in model_name_lower
             ):
-                regions = govcloud_regions
+                # Handle both old and new format
+                if isinstance(govcloud_data, list):
+                    regions = govcloud_data
+                    inference_type = None
+                elif isinstance(govcloud_data, dict):
+                    regions = govcloud_data.get("regions", [])
+                    inference_type = govcloud_data.get("inference_type")
                 break
 
             # Check if model ID contains the GovCloud model name
             if model_id_lower and govcloud_name_lower in model_id_lower:
-                regions = govcloud_regions
+                if isinstance(govcloud_data, list):
+                    regions = govcloud_data
+                    inference_type = None
+                elif isinstance(govcloud_data, dict):
+                    regions = govcloud_data.get("regions", [])
+                    inference_type = govcloud_data.get("inference_type")
                 break
 
     return {
         "supported": len(regions) > 0,
         "regions": sorted(regions) if regions else [],
+        "inference_type": inference_type,
         "source": "pricing_api",
     }
 
@@ -1557,7 +1594,7 @@ def build_availability(
         - provisioned: {supported, regions}
         - mantle: {supported, regions, only, responses_api}
         - reserved: {supported, regions, commitments}
-        - govcloud: {supported, regions, source}
+        - govcloud: {supported, regions, inference_type, source}
     """
     # On-demand availability
     on_demand_regions = regional_availability if regional_availability else []
@@ -1599,9 +1636,13 @@ def build_availability(
 
     # GovCloud availability
     govcloud_regions = govcloud_data.get("regions", []) if govcloud_data else []
+    govcloud_inference_type = (
+        govcloud_data.get("inference_type") if govcloud_data else None
+    )
     govcloud = {
         "supported": len(govcloud_regions) > 0,
         "regions": govcloud_regions,
+        "inference_type": govcloud_inference_type,
         "source": "pricing_api",
     }
 

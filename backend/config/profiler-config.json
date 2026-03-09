@@ -601,7 +601,7 @@
       "sa-east-1": {
         "lat": -23.5505,
         "lng": -46.6333,
-        "name": "São Paulo",
+        "name": "S\u00e3o Paulo",
         "geo": "SA",
         "iata": "GRU"
       },
@@ -907,6 +907,18 @@
       "GOV": "us-gov-"
     }
   },
+  "govcloud_configuration": {
+    "govcloud_regions": [
+      "us-gov-west-1",
+      "us-gov-east-1"
+    ],
+    "govcloud_cris_models": [
+      "claude-3-haiku",
+      "claude-3.5-sonnet",
+      "claude-3-5-sonnet"
+    ],
+    "description": "Models matching these patterns will be marked as CRIS in GovCloud regions. All other GovCloud models default to In-Region."
+  },
   "model_configuration": {
     "model_families": [
       "claude",
@@ -982,9 +994,7 @@
       "mistral",
       "command-r"
     ],
-    "hidden_models": [
-      "zai.glm-5"
-    ],
+    "hidden_models": [],
     "context_window_thresholds": {
       "small": 32000,
       "medium": 128000,

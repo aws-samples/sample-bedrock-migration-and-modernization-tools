@@ -14,7 +14,7 @@ function ConfidentialBanner() {
     'flex-shrink-0 text-center py-1 text-xs font-medium tracking-wide flex items-center justify-center gap-3',
     isLight 
       ? 'bg-stone-200 text-stone-600' 
-      : 'bg-slate-800 text-slate-400'
+      : 'bg-[#1a1b1e] text-slate-400'
   )}
 >
   <span>Amazon Confidential — Internal Only - BETA Under Development</span>

@@ -49,6 +49,9 @@ const REGION_COLUMNS = [
   // LATAM
   { code: 'sa-east-1', short: 'SAE1', label: getRegionName('sa-east-1'), geo: 'LATAM' },
   { code: 'mx-central-1', short: 'MXC1', label: getRegionName('mx-central-1'), geo: 'LATAM' },
+  // GOVCLOUD
+  { code: 'us-gov-west-1', short: 'UGVW', label: getRegionName('us-gov-west-1'), geo: 'GOVCLOUD' },
+  { code: 'us-gov-east-1', short: 'UGVE', label: getRegionName('us-gov-east-1'), geo: 'GOVCLOUD' },
 ]
 
 const GEO_GROUPS = [
@@ -56,11 +59,13 @@ const GEO_GROUPS = [
   { id: 'EMEA', label: 'EMEA' },
   { id: 'APAC', label: 'APAC' },
   { id: 'LATAM', label: 'LATAM' },
+  { id: 'GOVCLOUD', label: 'GOVCLOUD' },
 ]
 
-const GEO_LABELS = { NAMER: 'NAMER', EMEA: 'EMEA', APAC: 'APAC', LATAM: 'LATAM' }
+const GEO_LABELS = { NAMER: 'NAMER', EMEA: 'EMEA', APAC: 'APAC', LATAM: 'LATAM', GOVCLOUD: 'GOVCLOUD' }
 
 // Auto-detect business geo from region code prefix
+// Note: 'us-gov' is handled specially in buildRegionEntry() since it must be checked before 'us'
 const REGION_PREFIX_GEO = {
   us: 'NAMER', ca: 'NAMER',
   eu: 'EMEA', me: 'EMEA', af: 'EMEA', il: 'EMEA',
@@ -77,8 +82,14 @@ const KNOWN_REGIONS = new Map(REGION_COLUMNS.map(r => [r.code, r]))
  * Uses centralized region utilities for the label.
  */
 function buildRegionEntry(code) {
-  const prefix = code.split('-')[0]
-  const geo = REGION_PREFIX_GEO[prefix] || 'EMEA'
+  // Check for us-gov prefix first (before generic 'us')
+  let geo
+  if (code.startsWith('us-gov-')) {
+    geo = 'GOVCLOUD'
+  } else {
+    const prefix = code.split('-')[0]
+    geo = REGION_PREFIX_GEO[prefix] || 'EMEA'
+  }
   // Generate 4-char short: prefix uppercase + first char of middle parts + number
   const parts = code.split('-')
   const mid = parts.slice(1, -1).map(s => s[0].toUpperCase()).join('')
@@ -108,21 +119,31 @@ function normalizeCrisPrefix(prefix) {
 const MODEL_COL_WIDTH = 280
 
 /**
- * Compute per-region availability for a model (on-demand + CRIS + Mantle).
+ * Compute per-region availability for a model (on-demand + CRIS + Mantle + GovCloud).
  *
  * Data sources:
  * - availability.on_demand.regions: actual ON_DEMAND availability from regional-availability Lambda
  * - availability.cross_region.regions: CRIS source regions
  * - availability.mantle.regions: Mantle engine regions
+ * - availability.govcloud: GovCloud availability with inference_type (cris | in_region)
  */
 function getRegionAvailability(model, regionCode) {
   const inRegionList = model.availability?.on_demand?.regions ?? model.in_region ?? []
   const crisRegions = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []
   const mantleRegions = model.availability?.mantle?.regions ?? []
-
-  // in_region is the source of truth for ON_DEMAND availability (no fallback)
-  const onDemand = inRegionList.includes(regionCode)
-  const cris = crisRegions.includes(regionCode)
+  
+  // Check GovCloud availability
+  const govcloud = model.availability?.govcloud
+  const govcloudRegions = govcloud?.supported ? (govcloud.regions || []) : []
+  const isGovcloudRegion = regionCode.startsWith('us-gov-')
+  
+  // For GovCloud regions, check govcloud availability
+  const onDemand = isGovcloudRegion 
+    ? (govcloud?.inference_type === 'in_region' && govcloudRegions.includes(regionCode))
+    : inRegionList.includes(regionCode)
+  const cris = isGovcloudRegion
+    ? (govcloud?.inference_type === 'cris' && govcloudRegions.includes(regionCode))
+    : crisRegions.includes(regionCode)
   const mantle = mantleRegions.includes(regionCode)
   const available = onDemand || cris || mantle
 
@@ -189,6 +210,25 @@ const AvailabilityCell = memo(function AvailabilityCell({ model, regionCode, reg
   
   // Check if model has CRIS for this region with the selected scope(s)
   const hasCrisForSelectedScope = (model, regionCode, selectedScopes) => {
+    const isGovcloudRegion = regionCode.startsWith('us-gov-')
+    
+    // Check GovCloud CRIS availability
+    if (isGovcloudRegion) {
+      const govcloud = model.availability?.govcloud
+      if (govcloud?.supported && govcloud?.inference_type === 'cris') {
+        const govcloudRegions = govcloud.regions || []
+        if (govcloudRegions.includes(regionCode)) {
+          // If GovCloud scope is selected (or no filter), return true
+          if (!selectedScopes || selectedScopes.size === 0 || selectedScopes.has('GOVCLOUD')) {
+            return true
+          }
+        }
+      }
+      // GovCloud regions don't have regular CRIS profiles, so return false if not matched above
+      return false
+    }
+    
+    // Regular CRIS check for non-GovCloud regions
     if (!selectedScopes || selectedScopes.size === 0) {
       // No filter - check if any CRIS profile exists for this region
       const sourceRegions = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions
@@ -243,6 +283,24 @@ const AvailabilityCell = memo(function AvailabilityCell({ model, regionCode, reg
   // Build CRIS scopes helper (used in 'all' and 'cris' views)
   // When selectedCrisScopes is provided, only return scopes that match the filter
   const getCrisScopes = () => {
+    const isGovcloudRegion = regionCode.startsWith('us-gov-')
+    
+    // For GovCloud regions, check govcloud data
+    if (isGovcloudRegion) {
+      const govcloud = model.availability?.govcloud
+      if (govcloud?.supported && govcloud?.inference_type === 'cris') {
+        const govcloudRegions = govcloud.regions || []
+        if (govcloudRegions.includes(regionCode)) {
+          // Only return GovCloud scope if no filter or GovCloud is selected
+          if (!selectedCrisScopes || selectedCrisScopes.size === 0 || selectedCrisScopes.has('GOVCLOUD')) {
+            return ['GOVCLOUD']
+          }
+        }
+      }
+      return []
+    }
+    
+    // Regular CRIS scopes for non-GovCloud regions
     const profiles = model.availability?.cross_region?.profiles ?? model.cross_region_inference?.profiles ?? []
     const scopes = new Set()
     profiles.forEach(p => {
@@ -505,6 +563,7 @@ export function RegionalAvailability() {
       ;(m.availability?.on_demand?.regions ?? m.in_region ?? []).forEach(r => usedRegions.add(r))
       ;(m.availability?.cross_region?.regions ?? m.cross_region_inference?.source_regions ?? []).forEach(r => usedRegions.add(r))
       ;(m.availability?.mantle?.regions ?? []).forEach(r => usedRegions.add(r))
+      ;(m.availability?.govcloud?.regions ?? []).forEach(r => usedRegions.add(r))
     })
 
     // Known regions that appear in the data (preserves defined order)
@@ -533,21 +592,42 @@ export function RegionalAvailability() {
   // Visible regions — filtered by selected geos (multi-select) or CRIS source regions
   const visibleRegions = useMemo(() => {
     if (activeView === 'cris') {
-      // For CRIS view: show source regions, filtered by selected CRIS prefixes
+      const govCloudSelected = selectedGeos.has('GOVCLOUD')
+      const otherSelectedScopes = [...selectedGeos].filter(s => s !== 'GOVCLOUD')
+      
+      // If ONLY GovCloud is selected, show only GovCloud regions
+      if (govCloudSelected && otherSelectedScopes.length === 0 && selectedGeos.size === 1) {
+        return activeRegions.filter(r => r.geo === 'GOVCLOUD')
+      }
+      
+      // Collect CRIS source regions based on selected scopes
       const crisSourceRegions = new Set()
+      
       models.forEach(m => {
         const crisSupported = m.availability?.cross_region?.supported ?? m.cross_region_inference?.supported
-        if (!crisSupported) return
-        const profiles = m.availability?.cross_region?.profiles ?? m.cross_region_inference?.profiles ?? []
-        profiles.forEach(p => {
-          const prefix = p.profile_id?.split('.')[0] || ''
-          const scope = normalizeCrisPrefix(prefix)
-          if (selectedGeos.size === 0 || selectedGeos.has(scope)) {
-            if (p.source_region) crisSourceRegions.add(p.source_region)
-          }
-        })
+        if (crisSupported) {
+          const profiles = m.availability?.cross_region?.profiles ?? m.cross_region_inference?.profiles ?? []
+          profiles.forEach(p => {
+            const prefix = p.profile_id?.split('.')[0] || ''
+            const scope = normalizeCrisPrefix(prefix)
+            // If no scopes selected (or only GovCloud), show all CRIS regions
+            // If other scopes selected, filter by those scopes
+            if (otherSelectedScopes.length === 0 || otherSelectedScopes.includes(scope)) {
+              if (p.source_region) crisSourceRegions.add(p.source_region)
+            }
+          })
+        }
       })
-      return activeRegions.filter(r => crisSourceRegions.has(r.code))
+      
+      let result = activeRegions.filter(r => crisSourceRegions.has(r.code))
+      
+      // If GovCloud is selected (along with other scopes), add GovCloud regions
+      if (govCloudSelected && otherSelectedScopes.length > 0) {
+        const govCloudRegions = activeRegions.filter(r => r.geo === 'GOVCLOUD')
+        result = [...result, ...govCloudRegions.filter(r => !result.includes(r))]
+      }
+      
+      return result
     }
 
     // For All/In Region/Mantle: filter by geo (multi-select)
@@ -573,16 +653,31 @@ export function RegionalAvailability() {
   const availableCrisPrefixes = useMemo(() => {
     if (activeView !== 'cris') return []
     const prefixes = new Set()
+    let hasGovCloudCris = false
+    
     models.forEach(m => {
+      // Check for CRIS endpoint prefixes
       (m.availability?.cross_region?.profiles ?? m.cross_region_inference?.profiles ?? []).forEach(p => {
         const prefix = p.profile_id?.split('.')[0] || ''
         prefixes.add(normalizeCrisPrefix(prefix))
       })
+      // Check for GovCloud CRIS availability
+      if (m.availability?.govcloud?.supported && m.availability?.govcloud?.inference_type === 'cris') {
+        hasGovCloudCris = true
+      }
     })
+    
     const order = ['Global', 'US', 'CA', 'EU', 'APAC', 'AU', 'JP']
-    return order.filter(p => prefixes.has(p)).concat(
+    const result = order.filter(p => prefixes.has(p)).concat(
       [...prefixes].filter(p => !order.includes(p)).sort()
     )
+    
+    // Add GovCloud at the end if any models have GovCloud CRIS
+    if (hasGovCloudCris) {
+      result.push('GOVCLOUD')
+    }
+    
+    return result
   }, [models, activeView])
 
   // Geo header cells with colspan spans (based on visible regions)
@@ -614,26 +709,69 @@ export function RegionalAvailability() {
       if (activeView === 'in_region') {
         // Use actual in_region availability, not declared inference_types_supported
         const inRegionList = m.availability?.on_demand?.regions ?? m.in_region
-        if (!(inRegionList?.length > 0)) return false
+        const hasRegularInRegion = inRegionList?.length > 0
+        // Also consider GovCloud in-region availability
+        const hasGovCloudInRegion = m.availability?.govcloud?.supported && 
+                                    m.availability?.govcloud?.inference_type === 'in_region'
+        if (!hasRegularInRegion && !hasGovCloudInRegion) return false
       }
       if (activeView === 'cris') {
         const crisSupported = m.availability?.cross_region?.supported ?? m.cross_region_inference?.supported
-        if (!crisSupported) return false
-        // If a CRIS scope is selected, filter to only models with that scope
-        if (selectedGeos.size > 0) {
+        
+        // Check if GovCloud is selected
+        const govCloudSelected = selectedGeos.has('GOVCLOUD')
+        
+        // If only GovCloud is selected, filter to models with GovCloud CRIS
+        if (govCloudSelected && selectedGeos.size === 1) {
+          const hasGovCloudCris = m.availability?.govcloud?.supported && 
+                                 m.availability?.govcloud?.inference_type === 'cris'
+          if (!hasGovCloudCris) return false
+        } else if (selectedGeos.size > 0 && !govCloudSelected) {
+          // Regular CRIS scope filtering (no GovCloud selected)
+          if (!crisSupported) return false
           const profiles = m.availability?.cross_region?.profiles ?? m.cross_region_inference?.profiles ?? []
           const modelScopes = new Set(profiles.map(p => {
             const prefix = p.profile_id?.split('.')[0]?.toLowerCase() || ''
             return prefix === 'global' ? 'Global' : prefix.toUpperCase()
           }))
-          // Check if model has any of the selected scopes
           const hasSelectedScope = [...selectedGeos].some(scope => modelScopes.has(scope))
           if (!hasSelectedScope) return false
+        } else if (selectedGeos.size > 0 && govCloudSelected) {
+          // Mixed selection: GovCloud + other scopes
+          // Model must have either GovCloud CRIS OR one of the selected scopes
+          const hasGovCloudCris = m.availability?.govcloud?.supported && 
+                                 m.availability?.govcloud?.inference_type === 'cris'
+          
+          const profiles = m.availability?.cross_region?.profiles ?? m.cross_region_inference?.profiles ?? []
+          const modelScopes = new Set(profiles.map(p => {
+            const prefix = p.profile_id?.split('.')[0]?.toLowerCase() || ''
+            return prefix === 'global' ? 'Global' : prefix.toUpperCase()
+          }))
+          const otherSelectedScopes = [...selectedGeos].filter(s => s !== 'GOVCLOUD')
+          const hasOtherScope = otherSelectedScopes.some(scope => modelScopes.has(scope))
+          
+          if (!hasGovCloudCris && !hasOtherScope) return false
+        } else {
+          // No scopes selected - just check CRIS supported
+          if (!crisSupported) return false
         }
       }
       if (activeView === 'mantle') {
         const mantleSupported = m.availability?.mantle?.supported
         if (!mantleSupported) return false
+      }
+      // Filter by GOVCLOUD geo - filter by inference_type based on active view
+      if (selectedGeos.has('GOVCLOUD')) {
+        const govcloud = m.availability?.govcloud
+        if (!govcloud?.supported) return false
+        
+        // Filter by inference_type based on active view
+        if (activeView === 'in_region') {
+          if (govcloud.inference_type !== 'in_region') return false
+        } else if (activeView === 'cris') {
+          if (govcloud.inference_type !== 'cris') return false
+        }
+        // 'all' and 'mantle' views: show all GovCloud models
       }
       return true
     })
