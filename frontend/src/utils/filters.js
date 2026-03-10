@@ -316,6 +316,15 @@ export const pricingFilterOptions = [
 ]
 
 /**
+ * Feature filter options for multi-select
+ */
+export const featureFilterOptions = [
+  'Streaming',
+  'Flex Pricing',
+  'Priority Pricing',
+]
+
+/**
  * Initial filter state
  */
 export const initialFilterState = {
@@ -334,6 +343,7 @@ export const initialFilterState = {
   customizations: [],
   languages: [],
   contextFilter: 'All Models',
+  features: [],
 }
 
 /**
@@ -584,6 +594,32 @@ export function applyFilters(models, filters, getPricingForModel = null) {
     })
   }
 
+  // Features filter - models must have ALL selected features
+  if (filters.features && filters.features.length > 0) {
+    filtered = filtered.filter(m => {
+      return filters.features.every(feature => {
+        switch (feature) {
+          case 'Streaming':
+            return m.streaming === true
+          case 'Flex Pricing': {
+            if (!getPricingForModel) return false
+            const pricingResult = getPricingForModel(m, filters.primaryRegion || 'us-east-1')
+            const tiers = pricingResult?.fullPricing?.available_dimensions?.tiers || []
+            return tiers.includes('flex')
+          }
+          case 'Priority Pricing': {
+            if (!getPricingForModel) return false
+            const pricingResult = getPricingForModel(m, filters.primaryRegion || 'us-east-1')
+            const tiers = pricingResult?.fullPricing?.available_dimensions?.tiers || []
+            return tiers.includes('priority')
+          }
+          default:
+            return true
+        }
+      })
+    })
+  }
+
   // Primary region availability filter (skip if 'all' is selected)
   // Checks in-region, CRIS source regions, and Mantle regions
   if (filters.primaryRegion && filters.primaryRegion !== 'all') {
@@ -629,6 +665,7 @@ export function countActiveFilters(filters) {
   if (filters.useCases?.length > 0) count++
   if (filters.customizations?.length > 0) count++
   if (filters.languages?.length > 0) count++
+  if (filters.features?.length > 0) count++
 
   return count
 }

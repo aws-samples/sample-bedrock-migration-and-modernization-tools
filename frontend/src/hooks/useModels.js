@@ -731,10 +731,14 @@ export function useModels() {
     return (model, preferredRegion = DEFAULT_REGION) => {
       if (!model) return { fullPricing: null, summary: { inputPrice: null, outputPrice: null } }
       const modelPricing = getModelPricing(model, pricingData)
+      // Only hide In-Region pricing if Mantle has its own pricing
+      // If Mantle doesn't have pricing, In-Region pricing applies to Mantle access
       const hideInRegion = model.availability?.hide_in_region ?? false
+      const mantleHasPricing = model.availability?.mantle?.has_pricing ?? false
+      const shouldHideInRegion = hideInRegion && mantleHasPricing
       return {
         fullPricing: modelPricing,
-        summary: extractSummaryPricing(modelPricing, preferredRegion, {}, hideInRegion)
+        summary: extractSummaryPricing(modelPricing, preferredRegion, {}, shouldHideInRegion)
       }
     }
   }, [pricingData])

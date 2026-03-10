@@ -1253,15 +1253,11 @@ function BatchInferenceSection({ batchData, crisData }) {
 
 // Mantle Inference Section with CRIS-style grouped regions
 function MantleInferenceSection({ mantleData }) {
-  const [expandedGroups, setExpandedGroups] = useState({})
+  const [regionsExpanded, setRegionsExpanded] = useState(false)
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const regions = mantleData.regions || []
   const grouped = groupRegionsByGeo(regions)
-
-  const toggleGroup = (key) => {
-    setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }))
-  }
 
   const geoDisplayNames = {
     'US': 'United States', 'EU': 'Europe', 'APAC': 'Asia Pacific',
@@ -1284,61 +1280,66 @@ function MantleInferenceSection({ mantleData }) {
           </div>
         </div>
         <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
-          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Regions</p>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Total Regions</p>
           <p className={cn('text-lg font-bold', isLight ? 'text-violet-700' : 'text-violet-400')}>{regions.length}</p>
         </div>
       </div>
 
-      {/* Regions by geo */}
+      {/* Mantle Availability - single collapsible like Batch */}
       {mantleData.supported && regions.length > 0 && (
         <div className="space-y-2">
-          <p className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>Regions by Geo</p>
-          {Object.entries(grouped).map(([geoKey, geoRegions]) => (
-            <div key={geoKey} className={cn(
-              'rounded-lg border overflow-hidden',
-              isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
-            )}>
-              <button
-                className={cn(
-                  'w-full flex items-center justify-between p-3 transition-colors',
-                  isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
-                )}
-                onClick={() => toggleGroup(geoKey)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
-                    {geoDisplayNames[geoKey] || geoKey}
-                  </span>
-                  <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                    {geoRegions.length} regions
-                  </span>
-                </div>
-                {expandedGroups[geoKey] ? (
-                  <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
-                ) : (
-                  <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
-                )}
-              </button>
-              {expandedGroups[geoKey] && (
-                <div className={cn('px-3 pb-3 pt-3 border-t', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
-                  <div className="flex flex-wrap gap-1">
-                    {geoRegions.sort().map(region => (
-                      <Tooltip key={region} delayDuration={200}>
-                        <TooltipTrigger asChild>
-                          <Badge variant="secondary" className="text-[10px] cursor-default">
-                            {getRegionDisplayName(region)}
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" sideOffset={4}>
-                          <p className="font-mono text-xs">{region}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ))}
-                  </div>
-                </div>
+          <p className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>Mantle Availability</p>
+          <div className={cn(
+            'rounded-lg border overflow-hidden',
+            isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+          )}>
+            <button
+              className={cn(
+                'w-full flex items-center justify-between p-3 transition-colors',
+                isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
               )}
-            </div>
-          ))}
+              onClick={() => setRegionsExpanded(!regionsExpanded)}
+            >
+              <div className="flex items-center gap-2">
+                <span className={cn('font-medium text-sm', isLight ? 'text-stone-900' : 'text-white')}>
+                  Available Regions
+                </span>
+                <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                  {regions.length} regions
+                </span>
+              </div>
+              {regionsExpanded ? (
+                <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+              ) : (
+                <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-600' : 'text-slate-300')} />
+              )}
+            </button>
+            {regionsExpanded && (
+              <div className={cn('px-3 pb-3 pt-3 border-t space-y-3', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+                {Object.entries(grouped).map(([geoKey, geoRegions]) => (
+                  <div key={geoKey}>
+                    <p className={cn('text-[10px] mb-2 font-medium', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                      {geoDisplayNames[geoKey] || geoKey} ({geoRegions.length})
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {geoRegions.sort().map(region => (
+                        <Tooltip key={region} delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <Badge variant="secondary" className="text-[10px] cursor-default">
+                              {getRegionDisplayName(region)}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" sideOffset={4}>
+                            <p className="font-mono text-xs">{region}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1352,12 +1353,102 @@ function MantleInferenceSection({ mantleData }) {
   )
 }
 
+// Reserved Capacity Section with commitment terms and available geos (simplified - no region details)
+function ReservedCapacitySection({ reservedData }) {
+  const { theme } = useTheme()
+  const isLight = theme === 'light'
+  const regions = reservedData.regions || []
+  const commitments = reservedData.commitments || []
+  const grouped = groupRegionsByGeo(regions)
+  const geos = Object.keys(grouped)
+
+  // Format commitment term for display (e.g., "1_month" -> "1 Month")
+  const formatCommitment = (term) => {
+    return term.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())
+  }
+
+  // Geo display names
+  const geoDisplayNames = {
+    'US': 'United States',
+    'EU': 'Europe',
+    'APAC': 'Asia Pacific',
+    'CA': 'Canada',
+    'SA': 'South America',
+    'MX': 'Mexico',
+    'ME': 'Middle East',
+    'AF': 'Africa',
+    'GOV': 'GovCloud',
+    'Other': 'Other'
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Summary stats bar - only Status and Geographies for Reserved */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Status</p>
+          <div className="flex items-center gap-1 mt-1">
+            {reservedData.supported ? (
+              <><Check className="h-4 w-4 text-emerald-500" /><span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Available</span></>
+            ) : (
+              <><X className="h-4 w-4 text-red-400" /><span className={cn('text-sm font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>Not Available</span></>
+            )}
+          </div>
+        </div>
+        <div className={cn('rounded p-2', isLight ? 'bg-white border border-stone-200' : 'bg-white/[0.02] border border-white/[0.06]')}>
+          <p className={cn('text-xs', isLight ? 'text-stone-600' : 'text-slate-300')}>Geographies</p>
+          <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{geos.length}</p>
+        </div>
+      </div>
+
+      {/* Commitment terms */}
+      {commitments.length > 0 && (
+        <div>
+          <p className={cn('text-xs font-medium mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Commitment Terms</p>
+          <div className="flex flex-wrap gap-1.5">
+            {commitments.map(term => (
+              <Badge key={term} variant="secondary" className={cn(
+                'text-xs',
+                isLight ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+              )}>
+                {formatCommitment(term)}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Available Geos - simple tags, no region details */}
+      {geos.length > 0 && (
+        <div>
+          <p className={cn('text-xs font-medium mb-2', isLight ? 'text-stone-600' : 'text-slate-300')}>Available Geos</p>
+          <div className="flex flex-wrap gap-1.5">
+            {geos.sort().map(geo => (
+              <Badge key={geo} variant="secondary" className="text-xs">
+                {geoDisplayNames[geo] || geo}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Info note */}
+      {reservedData.supported && (
+        <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+          Reserved capacity requires a commitment term. See pricing tab for rates.
+        </p>
+      )}
+    </div>
+  )
+}
+
 // Consumption option explanations for info popover
 const consumptionExplanations = {
   'In Region': 'On-demand inference in a specific AWS region. Pay per token/request with no commitment.',
   'Cross-Region (CRIS)': 'Cross-Region Inference Service routes requests to available capacity across regions for higher throughput.',
   'Batch': 'Process large volumes of requests asynchronously at lower cost. Results delivered to S3.',
   'Mantle': 'Managed inference endpoints with dedicated capacity and custom configurations.',
+  'Reserved Tiers': 'Committed capacity with 1-month or 3-month terms. Lower per-token cost in exchange for upfront commitment.',
 }
 
 // Compact availability summary with expandable detail sections for each inference type
@@ -1373,6 +1464,7 @@ function AvailabilitySummary({ model }) {
   const batchData = model.availability?.batch ?? model.batch_inference_supported ?? {}
   const mantleData = model.availability?.mantle ?? {}
   const govcloudData = model.availability?.govcloud ?? {}
+  const reservedData = model.availability?.reserved ?? {}
 
   const toggleType = (label) => {
     setExpandedTypes(prev => ({ ...prev, [label]: !prev[label] }))
@@ -1412,6 +1504,12 @@ function AvailabilitySummary({ model }) {
       highlight: isMantleOnly,
       detail: () => <MantleInferenceSection mantleData={mantleData} />,
     },
+    {
+      label: 'Reserved Tiers',
+      supported: isMantleOnly ? false : !!reservedData.supported,
+      count: isMantleOnly ? 0 : (reservedData.regions?.length ?? 0),
+      detail: () => <ReservedCapacitySection reservedData={reservedData} />,
+    },
   ]
 
   return (
@@ -1419,7 +1517,7 @@ function AvailabilitySummary({ model }) {
       {/* Header with info button */}
       <div className="flex items-center justify-between mb-2">
         <span className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>
-          Availability
+          Deployment Options
         </span>
         <Popover>
           <PopoverTrigger asChild>
@@ -3252,8 +3350,8 @@ function simplifyPricingDescription(desc, dimension) {
   // Detect qualifier (cache tier, pricing tier)
   const qualifier =
     /cache[- ]?read/i.test(combined) ? 'Cache Read' :
-    /1[- ]?h(?:our)?\s*cache/i.test(combined) ? '1h Cache' :
-    /cache[- ]?write/i.test(combined) ? 'Cache Write' :
+    /cache[- ]?write[- ]?1h|1[- ]?h(?:our)?[- ]?cache/i.test(combined) ? '1h Cache' :
+    /cache[- ]?write(?![- ]?1h)/i.test(combined) ? '5m Cache' :
     /\bflex\b/i.test(combined) ? 'Flex' :
     /\bpriority\b/i.test(combined) ? 'Priority' : null
 
@@ -3968,7 +4066,7 @@ function CRISPricingSection({
   const globalConsolidated = globalItems.length > 0 ? consolidateByTierAndType(globalItems) : {}
   const regionalConsolidated = regionalItems.length > 0 ? consolidateByTierAndType(regionalItems) : {}
 
-  const tierOrder = ['Standard', 'Cache Read', 'Cache Write', '1h Cache', 'Flex', 'Priority', 'Standard (Long Context)', 'Cache Read (Long Context)', 'Cache Write (Long Context)', '1h Cache (Long Context)', 'Batch Standard', 'Batch Cache Read', 'Batch Cache Write', 'Batch 1h Cache', 'Batch Standard (Long Context)', 'Batch Cache Read (Long Context)', 'Batch Cache Write (Long Context)', 'Batch 1h Cache (Long Context)']
+  const tierOrder = ['Standard', 'Cache Read', '5m Cache', '1h Cache', 'Flex', 'Priority', 'Standard (Long Context)', 'Cache Read (Long Context)', '5m Cache (Long Context)', '1h Cache (Long Context)', 'Batch Standard', 'Batch Cache Read', 'Batch 5m Cache', 'Batch 1h Cache', 'Batch Standard (Long Context)', 'Batch Cache Read (Long Context)', 'Batch 5m Cache (Long Context)', 'Batch 1h Cache (Long Context)']
   const sortTiers = (tiers) => tiers.sort((a, b) => {
     const idxA = tierOrder.indexOf(a)
     const idxB = tierOrder.indexOf(b)
@@ -4247,8 +4345,8 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
     
     // Detect tier from the label (pricing variant) or dimension
     if (/cache[- ]?read/i.test(label)) return `${prefix}Cache Read${lcSuffix}`.trim()
-    if (/cache[- ]?write/i.test(label)) return `${prefix}Cache Write${lcSuffix}`.trim()
-    if (/1h[- ]?cache/i.test(label)) return `${prefix}1h Cache${lcSuffix}`.trim()
+    if (/cache[- ]?write[- ]?1h|1h[- ]?cache/i.test(label)) return `${prefix}1h Cache${lcSuffix}`.trim()
+    if (/cache[- ]?write(?![- ]?1h)|5m[- ]?cache/i.test(label)) return `${prefix}5m Cache${lcSuffix}`.trim()
     if (/\bflex\b/i.test(label) || dimLower.includes('-flex')) return `${prefix}Flex${lcSuffix}`.trim()
     if (/\bpriority\b/i.test(label) || dimLower.includes('-priority')) return `${prefix}Priority${lcSuffix}`.trim()
     if (/no[- ]?commit/i.test(label)) return 'No Commit'
@@ -4443,12 +4541,12 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
     // Tier ordering for consistent display
     const tierOrder = [
       'Standard',
-      'Cache Read', 'Cache Write', '1h Cache',
+      'Cache Read', '5m Cache', '1h Cache',
       'Flex', 'Priority',
       'Standard (Long Context)',
-      'Cache Read (Long Context)', 'Cache Write (Long Context)',
+      'Cache Read (Long Context)', '5m Cache (Long Context)',
       '1h Cache (Long Context)', 'Flex (Long Context)', 'Priority (Long Context)',
-      'Batch Standard', 'Batch Cache Read', 'Batch Cache Write', 'Batch 1h Cache', 'Batch Standard (Long Context)', 'Batch Cache Read (Long Context)', 'Batch Cache Write (Long Context)', 'Batch 1h Cache (Long Context)', 'No Commit', '1 Month', '3 Month', '6 Month'
+      'Batch Standard', 'Batch Cache Read', 'Batch 5m Cache', 'Batch 1h Cache', 'Batch Standard (Long Context)', 'Batch Cache Read (Long Context)', 'Batch 5m Cache (Long Context)', 'Batch 1h Cache (Long Context)', 'No Commit', '1 Month', '3 Month', '6 Month'
     ]
 
     const sortTiers = (tiers) => tiers.sort((a, b) => {
@@ -4842,10 +4940,12 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
       if (parentGroup.subGroups) {
         // Has sub-groups - collect items per sub-group
         const hideInRegion = model.availability?.hide_in_region ?? false
+        const mantleHasPricing = model.availability?.mantle?.has_pricing ?? false
         
         parentGroup.subGroups.forEach(subGroup => {
           // Skip On-Demand and Batch sub-groups when hide_in_region is true
-          if (hideInRegion && parentGroup.id === 'in_region' && (subGroup.id === 'on_demand' || subGroup.id === 'batch')) {
+          // BUT only if Mantle has its own pricing - otherwise show In-Region pricing
+          if (hideInRegion && mantleHasPricing && parentGroup.id === 'in_region' && (subGroup.id === 'on_demand' || subGroup.id === 'batch')) {
             return
           }
           
@@ -5169,6 +5269,26 @@ export function ModelCardExpanded({
 
   // Compute pricing stats
   const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
+  
+  // Detect available pricing tiers (Flex, Priority) from pricing data
+  const availableTiers = new Set()
+  const fullPricing = pricingResult?.fullPricing
+  if (fullPricing?.regions) {
+    for (const regionData of Object.values(fullPricing.regions)) {
+      if (regionData?.pricing_groups) {
+        for (const items of Object.values(regionData.pricing_groups)) {
+          for (const item of items) {
+            if (item.dimensions?.tier) {
+              availableTiers.add(item.dimensions.tier)
+            }
+          }
+        }
+      }
+    }
+  }
+  const hasFlexTier = availableTiers.has('flex')
+  const hasPriorityTier = availableTiers.has('priority')
+  
   return (
     <TooltipProvider>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -5335,6 +5455,42 @@ export function ModelCardExpanded({
                         <Cpu className="h-3.5 w-3.5" />
                         Mantle
                       </span>
+                      {hasFlexTier && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className={cn(
+                              'inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
+                              isLight 
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                                : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            )}>
+                              <Zap className="h-3.5 w-3.5" />
+                              Flex
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p className="text-xs">Supports Flex pricing tier (lower cost, variable latency)</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {hasPriorityTier && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className={cn(
+                              'inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
+                              isLight 
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200' 
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            )}>
+                              <Zap className="h-3.5 w-3.5" />
+                              Priority
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p className="text-xs">Supports Priority pricing tier (guaranteed low latency)</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
                   </div>
 

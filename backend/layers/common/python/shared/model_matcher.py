@@ -129,11 +129,14 @@ PROVIDER_ALIASES = {
     # Additional providers for Mantle API compatibility
     "moonshotai": "moonshot",
     "moonshot": "moonshot",
+    "moonshot-ai": "moonshot",  # Pricing API format
     "kimi-ai": "moonshot",
     "google": "google",
     "nvidia": "nvidia",
     "openai": "openai",
     "zai": "zai",
+    "z-ai": "zai",  # Pricing API format
+    "z.ai": "zai",  # Pricing API format with dot
     "minimax": "minimax",
     "luma": "luma",
     "writer": "writer",
@@ -195,10 +198,21 @@ def get_canonical_model_id(model_id: str) -> str:
     # Step 0: Normalize provider prefix using PROVIDER_ALIASES
     # This ensures moonshotai.model -> moonshot.model before other normalization
     if "." in result:
-        provider_part = result.split(".")[0]
+        # Handle special case: z.ai.model -> check if "z.ai" is a known provider
+        parts = result.split(".")
+        provider_part = parts[0]
+        rest_parts = parts[1:]
+
+        # Check if first two parts form a known provider (e.g., "z.ai")
+        if len(parts) >= 2:
+            two_part_provider = f"{parts[0]}.{parts[1]}"
+            if two_part_provider in PROVIDER_ALIASES:
+                provider_part = two_part_provider
+                rest_parts = parts[2:]
+
         canonical_provider = PROVIDER_ALIASES.get(provider_part, provider_part)
         if canonical_provider != provider_part:
-            result = canonical_provider + "." + ".".join(result.split(".")[1:])
+            result = canonical_provider + "." + ".".join(rest_parts)
 
     # Step 1: Remove dimension suffix first (e.g., :0:512 -> :0)
     # This must come before instance version removal

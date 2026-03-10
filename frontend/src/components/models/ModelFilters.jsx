@@ -19,6 +19,7 @@ import {
   initialFilterState,
   countActiveFilters,
   pricingFilterOptions,
+  featureFilterOptions,
 } from '@/utils/filters'
 import { cn } from '@/lib/utils'
 
@@ -416,6 +417,16 @@ export function ModelFilters({
       })
     }
 
+    if (filters.features?.length > 0) {
+      filters.features.forEach(f => {
+        chips.push({
+          key: `feature-${f}`,
+          label: f,
+          onRemove: () => updateFilter('features', filters.features.filter(x => x !== f))
+        })
+      })
+    }
+
     return chips
   }
 
@@ -616,7 +627,7 @@ export function ModelFilters({
           <div className={cn('my-2.5 border-t', isLight ? 'border-stone-200/60' : 'border-[#2c2d32]/60')} />
 
           {/* Row 3: Infrastructure & availability filters */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2.5 items-end">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-3 gap-y-2.5 items-end">
             {availableConsumptionOptions.length > 0 && (
               <MultiSelectDropdown
                 label="Consumption"
@@ -627,6 +638,15 @@ export function ModelFilters({
                 isLight={isLight}
               />
             )}
+
+            <MultiSelectDropdown
+              label="Features"
+              options={featureFilterOptions}
+              selected={filters.features || []}
+              onChange={(v) => updateFilter('features', v)}
+              placeholder="All features"
+              isLight={isLight}
+            />
 
             <FilterSelect
               label="Cross-Region (CRIS)"
