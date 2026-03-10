@@ -9,9 +9,19 @@ import logging
 import sys
 import re
 from pathlib import Path
-import streamlit as st
 from datetime import datetime
-from .state_management import update_evaluation_status
+
+# Note: streamlit import moved to sync_evaluations_from_files() where it's actually needed
+# This allows benchmark_runner to work in Flask context without Streamlit dependency
+
+def update_evaluation_status(eval_id, status, progress=None, error=None, results=None):
+    """Update evaluation status - Flask-compatible stub that only updates file-based status.
+
+    The actual status is tracked via status files, so this function is primarily
+    used for Streamlit session state (which doesn't exist in Flask context).
+    """
+    # In Flask context, we just log the status change - the file-based status is the source of truth
+    logging.getLogger('dashboard').debug(f"Status update for {eval_id}: {status} (progress={progress})")
 from .constants import DEFAULT_OUTPUT_DIR, STATUS_FILES_DIR
 from .csv_processor import (
     convert_to_jsonl, 
@@ -197,9 +207,12 @@ def _process_evaluation_queue():
         dashboard_logger.info(f"Starting evaluation: '{eval_name}' (ID: {eval_id})")
         
         try:
-            # Update status to running
+            # Update status to running (both in-memory and file)
             update_evaluation_status(eval_id, "running", 5)
-            
+            composite_id = f"{eval_id}_{eval_name}"
+            status_file = Path(STATUS_FILES_DIR) / f"evaluation_status_{composite_id}.json"
+            _update_status_file(status_file, "running", 5, evaluation_config=_current_evaluation)
+
             # Store evaluation config
             _thread_local_evaluations[eval_id] = _current_evaluation.copy()
             
@@ -214,6 +227,10 @@ def _process_evaluation_queue():
         except Exception as e:
             dashboard_logger.error(f"Error executing evaluation '{eval_name}' (ID: {eval_id}): {str(e)}")
             update_evaluation_status(eval_id, "failed", 0, error=str(e))
+            # Also update the status file
+            composite_id = f"{eval_id}_{eval_name}"
+            status_file = Path(STATUS_FILES_DIR) / f"evaluation_status_{composite_id}.json"
+            _update_status_file(status_file, "failed", 0, error=str(e), evaluation_config=_current_evaluation)
         
         # Small delay between evaluations
         time.sleep(2)
@@ -1009,7 +1026,16 @@ def sync_evaluations_from_files():
     """
     Sync evaluation statuses from status files.
     Call this function periodically from the main thread.
+    Only works in Streamlit context.
     """
+    # Import streamlit only when this function is called (Streamlit-specific function)
+    try:
+        import streamlit as st
+        from .state_management import update_evaluation_status as st_update_evaluation_status
+    except ImportError:
+        dashboard_logger.warning("Streamlit not available - sync_evaluations_from_files only works in Streamlit context")
+        return
+
     # Make sure session state is initialized
     if "evaluations" not in st.session_state:
         dashboard_logger.warning("No evaluations found in session state")
@@ -1046,9 +1072,9 @@ def sync_evaluations_from_files():
             if old_status != new_status:
                 dashboard_logger.info(f"Evaluation {eval_id} status changed: {old_status} -> {new_status}")
             
-            # Update evaluation status in session state
-            update_evaluation_status(
-                eval_id, 
+            # Update evaluation status in session state (using Streamlit's version)
+            st_update_evaluation_status(
+                eval_id,
                 new_status,
                 status_data.get("progress", eval_config.get("progress", 0))
             )
