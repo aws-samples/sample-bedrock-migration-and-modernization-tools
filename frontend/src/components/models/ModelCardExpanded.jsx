@@ -5304,11 +5304,13 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
                 </span>
                 {hasInputOutput && (
                   <div className="flex items-center gap-2 text-xs">
+                    <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-400')}>In:</span>
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
                     <span className={cn('font-mono font-semibold', isLight ? 'text-stone-900' : 'text-emerald-400')}>
                       {formatPriceRange(tierData.input)}
                     </span>
                     <span className={cn(isLight ? 'text-stone-400' : 'text-slate-500')}>/</span>
+                    <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-400')}>Out:</span>
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     <span className={cn('font-mono font-semibold', isLight ? 'text-stone-900' : 'text-emerald-400')}>
                       {formatPriceRange(tierData.output)}
@@ -5593,7 +5595,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className={cn(
-                      'inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border cursor-help',
+                      'inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border',
                       isLight 
                         ? 'bg-amber-100 text-amber-700 border-amber-200' 
                         : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
