@@ -229,12 +229,12 @@ function CollapsibleSection({ title, icon: Icon, children, defaultExpanded = fal
           {children}
           {dataSource && (
             <div className={cn(
-              'mt-3 pt-2 border-t flex items-start gap-1.5 text-[10px]',
+              'mt-3 pt-2 border-t flex items-start gap-2 text-xs',
               isLight 
-                ? 'border-stone-200/60 text-stone-400' 
-                : 'border-white/[0.04] text-slate-500'
+                ? 'border-stone-200 text-stone-600' 
+                : 'border-white/[0.06] text-slate-400'
             )}>
-              <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
+              <Info className={cn('h-3.5 w-3.5 flex-shrink-0 mt-0.5', isLight ? 'text-stone-400' : 'text-slate-500')} />
               <span>{dataSource}</span>
             </div>
           )}
@@ -2327,7 +2327,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                   title="Input & Output Modalities" 
                   icon={Layers} 
                   defaultExpanded={true}
-                  dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">Bedrock ListFoundationModels API</a></>}
+                  dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Bedrock ListFoundationModels API</a></>}
                 >
                   <div className="space-y-3">
                     <div>
@@ -2365,7 +2365,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                     title="Capabilities" 
                     icon={Zap} 
                     defaultExpanded={true}
-                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">Bedrock Console API</a></>}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Bedrock Console API</a></>}
                   >
                     <ExpandableTagList
                       label=""
@@ -2382,7 +2382,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                     title="Use Cases" 
                     icon={BookOpen} 
                     defaultExpanded={true}
-                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">Bedrock Console API</a></>}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Bedrock Console API</a></>}
                   >
                     <ExpandableTagList
                       label=""
@@ -2405,7 +2405,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                     title="Bedrock Features" 
                     icon={Layers} 
                     defaultExpanded={true}
-                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">Bedrock Console API</a></>}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Bedrock Console API</a></>}
                   >
                     <BedrockFeaturesSection featureSupport={model.features ?? model.feature_support} />
                   </CollapsibleSection>
@@ -2417,7 +2417,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                     title="Languages" 
                     icon={Languages} 
                     defaultExpanded={true}
-                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">Bedrock Console API</a></>}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Bedrock Console API</a></>}
                   >
                     <div className="flex flex-wrap gap-1.5">
                       {languages.map(lang => (
@@ -2433,7 +2433,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                     title="Customizations" 
                     icon={Wrench} 
                     defaultExpanded={true}
-                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">Bedrock ListFoundationModels API</a></>}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Bedrock ListFoundationModels API</a></>}
                   >
                     <div className="flex flex-wrap gap-1.5">
                       {customizations.map(custom => (
@@ -2469,7 +2469,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                   title="Consumption Options" 
                   icon={Globe} 
                   defaultExpanded={true}
-                  dataSource={<>Sources: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">ListFoundationModels API</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListInferenceProfiles.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">ListInferenceProfiles API</a>, <a href="https://aws.amazon.com/bedrock/pricing/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">AWS Pricing API</a>, Mantle API</>}
+                  dataSource={<>Sources: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListFoundationModels API</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListInferenceProfiles.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListInferenceProfiles API</a>, <a href="https://aws.amazon.com/bedrock/pricing/" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">AWS Pricing API</a>, Mantle API</>}
                 >
                   <AvailabilitySummary model={model} />
                 </CollapsibleSection>
@@ -2487,7 +2487,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                   title="Status & Dates" 
                   icon={Clock} 
                   defaultExpanded={true}
-                  dataSource={<>Sources: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">AWS Model Lifecycle Docs</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">ListFoundationModels API</a>. Priority: Lifecycle Docs → ListFoundationModels</>}
+                  dataSource={<>Sources: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">AWS Model Lifecycle Docs</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListFoundationModels API</a>. Priority: Lifecycle Docs → ListFoundationModels</>}
                 >
                   <LifecycleDetailsSection model={model} isLight={isLight} />
                 </CollapsibleSection>
@@ -3083,7 +3083,7 @@ function QuotasTab({ model, getPricingForModel, preferredRegion }) {
         )}>
           <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
           <span>
-            Source: <a href="https://docs.aws.amazon.com/servicequotas/latest/userguide/intro.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">AWS Service Quotas API</a> (per-region)
+            Source: <a href="https://docs.aws.amazon.com/servicequotas/latest/userguide/intro.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">AWS Service Quotas API</a> (per-region)
           </span>
         </div>
       </div>
@@ -4948,7 +4948,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
         )}>
           <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
           <span>
-            Source: <a href="https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/price-list-query-api.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-500">AWS Price List API</a>. Display priority: CRIS Global → CRIS Geo → Mantle → In-Region
+            Source: <a href="https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/price-list-query-api.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">AWS Price List API</a>. Display priority: CRIS Global → CRIS Geo → Mantle → In-Region
           </span>
         </div>
       </div>

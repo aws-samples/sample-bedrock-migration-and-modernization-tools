@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy, DollarSign, Globe, ChevronDown, ChevronRight, Cpu, Copy, Info } from 'lucide-react'
+import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy, DollarSign, Globe, ChevronDown, ChevronRight, Cpu, Copy, Info, Radar as RadarIcon } from 'lucide-react'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -867,7 +867,8 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
       </div>
 
       {/* Radar Chart + Winners Panel */}
-      {modelData.length >= 2 && (
+      {modelData.length >= 1 && (
+        modelData.length >= 2 ? (
         <div className={cn(
           'rounded-lg border overflow-hidden',
           isLight
@@ -1363,6 +1364,44 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
             </div>
           )}
         </div>
+        ) : (
+          // Placeholder for single model
+          <div className={cn(
+            'rounded-lg border overflow-hidden',
+            isLight
+              ? 'bg-white/70 border-stone-200/60 backdrop-blur-xl'
+              : 'bg-white/[0.03] border-white/[0.06] backdrop-blur-xl'
+          )}>
+            <div className={cn(
+              'px-4 py-2.5 border-b flex items-center gap-2',
+              isLight ? 'bg-stone-50/60 border-stone-200' : 'bg-white/[0.02] border-white/[0.06]'
+            )}>
+              <h3 className={cn('font-semibold text-xs', isLight ? 'text-stone-900' : 'text-white')}>
+                Model Comparison Radar
+              </h3>
+            </div>
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              <div className={cn(
+                'w-16 h-16 rounded-full flex items-center justify-center mb-4',
+                isLight ? 'bg-stone-100' : 'bg-white/[0.04]'
+              )}>
+                <RadarIcon className={cn('h-8 w-8', isLight ? 'text-stone-300' : 'text-slate-600')} />
+              </div>
+              <p className={cn(
+                'text-sm font-medium mb-1',
+                isLight ? 'text-stone-600' : 'text-slate-400'
+              )}>
+                Add another model to compare
+              </p>
+              <p className={cn(
+                'text-xs text-center max-w-xs',
+                isLight ? 'text-stone-400' : 'text-slate-500'
+              )}>
+                The radar chart visualizes how models compare across context window, pricing, and availability dimensions.
+              </p>
+            </div>
+          </div>
+        )
       )}
 
       {/* Comparison Table */}

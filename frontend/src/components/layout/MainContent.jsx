@@ -77,7 +77,7 @@ export function MainContent({ children, className, onMenuToggle }) {
         'lg:hidden sticky top-0 z-40 flex items-center gap-3 px-3 py-2 border-b',
         isLight
           ? 'bg-white/90 border-stone-200/80 backdrop-blur-xl'
-          : 'bg-slate-900/90 border-slate-800/50 backdrop-blur-xl'
+          : 'bg-[#141517]/95 border-[#2c2d32]/60 backdrop-blur-xl'
       )}>
         <Button
           variant="ghost"
@@ -110,7 +110,7 @@ export function MainContent({ children, className, onMenuToggle }) {
                   'ml-auto flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors cursor-default',
                   isLight
                     ? 'bg-stone-100/80 hover:bg-stone-100'
-                    : 'bg-slate-800/50 hover:bg-slate-800'
+                    : 'bg-[#2c2d32]/60 hover:bg-[#2c2d32]'
                 )}>
                   <Clock className={cn(
                     'h-3 w-3',
@@ -140,7 +140,7 @@ export function MainContent({ children, className, onMenuToggle }) {
         'hidden lg:flex sticky top-0 z-40 items-center justify-end px-6 py-3 border-b',
         isLight
           ? 'bg-white/70 border-stone-200/60 backdrop-blur-xl'
-          : 'bg-slate-900/70 border-slate-800/40 backdrop-blur-xl'
+          : 'bg-[#141517]/90 border-[#2c2d32]/50 backdrop-blur-xl'
       )}>
         {lastUpdatedLabel && (
           <TooltipProvider delayDuration={200}>
@@ -150,7 +150,7 @@ export function MainContent({ children, className, onMenuToggle }) {
                   'flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors cursor-default',
                   isLight
                     ? 'bg-stone-100/80 hover:bg-stone-100'
-                    : 'bg-slate-800/50 hover:bg-slate-800'
+                    : 'bg-[#2c2d32]/60 hover:bg-[#2c2d32]'
                 )}>
                   <Clock className={cn(
                     'h-3.5 w-3.5',
