@@ -78,9 +78,11 @@ const REGION_ROWS = [
 function getRegionsByType(model) {
   const govcloud = model.availability?.govcloud
   const govcloudRegions = govcloud?.supported ? (govcloud.regions || []) : []
+  const hideInRegion = model.availability?.hide_in_region ?? false
   
   return {
-    in_region: model.availability?.on_demand?.regions ?? model.in_region ?? model.regions_available ?? [],
+    // When hide_in_region is true, return empty array for in_region
+    in_region: hideInRegion ? [] : (model.availability?.on_demand?.regions ?? model.in_region ?? model.regions_available ?? []),
     cris: model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? [],
     mantle: model.availability?.mantle?.regions ?? [],
     govcloud: govcloudRegions,
@@ -264,7 +266,8 @@ const AvailabilityCell = memo(function AvailabilityCell({
     : allCrisScopes
   
   // Check availability flags
-  const hasInRegion = byType.in_region?.includes(regionCode)
+  const hideInRegion = model.availability?.hide_in_region ?? false
+  const hasInRegion = !hideInRegion && byType.in_region?.includes(regionCode)
   const hasCris = byType.cris?.includes(regionCode)
   const hasMantle = byType.mantle?.includes(regionCode)
   
@@ -353,7 +356,7 @@ const AvailabilityCell = memo(function AvailabilityCell({
     // 'all' view: show all available types with icons
     return (
       <>
-        {hasInRegion && (
+        {hasInRegion && !hideInRegion && (
           <div className="flex items-center gap-1.5">
             <Zap className={cn('w-3 h-3', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')} strokeWidth={2} />
             <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>In Region</span>

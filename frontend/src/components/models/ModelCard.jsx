@@ -527,7 +527,8 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 isLight={isLight}
               />
               {(() => {
-                const onDemandRegions = model.availability?.on_demand?.regions || model.in_region || []
+                const hideInRegion = model.availability?.hide_in_region ?? false
+                const onDemandRegions = hideInRegion ? [] : (model.availability?.on_demand?.regions || model.in_region || [])
                 const crisRegions = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []
                 const mantleRegions = model.availability?.mantle?.regions || []
                 const allRegions = new Set([...onDemandRegions, ...crisRegions, ...mantleRegions])

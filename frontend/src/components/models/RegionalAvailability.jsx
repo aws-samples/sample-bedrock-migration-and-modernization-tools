@@ -126,9 +126,11 @@ const MODEL_COL_WIDTH = 280
  * - availability.cross_region.regions: CRIS source regions
  * - availability.mantle.regions: Mantle engine regions
  * - availability.govcloud: GovCloud availability with inference_type (cris | in_region)
+ * - availability.hide_in_region: when true, hide In-Region availability (model has both Mantle and In-Region)
  */
 function getRegionAvailability(model, regionCode) {
-  const inRegionList = model.availability?.on_demand?.regions ?? model.in_region ?? []
+  const hideInRegion = model.availability?.hide_in_region ?? false
+  const inRegionList = hideInRegion ? [] : (model.availability?.on_demand?.regions ?? model.in_region ?? [])
   const crisRegions = model.availability?.cross_region?.regions ?? model.cross_region_inference?.source_regions ?? []
   const mantleRegions = model.availability?.mantle?.regions ?? []
   
@@ -138,9 +140,10 @@ function getRegionAvailability(model, regionCode) {
   const isGovcloudRegion = regionCode.startsWith('us-gov-')
   
   // For GovCloud regions, check govcloud availability
-  const onDemand = isGovcloudRegion 
+  // When hide_in_region is true, also hide GovCloud in_region availability
+  const onDemand = hideInRegion ? false : (isGovcloudRegion 
     ? (govcloud?.inference_type === 'in_region' && govcloudRegions.includes(regionCode))
-    : inRegionList.includes(regionCode)
+    : inRegionList.includes(regionCode))
   const cris = isGovcloudRegion
     ? (govcloud?.inference_type === 'cris' && govcloudRegions.includes(regionCode))
     : crisRegions.includes(regionCode)
@@ -420,9 +423,10 @@ const AvailabilityCell = memo(function AvailabilityCell({ model, regionCode, reg
     }
     
     // 'all' view: show all available types
+    const hideInRegion = model.availability?.hide_in_region ?? false
     return (
       <>
-        {onDemand && (
+        {onDemand && !hideInRegion && (
           <div className="flex items-center gap-1.5">
             <Zap className={cn('w-3 h-3', isLight ? 'text-stone-500' : 'text-[#9a9b9f]')} strokeWidth={2} />
             <span className={cn(isLight ? 'text-stone-600' : 'text-[#c0c1c5]')}>In Region</span>
@@ -707,6 +711,10 @@ export function RegionalAvailability() {
         m.model_provider?.toLowerCase().includes(q)
       )) return false
       if (activeView === 'in_region') {
+        // Skip models with hide_in_region flag (they have Mantle, so In-Region is hidden)
+        const hideInRegion = m.availability?.hide_in_region ?? false
+        if (hideInRegion) return false
+        
         // Use actual in_region availability, not declared inference_types_supported
         const inRegionList = m.availability?.on_demand?.regions ?? m.in_region
         const hasRegularInRegion = inRegionList?.length > 0

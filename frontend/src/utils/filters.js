@@ -564,9 +564,24 @@ export function applyFilters(models, filters, getPricingForModel = null) {
 
   // Consumption options filter
   if (filters.consumptionOptions && filters.consumptionOptions.length > 0) {
-    filtered = filtered.filter(m =>
-      filters.consumptionOptions.some(opt => m.consumption_options?.includes(opt))
-    )
+    filtered = filtered.filter(m => {
+      // Check if any selected consumption option matches
+      const hasMatchingOption = filters.consumptionOptions.some(opt => m.consumption_options?.includes(opt))
+      if (!hasMatchingOption) return false
+      
+      // If filtering by on_demand and model has hide_in_region, exclude it
+      // (model has Mantle, so In-Region is hidden)
+      if (filters.consumptionOptions.includes('on_demand') && m.availability?.hide_in_region) {
+        // Only exclude if on_demand is the ONLY selected option
+        // If user also selected 'mantle', the model should still appear
+        const otherOptions = filters.consumptionOptions.filter(opt => opt !== 'on_demand')
+        if (otherOptions.length === 0) return false
+        // Check if model has any of the other selected options
+        return otherOptions.some(opt => m.consumption_options?.includes(opt))
+      }
+      
+      return true
+    })
   }
 
   // Primary region availability filter (skip if 'all' is selected)

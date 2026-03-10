@@ -504,11 +504,16 @@ function getAvailablePricingTypes(pricing) {
 }
 
 // Helper to get pricing for a specific consumption type with dimension filtering
-function getPricesByType(pricing, region, pricingType, options = {}) {
+function getPricesByType(pricing, region, pricingType, options = {}, model = null) {
   const { crisType = 'global', reservedTerm = '1m', reservedScope = 'global', batchMode = false } = options
   
   const fullPricing = pricing?.fullPricing
   if (!fullPricing?.regions) return { inputPrice: null, outputPrice: null, availableRegions: [], hasData: false }
+  
+  // Skip In-Region pricing when hide_in_region is true
+  if (pricingType === 'in_region' && model?.availability?.hide_in_region) {
+    return { inputPrice: null, outputPrice: null, availableRegions: [], hasData: false }
+  }
   
   // Try the specified region first, then us-east-1, then any available region
   const regionData = fullPricing.regions[region] || 
@@ -708,7 +713,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
       reservedTerm,
       reservedScope,
       batchMode,
-    })
+    }, model)
     const availablePricingTypes = getAvailablePricingTypes(pricing)
     const contextWindow = model.specs?.context_window ?? model.converse_data?.context_window ?? 0
     const maxOutput = model.specs?.max_output ?? model.specs?.max_output_tokens ?? model.converse_data?.max_output_tokens ?? 0

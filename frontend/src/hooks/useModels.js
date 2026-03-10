@@ -273,7 +273,7 @@ function extractTokenPricesFromEntries(entries) {
  * @param {Function} filterByDimensions - dimension filter function
  * @returns {{ entries: Array, pricingSource: string|null }}
  */
-function selectBestPricingGroup(regions, filterByDimensions) {
+function selectBestPricingGroup(regions, filterByDimensions, hideInRegion = false) {
   const CASCADE = [
     { group: 'On-Demand Global', sourcePrefix: 'CRIS Global' },
     { group: 'On-Demand Geo',    sourcePrefix: 'CRIS Geo' },
@@ -282,6 +282,8 @@ function selectBestPricingGroup(regions, filterByDimensions) {
   ]
 
   for (const { group, sourcePrefix } of CASCADE) {
+    // Skip In-region pricing when hide_in_region is true
+    if (hideInRegion && group === 'On-Demand') continue
     let bestEntries = null
     let bestInputPrice = Infinity
     let bestRegion = null
@@ -330,7 +332,7 @@ function selectBestPricingGroup(regions, filterByDimensions) {
  * @param {Object} options - Filter options for dimensions
  * @returns {Object} Pricing summary with type and dimension information
  */
-function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = {}) {
+function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = {}, hideInRegion = false) {
   const nullResult = {
     inputPrice: null,
     outputPrice: null,
@@ -398,7 +400,7 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
   }
 
   // Use cascade to find best pricing group across all regions
-  let { entries: onDemand, pricingSource } = selectBestPricingGroup(modelPricing.regions, filterByDimensions)
+  let { entries: onDemand, pricingSource } = selectBestPricingGroup(modelPricing.regions, filterByDimensions, hideInRegion)
 
   // If no pricing found with default filter (excludes Mantle), retry including Mantle
   // This handles Mantle-only models like MiniMax M2.5
@@ -412,7 +414,7 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
         return true
       })
     }
-    const retryResult = selectBestPricingGroup(modelPricing.regions, filterIncludingMantle)
+    const retryResult = selectBestPricingGroup(modelPricing.regions, filterIncludingMantle, hideInRegion)
     onDemand = retryResult.entries
     pricingSource = retryResult.pricingSource
   }
@@ -729,9 +731,10 @@ export function useModels() {
     return (model, preferredRegion = DEFAULT_REGION) => {
       if (!model) return { fullPricing: null, summary: { inputPrice: null, outputPrice: null } }
       const modelPricing = getModelPricing(model, pricingData)
+      const hideInRegion = model.availability?.hide_in_region ?? false
       return {
         fullPricing: modelPricing,
-        summary: extractSummaryPricing(modelPricing, preferredRegion)
+        summary: extractSummaryPricing(modelPricing, preferredRegion, {}, hideInRegion)
       }
     }
   }, [pricingData])

@@ -1367,6 +1367,7 @@ function AvailabilitySummary({ model }) {
   const isLight = theme === 'light'
 
   const isMantleOnly = model.availability?.mantle?.only
+  const hideInRegion = model.availability?.hide_in_region ?? false
   const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
   const crisData = model.availability?.cross_region ?? model.cross_region_inference ?? {}
   const batchData = model.availability?.batch ?? model.batch_inference_supported ?? {}
@@ -1380,12 +1381,13 @@ function AvailabilitySummary({ model }) {
   const types = [
     {
       label: 'In Region',
-      supported: isMantleOnly ? false : (
+      // When hide_in_region is true, treat as not supported (model has both Mantle and In-Region, show only Mantle)
+      supported: (hideInRegion || isMantleOnly) ? false : (
         ((model.availability?.on_demand?.regions ?? model.in_region)?.length > 0) || 
         (regions.length > 0 && (model.inference_types_supported || []).includes('ON_DEMAND')) ||
         (govcloudData?.supported && govcloudData?.inference_type === 'in_region')
       ),
-      count: isMantleOnly ? 0 : (
+      count: (hideInRegion || isMantleOnly) ? 0 : (
         ((model.availability?.on_demand?.regions ?? model.in_region)?.length ?? model.total_in_region ?? regions.length) +
         (govcloudData?.supported && govcloudData?.inference_type === 'in_region' ? (govcloudData?.regions?.length ?? 0) : 0)
       ),
@@ -2365,7 +2367,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                     title="Capabilities" 
                     icon={Zap} 
                     defaultExpanded={true}
-                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Bedrock Console API</a></>}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListFoundationModels API</a> (includes data from AWS Console)</>}
                   >
                     <ExpandableTagList
                       label=""
@@ -2382,7 +2384,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                     title="Use Cases" 
                     icon={BookOpen} 
                     defaultExpanded={true}
-                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Bedrock Console API</a></>}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListFoundationModels API</a> (includes data from AWS Console)</>}
                   >
                     <ExpandableTagList
                       label=""
@@ -2405,7 +2407,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                     title="Bedrock Features" 
                     icon={Layers} 
                     defaultExpanded={true}
-                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Bedrock Console API</a></>}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListFoundationModels API</a> (includes data from AWS Console)</>}
                   >
                     <BedrockFeaturesSection featureSupport={model.features ?? model.feature_support} />
                   </CollapsibleSection>
@@ -2417,7 +2419,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                     title="Languages" 
                     icon={Languages} 
                     defaultExpanded={true}
-                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-ids.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Bedrock Console API</a></>}
+                    dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListFoundationModels API</a> (includes data from AWS Console)</>}
                   >
                     <div className="flex flex-wrap gap-1.5">
                       {languages.map(lang => (
@@ -2469,7 +2471,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                   title="Consumption Options" 
                   icon={Globe} 
                   defaultExpanded={true}
-                  dataSource={<>Sources: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListFoundationModels API</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListInferenceProfiles.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListInferenceProfiles API</a>, <a href="https://aws.amazon.com/bedrock/pricing/" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">AWS Pricing API</a>, Mantle API</>}
+                  dataSource={<>Sources: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListFoundationModels API</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListInferenceProfiles.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListInferenceProfiles API</a>, <a href="https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/price-changes.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">AWS Pricing API</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-mantle.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Mantle API</a></>}
                 >
                   <AvailabilitySummary model={model} />
                 </CollapsibleSection>
@@ -2487,7 +2489,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                   title="Status & Dates" 
                   icon={Clock} 
                   defaultExpanded={true}
-                  dataSource={<>Sources: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">AWS Model Lifecycle Docs</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListFoundationModels API</a>. Priority: Lifecycle Docs → ListFoundationModels</>}
+                  dataSource={<>Sources: <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">AWS Model Lifecycle Docs</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListFoundationModels API</a></>}
                 >
                   <LifecycleDetailsSection model={model} isLight={isLight} />
                 </CollapsibleSection>
@@ -3527,7 +3529,7 @@ const PRICING_GROUP_HIERARCHY = [
   },
   {
     id: 'reserved',
-    label: 'Reserved',
+    label: 'Reserved Tiers',
     icon: Clock,
     colors: {
       light: {
@@ -3653,48 +3655,116 @@ const PRICING_GROUP_HIERARCHY = [
 ]
 
 // Helper component to display regions grouped by geography
-function RegionsByGeoDisplay({ regions, getRegionDisplayName, groupRegionsByGeo, geoGroups, isLight, compact = false }) {
+function RegionsByGeoDisplay({ regions, getRegionDisplayName, groupRegionsByGeo, geoGroups, isLight, compact = false, geosOnly = false }) {
   const grouped = groupRegionsByGeo(regions)
-  const geoOrder = ['US', 'EU', 'APAC', 'CA', 'SA', 'MX', 'ME', 'AF', 'Other']
+  const geoOrder = ['US', 'EU', 'APAC', 'CA', 'SA', 'MX', 'ME', 'AF', 'GOV', 'Other']
+  const activeGeos = geoOrder.filter(geoKey => grouped[geoKey]?.length > 0)
   
+  // For interactive mode (non-geosOnly), track which geo is selected
+  // Default to first geo with regions
+  const [selectedGeo, setSelectedGeo] = useState(activeGeos[0] || null)
+  
+  // Geo display names (no emojis)
+  const geoDisplayNames = {
+    'US': 'United States',
+    'EU': 'Europe', 
+    'APAC': 'Asia Pacific',
+    'CA': 'Canada',
+    'SA': 'South America',
+    'MX': 'Mexico',
+    'ME': 'Middle East',
+    'AF': 'Africa',
+    'GOV': 'GovCloud',
+    'Other': 'Other'
+  }
+  
+  // For geosOnly mode (Reserved Tiers), just show geo names inline without interaction
+  if (geosOnly) {
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {activeGeos.map(geoKey => {
+          const regionCount = grouped[geoKey].length
+          return (
+            <Tooltip key={geoKey} delayDuration={200}>
+              <TooltipTrigger asChild>
+                <span className={cn(
+                  'inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] cursor-default',
+                  isLight 
+                    ? 'bg-stone-100 text-stone-600 border border-stone-200' 
+                    : 'bg-white/[0.06] text-slate-400 border border-white/[0.08]'
+                )}>
+                  {geoDisplayNames[geoKey] || geoKey}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={4}>
+                <p className="text-xs">{regionCount} region{regionCount !== 1 ? 's' : ''}</p>
+              </TooltipContent>
+            </Tooltip>
+          )
+        })}
+      </div>
+    )
+  }
+  
+  // Interactive mode: clickable geo badges with expandable regions
   return (
-    <div className={cn('space-y-2', compact && 'space-y-1.5')}>
-      {geoOrder.map(geoKey => {
-        const geoRegions = grouped[geoKey]
-        if (!geoRegions || geoRegions.length === 0) return null
-        const geoInfo = geoGroups[geoKey] || { name: geoKey, icon: '🌐' }
-        
-        return (
-          <div key={geoKey} className="flex items-start gap-2">
-            <span className={cn('flex-shrink-0 mt-0.5', compact ? 'text-[10px]' : 'text-xs')}>{geoInfo.icon}</span>
-            <div className="flex-1 min-w-0">
-              <span className={cn(
-                'font-medium mr-1.5',
-                compact ? 'text-[10px]' : 'text-[11px]',
-                isLight ? 'text-stone-600' : 'text-slate-400'
-              )}>
-                {geoInfo.name}:
-              </span>
-              <div className="inline-flex flex-wrap gap-1 mt-0.5">
-                {geoRegions.sort().map(r => (
-                  <span
-                    key={r}
-                    className={cn(
-                      'inline-flex items-center px-1.5 py-0.5 rounded text-[10px]',
-                      isLight 
-                        ? 'bg-stone-100 text-stone-600 border border-stone-200' 
-                        : 'bg-white/[0.06] text-slate-400 border border-white/[0.08]'
-                    )}
-                    title={r}
-                  >
-                    {getRegionDisplayName(r) || r}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        )
-      })}
+    <div className="space-y-2">
+      {/* Geo badges row */}
+      <div className="flex flex-wrap gap-1.5">
+        {activeGeos.map(geoKey => {
+          const isSelected = selectedGeo === geoKey
+          const regionCount = grouped[geoKey].length
+          return (
+            <Tooltip key={geoKey} delayDuration={200}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setSelectedGeo(isSelected ? null : geoKey)}
+                  className={cn(
+                    'inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] transition-colors cursor-default',
+                    isSelected
+                      ? isLight
+                        ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                        : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                      : isLight 
+                        ? 'bg-stone-100 text-stone-600 border border-stone-200 hover:bg-stone-200/80' 
+                        : 'bg-white/[0.06] text-slate-400 border border-white/[0.08] hover:bg-white/[0.1]'
+                  )}
+                >
+                  {geoDisplayNames[geoKey] || geoKey}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={4}>
+                <p className="text-xs">{regionCount} region{regionCount !== 1 ? 's' : ''}</p>
+              </TooltipContent>
+            </Tooltip>
+          )
+        })}
+      </div>
+      
+      {/* Regions for selected geo */}
+      {selectedGeo && grouped[selectedGeo] && (
+        <div className="flex flex-wrap gap-1 pt-1">
+          {grouped[selectedGeo].sort().map(region => (
+            <Tooltip key={region} delayDuration={200}>
+              <TooltipTrigger asChild>
+                <span
+                  className={cn(
+                    'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] cursor-default',
+                    isLight 
+                      ? 'bg-stone-50 text-stone-500 border border-stone-200' 
+                      : 'bg-white/[0.03] text-slate-500 border border-white/[0.06]'
+                  )}
+                >
+                  {getRegionDisplayName(region) || region}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={4}>
+                <p className="font-mono text-xs">{region}</p>
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -4391,7 +4461,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
     })
 
     // Render tier cards for a set of items
-    const renderTierCards = (items, keyPrefix) => {
+    const renderTierCards = (items, keyPrefix, geosOnly = false) => {
       const consolidated = consolidateByTierAndType(items)
       const sortedTiers = sortTiers(Object.keys(consolidated))
 
@@ -4503,6 +4573,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
                     geoGroups={geoGroups}
                     isLight={isLight}
                     compact
+                    geosOnly={geosOnly}
                   />
                 </div>
                 
@@ -4688,7 +4759,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
     }
 
     // Render a sub-group section (nested inside parent group)
-    const renderSubGroup = (subGroup, items, parentId, colors, isFirstSubGroup, showInRegionEquivalence = false) => {
+    const renderSubGroup = (subGroup, items, parentId, colors, isFirstSubGroup, showInRegionEquivalence = false, geosOnly = false) => {
       const subGroupKey = `byType_${parentId}_${subGroup.id}`
       const isExpanded = expandedSections[subGroupKey] ?? isFirstSubGroup
       const regionCount = new Set(items.map(i => i.region)).size
@@ -4749,7 +4820,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
           {isExpanded && (
             <div className={cn('px-3 pb-3 border-t space-y-2', isLight ? 'border-stone-100' : 'border-white/[0.04]')}>
               <div className="pt-2 space-y-2">
-                {renderTierCards(items, subGroupKey)}
+                {renderTierCards(items, subGroupKey, geosOnly)}
               </div>
             </div>
           )}
@@ -4770,7 +4841,14 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
 
       if (parentGroup.subGroups) {
         // Has sub-groups - collect items per sub-group
+        const hideInRegion = model.availability?.hide_in_region ?? false
+        
         parentGroup.subGroups.forEach(subGroup => {
+          // Skip On-Demand and Batch sub-groups when hide_in_region is true
+          if (hideInRegion && parentGroup.id === 'in_region' && (subGroup.id === 'on_demand' || subGroup.id === 'batch')) {
+            return
+          }
+          
           const subGroupItems = subGroup.pricingGroups.flatMap(pg => itemsByPricingGroup[pg] || [])
           if (subGroupItems.length > 0) {
             subGroupsWithData.push({ subGroup, items: subGroupItems })
@@ -4863,14 +4941,16 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
                       colors, 
                       idx === 0,
                       // Pass the In-Region equivalence flag only for CRIS parent group
-                      parentGroup.id === 'cris' && showInRegionUsesCrisGeoPricing
+                      parentGroup.id === 'cris' && showInRegionUsesCrisGeoPricing,
+                      // Pass geosOnly for Reserved tiers
+                      parentGroup.id === 'reserved'
                     )
                   )}
                 </div>
               ) : (
                 // Render direct tier cards (no sub-groups)
                 <div className="pt-3 space-y-2">
-                  {renderTierCards(allParentItems, sectionKey)}
+                  {renderTierCards(allParentItems, sectionKey, parentGroup.id === 'reserved')}
                 </div>
               )}
             </div>
@@ -4923,9 +5003,10 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
   return (
     <ScrollArea className="h-full">
       <div className="p-6">
-        {/* Header with Search */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div className="relative flex-1 max-w-md">
+        {/* Header with Search and Source Info - inline layout */}
+        <div className="flex items-center gap-4 mb-6">
+          {/* Search on the left */}
+          <div className="relative w-full max-w-md flex-shrink-0">
             <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4', isLight ? 'text-stone-400' : 'text-slate-500')} />
             <Input
               placeholder="Search by region, tier, or pricing type..."
@@ -4934,23 +5015,25 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
               className="pl-9"
             />
           </div>
+          
+          {/* Source Info centered in remaining space */}
+          <div className="flex-1 flex justify-center">
+            <div className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-lg text-xs',
+              isLight
+                ? 'bg-stone-100/80 text-stone-600 border border-stone-200/60'
+                : 'bg-white/[0.03] text-slate-400 border border-white/[0.06]'
+            )}>
+              <Info className={cn('h-3.5 w-3.5 flex-shrink-0', isLight ? 'text-stone-400' : 'text-slate-500')} />
+              <span>
+                Source: <a href="https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/price-list-query-api.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">AWS Price List API</a>. Verify at <a href="https://aws.amazon.com/bedrock/pricing/" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Bedrock Pricing</a> before sharing.
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* View Content */}
         {renderByTypeView()}
-
-        {/* Data Source Info */}
-        <div className={cn(
-          'mt-6 pt-4 border-t flex items-start gap-1.5 text-[10px]',
-          isLight 
-            ? 'border-stone-200/60 text-stone-400' 
-            : 'border-white/[0.04] text-slate-500'
-        )}>
-          <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
-          <span>
-            Source: <a href="https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/price-list-query-api.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">AWS Price List API</a>. Display priority: CRIS Global → CRIS Geo → Mantle → In-Region
-          </span>
-        </div>
       </div>
     </ScrollArea>
   )

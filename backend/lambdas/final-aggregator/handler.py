@@ -1646,7 +1646,14 @@ def build_availability(
         "source": "pricing_api",
     }
 
+    # Determine if In-Region should be hidden (model has both Mantle and In-Region)
+    # Mantle is prioritized over In-Region for models with both availability options
+    mantle_has_regions = mantle["supported"] and len(mantle["regions"]) > 0
+    on_demand_has_regions = len(on_demand_regions) > 0
+    hide_in_region = mantle_has_regions and on_demand_has_regions
+
     return {
+        "hide_in_region": hide_in_region,
         "on_demand": {
             "supported": len(on_demand_regions) > 0,
             "regions": on_demand_regions,
