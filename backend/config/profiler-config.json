@@ -670,14 +670,14 @@
         "lng": -119.688,
         "name": "GovCloud (US-West)",
         "geo": "GOV",
-        "iata": "PDX"
+        "iata": "PDT"
       },
       "us-gov-east-1": {
         "lat": 38.9519,
         "lng": -77.448,
         "name": "GovCloud (US-East)",
         "geo": "GOV",
-        "iata": "IAD"
+        "iata": "OSU"
       }
     },
     "aws_regions": [

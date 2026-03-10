@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route,  Wrench, AlertTriangle, AlertCircle } from 'lucide-react'
+import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route, Wrench, AlertTriangle, AlertCircle, MapPin, RefreshCw } from 'lucide-react'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import {
   Dialog,
@@ -1444,81 +1444,682 @@ function ReservedCapacitySection({ reservedData }) {
 
 // Consumption option explanations for info popover
 const consumptionExplanations = {
-  'In Region': 'On-demand inference in a specific AWS region. Pay per token/request with no commitment.',
+  'In-Region': 'Data stays in one region. Use bedrock-runtime endpoint for standard inference or bedrock-mantle for managed endpoints.',
   'Cross-Region (CRIS)': 'Cross-Region Inference Service routes requests to available capacity across regions for higher throughput.',
-  'Batch': 'Process large volumes of requests asynchronously at lower cost. Results delivered to S3.',
-  'Mantle': 'Managed inference endpoints with dedicated capacity and custom configurations.',
+  'Provisioned Throughput': 'Dedicated capacity with guaranteed throughput. Pay for reserved model units.',
   'Reserved Tiers': 'Committed capacity with 1-month or 3-month terms. Lower per-token cost in exchange for upfront commitment.',
 }
 
-// Compact availability summary with expandable detail sections for each inference type
+// CRIS geo prefix display names and icons
+const crisPrefixInfo = {
+  'global': { name: 'Global', icon: Globe, description: 'Routes worldwide for maximum availability' },
+  'us': { name: 'US', icon: MapPin, description: 'Routes within United States regions' },
+  'eu': { name: 'EU', icon: MapPin, description: 'Routes within European regions' },
+  'apac': { name: 'APAC', icon: MapPin, description: 'Routes within Asia Pacific regions' },
+  'jp': { name: 'Japan', icon: MapPin, description: 'Routes within Japan regions' },
+  'au': { name: 'Australia', icon: MapPin, description: 'Routes within Australia regions' },
+}
+
+// Helper to parse CRIS profile prefix
+function getCrisProfilePrefix(profileId) {
+  if (!profileId) return null
+  const prefix = profileId.split('.')[0]?.toLowerCase()
+  return prefix || null
+}
+
+// Helper to check if prefix is global vs geographic
+function isGlobalPrefix(prefix) {
+  return prefix === 'global'
+}
+
+// Collapsible region list component for nested sections
+function CollapsibleRegionList({ label, regions, defaultExpanded = false, isLight, variant = 'default' }) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+  const grouped = groupRegionsByGeo(regions)
+  
+  const geoDisplayNames = {
+    'US': 'United States', 'EU': 'Europe', 'APAC': 'Asia Pacific',
+    'CA': 'Canada', 'SA': 'South America', 'MX': 'Mexico', 'ME': 'Middle East',
+    'AF': 'Africa', 'GOV': 'GovCloud', 'Other': 'Other'
+  }
+
+  const variantStyles = {
+    default: isLight 
+      ? 'bg-white border-stone-200 hover:bg-stone-50' 
+      : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]',
+    nested: isLight
+      ? 'bg-stone-50/50 border-stone-200/60 hover:bg-stone-100/50'
+      : 'bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.04]',
+  }
+
+  return (
+    <div className={cn('rounded-lg border overflow-hidden', variantStyles[variant])}>
+      <button
+        className={cn('w-full flex items-center justify-between p-2.5 transition-colors')}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          <span className={cn('font-medium text-xs', isLight ? 'text-stone-700' : 'text-slate-200')}>
+            {label}
+          </span>
+          <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-400')}>
+            {regions.length} {regions.length === 1 ? 'region' : 'regions'}
+          </span>
+        </div>
+        {isExpanded ? (
+          <ChevronDown className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
+        ) : (
+          <ChevronRight className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
+        )}
+      </button>
+      {isExpanded && (
+        <div className={cn('px-2.5 pb-2.5 pt-2 border-t space-y-2', isLight ? 'border-stone-200/60' : 'border-white/[0.04]')}>
+          {Object.entries(grouped).map(([geoKey, geoRegions]) => (
+            <div key={geoKey}>
+              <p className={cn('text-[10px] mb-1.5 font-medium', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                {geoDisplayNames[geoKey] || geoKey} ({geoRegions.length})
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {geoRegions.sort().map(region => (
+                  <Tooltip key={region} delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <Badge variant="secondary" className="text-[10px] cursor-default">
+                        {getRegionDisplayName(region)}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={4}>
+                      <p className="font-mono text-xs">{region}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// In-Region Runtime API sub-section (On-Demand + Batch)
+function InRegionRuntimeSection({ onDemandRegions, batchRegions, modelId, govcloudData, isLight }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const hasOnDemand = onDemandRegions.length > 0
+  const hasBatch = batchRegions.length > 0
+  const hasGovCloud = govcloudData?.supported && govcloudData?.inference_type === 'in_region' && (govcloudData?.regions?.length ?? 0) > 0
+  const govcloudRegions = govcloudData?.regions || []
+  
+  const totalRegions = new Set([...onDemandRegions, ...batchRegions, ...(hasGovCloud ? govcloudRegions : [])]).size
+  
+  if (!hasOnDemand && !hasBatch && !hasGovCloud) return null
+
+  return (
+    <div className={cn(
+      'rounded-lg border overflow-hidden',
+      isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+    )}>
+      <button
+        className={cn(
+          'w-full flex items-center justify-between p-3 transition-colors',
+          isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
+        )}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          <Server className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
+          <span className={cn('font-medium text-sm', isLight ? 'text-stone-800' : 'text-white')}>
+            Runtime API
+          </span>
+          <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+            bedrock-runtime
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-slate-400')}>
+            {totalRegions} {totalRegions === 1 ? 'region' : 'regions'}
+          </span>
+          {isExpanded ? (
+            <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-500' : 'text-slate-400')} />
+          ) : (
+            <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-500' : 'text-slate-400')} />
+          )}
+        </div>
+      </button>
+      {isExpanded && (
+        <div className={cn('px-3 pb-3 pt-2 border-t space-y-2', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+          {/* Model ID */}
+          {modelId && (
+            <div className={cn('rounded p-2 mb-2', isLight ? 'bg-stone-50 border border-stone-200' : 'bg-white/[0.02] border border-white/[0.04]')}>
+              <CopyableText
+                text={modelId}
+                isLight={isLight}
+                className={cn('text-xs font-mono', isLight ? 'text-stone-700 hover:text-stone-900' : 'text-[#c0c1c5] hover:text-white')}
+              />
+            </div>
+          )}
+          
+          {/* On-Demand */}
+          {hasOnDemand && (
+            <CollapsibleRegionList 
+              label="On-Demand" 
+              regions={onDemandRegions} 
+              isLight={isLight}
+              variant="nested"
+            />
+          )}
+          
+          {/* Batch */}
+          {hasBatch && (
+            <CollapsibleRegionList 
+              label="Batch" 
+              regions={batchRegions} 
+              isLight={isLight}
+              variant="nested"
+            />
+          )}
+          
+          {/* GovCloud */}
+          {hasGovCloud && (
+            <CollapsibleRegionList 
+              label="GovCloud" 
+              regions={govcloudRegions} 
+              isLight={isLight}
+              variant="nested"
+            />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// In-Region Mantle API sub-section
+function InRegionMantleSection({ mantleData, isLight }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const regions = mantleData?.regions || []
+  
+  if (!mantleData?.supported || regions.length === 0) return null
+
+  return (
+    <div className={cn(
+      'rounded-lg border overflow-hidden',
+      isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+    )}>
+      <button
+        className={cn(
+          'w-full flex items-center justify-between p-3 transition-colors',
+          isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
+        )}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          <Layers className={cn('h-3.5 w-3.5', isLight ? 'text-violet-600' : 'text-violet-400')} />
+          <span className={cn('font-medium text-sm', isLight ? 'text-stone-800' : 'text-white')}>
+            Mantle API
+          </span>
+          <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+            bedrock-mantle
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-slate-400')}>
+            {regions.length} {regions.length === 1 ? 'region' : 'regions'}
+          </span>
+          {isExpanded ? (
+            <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-500' : 'text-slate-400')} />
+          ) : (
+            <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-500' : 'text-slate-400')} />
+          )}
+        </div>
+      </button>
+      {isExpanded && (
+        <div className={cn('px-3 pb-3 pt-2 border-t space-y-2', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+          <CollapsibleRegionList 
+            label="On-Demand" 
+            regions={regions} 
+            isLight={isLight}
+            variant="nested"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// CRIS Global endpoint section
+function CRISGlobalSection({ profiles, batchSupported, isLight }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  
+  // Collect all source regions from global profiles
+  const sourceRegions = new Set()
+  const profileIds = []
+  
+  for (const { profile, sourceRegions: profileSourceRegions } of profiles) {
+    const profileId = profile.profile_id || profile.inference_profile_id
+    if (profileId) profileIds.push(profileId)
+    for (const region of profileSourceRegions) {
+      sourceRegions.add(region)
+    }
+  }
+  
+  const regionsList = [...sourceRegions].sort()
+  
+  if (regionsList.length === 0) return null
+
+  return (
+    <div className={cn(
+      'rounded-lg border overflow-hidden',
+      isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+    )}>
+      <button
+        className={cn(
+          'w-full flex items-center justify-between p-3 transition-colors',
+          isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
+        )}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-blue-600' : 'text-blue-400')} />
+          <span className={cn('font-medium text-sm', isLight ? 'text-stone-800' : 'text-white')}>
+            Global
+          </span>
+          <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-400')}>
+            routes worldwide
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-slate-400')}>
+            {regionsList.length} source {regionsList.length === 1 ? 'region' : 'regions'}
+          </span>
+          {isExpanded ? (
+            <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-500' : 'text-slate-400')} />
+          ) : (
+            <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-500' : 'text-slate-400')} />
+          )}
+        </div>
+      </button>
+      {isExpanded && (
+        <div className={cn('px-3 pb-3 pt-2 border-t space-y-2', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+          {/* Endpoint ID */}
+          {profileIds.length > 0 && (
+            <div className={cn('rounded p-2 mb-2', isLight ? 'bg-stone-50 border border-stone-200' : 'bg-white/[0.02] border border-white/[0.04]')}>
+              <p className={cn('text-[10px] mb-1 font-medium', isLight ? 'text-stone-500' : 'text-slate-400')}>Endpoint ID</p>
+              <CopyableText
+                text={profileIds[0]}
+                isLight={isLight}
+                className={cn('text-xs font-mono', isLight ? 'text-stone-700 hover:text-stone-900' : 'text-[#c0c1c5] hover:text-white')}
+              />
+            </div>
+          )}
+          
+          {/* On-Demand source regions */}
+          <CollapsibleRegionList 
+            label="On-Demand" 
+            regions={regionsList} 
+            isLight={isLight}
+            variant="nested"
+            defaultExpanded={true}
+          />
+          
+          {/* Batch (if supported) */}
+          {batchSupported && (
+            <div className={cn(
+              'rounded-lg border p-2',
+              isLight ? 'bg-stone-50/50 border-stone-200/60' : 'bg-white/[0.02] border-white/[0.04]'
+            )}>
+              <div className="flex items-center gap-2">
+                <span className={cn('font-medium text-xs', isLight ? 'text-stone-700' : 'text-slate-200')}>
+                  Batch
+                </span>
+                <Badge variant="secondary" className="text-[9px]">Available</Badge>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// CRIS Geographic endpoint section (for a single geo like US, EU, etc.)
+function CRISGeoSection({ geoKey, profiles, batchSupported, isLight }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  
+  const info = crisPrefixInfo[geoKey] || { name: geoKey.toUpperCase(), icon: MapPin }
+  const Icon = info.icon
+  
+  // Collect all source regions from this geo's profiles
+  const sourceRegions = new Set()
+  const profileIds = []
+  
+  for (const { profile, sourceRegions: profileSourceRegions } of profiles) {
+    const profileId = profile.profile_id || profile.inference_profile_id
+    if (profileId) profileIds.push(profileId)
+    for (const region of profileSourceRegions) {
+      sourceRegions.add(region)
+    }
+  }
+  
+  const regionsList = [...sourceRegions].sort()
+  
+  if (regionsList.length === 0) return null
+
+  return (
+    <div className={cn(
+      'rounded-lg border overflow-hidden',
+      isLight ? 'bg-white border-stone-200' : 'bg-white/[0.03] border-white/[0.06]'
+    )}>
+      <button
+        className={cn(
+          'w-full flex items-center justify-between p-3 transition-colors',
+          isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
+        )}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          <Icon className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-amber-400')} />
+          <span className={cn('font-medium text-sm', isLight ? 'text-stone-800' : 'text-white')}>
+            {info.name}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-slate-400')}>
+            {regionsList.length} source {regionsList.length === 1 ? 'region' : 'regions'}
+          </span>
+          {isExpanded ? (
+            <ChevronDown className={cn('h-4 w-4', isLight ? 'text-stone-500' : 'text-slate-400')} />
+          ) : (
+            <ChevronRight className={cn('h-4 w-4', isLight ? 'text-stone-500' : 'text-slate-400')} />
+          )}
+        </div>
+      </button>
+      {isExpanded && (
+        <div className={cn('px-3 pb-3 pt-2 border-t space-y-2', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+          {/* Endpoint ID */}
+          {profileIds.length > 0 && (
+            <div className={cn('rounded p-2 mb-2', isLight ? 'bg-stone-50 border border-stone-200' : 'bg-white/[0.02] border border-white/[0.04]')}>
+              <p className={cn('text-[10px] mb-1 font-medium', isLight ? 'text-stone-500' : 'text-slate-400')}>Endpoint ID</p>
+              <CopyableText
+                text={profileIds[0]}
+                isLight={isLight}
+                className={cn('text-xs font-mono', isLight ? 'text-stone-700 hover:text-stone-900' : 'text-[#c0c1c5] hover:text-white')}
+              />
+            </div>
+          )}
+          
+          {/* Source regions */}
+          <CollapsibleRegionList 
+            label="Source Regions" 
+            regions={regionsList} 
+            isLight={isLight}
+            variant="nested"
+            defaultExpanded={true}
+          />
+          
+          {/* Batch (if supported) */}
+          {batchSupported && (
+            <div className={cn(
+              'rounded-lg border p-2',
+              isLight ? 'bg-stone-50/50 border-stone-200/60' : 'bg-white/[0.02] border-white/[0.04]'
+            )}>
+              <div className="flex items-center gap-2">
+                <span className={cn('font-medium text-xs', isLight ? 'text-stone-700' : 'text-slate-200')}>
+                  Batch
+                </span>
+                <Badge variant="secondary" className="text-[9px]">Available</Badge>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Reserved Tiers Section with expandable geographic endpoints
+function ReservedTiersSection({ reservedData, isLight }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const regions = reservedData.regions || []
+  const commitments = reservedData.commitments || []
+  
+  // Group regions by geo to determine available geos
+  const grouped = groupRegionsByGeo(regions)
+  const availableGeos = Object.keys(grouped)
+  
+  // Geo display names
+  const geoDisplayNames = {
+    'US': 'United States',
+    'EU': 'Europe',
+    'APAC': 'Asia Pacific',
+    'CA': 'Canada',
+    'SA': 'South America',
+    'MX': 'Mexico',
+    'ME': 'Middle East',
+    'AF': 'Africa',
+    'GOV': 'GovCloud',
+    'Other': 'Other'
+  }
+  
+  // Format commitment term for display (e.g., "1_month" -> "1 Month")
+  const formatCommitment = (term) => {
+    return term.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())
+  }
+  
+  // Determine if Global is available (reserved pricing is available for CRIS endpoints)
+  // Global is available if there are any regions
+  const hasGlobal = regions.length > 0
+  
+  return (
+    <div className={cn(
+      'rounded-lg border overflow-hidden',
+      isLight
+        ? 'bg-white border-stone-200'
+        : 'bg-white/[0.02] border-white/[0.06]'
+    )}>
+      <button
+        className={cn(
+          'w-full flex items-center justify-between p-3 transition-colors',
+          isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
+        )}
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          <Clock className={cn('h-3.5 w-3.5', isLight ? 'text-purple-600' : 'text-purple-400')} />
+          <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>
+            Reserved Tiers
+          </span>
+          {commitments.length > 0 && (
+            <div className="flex gap-1">
+              {commitments.slice(0, 2).map(term => (
+                <Badge key={term} variant="secondary" className="text-[9px]">
+                  {formatCommitment(term)}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-600' : 'text-slate-400')}>
+            {regions.length} {regions.length === 1 ? 'region' : 'regions'}
+          </span>
+          {isExpanded ? (
+            <ChevronDown className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
+          ) : (
+            <ChevronRight className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
+          )}
+        </div>
+      </button>
+      {isExpanded && (
+        <div className={cn('px-3 pb-3 pt-1 border-t space-y-3', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+          {/* Global endpoint */}
+          {hasGlobal && (
+            <div className={cn(
+              'rounded-lg border p-3',
+              isLight ? 'bg-stone-50/50 border-stone-200' : 'bg-white/[0.02] border-white/[0.04]'
+            )}>
+              <div className="flex items-center gap-2 mb-2">
+                <Globe className={cn('h-3.5 w-3.5', isLight ? 'text-blue-600' : 'text-blue-400')} />
+                <span className={cn('font-medium text-sm', isLight ? 'text-stone-800' : 'text-white')}>
+                  Global
+                </span>
+                <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                  same price from any source region
+                </span>
+              </div>
+              <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                Reserved capacity available from {regions.length} source {regions.length === 1 ? 'region' : 'regions'}
+              </p>
+            </div>
+          )}
+          
+          {/* Geographic endpoints */}
+          {availableGeos.length > 0 && (
+            <div className="space-y-2">
+              <p className={cn('text-[10px] font-medium', isLight ? 'text-stone-600' : 'text-slate-300')}>
+                Geographic Endpoints
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {availableGeos.sort().map(geoKey => {
+                  const geoRegions = grouped[geoKey]
+                  return (
+                    <Tooltip key={geoKey} delayDuration={200}>
+                      <TooltipTrigger asChild>
+                        <div className={cn(
+                          'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs cursor-default',
+                          isLight ? 'bg-stone-100 border border-stone-200' : 'bg-white/[0.04] border border-white/[0.06]'
+                        )}>
+                          <MapPin className={cn('h-3 w-3', isLight ? 'text-purple-600' : 'text-purple-400')} />
+                          <span className={cn('font-medium', isLight ? 'text-stone-700' : 'text-white')}>
+                            {geoDisplayNames[geoKey] || geoKey}
+                          </span>
+                          <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                            ({geoRegions.length})
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <div className="space-y-1">
+                          <p className="font-medium text-xs">{geoDisplayNames[geoKey] || geoKey}</p>
+                          <div className="flex flex-wrap gap-1">
+                            {geoRegions.sort().map(region => (
+                              <span key={region} className="text-[10px] px-1.5 py-0.5 rounded bg-white/10">
+                                {getRegionDisplayName(region)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          
+          {/* Info note */}
+          <p className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+            Reserved capacity requires a commitment term. See pricing tab for rates.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Main restructured Availability Summary component
 function AvailabilitySummary({ model }) {
-  const [expandedTypes, setExpandedTypes] = useState({})
+  const [expandedSections, setExpandedSections] = useState({ inRegion: true, cris: true })
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
+  // Extract all availability data
   const isMantleOnly = model.availability?.mantle?.only
   const hideInRegion = model.availability?.hide_in_region ?? false
-  const regions = model.availability?.on_demand?.regions ?? model.in_region ?? []
+  const onDemandRegions = model.availability?.on_demand?.regions ?? model.in_region ?? []
   const crisData = model.availability?.cross_region ?? model.cross_region_inference ?? {}
   const batchData = model.availability?.batch ?? model.batch_inference_supported ?? {}
   const mantleData = model.availability?.mantle ?? {}
   const govcloudData = model.availability?.govcloud ?? {}
   const reservedData = model.availability?.reserved ?? {}
+  const provisionedData = model.availability?.provisioned ?? {}
+  
+  // In-region batch regions
+  const inRegionBatchRegions = batchData.regions ?? batchData.supported_regions ?? []
+  
+  // Process CRIS profiles - group by prefix
+  const profiles = crisData.profiles || []
+  const profilesMap = new Map()
+  
+  for (const profile of profiles) {
+    const profileId = profile.profile_id || profile.inference_profile_id
+    if (!profileId) continue
+    
+    const prefix = getCrisProfilePrefix(profileId)
+    const sourceRegion = profile.source_region || profile.region
+    
+    const existing = profilesMap.get(profileId)
+    if (existing) {
+      if (sourceRegion) existing.sourceRegions.add(sourceRegion)
+    } else {
+      profilesMap.set(profileId, {
+        profile,
+        prefix,
+        sourceRegions: sourceRegion ? new Set([sourceRegion]) : new Set()
+      })
+    }
+  }
+  
+  // Group profiles by prefix type (global vs geo)
+  const globalProfiles = []
+  const geoProfiles = {} // { us: [], eu: [], ... }
+  
+  for (const [, data] of profilesMap) {
+    if (isGlobalPrefix(data.prefix)) {
+      globalProfiles.push(data)
+    } else if (data.prefix) {
+      if (!geoProfiles[data.prefix]) geoProfiles[data.prefix] = []
+      geoProfiles[data.prefix].push(data)
+    }
+  }
+  
+  // Check if GovCloud uses CRIS
+  const hasGovCloudCris = govcloudData?.supported && govcloudData?.inference_type === 'cris' && (govcloudData?.regions?.length ?? 0) > 0
+  
+  // Determine what sections to show
+  const showInRegion = !isMantleOnly && !hideInRegion && (onDemandRegions.length > 0 || inRegionBatchRegions.length > 0 || mantleData?.supported)
+  const showCris = !isMantleOnly && crisData.supported && (globalProfiles.length > 0 || Object.keys(geoProfiles).length > 0 || hasGovCloudCris)
+  const showProvisioned = !isMantleOnly && provisionedData?.supported
+  const showReserved = !isMantleOnly && reservedData?.supported
+  
+  // Calculate totals for display
+  const inRegionTotal = new Set([...onDemandRegions, ...inRegionBatchRegions, ...(mantleData?.regions || [])]).size
+  const crisSourceRegions = crisData.regions?.length ?? 0
 
-  const toggleType = (label) => {
-    setExpandedTypes(prev => ({ ...prev, [label]: !prev[label] }))
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
 
-  const types = [
-    {
-      label: 'In Region',
-      // When hide_in_region is true, treat as not supported (model has both Mantle and In-Region, show only Mantle)
-      supported: (hideInRegion || isMantleOnly) ? false : (
-        ((model.availability?.on_demand?.regions ?? model.in_region)?.length > 0) || 
-        (regions.length > 0 && (model.inference_types_supported || []).includes('ON_DEMAND')) ||
-        (govcloudData?.supported && govcloudData?.inference_type === 'in_region')
-      ),
-      count: (hideInRegion || isMantleOnly) ? 0 : (
-        ((model.availability?.on_demand?.regions ?? model.in_region)?.length ?? model.total_in_region ?? regions.length) +
-        (govcloudData?.supported && govcloudData?.inference_type === 'in_region' ? (govcloudData?.regions?.length ?? 0) : 0)
-      ),
-      detail: () => <OnDemandAvailabilitySection model={model} govcloudData={govcloudData} />,
-    },
-    {
-      label: 'Cross-Region (CRIS)',
-      supported: isMantleOnly ? false : !!crisData.supported,
-      count: isMantleOnly ? 0 : (crisData.regions?.length ?? crisData.profiles?.length ?? 0),
-      detail: () => <CrossRegionInferenceSection crisData={crisData} govcloudData={govcloudData} />,
-    },
-    {
-      label: 'Batch',
-      supported: isMantleOnly ? false : !!batchData.supported,
-      count: isMantleOnly ? 0 : (batchData.regions?.length ?? batchData.supported_regions?.length ?? 0),
-      detail: () => <BatchInferenceSection batchData={batchData} crisData={crisData} />,
-    },
-    {
-      label: 'Mantle',
-      supported: !!mantleData.supported,
-      count: mantleData.regions?.length ?? 0,
-      highlight: isMantleOnly,
-      detail: () => <MantleInferenceSection mantleData={mantleData} />,
-    },
-    {
-      label: 'Reserved Tiers',
-      supported: isMantleOnly ? false : !!reservedData.supported,
-      count: isMantleOnly ? 0 : (reservedData.regions?.length ?? 0),
-      detail: () => <ReservedCapacitySection reservedData={reservedData} />,
-    },
-  ]
-
   return (
-    <div className="space-y-1.5">
-      {/* Header with info button */}
+    <div className="space-y-2">
+      {/* Header with info button and doc link */}
       <div className="flex items-center justify-between mb-2">
-        <span className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>
-          Deployment Options
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={cn('text-xs font-medium', isLight ? 'text-stone-600' : 'text-slate-400')}>
+            Consumption Options
+          </span>
+          <a
+            href="https://docs.aws.amazon.com/bedrock/latest/userguide/model-availability-compatibility.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'text-[10px] flex items-center gap-0.5 transition-colors',
+              isLight ? 'text-blue-600 hover:text-blue-700' : 'text-blue-400 hover:text-blue-300'
+            )}
+          >
+            <ExternalLink className="h-2.5 w-2.5" />
+            Docs
+          </a>
+        </div>
         <Popover>
           <PopoverTrigger asChild>
             <button
@@ -1558,6 +2159,8 @@ function AvailabilitySummary({ model }) {
           </PopoverContent>
         </Popover>
       </div>
+
+      {/* Mantle-only notice */}
       {isMantleOnly && (
         <div className={cn(
           'px-2.5 py-1.5 rounded-md text-xs mb-2',
@@ -1568,86 +2171,194 @@ function AvailabilitySummary({ model }) {
           This model is available exclusively via Mantle Inference
         </div>
       )}
-      {types.map(({ label, supported, count, highlight, detail }) => {
-        const isExpanded = expandedTypes[label]
-        return (
-          <div key={label}>
-            <button
-              onClick={() => supported && toggleType(label)}
-              disabled={!supported}
-              className={cn(
-                'w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-all',
 
-                // Supported: colored left accent + tinted bg
-                supported && !highlight && (isLight
-                  ? 'bg-emerald-50/70 border-l-[3px] border-l-emerald-500 border-y border-r border-emerald-200/60 hover:bg-emerald-100/70 cursor-pointer'
-                  : 'bg-emerald-500/[0.08] border-l-[3px] border-l-emerald-500 border-y border-r border-emerald-500/20 hover:bg-emerald-500/[0.12] cursor-pointer'
-                ),
-
-                // Mantle highlight: violet accent
-                supported && highlight && (isLight
-                  ? 'bg-violet-50 border-l-[3px] border-l-violet-500 border-y border-r border-violet-200 hover:bg-violet-100/70 cursor-pointer'
-                  : 'bg-violet-500/10 border-l-[3px] border-l-violet-400 border-y border-r border-violet-500/30 hover:bg-violet-500/[0.15] cursor-pointer'
-                ),
-
-                // Unsupported: dimmed and muted
-                !supported && (isLight
-                  ? 'bg-stone-50/40 border border-stone-200/50 opacity-50 cursor-not-allowed'
-                  : 'bg-white/[0.01] border border-white/[0.04] opacity-40 cursor-not-allowed'
-                ),
-
-                isExpanded && 'rounded-b-none'
-              )}
-            >
-              <div className="flex items-center gap-1.5">
-                {supported && (
-                  isExpanded
-                    ? <ChevronDown className={cn('h-3 w-3', highlight ? (isLight ? 'text-violet-600' : 'text-violet-400') : (isLight ? 'text-emerald-600' : 'text-emerald-400'))} />
-                    : <ChevronRight className={cn('h-3 w-3', highlight ? (isLight ? 'text-violet-600' : 'text-violet-400') : (isLight ? 'text-emerald-600' : 'text-emerald-400'))} />
-                )}
-                <span className={cn(
-                  'font-medium',
-                  supported && highlight && (isLight ? 'text-violet-700' : 'text-violet-300'),
-                  supported && !highlight && (isLight ? 'text-stone-800' : 'text-emerald-200'),
-                  !supported && (isLight ? 'text-stone-500' : 'text-slate-500')
-                )}>
-                  {label}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {supported && count > 0 && (
-                  <span className={cn(
-                    'text-[10px] font-mono tabular-nums font-semibold',
-                    highlight
-                      ? (isLight ? 'text-violet-600' : 'text-violet-400')
-                      : (isLight ? 'text-emerald-700' : 'text-emerald-400')
-                  )}>
-                    {count} {count === 1 ? 'region' : 'regions'}
-                  </span>
-                )}
-                <span className={cn(
-                  'inline-flex items-center justify-center w-[18px] h-[18px] rounded-full flex-shrink-0',
-                  supported && highlight && (isLight ? 'bg-violet-500 text-white' : 'bg-violet-400 text-violet-950'),
-                  supported && !highlight && (isLight ? 'bg-emerald-500 text-white' : 'bg-emerald-400 text-emerald-950'),
-                  !supported && (isLight ? 'bg-stone-200 text-stone-400' : 'bg-white/[0.06] text-slate-600')
-                )}>
-                  {supported ? <Check className="h-3 w-3 stroke-[2.5]" /> : <X className="h-2.5 w-2.5" />}
-                </span>
-              </div>
-            </button>
-            {isExpanded && supported && (
-              <div className={cn(
-                'px-3 py-3 rounded-b-md border-l-[3px] border-r border-b border-t-0',
-                highlight
-                  ? isLight ? 'bg-violet-50/40 border-l-violet-500 border-r-violet-200 border-b-violet-200' : 'bg-violet-500/5 border-l-violet-400 border-r-violet-500/20 border-b-violet-500/20'
-                  : isLight ? 'bg-emerald-50/30 border-l-emerald-500 border-r-emerald-200/60 border-b-emerald-200/60' : 'bg-emerald-500/[0.04] border-l-emerald-500 border-r-emerald-500/20 border-b-emerald-500/20'
-              )}>
-                {detail()}
-              </div>
+      {/* ===== IN-REGION SECTION ===== */}
+      {(showInRegion || mantleData?.supported) && (
+        <div className={cn(
+          'rounded-lg border overflow-hidden',
+          isLight
+            ? 'bg-white border-stone-200'
+            : 'bg-white/[0.02] border-white/[0.06]'
+        )}>
+          <button
+            className={cn(
+              'w-full flex items-center justify-between p-3 transition-colors',
+              isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
             )}
+            onClick={() => toggleSection('inRegion')}
+          >
+            <div className="flex items-center gap-2">
+              <MapPin className={cn('h-3.5 w-3.5', isLight ? 'text-emerald-600' : 'text-emerald-400')} />
+              <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>
+                In-Region
+              </span>
+              <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                data stays in one region
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {inRegionTotal > 0 && (
+                <span className={cn('text-[10px] font-mono font-semibold', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                  {inRegionTotal} {inRegionTotal === 1 ? 'region' : 'regions'}
+                </span>
+              )}
+              {expandedSections.inRegion ? (
+                <ChevronDown className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
+              ) : (
+                <ChevronRight className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
+              )}
+            </div>
+          </button>
+          {expandedSections.inRegion && (
+            <div className={cn('px-3 pb-3 pt-1 border-t space-y-2', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+              {/* Doc link for in-region */}
+              <a
+                href="https://docs.aws.amazon.com/bedrock/latest/userguide/models-endpoint-availability.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  'text-[10px] flex items-center gap-1 mb-2 transition-colors',
+                  isLight ? 'text-blue-600 hover:text-blue-700' : 'text-blue-400 hover:text-blue-300'
+                )}
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                Endpoint availability docs
+              </a>
+              
+              {/* Runtime API (On-Demand + Batch) */}
+              {!hideInRegion && !isMantleOnly && (onDemandRegions.length > 0 || inRegionBatchRegions.length > 0) && (
+                <InRegionRuntimeSection
+                  onDemandRegions={onDemandRegions}
+                  batchRegions={inRegionBatchRegions}
+                  modelId={model.model_id}
+                  govcloudData={govcloudData}
+                  isLight={isLight}
+                />
+              )}
+              
+              {/* Mantle API */}
+              {mantleData?.supported && (
+                <InRegionMantleSection mantleData={mantleData} isLight={isLight} />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== CROSS-REGION INFERENCE (CRIS) SECTION ===== */}
+      {showCris && (
+        <div className={cn(
+          'rounded-lg border overflow-hidden',
+          isLight
+            ? 'bg-white border-stone-200'
+            : 'bg-white/[0.02] border-white/[0.06]'
+        )}>
+          <button
+            className={cn(
+              'w-full flex items-center justify-between p-3 transition-colors',
+              isLight ? 'hover:bg-stone-50' : 'hover:bg-white/[0.06]'
+            )}
+            onClick={() => toggleSection('cris')}
+          >
+            <div className="flex items-center gap-2">
+              <RefreshCw className={cn('h-3.5 w-3.5', isLight ? 'text-blue-600' : 'text-blue-400')} />
+              <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>
+                Cross-Region Inference
+              </span>
+              <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-400')}>
+                CRIS
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {crisSourceRegions > 0 && (
+                <span className={cn('text-[10px] font-mono font-semibold', isLight ? 'text-stone-600' : 'text-slate-400')}>
+                  {crisSourceRegions} source {crisSourceRegions === 1 ? 'region' : 'regions'}
+                </span>
+              )}
+              {expandedSections.cris ? (
+                <ChevronDown className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
+              ) : (
+                <ChevronRight className={cn('h-3.5 w-3.5', isLight ? 'text-stone-500' : 'text-slate-400')} />
+              )}
+            </div>
+          </button>
+          {expandedSections.cris && (
+            <div className={cn('px-3 pb-3 pt-1 border-t space-y-2', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
+              {/* Global endpoints */}
+              {globalProfiles.length > 0 && (
+                <CRISGlobalSection 
+                  profiles={globalProfiles} 
+                  batchSupported={batchData?.supported}
+                  isLight={isLight} 
+                />
+              )}
+              
+              {/* Geographic endpoints */}
+              {Object.keys(geoProfiles).length > 0 && (
+                <div className="space-y-2">
+                  <p className={cn('text-[10px] font-medium', isLight ? 'text-blue-700' : 'text-blue-300')}>
+                    Geographic Endpoints
+                  </p>
+                  {Object.entries(geoProfiles)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([geoKey, geoProfilesList]) => (
+                      <CRISGeoSection
+                        key={geoKey}
+                        geoKey={geoKey}
+                        profiles={geoProfilesList}
+                        batchSupported={batchData?.supported}
+                        isLight={isLight}
+                      />
+                    ))
+                  }
+                </div>
+              )}
+              
+              {/* GovCloud CRIS */}
+              {hasGovCloudCris && (
+                <CollapsibleRegionList 
+                  label="GovCloud" 
+                  regions={govcloudData.regions} 
+                  isLight={isLight}
+                />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== PROVISIONED THROUGHPUT ===== */}
+      {showProvisioned && (
+        <div className={cn(
+          'flex items-center justify-between px-3 py-2 rounded-lg border',
+          isLight
+            ? 'bg-white border-stone-200'
+            : 'bg-white/[0.02] border-white/[0.06]'
+        )}>
+          <div className="flex items-center gap-2">
+            <Zap className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-amber-400')} />
+            <span className={cn('font-medium text-sm', isLight ? 'text-stone-800' : 'text-white')}>
+              Provisioned Throughput
+            </span>
           </div>
-        )
-      })}
+          <div className="flex items-center gap-2">
+            <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-600' : 'text-slate-400')}>
+              {provisionedData.regions?.length ?? 0} {(provisionedData.regions?.length ?? 0) === 1 ? 'region' : 'regions'}
+            </span>
+            <span className={cn(
+              'inline-flex items-center justify-center w-[18px] h-[18px] rounded-full',
+              isLight ? 'bg-emerald-500 text-white' : 'bg-emerald-400 text-emerald-950'
+            )}>
+              <Check className="h-3 w-3 stroke-[2.5]" />
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ===== RESERVED TIERS ===== */}
+      {showReserved && (
+        <ReservedTiersSection reservedData={reservedData} isLight={isLight} />
+      )}
 
       {/* App Inference Profiles — supplementary info banner */}
       <ApplicationInferenceProfileBanner />
@@ -3350,8 +4061,8 @@ function simplifyPricingDescription(desc, dimension) {
   // Detect qualifier (cache tier, pricing tier)
   const qualifier =
     /cache[- ]?read/i.test(combined) ? 'Cache Read' :
-    /cache[- ]?write[- ]?1h|1[- ]?h(?:our)?[- ]?cache/i.test(combined) ? '1h Cache' :
-    /cache[- ]?write(?![- ]?1h)/i.test(combined) ? '5m Cache' :
+    /cache[- ]?write[- ]?1h|1[- ]?h(?:our)?[- ]?cache/i.test(combined) ? '1h Cache Write' :
+    /cache[- ]?write(?![- ]?1h)/i.test(combined) ? '5m Cache Write' :
     /\bflex\b/i.test(combined) ? 'Flex' :
     /\bpriority\b/i.test(combined) ? 'Priority' : null
 
@@ -4066,7 +4777,7 @@ function CRISPricingSection({
   const globalConsolidated = globalItems.length > 0 ? consolidateByTierAndType(globalItems) : {}
   const regionalConsolidated = regionalItems.length > 0 ? consolidateByTierAndType(regionalItems) : {}
 
-  const tierOrder = ['Standard', 'Cache Read', '5m Cache', '1h Cache', 'Flex', 'Priority', 'Standard (Long Context)', 'Cache Read (Long Context)', '5m Cache (Long Context)', '1h Cache (Long Context)', 'Batch Standard', 'Batch Cache Read', 'Batch 5m Cache', 'Batch 1h Cache', 'Batch Standard (Long Context)', 'Batch Cache Read (Long Context)', 'Batch 5m Cache (Long Context)', 'Batch 1h Cache (Long Context)']
+  const tierOrder = ['Standard', 'Cache Read', '5m Cache Write', '1h Cache Write', 'Flex', 'Priority', 'Standard (Long Context)', 'Cache Read (Long Context)', '5m Cache Write (Long Context)', '1h Cache Write (Long Context)', 'Batch Standard', 'Batch Cache Read', 'Batch 5m Cache Write', 'Batch 1h Cache Write', 'Batch Standard (Long Context)', 'Batch Cache Read (Long Context)', 'Batch 5m Cache Write (Long Context)', 'Batch 1h Cache Write (Long Context)']
   const sortTiers = (tiers) => tiers.sort((a, b) => {
     const idxA = tierOrder.indexOf(a)
     const idxB = tierOrder.indexOf(b)
@@ -4345,8 +5056,8 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
     
     // Detect tier from the label (pricing variant) or dimension
     if (/cache[- ]?read/i.test(label)) return `${prefix}Cache Read${lcSuffix}`.trim()
-    if (/cache[- ]?write[- ]?1h|1h[- ]?cache/i.test(label)) return `${prefix}1h Cache${lcSuffix}`.trim()
-    if (/cache[- ]?write(?![- ]?1h)|5m[- ]?cache/i.test(label)) return `${prefix}5m Cache${lcSuffix}`.trim()
+    if (/cache[- ]?write[- ]?1h|1h[- ]?cache/i.test(label)) return `${prefix}1h Cache Write${lcSuffix}`.trim()
+    if (/cache[- ]?write(?![- ]?1h)|5m[- ]?cache/i.test(label)) return `${prefix}5m Cache Write${lcSuffix}`.trim()
     if (/\bflex\b/i.test(label) || dimLower.includes('-flex')) return `${prefix}Flex${lcSuffix}`.trim()
     if (/\bpriority\b/i.test(label) || dimLower.includes('-priority')) return `${prefix}Priority${lcSuffix}`.trim()
     if (/no[- ]?commit/i.test(label)) return 'No Commit'
@@ -4541,12 +5252,12 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
     // Tier ordering for consistent display
     const tierOrder = [
       'Standard',
-      'Cache Read', '5m Cache', '1h Cache',
+      'Cache Read', '5m Cache Write', '1h Cache Write',
       'Flex', 'Priority',
       'Standard (Long Context)',
-      'Cache Read (Long Context)', '5m Cache (Long Context)',
-      '1h Cache (Long Context)', 'Flex (Long Context)', 'Priority (Long Context)',
-      'Batch Standard', 'Batch Cache Read', 'Batch 5m Cache', 'Batch 1h Cache', 'Batch Standard (Long Context)', 'Batch Cache Read (Long Context)', 'Batch 5m Cache (Long Context)', 'Batch 1h Cache (Long Context)', 'No Commit', '1 Month', '3 Month', '6 Month'
+      'Cache Read (Long Context)', '5m Cache Write (Long Context)',
+      '1h Cache Write (Long Context)', 'Flex (Long Context)', 'Priority (Long Context)',
+      'Batch Standard', 'Batch Cache Read', 'Batch 5m Cache Write', 'Batch 1h Cache Write', 'Batch Standard (Long Context)', 'Batch Cache Read (Long Context)', 'Batch 5m Cache Write (Long Context)', 'Batch 1h Cache Write (Long Context)', 'No Commit', '1 Month', '3 Month', '6 Month'
     ]
 
     const sortTiers = (tiers) => tiers.sort((a, b) => {
@@ -5084,12 +5795,12 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
     return (
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="space-y-4">
-          {PRICING_GROUP_HIERARCHY
+          {parentGroupsWithData
             .filter(pg => leftColumnIds.includes(pg.id))
             .map(pg => renderParentGroup(pg, pg.id === firstParentWithData))}
         </div>
         <div className="space-y-4">
-          {PRICING_GROUP_HIERARCHY
+          {parentGroupsWithData
             .filter(pg => rightColumnIds.includes(pg.id))
             .map(pg => renderParentGroup(pg, pg.id === firstParentWithData))}
         </div>

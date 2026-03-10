@@ -1,6 +1,6 @@
 /**
  * Auto-generated constants from backend profiler-config.json
- * Generated at: 2026-03-10T13:57:19.007Z
+ * Generated at: 2026-03-10T16:48:53.364Z
  * Source version: 1.0.0-auto-updated-auto-updated
  * 
  * DO NOT EDIT MANUALLY - Run 'npm run sync-config' to regenerate
@@ -278,14 +278,14 @@ export const regionCoordinates = {
     "lng": -119.688,
     "name": "GovCloud (US-West)",
     "geo": "GOV",
-    "iata": "PDX"
+    "iata": "PDT"
   },
   "us-gov-east-1": {
     "lat": 38.9519,
     "lng": -77.448,
     "name": "GovCloud (US-East)",
     "geo": "GOV",
-    "iata": "IAD"
+    "iata": "OSU"
   }
 };
 
@@ -535,7 +535,7 @@ export const contextWindowThresholds = {
 // Config metadata
 export const configMetadata = {
   version: "1.0.0-auto-updated-auto-updated",
-  generatedAt: "2026-03-10T13:57:19.009Z",
+  generatedAt: "2026-03-10T16:48:53.371Z",
   source: "profiler-config.json"
 };
 
