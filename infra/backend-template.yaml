@@ -750,7 +750,7 @@ Resources:
     Properties:
       Name: !Sub 'bedrock-profiler-daily-${Environment}'
       Description: 'Daily execution of Bedrock Model Profiler workflow'
-      ScheduleExpression: 'cron(0 6 * * ? *)'  # 6 AM UTC daily
+      ScheduleExpression: 'cron(0 6,18 * * ? *)'  # 6 AM and 6 PM UTC daily
       ScheduleExpressionTimezone: 'UTC'
       FlexibleTimeWindow:
         Mode: 'FLEXIBLE'

@@ -1,6 +1,6 @@
 # Bedrock Model Profiler — Backend
 
-Serverless data pipeline using AWS Step Functions to collect, enrich, and aggregate Amazon Bedrock model data from 10+ sources. Runs daily at 6 AM UTC. Features inter-Lambda caching (~97% cache hit rate), self-healing with Claude Opus 4.5, and centralized model ID matching.
+Serverless data pipeline using AWS Step Functions to collect, enrich, and aggregate Amazon Bedrock model data from 10+ sources. Runs twice daily at 6 AM and 6 PM UTC. Features inter-Lambda caching (~97% cache hit rate), self-healing with Claude Opus 4.5, and centralized model ID matching.
 
 ## Architecture
 
@@ -230,12 +230,22 @@ sam build -t backend-template.yaml
 sam deploy --stack-name bedrock-profiler-dev --capabilities CAPABILITY_NAMED_IAM --resolve-s3
 ```
 
+### Deploy to Production
+
+```bash
+cd infra
+sam build -t backend-template.yaml
+sam deploy --stack-name bedrock-profiler-prod --capabilities CAPABILITY_NAMED_IAM --resolve-s3 \
+  --parameter-overrides "Environment=\"prod\" ScheduleEnabled=\"true\"" \
+  --region us-east-1 --no-confirm-changeset
+```
+
 ### SAM Parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | Environment | dev | Environment name (dev/staging/prod) |
-| ScheduleEnabled | true | Enable daily 6 AM UTC execution |
+| ScheduleEnabled | true | Enable scheduled execution (6 AM and 6 PM UTC) |
 | CloudFrontDistributionArn | - | CloudFront distribution for cache invalidation |
 | ExistingDataBucket | - | Use existing S3 bucket (optional) |
 | LogLevel | INFO | Lambda logging level (DEBUG/INFO/WARNING/ERROR) |
@@ -284,7 +294,7 @@ Per execution (~51+ Lambda invocations):
 - S3: ~$0.001 (PUT requests + storage)
 - Bedrock (self-healing): ~$0.003-0.01 (conditional)
 
-**Estimated monthly cost**: ~$0.50-1.00 (daily execution)
+**Estimated monthly cost**: ~$1.00-2.00 (twice-daily execution)
 
 ## Performance
 
@@ -294,7 +304,7 @@ Per execution (~51+ Lambda invocations):
 | Max Parallelism | 27 concurrent Lambdas |
 | API Calls per Execution | ~29 (with caching) |
 | Cache Hit Rate | ~97% |
-| Data Freshness | Updated daily at 6 AM UTC |
+| Data Freshness | Updated twice daily (6 AM and 6 PM UTC) |
 
 ## AWS Services Used
 
