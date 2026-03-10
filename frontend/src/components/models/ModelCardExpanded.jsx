@@ -4273,7 +4273,7 @@ const PRICING_GROUP_HIERARCHY = [
       },
       {
         id: 'geo',
-        label: 'Geo',
+        label: 'Geographic',
         description: 'Price varies by source region',
         pricingGroups: ['On-Demand Geo', 'On-Demand Long Context Geo', 'Batch Geo', 'Batch Long Context Geo']
       },
@@ -4311,21 +4311,15 @@ const PRICING_GROUP_HIERARCHY = [
     },
     subGroups: [
       {
-        id: 'on_demand',
-        label: 'On-Demand',
-        description: 'Standard on-demand pricing',
-        pricingGroups: ['On-Demand', 'On-Demand Long Context']
+        id: 'runtime_api',
+        label: 'Runtime API',
+        description: 'bedrock-runtime',
+        pricingGroups: ['On-Demand', 'On-Demand Long Context', 'Batch', 'Batch Long Context']
       },
       {
-        id: 'batch',
-        label: 'Batch',
-        description: 'Batch processing pricing',
-        pricingGroups: ['Batch', 'Batch Long Context']
-      },
-      {
-        id: 'mantle',
-        label: 'Mantle',
-        description: 'OpenAI-compatible inference endpoint',
+        id: 'mantle_api',
+        label: 'Mantle API',
+        description: 'bedrock-mantle',
         pricingGroups: ['Mantle']
       },
       {
@@ -5654,9 +5648,9 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
         const mantleHasPricing = model.availability?.mantle?.has_pricing ?? false
         
         parentGroup.subGroups.forEach(subGroup => {
-          // Skip On-Demand and Batch sub-groups when hide_in_region is true
+          // Skip Runtime API sub-group when hide_in_region is true
           // BUT only if Mantle has its own pricing - otherwise show In-Region pricing
-          if (hideInRegion && mantleHasPricing && parentGroup.id === 'in_region' && (subGroup.id === 'on_demand' || subGroup.id === 'batch')) {
+          if (hideInRegion && mantleHasPricing && parentGroup.id === 'in_region' && subGroup.id === 'runtime_api') {
             return
           }
           
@@ -5789,7 +5783,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
     const firstParentWithData = parentGroupsWithData[0]?.id
 
     // Split into columns for layout
-    const leftColumnIds = ['cris', 'in_region']
+    const leftColumnIds = ['in_region', 'cris']
     const rightColumnIds = ['reserved', 'provisioned', 'custom_model']
 
     return (
