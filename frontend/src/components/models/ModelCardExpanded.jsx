@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route, Wrench, AlertTriangle, AlertCircle, MapPin, Split } from 'lucide-react'
+import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route, Wrench, AlertTriangle, AlertCircle, MapPin, Split, Calculator } from 'lucide-react'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import {
   Dialog,
@@ -5903,6 +5903,23 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
             </div>
           </div>
         </div>
+
+        {/* AWS Pricing Calculator Banner */}
+        <a
+          href="https://calculator.aws/#/createCalculator/bedrock"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(
+            'flex items-center gap-2.5 px-4 py-2.5 rounded-lg mb-6 text-xs font-medium transition-colors group',
+            isLight
+              ? 'bg-blue-50/60 border border-blue-200/40 text-blue-700 hover:bg-blue-50'
+              : 'bg-blue-500/[0.08] border border-blue-500/20 text-blue-400 hover:bg-blue-500/[0.12]'
+          )}
+        >
+          <Calculator className="h-4 w-4 flex-shrink-0" />
+          <span>Ready to estimate costs? <span className="underline decoration-current underline-offset-2">Open AWS Pricing Calculator</span></span>
+          <ExternalLink className="h-3 w-3 ml-auto flex-shrink-0 opacity-50 group-hover:opacity-80 transition-opacity" />
+        </a>
 
         {/* View Content */}
         {renderByTypeView()}

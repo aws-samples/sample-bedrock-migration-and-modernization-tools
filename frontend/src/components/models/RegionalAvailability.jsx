@@ -1012,7 +1012,7 @@ export function RegionalAvailability() {
 
           {/* Tier 2: Geo / CRIS prefix pills (multi-select) */}
           <span className={cn('text-[10px] uppercase tracking-wider font-medium mr-1', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
-            {activeView === 'cris' ? 'Scope' : 'Geo'}
+            {activeView === 'cris' ? 'Profile' : 'Geo'}
           </span>
 
           {/* "All" pill */}
@@ -1037,12 +1037,13 @@ export function RegionalAvailability() {
             const id = typeof item === 'string' ? item : item.id
             const label = typeof item === 'string' ? item : item.label
             const isSelected = selectedGeos.has(id)
-            return (
+            const isLegacyApac = activeView === 'cris' && id === 'APAC'
+            const pill = (
               <button
                 key={id}
                 onClick={() => toggleGeoSelection(id)}
                 className={cn(
-                  'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+                  'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border flex items-center gap-1',
                   isSelected
                     ? isLight
                       ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
@@ -1053,8 +1054,22 @@ export function RegionalAvailability() {
                 )}
               >
                 {label}
+                {isLegacyApac && (
+                  <span className={cn('text-[9px] font-normal', isSelected ? 'opacity-70' : 'opacity-50')}>(Legacy)</span>
+                )}
               </button>
             )
+            if (isLegacyApac) {
+              return (
+                <Tooltip key={id} delayDuration={200}>
+                  <TooltipTrigger asChild>{pill}</TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={4}>
+                    <p className="text-xs">Legacy profile — newer models use AU and JP separately</p>
+                  </TooltipContent>
+                </Tooltip>
+              )
+            }
+            return pill
           })}
         </div>
         
