@@ -22,6 +22,7 @@ import {
   featureFilterOptions,
 } from '@/utils/filters'
 import { cn } from '@/lib/utils'
+import { consumptionLabels } from '@/config/constants'
 
 // Active filter chip component
 function ActiveFilterChip({ label, onRemove, isLight }) {
@@ -47,7 +48,7 @@ function ActiveFilterChip({ label, onRemove, isLight }) {
 }
 
 // Multi-select dropdown component
-function MultiSelectDropdown({ label, options, selected, onChange, placeholder, isLight }) {
+function MultiSelectDropdown({ label, options, selected, onChange, placeholder, isLight, formatLabel }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const dropdownRef = useRef(null)
@@ -70,14 +71,16 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
     }
   }
 
+  const getLabel = (opt) => formatLabel ? formatLabel(opt) : opt
+
   const filteredOptions = options.filter(opt =>
-    opt.toLowerCase().includes(searchQuery.toLowerCase())
+    getLabel(opt).toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const displayValue = selected.length === 0
     ? placeholder
     : selected.length === 1
-      ? selected[0]
+      ? getLabel(selected[0])
       : `${selected.length} selected`
 
   return (
@@ -168,7 +171,7 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
                       <Check className="h-2.5 w-2.5 text-white" />
                     )}
                   </div>
-                  <span className="truncate">{option}</span>
+                  <span className="truncate">{getLabel(option)}</span>
                 </button>
               ))
             )}
@@ -393,7 +396,7 @@ export function ModelFilters({
       filters.consumptionOptions.forEach(co => {
         chips.push({
           key: `cons-${co}`,
-          label: co,
+          label: consumptionLabels[co] || co.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
           onRemove: () => updateFilter('consumptionOptions', filters.consumptionOptions.filter(x => x !== co))
         })
       })
@@ -636,6 +639,7 @@ export function ModelFilters({
                 onChange={(v) => updateFilter('consumptionOptions', v)}
                 placeholder="All options"
                 isLight={isLight}
+                formatLabel={(opt) => consumptionLabels[opt] || opt.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
               />
             )}
 

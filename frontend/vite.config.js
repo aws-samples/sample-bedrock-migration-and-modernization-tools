@@ -4,7 +4,7 @@ import path from 'path'
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 
 // S3 configuration for development proxy
-const S3_BUCKET = 'bedrock-profiler-data-169497827606-dev'
+const S3_BUCKET = process.env.VITE_S3_BUCKET || 'bedrock-profiler-data-390445053194-prod'
 const S3_REGION = 'us-east-1'
 
 // Create S3 client (uses default credential chain - AWS CLI credentials)

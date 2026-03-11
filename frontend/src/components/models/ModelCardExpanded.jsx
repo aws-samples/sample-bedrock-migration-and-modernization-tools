@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route, Wrench, AlertTriangle, AlertCircle, MapPin, RefreshCw } from 'lucide-react'
+import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route, Wrench, AlertTriangle, AlertCircle, MapPin, Split } from 'lucide-react'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import {
   Dialog,
@@ -1570,9 +1570,12 @@ function InRegionRuntimeSection({ onDemandRegions, batchRegions, modelId, govclo
           <span className={cn('font-medium text-sm', isLight ? 'text-stone-800' : 'text-white')}>
             Runtime API
           </span>
-          <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+          <code className={cn(
+            'text-[10px] px-1.5 py-0.5 rounded font-mono',
+            isLight ? 'bg-stone-100 text-stone-600 border border-stone-200' : 'bg-white/[0.06] text-slate-400 border border-white/[0.08]'
+          )}>
             bedrock-runtime
-          </span>
+          </code>
         </div>
         <div className="flex items-center gap-2">
           <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-slate-400')}>
@@ -1657,9 +1660,12 @@ function InRegionMantleSection({ mantleData, isLight }) {
           <span className={cn('font-medium text-sm', isLight ? 'text-stone-800' : 'text-white')}>
             Mantle API
           </span>
-          <span className={cn('text-xs', isLight ? 'text-stone-500' : 'text-slate-400')}>
+          <code className={cn(
+            'text-[10px] px-1.5 py-0.5 rounded font-mono',
+            isLight ? 'bg-violet-50 text-violet-600 border border-violet-200' : 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
+          )}>
             bedrock-mantle
-          </span>
+          </code>
         </div>
         <div className="flex items-center gap-2">
           <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-slate-400')}>
@@ -1911,10 +1917,10 @@ function ReservedTiersSection({ reservedData, isLight }) {
   
   return (
     <div className={cn(
-      'rounded-lg border overflow-hidden',
+      'rounded-lg border overflow-hidden border-l-2',
       isLight
-        ? 'bg-white border-stone-200'
-        : 'bg-white/[0.02] border-white/[0.06]'
+        ? 'bg-white border-stone-200 border-l-purple-500'
+        : 'bg-white/[0.02] border-white/[0.06] border-l-purple-500'
     )}>
       <button
         className={cn(
@@ -2027,10 +2033,30 @@ function ReservedTiersSection({ reservedData, isLight }) {
 }
 
 // Main restructured Availability Summary component
-function AvailabilitySummary({ model }) {
+function AvailabilitySummary({ model, getPricingForModel, preferredRegion = 'us-east-1' }) {
   const [expandedSections, setExpandedSections] = useState({ inRegion: true, cris: true })
   const { theme } = useTheme()
   const isLight = theme === 'light'
+
+  // Derive CRIS-specific batch support from pricing data
+  // BUG: model.availability.batch.supported is a general flag that doesn't distinguish
+  // in-region batch from CRIS batch. Until the backend separates these, we check
+  // pricing groups directly. See: "Batch Global"/"Batch Geo" = CRIS batch,
+  // "Batch" = in-region batch.
+  const hasCrisBatch = (() => {
+    const pricingResult = getPricingForModel ? getPricingForModel(model, preferredRegion) : null
+    const fullPricing = pricingResult?.fullPricing
+    if (!fullPricing?.regions) return false
+    for (const regionData of Object.values(fullPricing.regions)) {
+      if (!regionData?.pricing_groups) continue
+      for (const groupName of Object.keys(regionData.pricing_groups)) {
+        if (groupName.startsWith('Batch') && (groupName.includes('Global') || groupName.includes('Geo'))) {
+          return true
+        }
+      }
+    }
+    return false
+  })()
 
   // Extract all availability data
   const isMantleOnly = model.availability?.mantle?.only
@@ -2160,6 +2186,29 @@ function AvailabilitySummary({ model }) {
         </Popover>
       </div>
 
+      {/* Routing legend */}
+      <div className={cn(
+        'flex flex-wrap gap-x-4 gap-y-1 px-2.5 py-1.5 rounded-md text-[10px]',
+        isLight ? 'bg-stone-50 border border-stone-200/60' : 'bg-white/[0.02] border border-white/[0.04]'
+      )}>
+        <span className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+          <span className={isLight ? 'text-stone-600' : 'text-slate-400'}>In-Region — data stays in one region</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+          <span className={isLight ? 'text-stone-600' : 'text-slate-400'}>Cross-Region — routes across regions</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+          <span className={isLight ? 'text-stone-600' : 'text-slate-400'}>Provisioned — dedicated capacity</span>
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-purple-500 flex-shrink-0" />
+          <span className={isLight ? 'text-stone-600' : 'text-slate-400'}>Reserved — committed terms</span>
+        </span>
+      </div>
+
       {/* Mantle-only notice */}
       {isMantleOnly && (
         <div className={cn(
@@ -2175,10 +2224,10 @@ function AvailabilitySummary({ model }) {
       {/* ===== IN-REGION SECTION ===== */}
       {(showInRegion || mantleData?.supported) && (
         <div className={cn(
-          'rounded-lg border overflow-hidden',
+          'rounded-lg border overflow-hidden border-l-2',
           isLight
-            ? 'bg-white border-stone-200'
-            : 'bg-white/[0.02] border-white/[0.06]'
+            ? 'bg-white border-stone-200 border-l-emerald-500'
+            : 'bg-white/[0.02] border-white/[0.06] border-l-emerald-500'
         )}>
           <button
             className={cn(
@@ -2192,11 +2241,16 @@ function AvailabilitySummary({ model }) {
               <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>
                 In-Region
               </span>
-              <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                data stays in one region
-              </span>
             </div>
             <div className="flex items-center gap-2">
+              {inRegionBatchRegions.length > 0 && (
+                <span className={cn(
+                  'text-[9px] px-1.5 py-0.5 rounded font-medium',
+                  isLight ? 'bg-indigo-50 text-indigo-600 border border-indigo-200' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                )}>
+                  Batch
+                </span>
+              )}
               {inRegionTotal > 0 && (
                 <span className={cn('text-[10px] font-mono font-semibold', isLight ? 'text-stone-600' : 'text-slate-400')}>
                   {inRegionTotal} {inRegionTotal === 1 ? 'region' : 'regions'}
@@ -2248,10 +2302,10 @@ function AvailabilitySummary({ model }) {
       {/* ===== CROSS-REGION INFERENCE (CRIS) SECTION ===== */}
       {showCris && (
         <div className={cn(
-          'rounded-lg border overflow-hidden',
+          'rounded-lg border overflow-hidden border-l-2',
           isLight
-            ? 'bg-white border-stone-200'
-            : 'bg-white/[0.02] border-white/[0.06]'
+            ? 'bg-white border-stone-200 border-l-blue-500'
+            : 'bg-white/[0.02] border-white/[0.06] border-l-blue-500'
         )}>
           <button
             className={cn(
@@ -2261,15 +2315,20 @@ function AvailabilitySummary({ model }) {
             onClick={() => toggleSection('cris')}
           >
             <div className="flex items-center gap-2">
-              <RefreshCw className={cn('h-3.5 w-3.5', isLight ? 'text-blue-600' : 'text-blue-400')} />
+              <Split className={cn('h-3.5 w-3.5 rotate-90', isLight ? 'text-blue-600' : 'text-blue-400')} />
               <span className={cn('font-medium text-xs', isLight ? 'text-stone-800' : 'text-white')}>
                 Cross-Region Inference
               </span>
-              <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-400')}>
-                CRIS
-              </span>
             </div>
             <div className="flex items-center gap-2">
+              {hasCrisBatch && (
+                <span className={cn(
+                  'text-[9px] px-1.5 py-0.5 rounded font-medium',
+                  isLight ? 'bg-indigo-50 text-indigo-600 border border-indigo-200' : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                )}>
+                  Batch
+                </span>
+              )}
               {crisSourceRegions > 0 && (
                 <span className={cn('text-[10px] font-mono font-semibold', isLight ? 'text-stone-600' : 'text-slate-400')}>
                   {crisSourceRegions} source {crisSourceRegions === 1 ? 'region' : 'regions'}
@@ -2286,10 +2345,10 @@ function AvailabilitySummary({ model }) {
             <div className={cn('px-3 pb-3 pt-1 border-t space-y-2', isLight ? 'border-stone-200' : 'border-white/[0.06]')}>
               {/* Global endpoints */}
               {globalProfiles.length > 0 && (
-                <CRISGlobalSection 
-                  profiles={globalProfiles} 
-                  batchSupported={batchData?.supported}
-                  isLight={isLight} 
+                <CRISGlobalSection
+                  profiles={globalProfiles}
+                  batchSupported={hasCrisBatch}
+                  isLight={isLight}
                 />
               )}
               
@@ -2306,7 +2365,7 @@ function AvailabilitySummary({ model }) {
                         key={geoKey}
                         geoKey={geoKey}
                         profiles={geoProfilesList}
-                        batchSupported={batchData?.supported}
+                        batchSupported={hasCrisBatch}
                         isLight={isLight}
                       />
                     ))
@@ -2330,10 +2389,10 @@ function AvailabilitySummary({ model }) {
       {/* ===== PROVISIONED THROUGHPUT ===== */}
       {showProvisioned && (
         <div className={cn(
-          'flex items-center justify-between px-3 py-2 rounded-lg border',
+          'flex items-center justify-between px-3 py-2 rounded-lg border border-l-2',
           isLight
-            ? 'bg-white border-stone-200'
-            : 'bg-white/[0.02] border-white/[0.06]'
+            ? 'bg-white border-stone-200 border-l-amber-500'
+            : 'bg-white/[0.02] border-white/[0.06] border-l-amber-500'
         )}>
           <div className="flex items-center gap-2">
             <Zap className={cn('h-4 w-4', isLight ? 'text-amber-600' : 'text-amber-400')} />
@@ -2712,7 +2771,13 @@ function LifecycleDetailsSection({ model, isLight }) {
       const date = new Date(timestamp * 1000)
       return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     }
-    // If it's already a string, return as-is
+    // If it's an ISO string, parse and format
+    if (typeof timestamp === 'string') {
+      const date = new Date(timestamp)
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+      }
+    }
     return timestamp
   }
   
@@ -3282,7 +3347,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                   defaultExpanded={true}
                   dataSource={<>Sources: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListFoundationModels API</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListInferenceProfiles.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListInferenceProfiles API</a>, <a href="https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/price-changes.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">AWS Pricing API</a>, <a href="https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-mantle.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">Mantle API</a></>}
                 >
-                  <AvailabilitySummary model={model} />
+                  <AvailabilitySummary model={model} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} />
                 </CollapsibleSection>
 
 
