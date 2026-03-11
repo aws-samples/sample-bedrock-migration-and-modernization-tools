@@ -485,6 +485,16 @@ def determine_pricing_type(usage_type: str, unit: str, description: str) -> dict
             "is_output": None,
         }
 
+    # Check for reserved capacity (TPM-hour pricing)
+    # These have unit like "1K TPM Hour" and dimensions containing "tokens-per-minute"
+    if "tpm" in unit_lower or "tokens-per-minute" in usage_lower or "tokens per minute" in desc_lower:
+        return {
+            "pricing_type": "reserved_tpm",
+            "unit_label": "per 1K TPM Hour",
+            "is_input": is_input,
+            "is_output": is_output,
+        }
+
     # Check for token-based pricing (most common)
     if (
         "token" in usage_lower

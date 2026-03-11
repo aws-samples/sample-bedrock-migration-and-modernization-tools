@@ -1570,12 +1570,25 @@ function InRegionRuntimeSection({ onDemandRegions, batchRegions, modelId, govclo
           <span className={cn('font-medium text-sm', isLight ? 'text-stone-800' : 'text-white')}>
             Runtime API
           </span>
-          <code className={cn(
-            'text-[10px] px-1.5 py-0.5 rounded font-mono',
-            isLight ? 'bg-stone-100 text-stone-600 border border-stone-200' : 'bg-white/[0.06] text-slate-400 border border-white/[0.08]'
-          )}>
-            bedrock-runtime
-          </code>
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <code className={cn(
+                'text-[10px] px-1.5 py-0.5 rounded font-mono cursor-help',
+                isLight ? 'bg-stone-100 text-stone-600 border border-stone-200 hover:bg-stone-200' : 'bg-white/[0.06] text-slate-400 border border-white/[0.08] hover:bg-white/[0.1]'
+              )}>
+                bedrock-runtime
+              </code>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[280px] text-xs space-y-1.5 p-3">
+              <p className="font-mono text-[10px] opacity-70">bedrock-runtime.&#123;region&#125;.amazonaws.com</p>
+              <p className="font-medium">Supported APIs:</p>
+              <ul className="list-disc pl-3.5 space-y-0.5">
+                <li>InvokeModel / InvokeModelWithResponseStream</li>
+                <li>Converse / ConverseStream</li>
+                <li>Chat Completions (v1/chat/completions)</li>
+              </ul>
+            </TooltipContent>
+          </Tooltip>
         </div>
         <div className="flex items-center gap-2">
           <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-slate-400')}>
@@ -1660,12 +1673,25 @@ function InRegionMantleSection({ mantleData, isLight }) {
           <span className={cn('font-medium text-sm', isLight ? 'text-stone-800' : 'text-white')}>
             Mantle API
           </span>
-          <code className={cn(
-            'text-[10px] px-1.5 py-0.5 rounded font-mono',
-            isLight ? 'bg-violet-50 text-violet-600 border border-violet-200' : 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
-          )}>
-            bedrock-mantle
-          </code>
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <code className={cn(
+                'text-[10px] px-1.5 py-0.5 rounded font-mono cursor-help',
+                isLight ? 'bg-violet-50 text-violet-600 border border-violet-200 hover:bg-violet-100' : 'bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20'
+              )}>
+                bedrock-mantle
+              </code>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[280px] text-xs space-y-1.5 p-3">
+              <p className="font-mono text-[10px] opacity-70">bedrock-mantle.&#123;region&#125;.api.aws</p>
+              <p className="font-medium">Supported APIs:</p>
+              <ul className="list-disc pl-3.5 space-y-0.5">
+                <li>Responses API (invoke / invoke-with-response-stream)</li>
+                <li>Chat Completions API (v1/chat/completions)</li>
+              </ul>
+              <p className="opacity-70 italic">OpenAI-compatible managed endpoints</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
         <div className="flex items-center gap-2">
           <span className={cn('text-[10px] font-mono', isLight ? 'text-stone-500' : 'text-slate-400')}>

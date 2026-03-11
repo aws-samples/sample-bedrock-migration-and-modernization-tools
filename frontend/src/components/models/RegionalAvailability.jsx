@@ -1061,12 +1061,14 @@ export function RegionalAvailability() {
             )
             if (isLegacyApac) {
               return (
-                <Tooltip key={id} delayDuration={200}>
-                  <TooltipTrigger asChild>{pill}</TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={4}>
-                    <p className="text-xs">Legacy profile — newer models use AU and JP separately</p>
-                  </TooltipContent>
-                </Tooltip>
+                <TooltipProvider key={id} delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>{pill}</TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={4}>
+                      <p className="text-xs">Legacy profile — newer models use AU and JP separately</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )
             }
             return pill
