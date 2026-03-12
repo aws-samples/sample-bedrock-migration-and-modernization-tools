@@ -1,5 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { DATA_URLS } from '../config/dataSource'
+import { 
+  extractCapabilities, 
+  extractUseCases, 
+  extractCustomizations, 
+  extractLanguages 
+} from '../utils/filters'
 
 // Default region from environment variable
 const DEFAULT_REGION = import.meta.env.VITE_DEFAULT_REGION || 'us-east-1'
@@ -39,66 +45,6 @@ function flattenModels(data) {
  */
 function extractProviders(models) {
   return [...new Set(models.map(m => m.model_provider))].sort()
-}
-
-/**
- * Extracts unique capabilities from model data
- * @param {Array} models - Flattened array of models
- * @returns {Array} Unique capabilities
- */
-function extractCapabilities(models) {
-  const caps = new Set()
-  models.forEach(m => {
-    if (m.capabilities) {
-      m.capabilities.forEach(cap => caps.add(cap))
-    }
-  })
-  return [...caps].sort()
-}
-
-/**
- * Extracts unique use cases from model data
- * @param {Array} models - Flattened array of models
- * @returns {Array} Unique use cases
- */
-function extractUseCases(models) {
-  const useCases = new Set()
-  models.forEach(m => {
-    if (m.use_cases && Array.isArray(m.use_cases)) {
-      m.use_cases.forEach(uc => useCases.add(uc))
-    }
-  })
-  return [...useCases].sort()
-}
-
-/**
- * Extracts unique customization options from model data
- * @param {Array} models - Flattened array of models
- * @returns {Array} Unique customization options
- */
-function extractCustomizations(models) {
-  const customizations = new Set()
-  models.forEach(m => {
-    if (m.customization?.customization_supported && Array.isArray(m.customization.customization_supported)) {
-      m.customization.customization_supported.forEach(c => customizations.add(c))
-    }
-  })
-  return [...customizations].sort()
-}
-
-/**
- * Extracts unique languages from model data
- * @param {Array} models - Flattened array of models
- * @returns {Array} Unique languages
- */
-function extractLanguages(models) {
-  const languages = new Set()
-  models.forEach(m => {
-    if (m.languages && Array.isArray(m.languages)) {
-      m.languages.forEach(lang => languages.add(lang))
-    }
-  })
-  return [...languages].sort()
 }
 
 /**

@@ -67,3 +67,4 @@ frontend/public/bedrock_pricing.json
 # Local tooling
 .corvus/
 .opencode/
+frontend/public/latest/

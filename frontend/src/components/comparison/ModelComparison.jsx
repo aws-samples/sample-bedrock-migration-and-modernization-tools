@@ -675,6 +675,7 @@ export function ModelComparison({ onNavigateToExplorer }) {
           <AvailabilityTab
             selectedModels={sortedModels}
             isLight={isLight}
+            getPricingForModel={getPricingForModel}
           />
         </TabsContent>
 

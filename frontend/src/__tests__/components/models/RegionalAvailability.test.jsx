@@ -61,31 +61,28 @@ describe('RegionalAvailability', () => {
     vi.clearAllMocks()
   })
 
-  it('renders table without max-height constraint', () => {
+  it('renders grid container without max-height constraint', () => {
     // Arrange & Act
     render(<RegionalAvailability />)
     
-    // Assert - The table container should not have max-h-* classes
+    // Assert - The grid container should not have max-h-* classes
     // The component uses overflow-auto for both horizontal and vertical scrolling
-    const tableContainer = document.querySelector('.overflow-auto')
-    expect(tableContainer).toBeInTheDocument()
+    const gridContainer = document.querySelector('.overflow-auto')
+    expect(gridContainer).toBeInTheDocument()
     
     // Check that no max-h-* class is present on the container
-    const containerClasses = tableContainer?.className || ''
+    const containerClasses = gridContainer?.className || ''
     expect(containerClasses).not.toMatch(/max-h-/)
   })
 
-  it('renders header cells with sticky classes', () => {
+  it('renders header with sticky positioning', () => {
     // Arrange & Act
     render(<RegionalAvailability />)
     
-    // Assert - Header cells should have sticky positioning
-    const stickyHeaders = document.querySelectorAll('th.sticky')
-    expect(stickyHeaders.length).toBeGreaterThan(0)
-    
-    // Check for top-0 class on header cells (sticky to top)
-    const topStickyHeaders = document.querySelectorAll('th.sticky.top-0')
-    expect(topStickyHeaders.length).toBeGreaterThan(0)
+    // Assert - Header container should have sticky positioning
+    // The CSS Grid implementation uses div.sticky.top-0 for the header
+    const stickyHeader = document.querySelector('.sticky.top-0')
+    expect(stickyHeader).toBeInTheDocument()
   })
 
   it('renders model column with sticky left positioning', () => {
@@ -93,12 +90,9 @@ describe('RegionalAvailability', () => {
     render(<RegionalAvailability />)
     
     // Assert - Model column header should have sticky left-0
-    const modelColumnHeader = document.querySelector('th.sticky.left-0')
+    // In CSS Grid implementation, we use div.sticky.left-0 for the model column
+    const modelColumnHeader = document.querySelector('.sticky.left-0')
     expect(modelColumnHeader).toBeInTheDocument()
-    
-    // Model column cells in tbody should also be sticky left
-    const modelColumnCells = document.querySelectorAll('td.sticky.left-0')
-    expect(modelColumnCells.length).toBeGreaterThan(0)
   })
 
   it('has correct z-index layering for sticky elements', () => {
@@ -107,20 +101,18 @@ describe('RegionalAvailability', () => {
     
     // Assert - Header should have higher z-index than body cells
     // The model column header (corner cell) should have z-30
-    const cornerCell = document.querySelector('th.sticky.left-0.top-0')
+    const cornerCell = document.querySelector('.sticky.left-0.z-30')
     expect(cornerCell).toBeInTheDocument()
+    
+    // The header container should have z-20
+    const headerContainer = document.querySelector('.sticky.top-0.z-20')
+    expect(headerContainer).toBeInTheDocument()
+    
+    // Body sticky cells (model name column) should have z-10
+    // These are rendered via virtualization, so we check for the class pattern
+    const bodyStickyCell = document.querySelector('.sticky.left-0.z-10')
+    // Note: Body cells may not be rendered if virtualization hasn't kicked in
+    // So we just verify the header structure is correct
     expect(cornerCell?.className).toMatch(/z-30/)
-    
-    // Regular header cells should have z-20
-    const regularHeaders = document.querySelectorAll('th.sticky.top-0:not(.left-0)')
-    if (regularHeaders.length > 0) {
-      expect(regularHeaders[0]?.className).toMatch(/z-20/)
-    }
-    
-    // Body sticky cells should have z-10
-    const bodyStickyCell = document.querySelector('td.sticky.left-0')
-    if (bodyStickyCell) {
-      expect(bodyStickyCell.className).toMatch(/z-10/)
-    }
   })
 })

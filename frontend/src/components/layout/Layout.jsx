@@ -17,7 +17,7 @@ function ConfidentialBanner() {
       : 'bg-[#1a1b1e] text-slate-400'
   )}
 >
-  <span>Amazon Confidential — Internal Only - BETA Under Development</span>
+  <span>Internal Only - BETA Under Development</span>
   <span className="opacity-40">•</span>
   <span>All data is fetched from publicly available sources</span>
   <span className="opacity-40">•</span>

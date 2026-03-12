@@ -504,15 +504,16 @@ function getAvailablePricingTypes(pricing) {
 }
 
 // Helper to get pricing for a specific consumption type with dimension filtering
+// Includes fallback logic: In-Region and CRIS Geo pricing are equivalent for many models
 function getPricesByType(pricing, region, pricingType, options = {}, model = null) {
   const { crisType = 'global', reservedTerm = '1m', reservedScope = 'global', batchMode = false } = options
   
   const fullPricing = pricing?.fullPricing
-  if (!fullPricing?.regions) return { inputPrice: null, outputPrice: null, availableRegions: [], hasData: false }
+  if (!fullPricing?.regions) return { inputPrice: null, outputPrice: null, availableRegions: [], hasData: false, usedFallback: false }
   
   // Skip In-Region pricing when hide_in_region is true
   if (pricingType === 'in_region' && model?.availability?.hide_in_region) {
-    return { inputPrice: null, outputPrice: null, availableRegions: [], hasData: false }
+    return { inputPrice: null, outputPrice: null, availableRegions: [], hasData: false, usedFallback: false }
   }
   
   // Try the specified region first, then us-east-1, then any available region
@@ -520,28 +521,88 @@ function getPricesByType(pricing, region, pricingType, options = {}, model = nul
                      fullPricing.regions['us-east-1'] || 
                      Object.values(fullPricing.regions)[0]
   
-  if (!regionData?.pricing_groups) return { inputPrice: null, outputPrice: null, availableRegions: [], hasData: false }
+  if (!regionData?.pricing_groups) return { inputPrice: null, outputPrice: null, availableRegions: [], hasData: false, usedFallback: false }
   
   const pricingGroups = regionData.pricing_groups
   
+  // Helper to extract prices from a set of group names
+  const extractPrices = (groupNames) => {
+    let inputPrice = null
+    let outputPrice = null
+    
+    for (const groupName of groupNames) {
+      let items = pricingGroups[groupName]
+      if (!items || items.length === 0) continue
+      
+      // Filter out cache pricing and mantle source (unless we're looking at mantle)
+      items = items.filter(item => {
+        const dim = (item.dimension || '').toLowerCase()
+        const desc = (item.description || '').toLowerCase()
+        const isCache = dim.includes('cache') || desc.includes('cache')
+        if (isCache) return false
+        
+        // For non-mantle pricing, exclude mantle source
+        if (pricingType !== 'mantle') {
+          const dims = item.dimensions || {}
+          if (dims.source === 'mantle') return false
+        }
+        return true
+      })
+      
+      for (const item of items) {
+        const price = item.price_per_thousand != null 
+          ? item.price_per_thousand * 1000 
+          : item.price_per_unit
+        
+        if (price == null) continue
+        
+        const dim = (item.dimension || '').toLowerCase()
+        const desc = (item.description || '').toLowerCase()
+        
+        const isInput = item.is_input || dim.includes('input') || desc.includes('input')
+        const isOutput = item.is_output || dim.includes('output') || desc.includes('output')
+        
+        if (isInput && inputPrice === null) inputPrice = price
+        if (isOutput && outputPrice === null) outputPrice = price
+        
+        if (inputPrice !== null && outputPrice !== null) break
+      }
+      
+      if (inputPrice !== null || outputPrice !== null) break
+    }
+    
+    return { inputPrice, outputPrice }
+  }
+  
   // Determine which groups to check based on pricing type
   let groupNames = []
+  let fallbackGroupNames = []
   
   switch (pricingType) {
     case 'in_region':
       groupNames = batchMode 
         ? ['Batch', 'Batch Long Context']
         : ['On-Demand', 'On-Demand Long Context']
+      // Fallback: CRIS Geo pricing is equivalent to In-Region pricing
+      fallbackGroupNames = batchMode
+        ? ['Batch Geo', 'Batch Long Context Geo']
+        : ['On-Demand Geo', 'On-Demand Long Context Geo']
       break
     case 'cris':
       if (crisType === 'geo') {
         groupNames = batchMode
           ? ['Batch Geo', 'Batch Long Context Geo']
           : ['On-Demand Geo', 'On-Demand Long Context Geo']
+        // Fallback: In-Region pricing is equivalent to CRIS Geo pricing
+        fallbackGroupNames = batchMode
+          ? ['Batch', 'Batch Long Context']
+          : ['On-Demand', 'On-Demand Long Context']
       } else {
         groupNames = batchMode
           ? ['Batch Global', 'Batch Long Context Global']
           : ['On-Demand Global', 'On-Demand Long Context Global']
+        // No fallback for CRIS Global - it has different pricing
+        fallbackGroupNames = []
       }
       break
     case 'mantle':
@@ -562,61 +623,47 @@ function getPricesByType(pricing, region, pricingType, options = {}, model = nul
       groupNames = ['On-Demand', 'On-Demand Long Context']
   }
   
-  let inputPrice = null
-  let outputPrice = null
+  // Try primary groups first
+  let { inputPrice, outputPrice } = extractPrices(groupNames)
+  let usedFallback = false
   
-  for (const groupName of groupNames) {
-    let items = pricingGroups[groupName]
-    if (!items || items.length === 0) continue
+  // If no pricing found and we have fallback groups, try them
+  // Only use fallback if the model has availability for the target type
+  if (inputPrice === null && outputPrice === null && fallbackGroupNames.length > 0) {
+    const consumptionOptions = model?.consumption_options || []
+    const hasInRegionAvailability = consumptionOptions.includes('on_demand') || 
+                                    (model?.in_region && model.in_region.length > 0) ||
+                                    (model?.availability?.on_demand?.regions?.length > 0)
+    const hasCrisAvailability = consumptionOptions.includes('cross_region_inference') ||
+                                model?.availability?.cross_region?.supported
     
-    // Filter out cache pricing and mantle source (unless we're looking at mantle)
-    items = items.filter(item => {
-      const dim = (item.dimension || '').toLowerCase()
-      const desc = (item.description || '').toLowerCase()
-      const isCache = dim.includes('cache') || desc.includes('cache')
-      if (isCache) return false
-      
-      // For non-mantle pricing, exclude mantle source
-      if (pricingType !== 'mantle') {
-        const dims = item.dimensions || {}
-        if (dims.source === 'mantle') return false
+    // For In-Region: only fallback to CRIS Geo if model has In-Region availability
+    // For CRIS Geo: only fallback to In-Region if model has CRIS availability
+    const canUseFallback = (pricingType === 'in_region' && hasInRegionAvailability) ||
+                           (pricingType === 'cris' && crisType === 'geo' && hasCrisAvailability)
+    
+    if (canUseFallback) {
+      const fallbackPrices = extractPrices(fallbackGroupNames)
+      if (fallbackPrices.inputPrice !== null || fallbackPrices.outputPrice !== null) {
+        inputPrice = fallbackPrices.inputPrice
+        outputPrice = fallbackPrices.outputPrice
+        usedFallback = true
       }
-      return true
-    })
-    
-    for (const item of items) {
-      const price = item.price_per_thousand != null 
-        ? item.price_per_thousand * 1000 
-        : item.price_per_unit
-      
-      if (price == null) continue
-      
-      const dim = (item.dimension || '').toLowerCase()
-      const desc = (item.description || '').toLowerCase()
-      
-      const isInput = item.is_input || dim.includes('input') || desc.includes('input')
-      const isOutput = item.is_output || dim.includes('output') || desc.includes('output')
-      
-      if (isInput && inputPrice === null) inputPrice = price
-      if (isOutput && outputPrice === null) outputPrice = price
-      
-      if (inputPrice !== null && outputPrice !== null) break
     }
-    
-    if (inputPrice !== null || outputPrice !== null) break
   }
   
-  // Get regions that have this pricing type
+  // Get regions that have this pricing type (including fallback groups)
+  const allGroupNames = [...groupNames, ...fallbackGroupNames]
   const availableRegions = Object.keys(fullPricing.regions).filter(r => {
     const rData = fullPricing.regions[r]
     if (!rData?.pricing_groups) return false
-    return groupNames.some(g => rData.pricing_groups[g]?.length > 0)
+    return allGroupNames.some(g => rData.pricing_groups[g]?.length > 0)
   })
   
-  return { inputPrice, outputPrice, availableRegions, hasData: inputPrice !== null || outputPrice !== null }
+  return { inputPrice, outputPrice, availableRegions, hasData: inputPrice !== null || outputPrice !== null, usedFallback }
 }
 
-// Helper function to get pricing label
+// Helper function to get pricing label// Helper function to get pricing label
 function getPricingLabel(pricingType, options = {}) {
   const { crisType, reservedTerm, reservedScope, batchMode } = options
   
@@ -782,7 +829,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
   const radarScores = useMemo(() => computeRadarScores(modelData, relativeBenchmarks), [modelData, relativeBenchmarks])
 
   const radarChartData = useMemo(() => {
-    const axes = ['Context Window', 'Cheapest', 'Most Regions']
+    const axes = ['Context Window', 'Lowest Cost', 'Most Regions']
     const scoreKeys = ['contextScore', 'costScore', 'regionScore']
     return axes.map((axis, i) => {
       const point = { axis }
@@ -839,7 +886,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
           <div className="flex items-center gap-1.5 mb-0.5">
             <DollarSign className={cn('h-3.5 w-3.5', isLight ? 'text-amber-600' : 'text-[#1A9E7A]')} />
             <span className={cn('text-[10px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
-              Cheapest Input ({getPricingLabel(pricingType, { crisType, reservedTerm, reservedScope, batchMode })})
+              Lowest Cost Input ({getPricingLabel(pricingType, { crisType, reservedTerm, reservedScope, batchMode })})
             </span>
           </div>
           <p className={cn('text-lg font-bold', isLight ? 'text-stone-900' : 'text-white')}>
@@ -901,226 +948,87 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                 Model Comparison Radar
               </h3>
             </button>
-            
-            {/* Pricing Selector */}
-            <div className="flex items-center gap-2 px-4 py-2 flex-wrap">
-              {/* Label */}
-              <span className={cn(
-                'text-[10px] font-medium uppercase tracking-wider',
-                isLight ? 'text-stone-500' : 'text-slate-500'
-              )}>
-                Pricing:
-              </span>
-              
-              {/* Main pricing type buttons */}
-              <div className={cn(
-                'inline-flex rounded-md border overflow-hidden h-6',
-                isLight ? 'border-stone-300' : 'border-[#373a40]'
-              )}>
-                {/* In-Region */}
-                <button
-                  onClick={() => setPricingType('in_region')}
-                  className={cn(
-                    'px-2 py-0.5 text-[10px] font-medium transition-colors',
-                    pricingType === 'in_region'
-                      ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
-                      : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                  )}
-                >
-                  In-Region
-                </button>
-                
-                {/* CRIS */}
-                <button
-                  onClick={() => setPricingType('cris')}
-                  className={cn(
-                    'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
-                    isLight ? 'border-stone-300' : 'border-[#373a40]',
-                    pricingType === 'cris'
-                      ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
-                      : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                  )}
-                >
-                  CRIS
-                </button>
-                
-                {/* Mantle */}
-                <button
-                  onClick={() => setPricingType('mantle')}
-                  className={cn(
-                    'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
-                    isLight ? 'border-stone-300' : 'border-[#373a40]',
-                    pricingType === 'mantle'
-                      ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
-                      : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                  )}
-                >
-                  Mantle
-                </button>
-                
-                {/* Reserved */}
-                <button
-                  onClick={() => setPricingType('reserved')}
-                  className={cn(
-                    'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
-                    isLight ? 'border-stone-300' : 'border-[#373a40]',
-                    pricingType === 'reserved'
-                      ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
-                      : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                  )}
-                >
-                  Reserved
-                </button>
-                
-                {/* Provisioned - Admin/Beta only */}
-                {canViewProvisioned && (
-                  <button
-                    onClick={() => setPricingType('provisioned')}
-                    className={cn(
-                      'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
-                      isLight ? 'border-stone-300' : 'border-[#373a40]',
-                      pricingType === 'provisioned'
-                        ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
-                        : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                    )}
-                  >
-                    Provisioned
-                  </button>
-                )}
-                
-                {/* Custom Model */}
-                <button
-                  onClick={() => setPricingType('custom_model')}
-                  className={cn(
-                    'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
-                    isLight ? 'border-stone-300' : 'border-[#373a40]',
-                    pricingType === 'custom_model'
-                      ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
-                      : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                  )}
-                >
-                  Custom
-                </button>
-              </div>
-              
-              {/* CRIS sub-selector: Global / Geo */}
-              {pricingType === 'cris' && (
-                <div className={cn(
-                  'inline-flex rounded-md border overflow-hidden h-6',
-                  isLight ? 'border-stone-300' : 'border-[#373a40]'
-                )}>
-                  <button
-                    onClick={() => setCrisType('global')}
-                    className={cn(
-                      'px-2 py-0.5 text-[10px] font-medium transition-colors',
-                      crisType === 'global'
-                        ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
-                        : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                    )}
-                  >
-                    Global
-                  </button>
-                  <button
-                    onClick={() => setCrisType('geo')}
-                    className={cn(
-                      'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
-                      isLight ? 'border-stone-300' : 'border-[#373a40]',
-                      crisType === 'geo'
-                        ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
-                        : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                    )}
-                  >
-                    Geo
-                  </button>
-                </div>
-              )}
-              
-              {/* Reserved sub-selectors: Term and Scope */}
-              {pricingType === 'reserved' && (
-                <>
-                  <div className={cn(
-                    'inline-flex rounded-md border overflow-hidden h-6',
-                    isLight ? 'border-stone-300' : 'border-[#373a40]'
-                  )}>
-                    <button
-                      onClick={() => setReservedTerm('1m')}
-                      className={cn(
-                        'px-2 py-0.5 text-[10px] font-medium transition-colors',
-                        reservedTerm === '1m'
-                          ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
-                          : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                      )}
-                    >
-                      1 Month
-                    </button>
-                    <button
-                      onClick={() => setReservedTerm('3m')}
-                      className={cn(
-                        'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
-                        isLight ? 'border-stone-300' : 'border-[#373a40]',
-                        reservedTerm === '3m'
-                          ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
-                          : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                      )}
-                    >
-                      3 Month
-                    </button>
-                  </div>
-                  <div className={cn(
-                    'inline-flex rounded-md border overflow-hidden h-6',
-                    isLight ? 'border-stone-300' : 'border-[#373a40]'
-                  )}>
-                    <button
-                      onClick={() => setReservedScope('global')}
-                      className={cn(
-                        'px-2 py-0.5 text-[10px] font-medium transition-colors',
-                        reservedScope === 'global'
-                          ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
-                          : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                      )}
-                    >
-                      Global
-                    </button>
-                    <button
-                      onClick={() => setReservedScope('geo')}
-                      className={cn(
-                        'px-2 py-0.5 text-[10px] font-medium transition-colors border-l',
-                        isLight ? 'border-stone-300' : 'border-[#373a40]',
-                        reservedScope === 'geo'
-                          ? isLight ? 'bg-amber-700 text-white' : 'bg-[#1A9E7A] text-white'
-                          : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-                      )}
-                    >
-                      Geo
-                    </button>
-                  </div>
-                </>
-              )}
-              
-              {/* Batch toggle - only for In-Region and CRIS */}
-              {(pricingType === 'in_region' || pricingType === 'cris') && (
-                <button
-                  onClick={() => setBatchMode(!batchMode)}
-                  className={cn(
-                    'px-2 py-0.5 text-[10px] font-medium transition-colors rounded-md border h-6',
-                    batchMode
-                      ? isLight ? 'bg-teal-600 text-white border-teal-600' : 'bg-teal-600 text-white border-teal-600'
-                      : isLight ? 'bg-transparent text-stone-500 border-stone-300 hover:bg-stone-50' : 'bg-[#1a1b1e] text-[#9a9b9f] border-[#373a40] hover:bg-[#2c2d32]'
-                  )}
-                >
-                  Batch
-                </button>
-              )}
-            </div>
           </div>
 
           {!radarCollapsed && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
               {/* Radar Chart - takes 2 columns on large screens */}
               <div className={cn(
-                'lg:col-span-2 lg:border-r',
+                'lg:col-span-2 lg:border-r relative',
                 isLight ? 'border-stone-200/60' : 'border-white/[0.06]'
               )} style={{ height: 280 }}>
+                {/* Pricing Selector - positioned in top-right corner */}
+                <div className="absolute top-2 right-3 z-10 flex items-center gap-1.5">
+                  <span className={cn(
+                    'text-[9px] font-medium uppercase tracking-wider',
+                    isLight ? 'text-stone-400' : 'text-slate-500'
+                  )}>
+                    Pricing:
+                  </span>
+                  
+                  {/* Main pricing type buttons */}
+                  <div className={cn(
+                    'inline-flex rounded-md border overflow-hidden h-5',
+                    isLight ? 'border-stone-200 bg-white/80 backdrop-blur-sm' : 'border-[#373a40] bg-[#1a1b1e]/80 backdrop-blur-sm'
+                  )}>
+                    <button
+                      onClick={() => setPricingType('in_region')}
+                      className={cn(
+                        'px-2 py-0.5 text-[9px] font-medium transition-colors',
+                        pricingType === 'in_region'
+                          ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                          : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-transparent text-[#9a9b9f] hover:bg-[#2c2d32]'
+                      )}
+                    >
+                      In-Region
+                    </button>
+                    <button
+                      onClick={() => setPricingType('cris')}
+                      className={cn(
+                        'px-2 py-0.5 text-[9px] font-medium transition-colors border-l',
+                        isLight ? 'border-stone-200' : 'border-[#373a40]',
+                        pricingType === 'cris'
+                          ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                          : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-transparent text-[#9a9b9f] hover:bg-[#2c2d32]'
+                      )}
+                    >
+                      CRIS
+                    </button>
+                  </div>
+                  
+                  {/* CRIS sub-selector */}
+                  {pricingType === 'cris' && (
+                    <div className={cn(
+                      'inline-flex rounded-md border overflow-hidden h-5',
+                      isLight ? 'border-stone-200 bg-white/80 backdrop-blur-sm' : 'border-[#373a40] bg-[#1a1b1e]/80 backdrop-blur-sm'
+                    )}>
+                      <button
+                        onClick={() => setCrisType('global')}
+                        className={cn(
+                          'px-2 py-0.5 text-[9px] font-medium transition-colors',
+                          crisType === 'global'
+                            ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                            : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-transparent text-[#9a9b9f] hover:bg-[#2c2d32]'
+                        )}
+                      >
+                        Global
+                      </button>
+                      <button
+                        onClick={() => setCrisType('geo')}
+                        className={cn(
+                          'px-2 py-0.5 text-[9px] font-medium transition-colors border-l',
+                          isLight ? 'border-stone-200' : 'border-[#373a40]',
+                          crisType === 'geo'
+                            ? isLight ? 'bg-amber-600 text-white' : 'bg-[#1A9E7A] text-white'
+                            : isLight ? 'bg-transparent text-stone-500 hover:bg-stone-50' : 'bg-transparent text-[#9a9b9f] hover:bg-[#2c2d32]'
+                        )}
+                      >
+                        Geo
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={radarChartData} cx="50%" cy="50%" outerRadius="65%">
                     <PolarGrid
@@ -1182,10 +1090,10 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                   modelData={modelData}
                 />
                 
-                {/* Cost Efficiency Winner (cheapest input) */}
+                {/* Cost Efficiency Winner */}
                 <WinnerRow
                   icon={<DollarSign className="h-3 w-3" />}
-                  label={`Cheapest (${getPricingLabel(pricingType, { crisType, reservedTerm, reservedScope, batchMode })})`}
+                  label={`Lowest Cost (${getPricingLabel(pricingType, { crisType, reservedTerm, reservedScope, batchMode })})`}
                   winners={[...inputPriceBestSet].map(i => modelData[i])}
                   value={minInputPrice !== null ? `$${minInputPrice < 0.01 ? minInputPrice.toFixed(4) : minInputPrice.toFixed(2)}` : '—'}
                   isLight={isLight}
@@ -1240,7 +1148,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                   )} />
                 </button>
 
-                {/* Cheapest */}
+                {/* Lowest Cost */}
                 <button
                   onClick={() => setExpandedDimension(expandedDimension === 'cost' ? null : 'cost')}
                   className={cn(
@@ -1260,7 +1168,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                       ? isLight ? 'text-amber-600' : 'text-[#1A9E7A]'
                       : isLight ? 'text-stone-500' : 'text-slate-500'
                   )} />
-                  <span className="text-[10px] font-medium">Cheapest</span>
+                  <span className="text-[10px] font-medium">Lowest Cost</span>
                   <Info className={cn(
                     'h-3 w-3 transition-opacity',
                     expandedDimension === 'cost' ? 'opacity-70' : 'opacity-40 group-hover:opacity-60'
@@ -1334,7 +1242,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
                             Score = 10 × (1 - model_cost / max_cost)
                           </div>
                           <p className={cn('text-[9px]', isLight ? 'text-stone-500' : 'text-slate-500')}>
-                            Cheapest model gets 10/10, most expensive gets 0/10
+                            Lower cost = higher score (10 = best value, 0 = highest cost)
                           </p>
                         </div>
                       )}

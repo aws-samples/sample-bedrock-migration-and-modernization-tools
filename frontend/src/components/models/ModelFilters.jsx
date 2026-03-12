@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronUp, Filter, X, Search, Check } from 'lucide-react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { ChevronDown, ChevronUp, Filter, X, Search, Check, Zap, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -10,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { RegionSelector } from './RegionSelector'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import {
   modelStatusOptions,
@@ -18,8 +17,9 @@ import {
   modalityOptions,
   initialFilterState,
   countActiveFilters,
-  pricingFilterOptions,
-  featureFilterOptions,
+  countModelsByRouting,
+  getCrisGeoScopes,
+  getDisplayLabel,
 } from '@/utils/filters'
 import { cn } from '@/lib/utils'
 
@@ -47,7 +47,7 @@ function ActiveFilterChip({ label, onRemove, isLight }) {
 }
 
 // Multi-select dropdown component
-function MultiSelectDropdown({ label, options, selected, onChange, placeholder, isLight }) {
+function MultiSelectDropdown({ label, options, selected, onChange, placeholder, isLight, formatLabel }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const dropdownRef = useRef(null)
@@ -70,14 +70,17 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
     }
   }
 
+  // Use formatter if provided, otherwise use raw value
+  const getDisplayLabel = (option) => formatLabel ? formatLabel(option) : option
+
   const filteredOptions = options.filter(opt =>
-    opt.toLowerCase().includes(searchQuery.toLowerCase())
+    getDisplayLabel(opt).toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const displayValue = selected.length === 0
     ? placeholder
     : selected.length === 1
-      ? selected[0]
+      ? getDisplayLabel(selected[0])
       : `${selected.length} selected`
 
   return (
@@ -168,7 +171,7 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
                       <Check className="h-2.5 w-2.5 text-white" />
                     )}
                   </div>
-                  <span className="truncate">{option}</span>
+                  <span className="truncate">{getDisplayLabel(option)}</span>
                 </button>
               ))
             )}
@@ -199,39 +202,6 @@ function MultiSelectDropdown({ label, options, selected, onChange, placeholder, 
   )
 }
 
-function ToggleGroup({ label, options, value, onChange, isLight }) {
-  return (
-    <div>
-      <p className={cn('text-[11px] mb-1.5 font-medium', isLight ? 'text-stone-500' : 'text-[#6d6e72]')}>{label}</p>
-      <div className={cn(
-        'inline-flex rounded-md border overflow-hidden h-8',
-        isLight ? 'border-stone-300' : 'border-[#373a40]'
-      )}>
-        {options.map((opt, i) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className={cn(
-              'px-2.5 py-1 text-xs font-medium transition-colors',
-              i > 0 && (isLight ? 'border-l border-stone-300' : 'border-l border-[#373a40]'),
-              value === opt.value
-                ? isLight
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-[#1A9E7A] text-white'
-                : isLight
-                  ? 'bg-transparent text-stone-500 hover:bg-stone-50'
-                  : 'bg-[#1a1b1e] text-[#9a9b9f] hover:bg-[#2c2d32]'
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function FilterSelect({ label, value, onChange, options, isLight }) {
   const selectedOption = options.find(opt => opt.value === value)
   const displayText = selectedOption?.label || value
@@ -255,33 +225,536 @@ function FilterSelect({ label, value, onChange, options, isLight }) {
   )
 }
 
+// CRIS scope options for the nested filter
+const CRIS_SCOPE_OPTIONS = ['Global', 'US', 'EU', 'APAC', 'JP', 'AU', 'CA']
 
-const crisToggleOptions = [
-  { value: 'All Models', label: 'All' },
-  { value: 'GLOBAL', label: 'Global' },
-  { value: 'US', label: 'US' },
-  { value: 'EU', label: 'EU' },
-  { value: 'APAC', label: 'APAC' },
-  { value: 'JP', label: 'JP' },
-  { value: 'AU', label: 'AU' },
-  { value: 'CA', label: 'CA' },
-  { value: 'SA', label: 'SA' },
-  { value: 'ME', label: 'ME' },
-  { value: 'AF', label: 'AF' },
-  { value: 'CRIS Not Supported', label: 'No' },
-]
+// Geo options for the nested filter
+const GEO_OPTIONS = ['NAMER', 'EMEA', 'APAC', 'LATAM', 'GOVCLOUD']
 
-const streamingToggleOptions = [
-  { value: 'All Models', label: 'All' },
-  { value: 'Streaming Supported', label: 'Yes' },
-  { value: 'Streaming Not Supported', label: 'No' },
-]
+// Region data by geo for the dropdown pills
+const REGIONS_BY_GEO = {
+  NAMER: [
+    { code: 'us-east-1', name: 'US East (N. Virginia)' },
+    { code: 'us-east-2', name: 'US East (Ohio)' },
+    { code: 'us-west-1', name: 'US West (N. California)' },
+    { code: 'us-west-2', name: 'US West (Oregon)' },
+    { code: 'ca-central-1', name: 'Canada (Central)' },
+    { code: 'ca-west-1', name: 'Canada (Calgary)' },
+  ],
+  EMEA: [
+    { code: 'eu-west-1', name: 'Europe (Ireland)' },
+    { code: 'eu-west-2', name: 'Europe (London)' },
+    { code: 'eu-west-3', name: 'Europe (Paris)' },
+    { code: 'eu-central-1', name: 'Europe (Frankfurt)' },
+    { code: 'eu-central-2', name: 'Europe (Zurich)' },
+    { code: 'eu-north-1', name: 'Europe (Stockholm)' },
+    { code: 'eu-south-1', name: 'Europe (Milan)' },
+    { code: 'eu-south-2', name: 'Europe (Spain)' },
+    { code: 'me-south-1', name: 'Middle East (Bahrain)' },
+    { code: 'me-central-1', name: 'Middle East (UAE)' },
+    { code: 'il-central-1', name: 'Israel (Tel Aviv)' },
+    { code: 'af-south-1', name: 'Africa (Cape Town)' },
+  ],
+  APAC: [
+    { code: 'ap-northeast-1', name: 'Asia Pacific (Tokyo)' },
+    { code: 'ap-northeast-2', name: 'Asia Pacific (Seoul)' },
+    { code: 'ap-northeast-3', name: 'Asia Pacific (Osaka)' },
+    { code: 'ap-southeast-1', name: 'Asia Pacific (Singapore)' },
+    { code: 'ap-southeast-2', name: 'Asia Pacific (Sydney)' },
+    { code: 'ap-southeast-3', name: 'Asia Pacific (Jakarta)' },
+    { code: 'ap-southeast-4', name: 'Asia Pacific (Melbourne)' },
+    { code: 'ap-southeast-5', name: 'Asia Pacific (Malaysia)' },
+    { code: 'ap-south-1', name: 'Asia Pacific (Mumbai)' },
+    { code: 'ap-south-2', name: 'Asia Pacific (Hyderabad)' },
+    { code: 'ap-east-1', name: 'Asia Pacific (Hong Kong)' },
+  ],
+  LATAM: [
+    { code: 'sa-east-1', name: 'South America (São Paulo)' },
+    { code: 'mx-central-1', name: 'Mexico (Central)' },
+  ],
+  GOVCLOUD: [
+    { code: 'us-gov-west-1', name: 'AWS GovCloud (US-West)' },
+    { code: 'us-gov-east-1', name: 'AWS GovCloud (US-East)' },
+  ],
+}
 
-const pricingToggleOptions = [
-  { value: 'All Models', label: 'All' },
-  { value: 'Has Pricing', label: 'Yes' },
-  { value: 'No Pricing', label: 'No' },
-]
+// Geo dropdown pill component with region checkboxes
+function GeoDropdownPill({ 
+  geo, 
+  label, 
+  isGeoSelected, 
+  selectedRegions,
+  onToggleRegion,
+  onSelectAllGeo,
+  onDeselectAllGeo,
+  isLight 
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef(null)
+  
+  const regions = REGIONS_BY_GEO[geo] || []
+  const geoRegionCodes = regions.map(r => r.code)
+  
+  // Check if all regions in this geo are selected
+  const allRegionsSelected = isGeoSelected || geoRegionCodes.every(code => selectedRegions.includes(code))
+  // Check if some (but not all) regions are selected
+  const someRegionsSelected = !allRegionsSelected && geoRegionCodes.some(code => selectedRegions.includes(code))
+  // Count selected regions in this geo
+  const selectedCount = geoRegionCodes.filter(code => selectedRegions.includes(code)).length
+  
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const getSelectedStyle = () => isLight
+    ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+    : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
+  
+  const getPartialStyle = () => isLight
+    ? 'bg-amber-100 text-amber-800 border-amber-300'
+    : 'bg-[#1A9E7A]/30 text-[#1A9E7A] border-[#1A9E7A]/50'
+  
+  const getUnselectedStyle = () => isLight
+    ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+    : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
+
+  const isActive = isGeoSelected || allRegionsSelected
+  const isPartial = someRegionsSelected
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border flex items-center gap-1',
+          isActive ? getSelectedStyle() : isPartial ? getPartialStyle() : getUnselectedStyle()
+        )}
+      >
+        {label}
+        {selectedCount > 0 && !isGeoSelected && (
+          <span className="text-[9px] opacity-70">({selectedCount})</span>
+        )}
+        <ChevronDown className={cn('w-3 h-3 transition-transform', isOpen && 'rotate-180')} />
+      </button>
+
+      {isOpen && (
+        <div className={cn(
+          'absolute z-50 mt-1 min-w-[220px] rounded-md border shadow-lg animate-slide-down',
+          isLight
+            ? 'bg-white border-stone-200 shadow-stone-900/10'
+            : 'bg-[#25262b] border-[#373a40] shadow-black/20'
+        )}>
+          {/* All [GEO] option */}
+          <div className={cn(
+            'p-1 border-b',
+            isLight ? 'border-stone-200' : 'border-[#373a40]'
+          )}>
+            <button
+              type="button"
+              onClick={() => {
+                if (isGeoSelected) {
+                  onDeselectAllGeo(geo)
+                } else {
+                  onSelectAllGeo(geo)
+                }
+                setIsOpen(false)
+              }}
+              className={cn(
+                'flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-xs transition-colors',
+                isLight ? 'hover:bg-stone-100 text-stone-700' : 'hover:bg-[#373a40] text-[#e4e5e7]'
+              )}
+            >
+              <div className={cn(
+                'flex h-3.5 w-3.5 items-center justify-center rounded border transition-colors flex-shrink-0',
+                isGeoSelected
+                  ? isLight ? 'bg-amber-700 border-amber-700' : 'bg-[#1A9E7A] border-[#1A9E7A]'
+                  : isLight ? 'border-stone-300' : 'border-[#4a4d54]'
+              )}>
+                {isGeoSelected && <Check className="h-2.5 w-2.5 text-white" />}
+              </div>
+              <span className="font-medium">All {label}</span>
+            </button>
+          </div>
+
+          {/* Individual regions */}
+          <div className="max-h-48 overflow-y-auto p-1">
+            {regions.map(region => {
+              const isRegionSelected = selectedRegions.includes(region.code)
+              return (
+                <button
+                  key={region.code}
+                  type="button"
+                  onClick={() => onToggleRegion(region.code)}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-xs transition-colors',
+                    isLight ? 'hover:bg-stone-100 text-stone-700' : 'hover:bg-[#373a40] text-[#e4e5e7]'
+                  )}
+                >
+                  <div className={cn(
+                    'flex h-3.5 w-3.5 items-center justify-center rounded border transition-colors flex-shrink-0',
+                    isRegionSelected || isGeoSelected
+                      ? isLight ? 'bg-amber-700 border-amber-700' : 'bg-[#1A9E7A] border-[#1A9E7A]'
+                      : isLight ? 'border-stone-300' : 'border-[#4a4d54]'
+                  )}>
+                    {(isRegionSelected || isGeoSelected) && <Check className="h-2.5 w-2.5 text-white" />}
+                  </div>
+                  <span className="truncate">{region.name}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Nested routing filter component - matches RegionalAvailability structure
+function NestedRoutingFilter({ 
+  selectedRouting, 
+  selectedApi, 
+  selectedCrisScopes, 
+  selectedGeos,
+  selectedRegions,
+  onRoutingChange,
+  onApiChange,
+  onCrisScopesChange,
+  onGeosChange,
+  onRegionsChange,
+  routingCounts,
+  availableCrisScopes,
+  isLight 
+}) {
+  // Pill button styles matching RegionalAvailability
+  const getSelectedStyle = () => isLight
+    ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+    : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
+  
+  const getUnselectedStyle = () => isLight
+    ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+    : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
+
+  const selectRouting = (routing) => {
+    if (selectedRouting === routing) {
+      // Deselect - go back to "All"
+      onRoutingChange(null)
+      onApiChange(null)
+      onCrisScopesChange([])
+      onGeosChange([])
+      onRegionsChange([])
+    } else {
+      // Select new routing, clear other selections
+      onRoutingChange(routing)
+      onApiChange(null)
+      onCrisScopesChange([])
+      onGeosChange([])
+      onRegionsChange([])
+    }
+  }
+
+  const selectApi = (api) => {
+    if (selectedApi === api) {
+      onApiChange(null)
+    } else {
+      onApiChange(api)
+    }
+  }
+
+  const toggleCrisScope = (scope) => {
+    if (selectedCrisScopes.includes(scope)) {
+      onCrisScopesChange(selectedCrisScopes.filter(s => s !== scope))
+    } else {
+      onCrisScopesChange([...selectedCrisScopes, scope])
+    }
+  }
+
+  const clearAllFilters = () => {
+    onRoutingChange(null)
+    onApiChange(null)
+    onCrisScopesChange([])
+    onGeosChange([])
+    onRegionsChange([])
+  }
+
+  // Handler for toggling a specific region
+  const handleToggleRegion = (regionCode) => {
+    if (selectedRegions.includes(regionCode)) {
+      onRegionsChange(selectedRegions.filter(r => r !== regionCode))
+    } else {
+      onRegionsChange([...selectedRegions, regionCode])
+    }
+  }
+
+  // Handler for selecting all regions in a geo (selects the geo itself)
+  const handleSelectAllGeo = (geo) => {
+    // Clear any specific regions from this geo and add the geo to selectedGeos
+    const geoRegionCodes = (REGIONS_BY_GEO[geo] || []).map(r => r.code)
+    const otherRegions = selectedRegions.filter(r => !geoRegionCodes.includes(r))
+    onRegionsChange(otherRegions)
+    if (!selectedGeos.includes(geo)) {
+      onGeosChange([...selectedGeos, geo])
+    }
+  }
+
+  // Handler for deselecting all regions in a geo
+  const handleDeselectAllGeo = (geo) => {
+    // Remove the geo from selectedGeos and clear any specific regions from this geo
+    const geoRegionCodes = (REGIONS_BY_GEO[geo] || []).map(r => r.code)
+    const otherRegions = selectedRegions.filter(r => !geoRegionCodes.includes(r))
+    onRegionsChange(otherRegions)
+    onGeosChange(selectedGeos.filter(g => g !== geo))
+  }
+
+  // Check if any geo or region filter is active
+  const hasGeoOrRegionFilter = selectedGeos.length > 0 || selectedRegions.length > 0
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {/* Inference pills - single select */}
+      <span className={cn('text-[10px] uppercase tracking-wider font-medium mr-1', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
+        Inference
+      </span>
+      
+      {/* All pill */}
+      <button
+        type="button"
+        onClick={clearAllFilters}
+        className={cn(
+          'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+          !selectedRouting ? getSelectedStyle() : getUnselectedStyle()
+        )}
+      >
+        All
+      </button>
+      
+      {/* In-Region pill */}
+      <button
+        type="button"
+        onClick={() => selectRouting('in_region')}
+        className={cn(
+          'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border flex items-center gap-1',
+          selectedRouting === 'in_region' ? getSelectedStyle() : getUnselectedStyle()
+        )}
+      >
+        <Zap className="w-3 h-3" />
+        In-Region
+        <span className={cn('text-[10px]', selectedRouting === 'in_region' ? 'opacity-70' : 'opacity-50')}>
+          ({routingCounts.in_region})
+        </span>
+      </button>
+      
+      {/* CRIS pill */}
+      <button
+        type="button"
+        onClick={() => selectRouting('cris')}
+        className={cn(
+          'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border flex items-center gap-1',
+          selectedRouting === 'cris' ? getSelectedStyle() : getUnselectedStyle()
+        )}
+      >
+        <Globe className="w-3 h-3" />
+        CRIS
+        <span className={cn('text-[10px]', selectedRouting === 'cris' ? 'opacity-70' : 'opacity-50')}>
+          ({routingCounts.cris})
+        </span>
+      </button>
+
+      {/* API pills - only when In-Region selected */}
+      {selectedRouting === 'in_region' && (
+        <>
+          {/* Divider */}
+          <div className={cn('w-px h-5 mx-1', isLight ? 'bg-stone-200' : 'bg-white/[0.08]')} />
+          
+          {/* API pills */}
+          <span className={cn('text-[10px] uppercase tracking-wider font-medium mr-1', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
+            API
+          </span>
+          
+          {/* All API button */}
+          <button
+            type="button"
+            onClick={() => onApiChange(null)}
+            className={cn(
+              'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+              selectedApi === null ? getSelectedStyle() : getUnselectedStyle()
+            )}
+          >
+            All
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => selectApi('runtime_api')}
+            className={cn(
+              'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+              selectedApi === 'runtime_api' ? getSelectedStyle() : getUnselectedStyle()
+            )}
+          >
+            Runtime API
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => selectApi('mantle')}
+            className={cn(
+              'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+              selectedApi === 'mantle' ? getSelectedStyle() : getUnselectedStyle()
+            )}
+          >
+            Mantle API
+          </button>
+        </>
+      )}
+
+      {/* Scope pills - only when CRIS selected */}
+      {selectedRouting === 'cris' && (
+        <>
+          {/* Divider */}
+          <div className={cn('w-px h-5 mx-1', isLight ? 'bg-stone-200' : 'bg-white/[0.08]')} />
+          
+          {/* Scope pills */}
+          <span className={cn('text-[10px] uppercase tracking-wider font-medium mr-1', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
+            Scope
+          </span>
+          
+          <button
+            type="button"
+            onClick={() => onCrisScopesChange([])}
+            className={cn(
+              'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+              selectedCrisScopes.length === 0 ? getSelectedStyle() : getUnselectedStyle()
+            )}
+          >
+            All
+          </button>
+          
+          {availableCrisScopes.map(scope => (
+            <button
+              key={scope}
+              type="button"
+              onClick={() => toggleCrisScope(scope)}
+              className={cn(
+                'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+                selectedCrisScopes.includes(scope) ? getSelectedStyle() : getUnselectedStyle()
+              )}
+            >
+              {scope}
+            </button>
+          ))}
+        </>
+      )}
+
+      {/* GEO pills with region dropdowns - only when not CRIS */}
+      {selectedRouting !== 'cris' && (
+        <>
+          {/* Divider */}
+          <div className={cn('w-px h-5 mx-1', isLight ? 'bg-stone-200' : 'bg-white/[0.08]')} />
+          
+          {/* GEO label */}
+          <span className={cn('text-[10px] uppercase tracking-wider font-medium mr-1', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
+            Geo
+          </span>
+          
+          {/* All Geos button */}
+          <button
+            type="button"
+            onClick={() => {
+              onGeosChange([])
+              onRegionsChange([])
+            }}
+            className={cn(
+              'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+              !hasGeoOrRegionFilter ? getSelectedStyle() : getUnselectedStyle()
+            )}
+          >
+            All
+          </button>
+          
+          {/* Geo dropdown pills */}
+          {GEO_OPTIONS.map(geo => (
+            <GeoDropdownPill
+              key={geo}
+              geo={geo}
+              label={geo}
+              isGeoSelected={selectedGeos.includes(geo)}
+              selectedRegions={selectedRegions}
+              onToggleRegion={handleToggleRegion}
+              onSelectAllGeo={handleSelectAllGeo}
+              onDeselectAllGeo={handleDeselectAllGeo}
+              isLight={isLight}
+            />
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
+// Section header component
+function SectionHeader({ title, isLight }) {
+  return (
+    <div className="flex items-center gap-2 mb-2">
+      <span className={cn('text-[10px] font-bold uppercase tracking-wider', isLight ? 'text-stone-400' : 'text-[#6d6e72]')}>
+        {title}
+      </span>
+      <div className={cn('flex-1 h-px', isLight ? 'bg-stone-200' : 'bg-white/[0.06]')} />
+    </div>
+  )
+}
+
+// Feature toggle pills - compact multi-select for Features section
+function FeatureTogglePills({ filters, updateFilter, isLight }) {
+  const features = [
+    { key: 'batchSupport', label: 'Batch', activeValue: 'Batch Supported' },
+    { key: 'reservedSupport', label: 'Reserved', activeValue: 'Reserved Supported' },
+    { key: 'streamingSupport', label: 'Streaming', activeValue: 'Streaming Supported' },
+    { key: 'flexPricing', label: 'Flex Pricing', activeValue: 'Has Flex' },
+    { key: 'priorityPricing', label: 'Priority Pricing', activeValue: 'Has Priority' },
+  ]
+
+  const toggleFeature = (key, activeValue) => {
+    const currentValue = filters[key]
+    // Toggle: if active, set to 'All Models'; if inactive, set to activeValue
+    const newValue = currentValue === activeValue ? 'All Models' : activeValue
+    updateFilter(key, newValue)
+  }
+
+  const getSelectedStyle = () => isLight
+    ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+    : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
+  
+  const getUnselectedStyle = () => isLight
+    ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+    : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {features.map(({ key, label, activeValue }) => {
+        const isActive = filters[key] === activeValue
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => toggleFeature(key, activeValue)}
+            className={cn(
+              'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+              isActive ? getSelectedStyle() : getUnselectedStyle()
+            )}
+          >
+            {label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 export function ModelFilters({
   filters,
@@ -291,12 +764,28 @@ export function ModelFilters({
   availableUseCases = [],
   availableCustomizations = [],
   availableLanguages = [],
-  availableConsumptionOptions = [],
+  models = [],
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const activeCount = countActiveFilters(filters)
+
+  // Calculate routing counts
+  const routingCounts = useMemo(() => {
+    return countModelsByRouting(models)
+  }, [models])
+
+  // Calculate available CRIS scopes from model data
+  const availableCrisScopes = useMemo(() => {
+    const scopes = new Set()
+    models.forEach(m => {
+      const modelScopes = getCrisGeoScopes(m)
+      modelScopes.forEach(s => scopes.add(s))
+    })
+    // Return in preferred order, filtering to only those that exist
+    return CRIS_SCOPE_OPTIONS.filter(s => scopes.has(s))
+  }, [models])
 
   const updateFilter = (key, value) => {
     onFiltersChange({ ...filters, [key]: value })
@@ -364,15 +853,6 @@ export function ModelFilters({
       })
     }
 
-    if (filters.crisSupport !== 'All Models') {
-      const crisLabel = filters.crisSupport === 'CRIS Not Supported' ? 'No' : filters.crisSupport
-      chips.push({
-        key: 'cris',
-        label: `CRIS: ${crisLabel}`,
-        onRemove: () => updateFilter('crisSupport', 'All Models')
-      })
-    }
-
     if (filters.streamingSupport !== 'All Models') {
       chips.push({
         key: 'streaming',
@@ -386,16 +866,6 @@ export function ModelFilters({
         key: 'pricingFilter',
         label: `Pricing: ${filters.pricingFilter === 'Has Pricing' ? 'Yes' : 'No'}`,
         onRemove: () => updateFilter('pricingFilter', 'All Models')
-      })
-    }
-
-    if (filters.consumptionOptions.length > 0) {
-      filters.consumptionOptions.forEach(co => {
-        chips.push({
-          key: `cons-${co}`,
-          label: co,
-          onRemove: () => updateFilter('consumptionOptions', filters.consumptionOptions.filter(x => x !== co))
-        })
       })
     }
 
@@ -417,13 +887,99 @@ export function ModelFilters({
       })
     }
 
-    if (filters.features?.length > 0) {
-      filters.features.forEach(f => {
+    // New nested routing filter chips
+    if (filters.selectedRouting) {
+      const routingLabel = filters.selectedRouting === 'in_region' ? 'In-Region' : 'CRIS'
+      chips.push({
+        key: 'routing',
+        label: `Routing: ${routingLabel}`,
+        onRemove: () => {
+          onFiltersChange({ 
+            ...filters, 
+            selectedRouting: null, 
+            selectedApi: null, 
+            selectedCrisScopes: [], 
+            selectedGeos: [],
+            selectedRegions: []
+          })
+        }
+      })
+    }
+
+    if (filters.selectedApi) {
+      const apiLabel = filters.selectedApi === 'runtime_api' ? 'Runtime API' : 'Mantle API'
+      chips.push({
+        key: 'api',
+        label: `API: ${apiLabel}`,
+        onRemove: () => updateFilter('selectedApi', null)
+      })
+    }
+
+    if (filters.selectedCrisScopes?.length > 0) {
+      filters.selectedCrisScopes.forEach(scope => {
         chips.push({
-          key: `feature-${f}`,
-          label: f,
-          onRemove: () => updateFilter('features', filters.features.filter(x => x !== f))
+          key: `cris-scope-${scope}`,
+          label: `CRIS: ${scope}`,
+          onRemove: () => updateFilter('selectedCrisScopes', filters.selectedCrisScopes.filter(x => x !== scope))
         })
+      })
+    }
+
+    if (filters.selectedGeos?.length > 0) {
+      filters.selectedGeos.forEach(geo => {
+        chips.push({
+          key: `geo-${geo}`,
+          label: `Geo: ${geo}`,
+          onRemove: () => updateFilter('selectedGeos', filters.selectedGeos.filter(x => x !== geo))
+        })
+      })
+    }
+
+    // Selected regions filter chips
+    if (filters.selectedRegions?.length > 0) {
+      // Find region names from REGIONS_BY_GEO
+      const allRegions = Object.values(REGIONS_BY_GEO).flat()
+      filters.selectedRegions.forEach(regionCode => {
+        const region = allRegions.find(r => r.code === regionCode)
+        const regionLabel = region ? region.name : regionCode
+        chips.push({
+          key: `region-${regionCode}`,
+          label: `Region: ${regionLabel}`,
+          onRemove: () => updateFilter('selectedRegions', filters.selectedRegions.filter(x => x !== regionCode))
+        })
+      })
+    }
+
+    // Features filter chips
+    if (filters.batchSupport !== 'All Models') {
+      chips.push({
+        key: 'batch',
+        label: `Batch: ${filters.batchSupport === 'Batch Supported' ? 'Yes' : 'No'}`,
+        onRemove: () => updateFilter('batchSupport', 'All Models')
+      })
+    }
+
+    if (filters.reservedSupport !== 'All Models') {
+      chips.push({
+        key: 'reserved',
+        label: `Reserved: ${filters.reservedSupport === 'Reserved Supported' ? 'Yes' : 'No'}`,
+        onRemove: () => updateFilter('reservedSupport', 'All Models')
+      })
+    }
+
+    if (filters.flexPricing !== 'All Models') {
+      chips.push({
+        key: 'flex',
+        label: `Flex: ${filters.flexPricing === 'Has Flex' ? 'Yes' : 'No'}`,
+        onRemove: () => updateFilter('flexPricing', 'All Models')
+      })
+    }
+
+    if (filters.priorityPricing !== 'All Models') {
+      chips.push({
+        key: 'priority',
+        label: `Priority: ${filters.priorityPricing === 'Has Priority' ? 'Yes' : 'No'}`,
+        onRemove: () => updateFilter('priorityPricing', 'All Models')
       })
     }
 
@@ -465,13 +1021,6 @@ export function ModelFilters({
             </button>
           )}
         </div>
-
-        {/* Region selector */}
-        <RegionSelector
-          value={filters.primaryRegion}
-          onChange={(v) => updateFilter('primaryRegion', v)}
-          className="h-9 w-[200px] flex-shrink-0"
-        />
 
         {/* More filters toggle */}
         <Button
@@ -535,8 +1084,87 @@ export function ModelFilters({
             ? 'bg-stone-50/50 border-stone-200'
             : 'bg-[#1a1b1e]/50 border-[#373a40]'
         )}>
-          {/* Row 1: Primary filters */}
+          {/* Section: Availability */}
+          <SectionHeader title="Availability" isLight={isLight} />
+          <NestedRoutingFilter
+            selectedRouting={filters.selectedRouting}
+            selectedApi={filters.selectedApi}
+            selectedCrisScopes={filters.selectedCrisScopes || []}
+            selectedGeos={filters.selectedGeos || []}
+            selectedRegions={filters.selectedRegions || []}
+            onRoutingChange={(v) => updateFilter('selectedRouting', v)}
+            onApiChange={(v) => updateFilter('selectedApi', v)}
+            onCrisScopesChange={(v) => updateFilter('selectedCrisScopes', v)}
+            onGeosChange={(v) => updateFilter('selectedGeos', v)}
+            onRegionsChange={(v) => updateFilter('selectedRegions', v)}
+            routingCounts={routingCounts}
+            availableCrisScopes={availableCrisScopes}
+            isLight={isLight}
+          />
+
+          {/* Divider */}
+          <div className={cn('my-2.5 border-t', isLight ? 'border-stone-200/60' : 'border-[#2c2d32]/60')} />
+
+          {/* Section: Pricing */}
+          <SectionHeader title="Pricing" isLight={isLight} />
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <button
+              type="button"
+              onClick={() => updateFilter('pricingFilter', 'All Models')}
+              className={cn(
+                'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+                filters.pricingFilter === 'All Models'
+                  ? isLight
+                    ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+                    : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
+                  : isLight
+                    ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+                    : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
+              )}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => updateFilter('pricingFilter', filters.pricingFilter === 'Has Pricing' ? 'All Models' : 'Has Pricing')}
+              className={cn(
+                'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+                filters.pricingFilter === 'Has Pricing'
+                  ? isLight
+                    ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+                    : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
+                  : isLight
+                    ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+                    : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
+              )}
+            >
+              Has Pricing
+            </button>
+            <button
+              type="button"
+              onClick={() => updateFilter('pricingFilter', filters.pricingFilter === 'No Pricing' ? 'All Models' : 'No Pricing')}
+              className={cn(
+                'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
+                filters.pricingFilter === 'No Pricing'
+                  ? isLight
+                    ? 'bg-amber-700 text-[#faf9f5] border-amber-700 shadow-sm'
+                    : 'bg-[#1A9E7A] text-white border-[#1A9E7A] shadow-sm shadow-[#1A9E7A]/20'
+                  : isLight
+                    ? 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:text-stone-700'
+                    : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
+              )}
+            >
+              No Pricing
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className={cn('my-2.5 border-t', isLight ? 'border-stone-200/60' : 'border-[#2c2d32]/60')} />
+
+          {/* Section: Model */}
+          <SectionHeader title="Model" isLight={isLight} />
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2.5">
+            {/* Row 1: Provider, Modality, Status, Context Window */}
             {availableProviders.length > 0 && (
               <MultiSelectDropdown
                 label="Provider"
@@ -571,13 +1199,8 @@ export function ModelFilters({
               options={contextFilterOptions}
               isLight={isLight}
             />
-          </div>
 
-          {/* Divider */}
-          <div className={cn('my-2.5 border-t', isLight ? 'border-stone-200/60' : 'border-[#2c2d32]/60')} />
-
-          {/* Row 2: Content & feature filters */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2.5">
+            {/* Row 2: Use Cases, Capabilities, Languages, Customization */}
             {availableUseCases.length > 0 && (
               <MultiSelectDropdown
                 label="Use Cases"
@@ -586,6 +1209,7 @@ export function ModelFilters({
                 onChange={(v) => updateFilter('useCases', v)}
                 placeholder="All use cases"
                 isLight={isLight}
+                formatLabel={(v) => getDisplayLabel(v, 'useCase')}
               />
             )}
 
@@ -597,6 +1221,7 @@ export function ModelFilters({
                 onChange={(v) => updateFilter('capabilities', v)}
                 placeholder="All capabilities"
                 isLight={isLight}
+                formatLabel={(v) => getDisplayLabel(v, 'capability')}
               />
             )}
 
@@ -608,6 +1233,7 @@ export function ModelFilters({
                 onChange={(v) => updateFilter('languages', v)}
                 placeholder="All languages"
                 isLight={isLight}
+                formatLabel={(v) => getDisplayLabel(v, 'language')}
               />
             )}
 
@@ -619,6 +1245,7 @@ export function ModelFilters({
                 onChange={(v) => updateFilter('customizations', v)}
                 placeholder="All types"
                 isLight={isLight}
+                formatLabel={(v) => getDisplayLabel(v, 'customization')}
               />
             )}
           </div>
@@ -626,52 +1253,13 @@ export function ModelFilters({
           {/* Divider */}
           <div className={cn('my-2.5 border-t', isLight ? 'border-stone-200/60' : 'border-[#2c2d32]/60')} />
 
-          {/* Row 3: Infrastructure & availability filters */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-3 gap-y-2.5 items-end">
-            {availableConsumptionOptions.length > 0 && (
-              <MultiSelectDropdown
-                label="Consumption"
-                options={availableConsumptionOptions}
-                selected={filters.consumptionOptions}
-                onChange={(v) => updateFilter('consumptionOptions', v)}
-                placeholder="All options"
-                isLight={isLight}
-              />
-            )}
-
-            <MultiSelectDropdown
-              label="Features"
-              options={featureFilterOptions}
-              selected={filters.features || []}
-              onChange={(v) => updateFilter('features', v)}
-              placeholder="All features"
-              isLight={isLight}
-            />
-
-            <FilterSelect
-              label="Cross-Region (CRIS)"
-              value={filters.crisSupport}
-              onChange={(v) => updateFilter('crisSupport', v)}
-              options={crisToggleOptions}
-              isLight={isLight}
-            />
-
-            <ToggleGroup
-              label="Streaming"
-              options={streamingToggleOptions}
-              value={filters.streamingSupport}
-              onChange={(v) => updateFilter('streamingSupport', v)}
-              isLight={isLight}
-            />
-
-            <ToggleGroup
-              label="Pricing"
-              options={pricingToggleOptions}
-              value={filters.pricingFilter}
-              onChange={(v) => updateFilter('pricingFilter', v)}
-              isLight={isLight}
-            />
-          </div>
+          {/* Section: Features */}
+          <SectionHeader title="Features" isLight={isLight} />
+          <FeatureTogglePills
+            filters={filters}
+            updateFilter={updateFilter}
+            isLight={isLight}
+          />
         </div>
       )}
     </div>

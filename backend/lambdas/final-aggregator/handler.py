@@ -1667,6 +1667,109 @@ def build_availability(
     }
 
 
+def backfill_availability_from_pricing(
+    availability: dict,
+    consumption_options: list,
+    pricing_data: dict,
+    pricing_ref: dict,
+    model_id: str,
+) -> dict:
+    """
+    Backfill availability regions from pricing data when API data is missing.
+
+    Some models have pricing data but are not returned by the Bedrock API
+    (ListFoundationModels). This function fills in the availability regions
+    from pricing data to ensure these models appear in regional availability views.
+
+    The function is conservative - it only backfills when:
+    1. The availability regions for a consumption type are empty
+    2. The model has that consumption type in consumption_options
+    3. The pricing data has regions for that consumption type
+
+    Args:
+        availability: The availability dict from build_availability()
+        consumption_options: List of consumption options for the model
+        pricing_data: Full pricing data dict
+        pricing_ref: Pricing reference for this model
+        model_id: Model ID for logging
+
+    Returns:
+        Updated availability dict with backfilled regions
+    """
+    if not pricing_data or not pricing_ref:
+        return availability
+
+    provider = pricing_ref.get("provider", "")
+    model_key = pricing_ref.get("model_key", "")
+
+    if not provider or not model_key:
+        return availability
+
+    # Get pricing data for this model
+    providers = pricing_data.get("providers", {})
+    prov_data = providers.get(provider, {})
+    model_pricing = prov_data.get(model_key, {})
+
+    if not isinstance(model_pricing, dict) or "regions" not in model_pricing:
+        return availability
+
+    pricing_regions = model_pricing.get("regions", {})
+    if not pricing_regions:
+        return availability
+
+    # Map consumption options to availability keys and pricing group patterns
+    # Each entry: (consumption_option, availability_key, pricing_group_patterns)
+    backfill_mappings = [
+        ("on_demand", "on_demand", ["On-Demand", "Standard"]),
+        ("batch", "batch", ["Batch"]),
+        ("provisioned_throughput", "provisioned", ["Provisioned Throughput"]),
+    ]
+
+    changes_made = []
+
+    for consumption_opt, avail_key, pricing_patterns in backfill_mappings:
+        # Skip if model doesn't have this consumption option
+        if consumption_opt not in consumption_options:
+            continue
+
+        # Skip if availability already has regions
+        avail_section = availability.get(avail_key, {})
+        if avail_section.get("regions"):
+            continue
+
+        # Find regions from pricing data that have matching pricing groups
+        backfill_regions = []
+        for region_code, region_data in pricing_regions.items():
+            pricing_groups = region_data.get("pricing_groups", {})
+            # Check if any pricing group matches our patterns
+            has_matching_group = any(
+                any(pattern in group_name for pattern in pricing_patterns)
+                for group_name in pricing_groups.keys()
+            )
+            if has_matching_group:
+                backfill_regions.append(region_code)
+
+        if backfill_regions:
+            # Sort regions for consistency
+            backfill_regions = sorted(backfill_regions)
+
+            # Update availability
+            if avail_key not in availability:
+                availability[avail_key] = {"supported": False, "regions": []}
+
+            availability[avail_key]["regions"] = backfill_regions
+            availability[avail_key]["supported"] = True
+
+            changes_made.append(f"{avail_key}={len(backfill_regions)} regions")
+
+    if changes_made:
+        logger.info(
+            f"Backfilled availability from pricing for {model_id}: {', '.join(changes_made)}"
+        )
+
+    return availability
+
+
 def build_specs(converse_data: dict) -> dict:
     """Build simplified specs object from converse_data."""
     return {
@@ -2295,6 +2398,16 @@ def transform_model_to_schema(
         reserved_data=reserved_capacity,
     )
 
+    # Backfill availability regions from pricing data when API data is missing
+    # This handles models that have pricing but aren't returned by ListFoundationModels
+    availability = backfill_availability_from_pricing(
+        availability=availability,
+        consumption_options=consumption_options,
+        pricing_data=pricing_data,
+        pricing_ref=upstream_pricing_ref,
+        model_id=model_id,
+    )
+
     # Determine visibility (config-driven hidden models list)
     hidden_models = config.config.get("model_configuration", {}).get(
         "hidden_models", []
@@ -2310,8 +2423,8 @@ def transform_model_to_schema(
         "model_arn": model.get("model_arn", ""),
         "model_name": model.get("model_name", ""),
         "model_provider": model.get("model_provider", ""),
-        # Primary regional data (kept - availability.on_demand.regions references this)
-        "in_region": regional_availability if regional_availability else [],
+        # Primary regional data - use backfilled availability regions if available
+        "in_region": availability.get("on_demand", {}).get("regions", []),
         # Model configuration (kept)
         "customization": customization,
         "inference_types_supported": model.get("inference_types_supported", []),

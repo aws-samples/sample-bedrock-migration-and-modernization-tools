@@ -27,7 +27,7 @@ const gridColumnOptions = [
 ]
 
 export function Favorites({ onNavigateToExplorer }) {
-  const { models, providers, capabilities, useCases, customizations, languages, consumptionOptionsList, loading, error, getPricingForModel } = useModels()
+  const { models, providers, capabilities, useCases, customizations, languages, loading, error, getPricingForModel } = useModels()
   const { theme } = useTheme()
   const isLight = theme === 'light'
   const { toggleModel, isModelSelected } = useComparisonStore()
@@ -192,7 +192,7 @@ export function Favorites({ onNavigateToExplorer }) {
           availableUseCases={useCases}
           availableCustomizations={customizations}
           availableLanguages={languages}
-          availableConsumptionOptions={consumptionOptionsList}
+          models={favoriteModels}
         />
       </div>
 
