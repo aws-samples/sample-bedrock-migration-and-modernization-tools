@@ -286,11 +286,38 @@ export function sortModels(models, sortBy, getPricingForModel, preferredRegion) 
     return type === 'input' ? summary.inputPrice : summary.outputPrice
   }
 
+  // Helper to get effective context window (max of base and extended)
+  const getEffectiveContext = (model) => {
+    const base = model.specs?.context_window || 0
+    const extended = model.specs?.extended_context_window || model.specs?.extended_context || 0
+    return Math.max(base, extended)
+  }
+  
+  // Helper to parse release date (handles ISO string or timestamp)
+  const parseReleaseDate = (model) => {
+    // Try lifecycle.release_date first (ISO string like "2025-09-29T00:00:00Z")
+    const releaseDate = model.lifecycle?.release_date
+    if (releaseDate) {
+      if (typeof releaseDate === 'string') {
+        return new Date(releaseDate).getTime() || 0
+      }
+      if (typeof releaseDate === 'number') {
+        return releaseDate
+      }
+    }
+    // Fallback to collection_metadata.first_discovered_at
+    const discovered = model.collection_metadata?.first_discovered_at
+    if (discovered) {
+      return new Date(discovered).getTime() || 0
+    }
+    return 0
+  }
+  
   sorted.sort((a, b) => {
     switch (sortBy) {
       case 'newest': {
-        const dateA = a.lifecycle?.release_date || 0
-        const dateB = b.lifecycle?.release_date || 0
+        const dateA = parseReleaseDate(a)
+        const dateB = parseReleaseDate(b)
         return dateB - dateA // Newest first (higher timestamp first)
       }
       case 'name-asc':
@@ -300,13 +327,13 @@ export function sortModels(models, sortBy, getPricingForModel, preferredRegion) 
       case 'provider-asc':
         return (a.model_provider || '').localeCompare(b.model_provider || '')
       case 'context-desc': {
-        const ctxA = a.specs?.context_window || 0
-        const ctxB = b.specs?.context_window || 0
+        const ctxA = getEffectiveContext(a)
+        const ctxB = getEffectiveContext(b)
         return ctxB - ctxA // Largest first
       }
       case 'context-asc': {
-        const ctxA = a.specs?.context_window || 0
-        const ctxB = b.specs?.context_window || 0
+        const ctxA = getEffectiveContext(a)
+        const ctxB = getEffectiveContext(b)
         return ctxA - ctxB // Smallest first
       }
       case 'price-input-asc': {
