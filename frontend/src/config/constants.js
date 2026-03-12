@@ -56,10 +56,11 @@ export const geoGroups = {
 export const consumptionLabels = {
   on_demand: 'In Region',
   provisioned: 'Provisioned',
-  provisioned_throughput: 'Provisioned',
+  provisioned_throughput: 'Provisioned Throughput',
   batch: 'Batch',
-  cross_region_inference: 'CRIS',
+  cross_region_inference: 'Cross-Region (CRIS)',
   mantle: 'Mantle',
+  reserved: 'Reserved',
 }
 
 // Capability labels (prettify snake_case raw values)
