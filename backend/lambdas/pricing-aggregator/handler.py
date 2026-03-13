@@ -486,8 +486,9 @@ def determine_pricing_type(usage_type: str, unit: str, description: str) -> dict
         }
 
     # Check for reserved capacity (TPM-hour pricing)
-    # These have unit like "1K TPM Hour" and dimensions containing "tokens-per-minute"
-    if "tpm" in unit_lower or "tokens-per-minute" in usage_lower or "tokens per minute" in desc_lower:
+    # 1P items: unit="1K TPM Hour", dimension contains "tokens-per-minute"
+    # 3P Marketplace items: unit="Units", dimension contains "TPM", desc contains "per 1K ... TPM"
+    if "tpm" in unit_lower or "tpm" in usage_lower or "tpm" in desc_lower or "tokens-per-minute" in usage_lower:
         return {
             "pricing_type": "reserved_tpm",
             "unit_label": "per 1K TPM Hour",
