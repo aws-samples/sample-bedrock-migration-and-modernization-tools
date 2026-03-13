@@ -97,6 +97,7 @@ const REGIONS_BY_GEO = {
 
 // Geo options for the filter
 const GEO_OPTIONS = ['NAMER', 'EMEA', 'APAC', 'LATAM', 'GOVCLOUD']
+const CRIS_SCOPE_LABELS = { APAC: 'APAC (Legacy)' }
 
 // Region rows ordered by geo (NAMER, EMEA, APAC, LATAM)
 const REGION_ROWS = [
@@ -1433,7 +1434,7 @@ export function AvailabilityTab({ selectedModels, isLight, getPricingForModel })
                           : 'bg-white/[0.03] text-[#9a9b9f] border-white/[0.06] hover:bg-white/[0.06] hover:text-[#c0c1c5] hover:border-white/[0.12]'
                     )}
                   >
-                    {prefix}
+                    {CRIS_SCOPE_LABELS[prefix] || prefix}
                   </button>
                 )
               })}

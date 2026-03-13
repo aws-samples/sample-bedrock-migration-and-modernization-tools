@@ -294,8 +294,10 @@ export function sortModels(models, sortBy, getPricingForModel, preferredRegion) 
   }
   
   // Helper to parse release date (handles ISO string or timestamp)
+  // NOTE: Do NOT fallback to first_discovered_at — that reflects when the
+  // pipeline first saw the model, not its actual release date. Using it
+  // causes old models (e.g. Claude 3 Sonnet) to sort above genuinely newer ones.
   const parseReleaseDate = (model) => {
-    // Try lifecycle.release_date first (ISO string like "2025-09-29T00:00:00Z")
     const releaseDate = model.lifecycle?.release_date
     if (releaseDate) {
       if (typeof releaseDate === 'string') {
@@ -305,12 +307,7 @@ export function sortModels(models, sortBy, getPricingForModel, preferredRegion) 
         return releaseDate
       }
     }
-    // Fallback to collection_metadata.first_discovered_at
-    const discovered = model.collection_metadata?.first_discovered_at
-    if (discovered) {
-      return new Date(discovered).getTime() || 0
-    }
-    return 0
+    return 0 // Models without release_date sort to the bottom
   }
   
   sorted.sort((a, b) => {

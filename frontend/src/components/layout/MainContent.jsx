@@ -128,6 +128,7 @@ export function MainContent({ children, className, onMenuToggle }) {
                 <div className="text-xs">
                   <div className="font-medium mb-0.5">Data last refreshed</div>
                   <div className="text-muted-foreground">{lastUpdatedFull}</div>
+                  <div className="text-muted-foreground mt-1 opacity-70">Refreshed automatically every 12 hours</div>
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -168,6 +169,7 @@ export function MainContent({ children, className, onMenuToggle }) {
                 <div className="text-xs">
                   <div className="font-medium mb-0.5">Data last refreshed</div>
                   <div className="text-muted-foreground">{lastUpdatedFull}</div>
+                  <div className="text-muted-foreground mt-1 opacity-70">Refreshed automatically every 12 hours</div>
                 </div>
               </TooltipContent>
             </Tooltip>

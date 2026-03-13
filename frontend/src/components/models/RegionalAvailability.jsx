@@ -146,6 +146,7 @@ const REGIONS_BY_GEO = {
 
 // Geo options for the filter
 const GEO_OPTIONS = ['NAMER', 'EMEA', 'APAC', 'LATAM', 'GOVCLOUD']
+const CRIS_SCOPE_LABELS = { APAC: 'APAC (Legacy)' }
 
 // Auto-detect business geo from region code prefix
 // Note: 'us-gov' is handled specially in buildRegionEntry() since it must be checked before 'us'
@@ -1208,16 +1209,28 @@ export function RegionalAvailability() {
     return false
   }, [groupedModels])
 
-  // Check if any visible models are missing pricing data
-  // Uses the same logic as ModelCard.jsx - checks actual pricing data from getPricingForModel
+  // Check if any models in the current routing mode are missing pricing data
+  // Uses all models (not endpoint-filtered) so the banner stays visible when drilling into a specific profile
   const hasModelsWithoutPricing = useMemo(() => {
-    for (const [, providerModels] of groupedModels) {
-      for (const model of providerModels) {
-        if (!modelHasPricing(model, getPricingForModel)) return true
+    for (const model of models) {
+      if (selectedRouting === 'cris') {
+        const crisSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported
+        const hasGovCloudCris = model.availability?.govcloud?.supported &&
+                               model.availability?.govcloud?.inference_type === 'cris'
+        if (!crisSupported && !hasGovCloudCris) continue
       }
+      if (selectedRouting === 'in_region') {
+        const hideInRegion = model.availability?.hide_in_region ?? false
+        const hasMantle = model.availability?.mantle?.supported
+        const inRegionList = model.availability?.on_demand?.regions ?? model.in_region
+        const hasRuntime = inRegionList?.length > 0
+        if (hideInRegion && !hasMantle) continue
+        if (!hasRuntime && !hasMantle) continue
+      }
+      if (!modelHasPricing(model, getPricingForModel)) return true
     }
     return false
-  }, [groupedModels, getPricingForModel])
+  }, [models, selectedRouting, getPricingForModel])
 
   // Column tint via inset box-shadow (layers over bg without conflicting)
   const getColumnTint = useCallback((regionCode) => {
@@ -1617,7 +1630,7 @@ export function RegionalAvailability() {
               
               {availableCrisPrefixes.map(item => {
                 const id = typeof item === 'string' ? item : item.id
-                const label = typeof item === 'string' ? item : item.label
+                const label = CRIS_SCOPE_LABELS[typeof item === 'string' ? item : item.id] || (typeof item === 'string' ? item : item.label)
                 const isSelected = selectedEndpoints.has(id)
                 return (
                   <button

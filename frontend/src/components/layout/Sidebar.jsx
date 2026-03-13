@@ -230,7 +230,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
           collapsed && !mobileMenuOpen ? 'justify-center' : 'justify-between gap-2',
         )}>
           <div className={cn(
-            'overflow-hidden transition-all duration-150 ease-in-out',
+            'overflow-hidden transition-all duration-150 ease-in-out flex flex-col gap-0.5',
             collapsed && !mobileMenuOpen ? 'w-0 opacity-0 flex-none' : 'w-auto opacity-100'
           )}>
             <span className={cn(
@@ -238,6 +238,15 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
               isLight ? 'text-stone-400' : 'text-[#4a4d54]'
             )}>
               v1.0.0
+            </span>
+            <span className={cn(
+              'text-[10px] whitespace-nowrap',
+              isLight ? 'text-stone-400/60' : 'text-[#4a4d54]/60'
+            )}>
+              Built by{' '}
+              <a href="https://phonetool.amazon.com/users/avelizf" target="_blank" rel="noopener noreferrer" className="hover:underline">avelizf</a>
+              {' & '}
+              <a href="https://phonetool.amazon.com/users/molivac" target="_blank" rel="noopener noreferrer" className="hover:underline">molivac</a>
             </span>
           </div>
           <ThemeToggle />

@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import { canViewQuotas, canViewProvisionedPricing, getSectionBadge } from '@/config/admin'
+import { providerHighspotLinks } from '@/config/constants'
 import { getRegionName, getRegionInfo, geoGroups as regionGeoGroups } from '@/utils/regionUtils'
 
 // Provider color mapping - using actual brand colors (Tailwind classes)
@@ -1573,7 +1574,7 @@ function InRegionRuntimeSection({ onDemandRegions, batchRegions, modelId, govclo
           <Tooltip delayDuration={200}>
             <TooltipTrigger asChild onClick={(e) => e.stopPropagation()}>
               <code className={cn(
-                'text-[10px] px-1.5 py-0.5 rounded font-mono cursor-help',
+                'text-[10px] px-1.5 py-0.5 rounded font-mono cursor-default',
                 isLight ? 'bg-stone-100 text-stone-600 border border-stone-200 hover:bg-stone-200' : 'bg-white/[0.06] text-slate-400 border border-white/[0.08] hover:bg-white/[0.1]'
               )}>
                 bedrock-runtime
@@ -1676,7 +1677,7 @@ function InRegionMantleSection({ mantleData, isLight }) {
           <Tooltip delayDuration={200}>
             <TooltipTrigger asChild onClick={(e) => e.stopPropagation()}>
               <code className={cn(
-                'text-[10px] px-1.5 py-0.5 rounded font-mono cursor-help',
+                'text-[10px] px-1.5 py-0.5 rounded font-mono cursor-default',
                 isLight ? 'bg-violet-50 text-violet-600 border border-violet-200 hover:bg-violet-100' : 'bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20'
               )}>
                 bedrock-mantle
@@ -3408,7 +3409,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                     </span>
                   </div>
                   <div className="space-y-2">
-                    {Object.keys(documentationLinks).length > 0 ? (
+                    {(Object.keys(documentationLinks).length > 0 || providerHighspotLinks[model.model_provider]) ? (
                       <div className="flex flex-col gap-2">
                         {documentationLinks.aws_bedrock_guide && (
                           <a href={documentationLinks.aws_bedrock_guide} target="_blank" rel="noopener noreferrer"
@@ -3444,6 +3445,18 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                              )}>
                             <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" />
                             Provider Documentation
+                          </a>
+                        )}
+                        {providerHighspotLinks[model.model_provider] && (
+                          <a href={providerHighspotLinks[model.model_provider]} target="_blank" rel="noopener noreferrer"
+                             className={cn(
+                               'flex items-center gap-2 text-sm px-2 py-1.5 rounded-md transition-colors',
+                               isLight
+                                 ? 'text-amber-700 hover:bg-amber-50'
+                                 : 'text-amber-400 hover:bg-amber-500/10'
+                             )}>
+                            <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" />
+                            Internal Docs (Highspot)
                           </a>
                         )}
                       </div>
@@ -5786,7 +5799,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className={cn(
-                      'text-[10px] px-1.5 py-0.5 rounded cursor-help flex items-center gap-1',
+                      'text-[10px] px-1.5 py-0.5 rounded cursor-default flex items-center gap-1',
                       isLight ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                     )}>
                       <Globe className="h-3 w-3" />

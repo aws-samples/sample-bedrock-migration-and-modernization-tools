@@ -227,6 +227,7 @@ function FilterSelect({ label, value, onChange, options, isLight }) {
 
 // CRIS scope options for the nested filter
 const CRIS_SCOPE_OPTIONS = ['Global', 'US', 'EU', 'APAC', 'JP', 'AU', 'CA']
+const CRIS_SCOPE_LABELS = { APAC: 'APAC (Legacy)' }
 
 // Geo options for the nested filter
 const GEO_OPTIONS = ['NAMER', 'EMEA', 'APAC', 'LATAM', 'GOVCLOUD']
@@ -417,10 +418,10 @@ function GeoDropdownPill({
 }
 
 // Nested routing filter component - matches RegionalAvailability structure
-function NestedRoutingFilter({ 
-  selectedRouting, 
-  selectedApi, 
-  selectedCrisScopes, 
+function NestedRoutingFilter({
+  selectedRouting,
+  selectedApi,
+  selectedCrisScopes,
   selectedGeos,
   selectedRegions,
   onRoutingChange,
@@ -428,9 +429,10 @@ function NestedRoutingFilter({
   onCrisScopesChange,
   onGeosChange,
   onRegionsChange,
+  onBatchChange,
   routingCounts,
   availableCrisScopes,
-  isLight 
+  isLight
 }) {
   // Pill button styles matching RegionalAvailability
   const getSelectedStyle = () => isLight
@@ -444,18 +446,22 @@ function NestedRoutingFilter({
   const selectRouting = (routing) => {
     if (selectedRouting === routing) {
       // Deselect - go back to "All"
-      onRoutingChange(null)
-      onApiChange(null)
-      onCrisScopesChange([])
-      onGeosChange([])
-      onRegionsChange([])
+      onBatchChange({
+        selectedRouting: null,
+        selectedApi: null,
+        selectedCrisScopes: [],
+        selectedGeos: [],
+        selectedRegions: [],
+      })
     } else {
       // Select new routing, clear other selections
-      onRoutingChange(routing)
-      onApiChange(null)
-      onCrisScopesChange([])
-      onGeosChange([])
-      onRegionsChange([])
+      onBatchChange({
+        selectedRouting: routing,
+        selectedApi: null,
+        selectedCrisScopes: [],
+        selectedGeos: [],
+        selectedRegions: [],
+      })
     }
   }
 
@@ -476,11 +482,13 @@ function NestedRoutingFilter({
   }
 
   const clearAllFilters = () => {
-    onRoutingChange(null)
-    onApiChange(null)
-    onCrisScopesChange([])
-    onGeosChange([])
-    onRegionsChange([])
+    onBatchChange({
+      selectedRouting: null,
+      selectedApi: null,
+      selectedCrisScopes: [],
+      selectedGeos: [],
+      selectedRegions: [],
+    })
   }
 
   // Handler for toggling a specific region
@@ -645,7 +653,7 @@ function NestedRoutingFilter({
                 selectedCrisScopes.includes(scope) ? getSelectedStyle() : getUnselectedStyle()
               )}
             >
-              {scope}
+              {CRIS_SCOPE_LABELS[scope] || scope}
             </button>
           ))}
         </>
@@ -666,8 +674,7 @@ function NestedRoutingFilter({
           <button
             type="button"
             onClick={() => {
-              onGeosChange([])
-              onRegionsChange([])
+              onBatchChange({ selectedGeos: [], selectedRegions: [] })
             }}
             className={cn(
               'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 border',
@@ -1097,6 +1104,7 @@ export function ModelFilters({
             onCrisScopesChange={(v) => updateFilter('selectedCrisScopes', v)}
             onGeosChange={(v) => updateFilter('selectedGeos', v)}
             onRegionsChange={(v) => updateFilter('selectedRegions', v)}
+            onBatchChange={(changes) => onFiltersChange({ ...filters, ...changes })}
             routingCounts={routingCounts}
             availableCrisScopes={availableCrisScopes}
             isLight={isLight}
