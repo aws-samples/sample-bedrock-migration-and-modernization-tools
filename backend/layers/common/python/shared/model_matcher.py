@@ -616,7 +616,129 @@ def has_semantic_conflict(id1: str, id2: str) -> bool:
         if size1 != size2:
             return True
 
+    # =========================================================================
+    # Extended conflict detection rules
+    # Guard: skip all extended rules if canonical forms match (same model,
+    # different notation)
+    # =========================================================================
+    canonical1 = get_canonical_model_id(id1)
+    canonical2 = get_canonical_model_id(id2)
+    if canonical1 == canonical2:
+        return False
+    # Also treat separator-only differences as equivalent (m2.1 == m2-1)
+    if re.sub(r"[._-]+", "_", canonical1) == re.sub(r"[._-]+", "_", canonical2):
+        return False
+
+    # Extract model part (after provider prefix) for some checks
+    model_part1 = norm1.split(".", 1)[1] if "." in norm1 else norm1
+    model_part2 = norm2.split(".", 1)[1] if "." in norm2 else norm2
+
+    # Check for plus (+) suffix conflict (e.g., command-r vs command-r+)
+    has_plus1 = "+" in model_part1 or "-plus" in model_part1
+    has_plus2 = "+" in model_part2 or "-plus" in model_part2
+    if has_plus1 != has_plus2:
+        return True
+
+    # Check for size word conflicts (large vs lite)
+    size_words = {"large", "lite"}
+    sw1 = {w for w in re.split(r"[._\-:]", norm1) if w in size_words}
+    sw2 = {w for w in re.split(r"[._\-:]", norm2) if w in size_words}
+    if sw1 and sw2 and sw1 != sw2:
+        return True
+
+    # Check for Amazon Nova variant and generation conflicts
+    if "nova" in norm1 and "nova" in norm2:
+        nova_var1, nova_gen1 = _extract_nova_info(norm1)
+        nova_var2, nova_gen2 = _extract_nova_info(norm2)
+        # Different variant names = conflict (e.g., nova-micro vs nova-pro)
+        if nova_var1 and nova_var2 and nova_var1 != nova_var2:
+            return True
+        # Different major generation = conflict (e.g., nova-lite vs nova-2-0-lite)
+        # Only check when at least one variant is identified (avoids false positives
+        # on products like nova-multimodal-embeddings that lack standard variant names)
+        if (nova_var1 or nova_var2) and nova_gen1 != nova_gen2:
+            return True
+
+    # Check for letter-version asymmetric conflict (e.g., m2.5 vs m2)
+    # One ID has letter+major.minor, other has letter+major only
+    letter_ver_full = r"[._\-]([a-z])(\d+)[.](\d+)"
+    letter_ver_major = r"[._\-]([a-z])(\d+)(?:[._\-]|$|:)"
+    m1f = re.search(letter_ver_full, norm1)
+    m2f = re.search(letter_ver_full, norm2)
+    m1m = re.search(letter_ver_major, norm1)
+    m2m = re.search(letter_ver_major, norm2)
+    if m1f and not m2f and m2m:
+        if m1f.group(1) == m2m.group(1) and m1f.group(2) == m2m.group(2):
+            return True
+    if m2f and not m1f and m1m:
+        if m2f.group(1) == m1m.group(1) and m2f.group(2) == m1m.group(2):
+            return True
+
+    # Check for qualifier word conflicts (e.g., gpt-oss-120b vs gpt-oss-safeguard-120b)
+    qualifier_words = {"safeguard"}
+    words1 = set(re.split(r"[._\-:]", norm1))
+    words2 = set(re.split(r"[._\-:]", norm2))
+    if (words1 & qualifier_words) != (words2 & qualifier_words):
+        return True
+
+    # Check for VL (vision-language) suffix conflict
+    vl_pattern = r"[._\-]vl(?:[._\-]|$|:)"
+    has_vl1 = bool(re.search(vl_pattern, norm1))
+    has_vl2 = bool(re.search(vl_pattern, norm2))
+    if has_vl1 != has_vl2:
+        return True
+
+    # Check for embed model version/generation conflict (g1 vs v2)
+    # Treats gN and vN as interchangeable generation markers for embed models
+    if "embed" in norm1 and "embed" in norm2:
+        embed_ver_pattern = r"[._\-]([gv])(\d+)(?:[._\-]|$|:)"
+        ev1 = re.search(embed_ver_pattern, norm1)
+        ev2 = re.search(embed_ver_pattern, norm2)
+        if ev1 and ev2 and ev1.group(2) != ev2.group(2):
+            return True
+
     return False
+
+
+# Nova variant names for conflict detection
+_NOVA_VARIANTS = {"lite", "micro", "pro", "premier", "reel", "sonic", "canvas", "omni"}
+
+
+def _extract_nova_info(s: str) -> tuple:
+    """
+    Extract (variant_name, major_generation) from a Nova model ID.
+
+    Handles various naming conventions:
+    - nova-lite-v1:0 -> (lite, None)
+    - nova-2-0-lite -> (lite, 2)
+    - nova-2-lite-v1:0 -> (lite, 2)
+    - nova-sonic-2-0 -> (sonic, 2)
+
+    Returns:
+        (variant, major_gen) where variant is a string or None,
+        and major_gen is an int or None.
+    """
+    idx = s.find("nova")
+    if idx < 0:
+        return None, None
+    rest = s[idx + 4:]
+    # Strip instance version (:0, :1) and multimodal suffix (:mm)
+    rest = re.sub(r":\d+$", "", rest)
+    rest = re.sub(r":mm$", "", rest)
+    rest = rest.lstrip(".-_")
+    tokens = re.split(r"[._\-]", rest)
+    # Remove API version suffix at end (v1, v2)
+    if tokens and re.match(r"^v\d+$", tokens[-1]):
+        tokens = tokens[:-1]
+    variant = None
+    gen_numbers = []
+    for t in tokens:
+        if t in _NOVA_VARIANTS:
+            variant = t
+        elif t.isdigit():
+            gen_numbers.append(int(t))
+    major_gen = gen_numbers[0] if gen_numbers else None
+    return variant, major_gen
 
 
 def calculate_match_score(id1: str, id2: str) -> float:
