@@ -3,6 +3,7 @@ import {
   LayoutGrid,
   Star,
   GitCompare,
+  Globe2,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -29,6 +30,11 @@ const navigationItems = [
     id: 'comparison',
     label: 'Model Comparison',
     icon: GitCompare,
+  },
+  {
+    id: 'availability',
+    label: 'Regional Availability',
+    icon: Globe2,
   },
 ]
 
