@@ -12,7 +12,6 @@ import { AvailabilityTab } from './tabs/AvailabilityTab'
 
 import { cn } from '@/lib/utils'
 import { providerColorClasses } from '@/config/constants'
-import { trackEvent } from '@/services/analytics'
 
 function AddModelSearch({ isLight, models, addModel, isModelSelected }) {
   const [open, setOpen] = useState(false)
@@ -194,7 +193,6 @@ function AddModelSearch({ isLight, models, addModel, isModelSelected }) {
                       onClick={() => {
                         if (!selected) {
                           addModel(model)
-                          trackEvent('comparison_add', { modelId: model.model_id, provider: model.model_provider, modelName: model.model_name, section: 'comparison' })
                         }
                       }}
                       disabled={selected}
@@ -417,7 +415,6 @@ function EmptyState({ isLight, onNavigateToExplorer, models, addModel, isModelSe
                       onClick={() => {
                         if (!selected) {
                           addModel(model)
-                          trackEvent('comparison_add', { modelId: model.model_id, provider: model.model_provider, modelName: model.model_name, section: 'comparison_empty' })
                         }
                       }}
                       disabled={selected}
@@ -500,12 +497,6 @@ export function ModelComparison({ onNavigateToExplorer }) {
 
   // Track individual model removal with model metadata
   const handleRemoveModel = useCallback((modelId) => {
-    const entry = selectedModels.find(m => m.model.model_id === modelId)
-    trackEvent('comparison_remove', {
-      modelId,
-      provider: entry?.model.model_provider,
-      section: 'comparison'
-    })
     removeModel(modelId)
   }, [selectedModels, removeModel])
 
@@ -562,7 +553,7 @@ export function ModelComparison({ onNavigateToExplorer }) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => { trackEvent('comparison_clear', { section: 'comparison' }); clearAll() }}
+            onClick={() => clearAll()}
             className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
           >
             <Trash2 className="h-4 w-4 sm:mr-2" />

@@ -63,21 +63,6 @@ export const consumptionLabels = {
   reserved: 'Reserved',
 }
 
-// Highspot internal documentation links by provider
-export const providerHighspotLinks = {
-  'Anthropic': 'https://aws.highspot.com/items/65d536d21f1dc338d678c98a?lfrm=shp.0',
-  'Cohere': 'https://aws.highspot.com/items/66c2768ceaafe7792af41af3?lfrm=shp.1',
-  'DeepSeek': 'https://aws.highspot.com/items/67b7bba26242ce84bc9a96e7',
-  'Luma AI': 'https://aws.highspot.com/items/6789432dd115da44a75f18d7',
-  'Meta': 'https://aws.highspot.com/items/6621d0bf53770d82756eb910?lfrm=shp.3',
-  'Mistral AI': 'https://aws.highspot.com/items/66a0363be5729fa6f48e238f',
-  'OpenAI': 'https://aws.highspot.com/items/6890f60545135d9ec3bccc25?lfrm=shp.0',
-  'poolside': 'https://aws.highspot.com/items/670431c587fd5d910501bfbf?lfrm=shp.0',
-  'Stability AI': 'https://aws.highspot.com/items/66c923fb0581b40e1de3a91f?lfrm=shp.0',
-  'TwelveLabs': 'https://aws.highspot.com/items/6871b11d08f05626ccf9d5c8?lfrm=shp.0',
-  'Writer': 'https://aws.highspot.com/items/68017cda152ae2f3216fd5d9',
-}
-
 // Capability labels (prettify snake_case raw values)
 export const capabilityLabels = {
   chat: 'Chat',

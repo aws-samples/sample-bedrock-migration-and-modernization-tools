@@ -1,38 +1,15 @@
 import { useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { MainContent } from './MainContent'
-import { ThemeProvider, useTheme } from './ThemeProvider'
-import { cn } from '@/lib/utils'
-
-function ConfidentialBanner() {
-  const { theme } = useTheme()
-  const isLight = theme === 'light'
-  
-  return (
-<div
-  className={cn(
-    'flex-shrink-0 text-center py-1 text-xs font-medium tracking-wide flex items-center justify-center gap-3',
-    isLight 
-      ? 'bg-stone-200 text-stone-600' 
-      : 'bg-[#1a1b1e] text-slate-400'
-  )}
->
-  <span>Amazon Confidential — Internal Only</span>
-  <span className="opacity-40">•</span>
-  <span>All data is fetched from publicly available sources</span>
-</div>
-  )
-}
+import { ThemeProvider } from './ThemeProvider'
 
 export function Layout({ children }) {
   const [activeSection, setActiveSection] = useState('explorer')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <ThemeProvider defaultTheme="light">
-      <div className="flex flex-col h-screen bg-slate-950">
-        <ConfidentialBanner />
-        <div className="flex flex-1 min-h-0">
+    <ThemeProvider defaultTheme="dark">
+      <div className="flex h-screen bg-slate-950">
         <Sidebar
           activeSection={activeSection}
           onSectionChange={setActiveSection}
@@ -45,7 +22,6 @@ export function Layout({ children }) {
             : children
           }
         </MainContent>
-        </div>
       </div>
     </ThemeProvider>
   )

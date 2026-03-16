@@ -17,9 +17,6 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
-import { useAuthStore } from '@/stores/authStore'
-import { canViewQuotas, canViewProvisionedPricing, getSectionBadge } from '@/config/admin'
-import { providerHighspotLinks } from '@/config/constants'
 import { getRegionName, getRegionInfo, geoGroups as regionGeoGroups } from '@/utils/regionUtils'
 
 // Provider color mapping - using actual brand colors (Tailwind classes)
@@ -3409,7 +3406,7 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                     </span>
                   </div>
                   <div className="space-y-2">
-                    {(Object.keys(documentationLinks).length > 0 || providerHighspotLinks[model.model_provider]) ? (
+                    {Object.keys(documentationLinks).length > 0 ? (
                       <div className="flex flex-col gap-2">
                         {documentationLinks.aws_bedrock_guide && (
                           <a href={documentationLinks.aws_bedrock_guide} target="_blank" rel="noopener noreferrer"
@@ -3445,18 +3442,6 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
                              )}>
                             <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" />
                             Provider Documentation
-                          </a>
-                        )}
-                        {providerHighspotLinks[model.model_provider] && (
-                          <a href={providerHighspotLinks[model.model_provider]} target="_blank" rel="noopener noreferrer"
-                             className={cn(
-                               'flex items-center gap-2 text-sm px-2 py-1.5 rounded-md transition-colors',
-                               isLight
-                                 ? 'text-amber-700 hover:bg-amber-50'
-                                 : 'text-amber-400 hover:bg-amber-500/10'
-                             )}>
-                            <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" />
-                            Internal Docs (Highspot)
                           </a>
                         )}
                       </div>
@@ -5870,8 +5855,7 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
       )
     }
 
-    // Check if user can view provisioned pricing
-    const canViewProvisioned = canViewProvisionedPricing(user)
+    const canViewProvisioned = true
 
     // Determine which parent groups have data
     const parentGroupsWithData = PRICING_GROUP_HIERARCHY.filter(parentGroup => {
@@ -5979,8 +5963,7 @@ export function ModelCardExpanded({
   preferredRegion = 'us-east-1',
 }) {
   const [activeTab, setActiveTab] = useState('specs')
-  const user = useAuthStore(s => s.user)
-  const showQuotas = canViewQuotas(user)
+  const showQuotas = true
   const { theme } = useTheme()
   const isLight = theme === 'light'
 

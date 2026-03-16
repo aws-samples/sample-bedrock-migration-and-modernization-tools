@@ -33,8 +33,9 @@ env/
 Thumbs.db
 
 # Environment
-.env.local
-.env.*.local
+.env
+.env.*
+!.env.example
 
 # Logs
 *.log

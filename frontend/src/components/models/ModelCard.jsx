@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { useTheme } from '@/components/layout/ThemeProvider'
 import { useComparisonStore } from '@/stores/comparisonStore'
 import { providerColors, consumptionLabels, getContextSizeCategory } from '@/config/constants'
-import { trackEvent } from '@/services/analytics'
+
 import { getCrisGeoScopes } from '@/utils/filters'
 
 function InfoTooltip({ children, content, side = "bottom", sideOffset = 4 }) {
@@ -381,7 +381,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 isLight ? 'hover:bg-stone-100' : 'hover:bg-white/[0.06]'
               )}
               onClick={() => {
-                trackEvent('favorite_toggle', { modelId: model.model_id, provider: model.model_provider, modelName: model.model_name, section: 'explorer' })
+
                 onToggleFavorite?.(model.model_id)
               }}
             >
@@ -684,7 +684,6 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               size="sm"
               className="flex-1 text-xs"
               onClick={() => {
-                trackEvent('model_detail_open', { modelId: model.model_id, provider: model.model_provider, modelName: model.model_name, section: 'explorer' })
                 onViewDetails?.(model)
               }}
             >
@@ -702,9 +701,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
               )}
               style={isSelectedForComparison ? { color: '#ffffff' } : undefined}
               onClick={() => {
-                const wasSelected = isSelectedForComparison
                 toggleModel(model, preferredRegion)
-                trackEvent(wasSelected ? 'comparison_remove' : 'comparison_add', { modelId: model.model_id, provider: model.model_provider, modelName: model.model_name, section: 'explorer' })
               }}
               disabled={false}
             >

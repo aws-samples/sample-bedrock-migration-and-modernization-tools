@@ -16,7 +16,6 @@ import { useTheme } from '@/components/layout/ThemeProvider'
 import { useComparisonStore } from '@/stores/comparisonStore'
 import { useFavoritesStore } from '@/stores/favoritesStore'
 import { applyFilters, initialFilterState } from '@/utils/filters'
-import { trackEvent } from '@/services/analytics'
 import { cn } from '@/lib/utils'
 
 const gridColumnOptions = [
@@ -39,27 +38,11 @@ export function Favorites({ onNavigateToExplorer }) {
   const [columnsPerRow, setColumnsPerRow] = useState(4)
   const [selectedModel, setSelectedModel] = useState(null)
 
-  // Track page view when favorites page loads
-  useEffect(() => {
-    trackEvent('section_change', { section: 'favorites' })
-  }, [])
-
-  // Track model detail open from favorites
   const handleViewDetails = (model) => {
-    trackEvent('model_detail_open', {
-      modelId: model.model_id,
-      provider: model.model_provider,
-      section: 'favorites'
-    })
     setSelectedModel(model)
   }
 
-  // Track favorite toggle from favorites page
   const handleToggleFavorite = (modelId) => {
-    trackEvent('favorite_toggle', {
-      modelId,
-      section: 'favorites'
-    })
     toggleFavorite(modelId)
   }
 
@@ -82,16 +65,6 @@ export function Favorites({ onNavigateToExplorer }) {
   }, [filteredModels, currentPage, pageSize])
 
   const handleFiltersChange = (newFilters) => {
-    // Track filter usage — only track which filter categories are active, not values
-    const activeFilters = Object.entries(newFilters)
-      .filter(([, v]) => v && v !== '' && (!Array.isArray(v) || v.length > 0))
-      .map(([k]) => k)
-    if (activeFilters.length > 0) {
-      trackEvent('search_filter', {
-        filters: activeFilters.join(','),
-        section: 'favorites'
-      })
-    }
     setFilters(newFilters)
     setCurrentPage(1)
   }

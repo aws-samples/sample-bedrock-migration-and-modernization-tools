@@ -1,11 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import {
   LayoutGrid,
   Star,
   GitCompare,
-  BarChart3,
-  Map,
-  Globe2,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -16,10 +13,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ThemeToggle } from './ThemeToggle'
 import { useTheme } from './ThemeProvider'
 import { BedrockIcon } from '@/components/icons/BedrockIcon'
-import { useAuthStore } from '@/stores/authStore'
-import { canViewRoadmap, canViewAnalytics, getSectionBadge } from '@/config/admin'
 
-const baseNavigationItems = [
+const navigationItems = [
   {
     id: 'explorer',
     label: 'Model Explorer',
@@ -68,14 +63,6 @@ function NavButton({ item, isActive, isLight, collapsed, mobileMenuOpen, onClick
         isCollapsedDesktop ? 'w-0 opacity-0 flex-none' : 'w-auto opacity-100 flex-1'
       )}>
         <span className="text-[13px] font-medium whitespace-nowrap">{item.label}</span>
-        {item.badge && (
-          <span className={cn(
-            'ml-auto text-[9px] font-bold leading-none px-1.5 py-0.5 rounded-full border whitespace-nowrap',
-            isLight ? item.badge.light : item.badge.dark
-          )}>
-            {item.badge.text}
-          </span>
-        )}
       </div>
     </button>
   )
@@ -87,14 +74,6 @@ function NavButton({ item, isActive, isLight, collapsed, mobileMenuOpen, onClick
           <TooltipTrigger asChild>{button}</TooltipTrigger>
           <TooltipContent side="right" sideOffset={8} className="z-[100]">
             {item.label}
-            {item.badge && (
-              <span className={cn(
-                'ml-1.5 text-[9px] font-bold leading-none px-1.5 py-0.5 rounded-full border inline-block',
-                isLight ? item.badge.light : item.badge.dark
-              )}>
-                {item.badge.text}
-              </span>
-            )}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -108,22 +87,6 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
   const [collapsed, setCollapsed] = useState(false)
   const { theme } = useTheme()
   const isLight = theme === 'light'
-  const user = useAuthStore((s) => s.user)
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-
-  const navigationItems = useMemo(() => {
-    const items = [...baseNavigationItems]
-    if (isAuthenticated) {
-      items.push({ id: 'availability', label: 'Regional Availability', icon: Globe2 })
-    }
-    if (isAuthenticated && canViewRoadmap(user)) {
-      items.push({ id: 'roadmap', label: 'Region Roadmap', icon: Map, badge: getSectionBadge(user, 'roadmap') })
-    }
-    if (isAuthenticated && canViewAnalytics(user)) {
-      items.push({ id: 'admin', label: 'Usage', icon: BarChart3, badge: getSectionBadge(user, 'admin') })
-    }
-    return items
-  }, [isAuthenticated, user])
 
   const handleNavigation = (sectionId) => {
     onSectionChange(sectionId)
@@ -230,7 +193,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
           collapsed && !mobileMenuOpen ? 'justify-center' : 'justify-between gap-2',
         )}>
           <div className={cn(
-            'overflow-hidden transition-all duration-150 ease-in-out flex flex-col gap-0.5',
+            'overflow-hidden transition-all duration-150 ease-in-out',
             collapsed && !mobileMenuOpen ? 'w-0 opacity-0 flex-none' : 'w-auto opacity-100'
           )}>
             <span className={cn(
@@ -238,15 +201,6 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
               isLight ? 'text-stone-400' : 'text-[#4a4d54]'
             )}>
               v1.0.0
-            </span>
-            <span className={cn(
-              'text-[10px] whitespace-nowrap',
-              isLight ? 'text-stone-400/60' : 'text-[#4a4d54]/60'
-            )}>
-              Built by{' '}
-              <a href="https://phonetool.amazon.com/users/avelizf" target="_blank" rel="noopener noreferrer" className="hover:underline">avelizf</a>
-              {' & '}
-              <a href="https://phonetool.amazon.com/users/molivac" target="_blank" rel="noopener noreferrer" className="hover:underline">molivac</a>
             </span>
           </div>
           <ThemeToggle />

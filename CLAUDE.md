@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Amazon Bedrock Model Profiler - A full-stack serverless tool for exploring, analyzing, and comparing Amazon Bedrock foundation models. Features a self-healing data pipeline with 17 Lambda functions, inter-Lambda caching, and Claude-powered gap detection. Live at https://d3oem6l61p8j11.cloudfront.net
+Amazon Bedrock Model Profiler - A full-stack serverless tool for exploring, analyzing, and comparing Amazon Bedrock foundation models. Features a self-healing data pipeline with 17 Lambda functions, inter-Lambda caching, and Claude-powered gap detection.
 
 ## Commands
 
@@ -17,11 +17,18 @@ npm run build        # Production build
 npm run preview      # Preview production build
 ```
 
+### Local Data Collection
+```bash
+pip install -r local/requirements.txt
+python -m local collect
+python -m local collect --profile my-aws-profile --output ./data
+```
+
 ### Backend Deployment
 ```bash
 cd infra
 sam build -t backend-template.yaml
-sam deploy --stack-name bedrock-profiler-dev --capabilities CAPABILITY_NAMED_IAM --resolve-s3
+sam deploy --stack-name bedrock-profiler --capabilities CAPABILITY_NAMED_IAM --resolve-s3
 ```
 
 ### Full Deployment
@@ -41,11 +48,11 @@ python test_workflow_local.py
 
 ### Data Flow
 ```
-Step Functions Workflow (daily at 6 AM UTC)
+Step Functions Workflow (daily)
   Phase 0: region-discovery → config-sync
   Phase 1 (parallel):
     ├→ pricing-collector (3x service codes) → pricing-aggregator
-    ├→ model-extractor (27 regions, caches to S3) → model-merger
+    ├→ model-extractor (27+ regions, caches to S3) → model-merger
     └→ quota-collector (N regions)
   Phase 2 (parallel):
     ├→ pricing-linker + regional-availability (from cache) + feature-collector (from cache)
@@ -65,15 +72,17 @@ Step Functions Workflow (daily at 6 AM UTC)
 - **backend/statemachine/**: Step Functions workflow definition (ASL)
 - **backend/config/**: Externalized configuration (profiler-config.json)
 - **backend/tests/**: ~150 tests (pytest)
+- **local/**: CLI tool for local data collection
+- **data/**: Sample data files
 - **infra/**: SAM templates (CloudFormation)
 - **docs/**: Architecture docs, data sources, analysis
 
 ### Frontend Architecture
-- **State**: Zustand stores for comparison (`stores/comparisonStore.js`), favorites (`stores/favoritesStore.js`), and auth (`stores/authStore.js`)
-- **Auth**: AWS Cognito OIDC via `react-oidc-context` (see `auth/` directory); groups: beta-access-users, region-roadmap-operators, admins
+- **State**: Zustand stores for comparison (`stores/comparisonStore.js`) and favorites (`stores/favoritesStore.js`)
+- **Auth**: Optional AWS Cognito OIDC via `react-oidc-context` — app runs without auth if env vars not set
 - **Data**: Custom hook `useModels.js` fetches models + pricing JSON from S3 via CloudFront (prod) or Vite proxy (dev)
 - **Components**: Radix UI primitives in `components/ui/`, features in `components/models/` and `components/comparison/`
-- **Config**: `config/admin.js` for permission functions, `config/constants.js` + `config/generated-constants.js` for app constants, `config/dataSource.js` for environment-aware URLs
+- **Config**: `config/constants.js` + `config/generated-constants.js` for app constants, `config/dataSource.js` for environment-aware URLs
 
 ### Backend Architecture
 - 17 Lambda functions (Python 3.11) orchestrated by Step Functions
@@ -81,7 +90,7 @@ Step Functions Workflow (daily at 6 AM UTC)
 - Consistent response format: `{status: "SUCCESS"|"FAILED", ...metadata}`
 - Retry config: 3 retries with exponential backoff for throttling
 - Inter-Lambda S3 caching: ~97% cache hit rate, ~29 API calls per execution (down from ~480)
-- Self-healing: gap-detection → Claude Opus 4.5 auto-applies safe config fixes
+- Self-healing: gap-detection → Claude auto-applies safe config fixes
 - Externalized config in `backend/config/profiler-config.json`
 - S3 data stored in `executions/{execution-id}/` with final output copied to `latest/`
 
@@ -105,25 +114,23 @@ def lambda_handler(event, context):
 ### Frontend Data Flow
 Development uses Vite S3 proxy plugin (vite.config.js) with local AWS credentials. Production fetches directly from CloudFront `/latest/*` paths.
 
-## Authentication Setup
+## Authentication (Optional)
 
-The frontend uses AWS Cognito for authentication. To configure:
+The frontend supports optional AWS Cognito authentication. To configure:
 
 1. Copy `frontend/template.env` to `frontend/.env`
 2. Set the Cognito environment variables:
-   - `VITE_COGNITO_AUTHORITY_URL`: Cognito User Pool authority (e.g., `https://cognito-idp.us-east-1.amazonaws.com/us-east-1_xxxxx`)
+   - `VITE_COGNITO_AUTHORITY_URL`: Cognito User Pool authority
    - `VITE_COGNITO_CLIENT_ID`: Cognito App Client ID
 
 If environment variables are not set, the app runs without authentication.
 
 ## AWS Services Used
-- **Cognito**: User authentication (OIDC) with user groups (beta, operators, admins)
 - **Bedrock**: ListFoundationModels, ListInferenceProfiles, InvokeModel (self-healing agent)
-- **Bedrock Console REST API**: Extended metadata via SigV4-signed requests (context windows, features, chat capabilities)
 - **Pricing API**: GetProducts (us-east-1 only, 3 service codes)
 - **Service Quotas**: ListServiceQuotas (27+ regions)
 - **Step Functions**: Workflow orchestration (4 phases)
 - **S3**: Data storage, frontend hosting, inter-Lambda caching, config storage
 - **CloudFront**: CDN distribution with OAC
-- **EventBridge**: Daily schedule (6 AM UTC)
+- **EventBridge**: Scheduled execution
 - **Lambda Powertools**: Structured logging, tracing, metrics

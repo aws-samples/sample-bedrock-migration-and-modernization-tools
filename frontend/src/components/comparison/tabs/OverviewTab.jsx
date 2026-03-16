@@ -4,8 +4,6 @@ import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Responsi
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { providerColorClasses } from '@/config/constants'
-import { canViewProvisionedPricing } from '@/config/admin'
-import { useAuthStore } from '@/stores/authStore'
 
 const modalityIcons = {
   TEXT: MessageSquare,
@@ -749,9 +747,7 @@ export function OverviewTab({ selectedModels, getPricingForModel, allModels, isL
     }
   }
 
-  // Get user for permission check
-  const user = useAuthStore(s => s.user)
-  const canViewProvisioned = canViewProvisionedPricing(user)
+  const canViewProvisioned = true
 
   const modelData = useMemo(() => selectedModels.map(({ model, region }) => {
     const pricing = getPricingForModel?.(model, region)
