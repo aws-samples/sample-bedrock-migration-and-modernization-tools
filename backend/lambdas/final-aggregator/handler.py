@@ -721,7 +721,11 @@ def _derive_model_name_from_id(mantle_id: str) -> str:
 def _find_pricing_for_mantle_stub(
     mantle_id: str, model_name: str, pricing_data: dict
 ) -> Optional[dict]:
-    """Search pricing data for a Mantle-only model. Returns pricing_ref dict if found."""
+    """Search pricing data for a Mantle-only model. Returns pricing_ref dict if found.
+
+    Uses substring matching (for flexibility with -instruct suffixes etc.)
+    guarded by has_semantic_conflict to prevent false positives like m2.5 → m2.
+    """
     providers = pricing_data.get("providers", {})
     mantle_id_lower = mantle_id.lower()
     model_name_lower = model_name.lower() if model_name else ""
@@ -733,12 +737,15 @@ def _find_pricing_for_mantle_stub(
             if not isinstance(model_data, dict) or "regions" not in model_data:
                 continue
             key_lower = model_key.lower()
-            # Match by model_id or model name
+            # Match by model_id or model name (substring matching)
             if (
                 mantle_id_lower == key_lower
                 or mantle_id_lower in key_lower
                 or key_lower in mantle_id_lower
             ):
+                # Guard: skip if semantic conflict detected
+                if has_semantic_conflict(mantle_id, model_key):
+                    continue
                 return {
                     "provider": prov_name,
                     "model_key": model_key,
@@ -747,6 +754,8 @@ def _find_pricing_for_mantle_stub(
             if model_name_lower and (
                 model_name_lower in key_lower or key_lower in model_name_lower
             ):
+                if has_semantic_conflict(mantle_id, model_key):
+                    continue
                 return {
                     "provider": prov_name,
                     "model_key": model_key,
