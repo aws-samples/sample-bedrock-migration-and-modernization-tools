@@ -635,7 +635,7 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
                 </div>
               ) : (
                 <div className={cn(
-                  'text-center text-xs py-2 rounded-md',
+                  'text-center text-sm py-2 rounded-md',
                   isLight ? 'bg-amber-50 text-amber-700' : 'bg-amber-500/10 text-amber-400'
                 )}>
                   <div className="flex items-center justify-center gap-1">

@@ -85,8 +85,20 @@ function extractLifecycleStatuses(models) {
  * @param {Object} pricingData - The pricing data object
  * @returns {Object|null} Pricing data for the model or null
  */
+function isVersionSuffix(modelKey, pricingKey) {
+  // After stripping the pricingKey prefix, the remaining suffix must start with
+  // a version separator (: or -) to be a legitimate version match.
+  // This prevents "minimax-m2" from matching "minimax-m2.5" (suffix ".5").
+  if (modelKey.length === pricingKey.length) return true
+  const nextChar = modelKey[pricingKey.length]
+  return nextChar === ':' || nextChar === '-'
+}
+
 function getModelPricing(model, pricingData) {
   if (!pricingData?.providers) return null
+
+  // Respect backend's pricing.available flag — if explicitly false, no pricing
+  if (model.pricing?.available === false) return null
 
   // First try using reference (new) or pricing_file_reference (legacy)
   const pricingRef = model.pricing?.reference ?? model.pricing?.pricing_file_reference
@@ -101,7 +113,7 @@ function getModelPricing(model, pricingData) {
     if (providerData) {
       let bestKey = null
       for (const pricingKey of Object.keys(providerData)) {
-        if (pricingRef.model_key.startsWith(pricingKey) && (!bestKey || pricingKey.length > bestKey.length)) {
+        if (pricingRef.model_key.startsWith(pricingKey) && isVersionSuffix(pricingRef.model_key, pricingKey) && (!bestKey || pricingKey.length > bestKey.length)) {
           bestKey = pricingKey
         }
       }
@@ -119,7 +131,7 @@ function getModelPricing(model, pricingData) {
     // Pick the longest match to avoid false positives
     let bestKey = null
     for (const pricingKey of Object.keys(provider)) {
-      if (modelId.startsWith(pricingKey) && (!bestKey || pricingKey.length > bestKey.length)) {
+      if (modelId.startsWith(pricingKey) && isVersionSuffix(modelId, pricingKey) && (!bestKey || pricingKey.length > bestKey.length)) {
         bestKey = pricingKey
       }
     }

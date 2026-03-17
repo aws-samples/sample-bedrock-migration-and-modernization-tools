@@ -4547,13 +4547,11 @@ const PRICING_GROUP_HIERARCHY = [
 ]
 
 // Helper component to display regions grouped by geography
-function RegionsByGeoDisplay({ regions, getRegionDisplayName, groupRegionsByGeo, geoGroups, isLight, compact = false, geosOnly = false }) {
+function RegionsByGeoDisplay({ regions, getRegionDisplayName, groupRegionsByGeo, geoGroups, isLight, compact = false, geosOnly = false, onGeoChange }) {
   const grouped = groupRegionsByGeo(regions)
   const geoOrder = ['US', 'EU', 'APAC', 'CA', 'SA', 'MX', 'ME', 'AF', 'GOV', 'Other']
   const activeGeos = geoOrder.filter(geoKey => grouped[geoKey]?.length > 0)
-  
-  // For interactive mode (non-geosOnly), track which geo is selected
-  // Default to first geo with regions
+
   const [selectedGeo, setSelectedGeo] = useState(activeGeos[0] || null)
   
   // Geo display names (no emojis)
@@ -4610,15 +4608,19 @@ function RegionsByGeoDisplay({ regions, getRegionDisplayName, groupRegionsByGeo,
             <Tooltip key={geoKey} delayDuration={200}>
               <TooltipTrigger asChild>
                 <button
-                  onClick={() => setSelectedGeo(isSelected ? null : geoKey)}
+                  onClick={() => {
+                    const newGeo = isSelected ? null : geoKey
+                    setSelectedGeo(newGeo)
+                    onGeoChange?.(newGeo)
+                  }}
                   className={cn(
                     'inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] transition-colors cursor-default',
                     isSelected
                       ? isLight
                         ? 'bg-amber-100 text-amber-700 border border-amber-300'
                         : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                      : isLight 
-                        ? 'bg-stone-100 text-stone-600 border border-stone-200 hover:bg-stone-200/80' 
+                      : isLight
+                        ? 'bg-stone-100 text-stone-600 border border-stone-200 hover:bg-stone-200/80'
                         : 'bg-white/[0.06] text-slate-400 border border-white/[0.08] hover:bg-white/[0.1]'
                   )}
                 >
@@ -4977,6 +4979,7 @@ function CRISPricingSection({
 function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', user }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedSections, setExpandedSections] = useState({})
+  const [selectedGeoByTier, setSelectedGeoByTier] = useState({})
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
@@ -5468,9 +5471,10 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
                     isLight={isLight}
                     compact
                     geosOnly={geosOnly}
+                    onGeoChange={(geo) => setSelectedGeoByTier(prev => ({ ...prev, [tierKey]: geo }))}
                   />
                 </div>
-                
+
                 <div className={cn(
                   'rounded border overflow-hidden',
                   isLight ? 'border-stone-200' : 'border-white/10'
@@ -5480,6 +5484,11 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
                     isLight ? 'bg-stone-100 text-stone-600' : 'bg-white/5 text-slate-400'
                   )}>
                     Raw Pricing Data
+                    {selectedGeoByTier[tierKey] && (
+                      <span className={cn('ml-1.5', isLight ? 'text-stone-400' : 'text-slate-500')}>
+                        — {selectedGeoByTier[tierKey]} only
+                      </span>
+                    )}
                   </div>
                   <div className="max-h-40 overflow-y-auto">
                     <table className="w-full text-[10px]">
@@ -5493,10 +5502,18 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
                       </thead>
                       <tbody className={cn('divide-y', isLight ? 'divide-stone-100' : 'divide-white/5')}>
                         {(() => {
-                          const inputItems = tierData.input?.rawItems || []
-                          const outputItems = tierData.output?.rawItems || []
-                          const otherItems = tierData.other?.rawItems || []
-                          
+                          // Get regions for the selected geo filter
+                          const geoFilterRegions = selectedGeoByTier[tierKey]
+                            ? new Set(groupRegionsByGeo([...tierRegions])[selectedGeoByTier[tierKey]] || [])
+                            : null
+                          const filterByGeo = (items) => geoFilterRegions
+                            ? items.filter(i => geoFilterRegions.has(i.region))
+                            : items
+
+                          const inputItems = filterByGeo(tierData.input?.rawItems || [])
+                          const outputItems = filterByGeo(tierData.output?.rawItems || [])
+                          const otherItems = filterByGeo(tierData.other?.rawItems || [])
+
                           // Interleave input and output items for balanced display
                           const interleaved = []
                           const maxLen = Math.max(inputItems.length, outputItems.length, otherItems.length)

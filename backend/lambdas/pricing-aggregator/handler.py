@@ -904,11 +904,13 @@ def extract_model_info(product: dict) -> dict:
     # - "per 1M" (standard format)
     # - "Million Input Tokens", "Million Response Tokens" (AWS Marketplace format)
     # - "per 1,000,000" or "per million"
+    # - "Token Count" (alternate AWS format — same per-million price, different wording)
     is_per_million = (
         "per 1m" in desc_lower
         or "million" in desc_lower
         or "per 1,000,000" in desc_lower
         or "1000000" in desc_lower
+        or "token count" in desc_lower
     )
     if price and is_per_million:
         price = price / 1000  # Convert to per-thousand
