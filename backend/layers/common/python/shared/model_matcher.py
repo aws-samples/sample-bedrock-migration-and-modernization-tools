@@ -578,6 +578,16 @@ def has_semantic_conflict(id1: str, id2: str) -> bool:
     if is_embed1 != is_embed2:
         return True
 
+    # Check for vision vs non-vision conflict
+    # "vision" in one ID but not the other = different model line
+    # (e.g., palmyra-x5 vs palmyra-vision-7b)
+    # Note: VL (vision-language) suffix is handled separately below
+    vision_pattern = r"[._-]vision[._-]|[._-]vision$"
+    has_vision1 = bool(re.search(vision_pattern, norm1))
+    has_vision2 = bool(re.search(vision_pattern, norm2))
+    if has_vision1 != has_vision2:
+        return True
+
     # Check for DeepSeek-style version conflicts (v3.1 vs v3.2)
     # This catches cases where the model family is the same but minor version differs
     deepseek_ver_pattern = r"[._-]v?(\d+)[._-](\d+)(?:[._-]|$|:)"
@@ -639,8 +649,8 @@ def has_semantic_conflict(id1: str, id2: str) -> bool:
     if has_plus1 != has_plus2:
         return True
 
-    # Check for size word conflicts (large vs lite)
-    size_words = {"large", "lite"}
+    # Check for size/variant word conflicts (e.g., nano vs super, large vs lite)
+    size_words = {"nano", "mini", "small", "medium", "large", "lite", "super", "ultra", "mega", "tiny"}
     sw1 = {w for w in re.split(r"[._\-:]", norm1) if w in size_words}
     sw2 = {w for w in re.split(r"[._\-:]", norm2) if w in size_words}
     if sw1 and sw2 and sw1 != sw2:
