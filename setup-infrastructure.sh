@@ -100,7 +100,7 @@ sam deploy \
     --region "$REGION" \
     --capabilities CAPABILITY_NAMED_IAM \
     --resolve-s3 \
-    --parameter-overrides "Environment=${ENVIRONMENT} CloudFrontDistributionArn=${CLOUDFRONT_ARN}" \
+    --parameter-overrides "Environment=${ENVIRONMENT} CloudFrontDistributionArn=${CLOUDFRONT_ARN} FrontendStackName=${FRONTEND_STACK}" \
     --no-confirm-changeset \
     --no-fail-on-empty-changeset
 
