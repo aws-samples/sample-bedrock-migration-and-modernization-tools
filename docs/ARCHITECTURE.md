@@ -43,7 +43,7 @@ The **Amazon Bedrock Model Profiler** is a full-stack serverless tool for explor
 | **Self-Healing Pipeline** | Claude-powered gap detection and automatic config fixes |
 | **17 Lambda Functions** | Modular data collection and processing |
 | **Inter-Lambda Caching** | ~97% cache hit rate, ~29 API calls per execution |
-| **Daily Updates** | Automated data refresh at 6 AM UTC |
+| **Daily Updates** | Automated data refresh twice daily (6 AM and 6 PM UTC) |
 | **Multi-Source Aggregation** | 7+ data sources combined into unified JSON |
 
 ---
@@ -265,7 +265,7 @@ bucket/
 | **Step Functions** | Orchestration | 4-phase workflow |
 | **S3** | Storage | Data, frontend hosting, caching, config |
 | **CloudFront** | CDN | OAC distribution |
-| **EventBridge** | Scheduling | Daily trigger at 6 AM UTC |
+| **EventBridge** | Scheduling | Twice daily (6 AM and 6 PM UTC) |
 | **Lambda Powertools** | Observability | Structured logging, tracing, metrics |
 
 ### API Rate Limits & Mitigations

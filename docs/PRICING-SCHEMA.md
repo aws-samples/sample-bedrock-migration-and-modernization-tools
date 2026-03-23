@@ -27,7 +27,7 @@ The `bedrock_pricing.json` file contains all pricing information organized by pr
 | Property | Value |
 |----------|-------|
 | **File Size** | ~1-2 MB |
-| **Update Frequency** | Daily at 6 AM UTC |
+| **Update Frequency** | Twice daily (6 AM and 6 PM UTC) |
 | **Structure** | Provider → Model → Region → Pricing Groups |
 | **Pricing Entries** | ~3,500+ |
 | **Service Codes** | AmazonBedrock, AmazonBedrockService, AmazonBedrockFoundationModels |

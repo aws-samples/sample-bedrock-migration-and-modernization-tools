@@ -36,7 +36,7 @@ The `bedrock_models.json` file is the primary data output containing all model i
 | Property | Value |
 |----------|-------|
 | **File Size** | ~2-3 MB |
-| **Update Frequency** | Daily at 6 AM UTC |
+| **Update Frequency** | Twice daily (6 AM and 6 PM UTC) |
 | **Structure** | Provider-first hierarchy |
 | **Total Models** | ~120+ |
 | **Total Providers** | ~18 |
