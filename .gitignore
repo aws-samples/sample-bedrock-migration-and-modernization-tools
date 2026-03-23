@@ -73,3 +73,4 @@ frontend/public/latest/
 # Test output artifacts
 backend/tests/workflow_output/
 backend/tests/output/
+backend/scripts/
