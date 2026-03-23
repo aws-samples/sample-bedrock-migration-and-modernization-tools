@@ -215,6 +215,13 @@ class LocalCollector:
         self._write_json('bedrock_models.json', final_models)
         self._write_json('bedrock_pricing.json', aggregated_pricing)
 
+        # Copy to frontend/public/latest/ so dev server can serve them
+        frontend_dir = Path(__file__).parent.parent / "frontend" / "public" / "latest"
+        frontend_dir.mkdir(parents=True, exist_ok=True)
+        import shutil
+        shutil.copy2(self.output_dir / 'bedrock_models.json', frontend_dir / 'bedrock_models.json')
+        shutil.copy2(self.output_dir / 'bedrock_pricing.json', frontend_dir / 'bedrock_pricing.json')
+
         duration = time.time() - start_time
 
         print("\n" + "=" * 60)
@@ -226,6 +233,9 @@ class LocalCollector:
         print(f"\nOutput files:")
         print(f"  {self.output_dir}/bedrock_models.json")
         print(f"  {self.output_dir}/bedrock_pricing.json")
+        print(f"\nFrontend dev server files:")
+        print(f"  {frontend_dir}/bedrock_models.json")
+        print(f"  {frontend_dir}/bedrock_pricing.json")
         print("=" * 60 + "\n")
 
         return {'final': {'models': total_models, 'providers': len(final_providers)}}

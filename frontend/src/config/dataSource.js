@@ -16,9 +16,9 @@ const S3_PREFIX = import.meta.env.VITE_S3_PREFIX || 'latest'
 // In development, data is proxied via Vite /s3-data/* middleware (or local fallback)
 const isDevelopment = import.meta.env.DEV
 
-// Use local files in development (from public/latest/)
-// Set VITE_USE_LOCAL_DATA=true to force local files
-const useLocalData = import.meta.env.VITE_USE_LOCAL_DATA === 'true'
+// Use local files in development by default (from public/latest/)
+// Set VITE_USE_S3_PROXY=true to use S3 proxy instead
+const useLocalData = isDevelopment && import.meta.env.VITE_USE_S3_PROXY !== 'true'
 
 // Export URLs based on environment
 // In production, /latest/* is served directly from CloudFront data origin
