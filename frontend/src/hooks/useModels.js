@@ -651,12 +651,14 @@ export function useModels() {
   const stats = useMemo(() => {
     if (!models.length) return null
 
-    const activeCount = models.filter(m => (m.lifecycle?.status || m.model_status) === 'ACTIVE').length
-    const legacyCount = models.filter(m => (m.lifecycle?.status || m.model_status) === 'LEGACY').length
+    const getStatus = (m) => m.lifecycle?.status || m.model_status
+    const activeCount = models.filter(m => getStatus(m) === 'ACTIVE').length
+    const legacyCount = models.filter(m => getStatus(m) === 'LEGACY').length
 
     // Count unique regions (all region types)
     const regions = new Set()
     models.forEach(m => {
+      // Deployed pipeline format: availability.on_demand.regions, etc.
       if (m.availability?.on_demand?.regions) {
         m.availability.on_demand.regions.forEach(r => regions.add(r))
       }
@@ -674,10 +676,11 @@ export function useModels() {
       }
     })
 
-    // Count multimodal models
+    // Count multimodal models (supports both field names)
     const multimodalCount = models.filter(m => {
-      const inputs = m.modalities?.input_modalities || []
-      const outputs = m.modalities?.output_modalities || []
+      const modalities = m.modalities || {}
+      const inputs = modalities.input_modalities || []
+      const outputs = modalities.output_modalities || []
       return inputs.length > 1 || outputs.length > 1 ||
              inputs.some(i => i !== 'TEXT') ||
              outputs.some(o => o !== 'TEXT')

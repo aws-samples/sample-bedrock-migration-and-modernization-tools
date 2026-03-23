@@ -70,7 +70,7 @@ logs:*
 
 ### Option 1: Local Development (No AWS Infrastructure)
 
-Run the profiler locally using your AWS credentials. No cloud deployment required.
+Run the profiler locally using your AWS credentials. No cloud deployment required. Recommended for testing and quick evaluation — for production use with automated daily refresh, see [Option 2](#option-2-full-aws-deployment).
 
 ```bash
 git clone https://github.com/aws-samples/bedrock-model-profiler.git

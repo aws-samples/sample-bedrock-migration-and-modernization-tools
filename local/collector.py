@@ -4,11 +4,14 @@ Local data collector for Bedrock Model Profiler.
 Collects Bedrock model and pricing data using local AWS credentials,
 producing JSON files IDENTICAL to the AWS Step Functions pipeline.
 
-Uses the same transformation logic as the Lambda handlers.
+Uses the actual Lambda handler code for final aggregation to ensure
+identical output schema between local and cloud execution.
 """
 
 import json
 import logging
+import os
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -23,15 +26,49 @@ from botocore.awsrequest import AWSRequest
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-# Import local handlers (same logic as Lambda handlers)
+# Import local handlers for collection and intermediate processing
 from local.handlers import (
     aggregate_pricing,
     merge_models,
     enrich_providers,
     link_pricing_to_models,
     compute_regional_availability,
-    build_final_models,
 )
+
+# Set up paths to import the actual Lambda final-aggregator handler
+_project_root = Path(__file__).parent.parent
+_shared_layer_path = str(_project_root / "backend" / "layers" / "common" / "python")
+_final_agg_path = str(_project_root / "backend" / "lambdas" / "final-aggregator")
+
+# Add shared layer and Lambda handler to Python path (if not already present)
+if _shared_layer_path not in sys.path:
+    sys.path.insert(0, _shared_layer_path)
+if _final_agg_path not in sys.path:
+    sys.path.insert(0, _final_agg_path)
+
+# Pre-load the backend config into the shared ConfigLoader singleton
+# so the Lambda handler gets context_window_specs, hidden_models, etc.
+_config_file = _project_root / "backend" / "config" / "profiler-config.json"
+if _config_file.exists():
+    os.environ.setdefault("POWERTOOLS_SERVICE_NAME", "local-profiler")
+    from shared.config_loader import get_config_loader as _get_config_loader
+    _loader = _get_config_loader(force_new=True)
+    with open(_config_file) as _f:
+        _loader._config = json.load(_f)
+
+# Import the actual Lambda final-aggregator
+from handler import build_final_models as _lambda_build_final_models
+
+# Import Mantle collector functions via importlib (both Lambdas have handler.py)
+import importlib.util as _ilu
+_mantle_spec = _ilu.spec_from_file_location(
+    "mantle_handler",
+    str(_project_root / "backend" / "lambdas" / "mantle-collector" / "handler.py"),
+)
+_mantle_mod = _ilu.module_from_spec(_mantle_spec)
+_mantle_spec.loader.exec_module(_mantle_mod)
+_call_mantle_endpoint = _mantle_mod.call_mantle_endpoint
+_probe_all_responses_support = _mantle_mod.probe_all_responses_support
 
 logger = logging.getLogger(__name__)
 
@@ -44,21 +81,8 @@ RETRY_CONFIG = Config(
 # Bulk Pricing API URL template
 BULK_PRICING_URL = "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/{service_code}/current/us-east-1/index.json"
 
-# Default regions for collection (extended to match cloud deployment)
+# Default model extraction regions (console metadata only available in these)
 DEFAULT_MODEL_REGIONS = ['us-east-1', 'us-west-2']
-DEFAULT_QUOTA_REGIONS = [
-    # Americas
-    'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2',
-    'ca-central-1', 'sa-east-1',
-    # Europe
-    'eu-west-1', 'eu-west-2', 'eu-west-3', 'eu-central-1', 'eu-north-1',
-    'eu-south-1', 'eu-south-2',
-    # Asia Pacific
-    'ap-east-2', 'ap-southeast-1', 'ap-southeast-2', 'ap-southeast-5', 'ap-southeast-7',
-    'ap-northeast-1', 'ap-northeast-2', 'ap-northeast-3', 'ap-south-1', 'ap-south-2',
-    # Middle East & Israel
-    'me-central-1', 'il-central-1',
-]
 
 
 class LocalCollector:
@@ -76,7 +100,8 @@ class LocalCollector:
 
         self.session = boto3.Session(profile_name=profile_name)
         self.model_regions = DEFAULT_MODEL_REGIONS
-        self.quota_regions = DEFAULT_QUOTA_REGIONS
+        # quota_regions will be set dynamically by _discover_regions()
+        self.quota_regions = []
 
         self.pricing_service_codes = [
             'AmazonBedrock',
@@ -106,14 +131,19 @@ class LocalCollector:
         print("Using same handlers as AWS Step Functions pipeline")
         print("=" * 60 + "\n")
 
+        # Phase 0: Discover regions (same as region-discovery Lambda)
+        print("[0/9] Discovering Bedrock regions...")
+        self.quota_regions = self._discover_regions()
+        print(f"       Found {len(self.quota_regions)} Bedrock-enabled regions")
+
         # Phase 1: Collect raw pricing
-        print("[1/8] Collecting pricing data...")
+        print("\n[1/9] Collecting pricing data...")
         raw_pricing_products = self._collect_pricing()
         results['pricing_raw'] = {'products': len(raw_pricing_products)}
         print(f"       Found {len(raw_pricing_products)} pricing products")
 
         # Phase 2: Aggregate pricing (same as pricing-aggregator Lambda)
-        print("\n[2/8] Aggregating pricing data...")
+        print("\n[2/9] Aggregating pricing data...")
         aggregated_data, metadata_stats = aggregate_pricing(raw_pricing_products)
         aggregated_pricing = {
             'metadata': {
@@ -128,13 +158,13 @@ class LocalCollector:
         print(f"       Aggregated into {len(aggregated_data)} providers")
 
         # Phase 3: Extract models
-        print(f"\n[3/8] Extracting models from {len(self.model_regions)} regions...")
+        print(f"\n[3/9] Extracting models from {len(self.model_regions)} regions...")
         models_by_region = self._extract_models()
         total_raw = sum(len(m) for m in models_by_region.values())
         print(f"       Found {total_raw} raw model entries")
 
         # Phase 4: Merge models (same as model-merger Lambda)
-        print("\n[4/8] Merging and deduplicating models...")
+        print("\n[4/9] Merging and deduplicating models...")
         all_models = []
         for region, models in models_by_region.items():
             all_models.extend(models)
@@ -147,7 +177,7 @@ class LocalCollector:
         print(f"       {total_merged} unique models after merge")
 
         # Phase 5: Enrich models (same as model-enricher Lambda)
-        print("\n[5/8] Enriching models with capabilities...")
+        print("\n[5/9] Enriching models with capabilities...")
         enriched_providers = enrich_providers(merged_providers)
         enriched_models = {
             'metadata': {'total_models': total_merged},
@@ -156,7 +186,7 @@ class LocalCollector:
         print(f"       Added capabilities and use cases")
 
         # Phase 6: Link pricing (same as pricing-linker Lambda)
-        print("\n[6/8] Linking pricing to models...")
+        print("\n[6/9] Linking pricing to models...")
         link_result = link_pricing_to_models(enriched_models, aggregated_pricing)
         models_with_pricing = {
             'metadata': {
@@ -167,8 +197,8 @@ class LocalCollector:
         }
         print(f"       {link_result['models_with_pricing']} models linked to pricing")
 
-        # Phase 7: Collect quotas and features
-        print(f"\n[7/8] Collecting quotas from {len(self.quota_regions)} regions...")
+        # Phase 7: Collect quotas, features, and Mantle models
+        print(f"\n[7/9] Collecting quotas from {len(self.quota_regions)} regions...")
         quotas_by_region = self._collect_quotas()
         total_quotas = sum(len(q) for q in quotas_by_region.values())
         print(f"       Collected {total_quotas} quotas")
@@ -178,8 +208,13 @@ class LocalCollector:
         total_profiles = sum(len(f) for f in features_by_region.values())
         print(f"       Collected {total_profiles} inference profiles")
 
-        # Phase 8: Final aggregation (same as regional-availability + final-aggregator)
-        print("\n[8/8] Building final output...")
+        # Phase 8: Collect Mantle models (same as mantle-collector Lambda)
+        print(f"\n[8/9] Collecting Mantle models...")
+        mantle_by_model = self._collect_mantle()
+        print(f"       Found {len(mantle_by_model)} Mantle models")
+
+        # Phase 9: Final aggregation (same as regional-availability + final-aggregator)
+        print("\n[9/9] Building final output...")
         print(f"       Computing regional availability across {len(self.quota_regions)} regions...")
         regional_availability = compute_regional_availability(
             self.quota_regions,
@@ -188,14 +223,17 @@ class LocalCollector:
         )
         print(f"       Discovered {regional_availability['total_models']} models across regions")
 
-        final_providers = build_final_models(
-            models_with_pricing,
-            regional_availability,
-            quotas_by_region,
-            features_by_region,
-            enriched_models,
-            aggregated_pricing,
-            collection_timestamp
+        final_providers = _lambda_build_final_models(
+            models_with_pricing=models_with_pricing,
+            regional_availability=regional_availability,
+            token_specs={},  # Not collected locally
+            quotas_by_region=quotas_by_region,
+            features_by_region=features_by_region,
+            enriched_models=enriched_models,
+            pricing_data=aggregated_pricing,
+            collection_timestamp=collection_timestamp,
+            mantle_by_model=mantle_by_model,
+            lifecycle_by_model={},  # Not collected locally
         )
 
         total_models = sum(len(p.get('models', {})) for p in final_providers.values())
@@ -239,6 +277,92 @@ class LocalCollector:
         print("=" * 60 + "\n")
 
         return {'final': {'models': total_models, 'providers': len(final_providers)}}
+
+    def _discover_regions(self) -> list:
+        """Dynamically discover all Bedrock-enabled regions (same as region-discovery Lambda)."""
+        try:
+            ec2 = self.session.client('ec2', region_name='us-east-1')
+            response = ec2.describe_regions(
+                AllRegions=False,
+                Filters=[{'Name': 'opt-in-status', 'Values': ['opt-in-not-required', 'opted-in']}],
+            )
+            all_regions = [r['RegionName'] for r in response.get('Regions', [])]
+        except ClientError as e:
+            logger.warning(f"Failed to discover regions: {e}, using defaults")
+            return sorted([
+                'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2',
+                'eu-west-1', 'eu-west-2', 'eu-west-3', 'eu-central-1', 'eu-north-1',
+                'ap-northeast-1', 'ap-northeast-2', 'ap-south-1',
+                'ap-southeast-1', 'ap-southeast-2', 'ca-central-1', 'sa-east-1',
+            ])
+
+        # Filter to regions where Bedrock is available
+        bedrock_regions = []
+
+        def check_region(region):
+            try:
+                client = self._get_client('bedrock', region)
+                client.list_inference_profiles(maxResults=1)
+                return region, True
+            except ClientError as e:
+                code = e.response.get('Error', {}).get('Code', '')
+                if code == 'AccessDeniedException':
+                    return region, True  # Bedrock exists but no access
+                return region, False
+            except Exception:
+                return region, False
+
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            futures = {executor.submit(check_region, r): r for r in all_regions}
+            for future in as_completed(futures):
+                region, available = future.result()
+                if available:
+                    bedrock_regions.append(region)
+
+        return sorted(bedrock_regions)
+
+    def _collect_mantle(self) -> dict:
+        """Collect Mantle models from all regions (same as mantle-collector Lambda).
+
+        Returns: {model_id: {"regions": [sorted list], "supports_responses_api": bool}}
+        """
+        # The mantle-collector Lambda uses a module-level boto3 session.
+        # Override it to use our session (which may have a specific profile).
+        _mantle_mod._boto3_session = self.session
+
+        mantle_by_model = {}
+
+        def collect_from_region(region):
+            try:
+                models = _call_mantle_endpoint(region)
+                # Probe Responses API support
+                model_ids = [m['model_id'] for m in models]
+                responses_support = _probe_all_responses_support(model_ids, region)
+                for m in models:
+                    m['supports_responses_api'] = responses_support.get(m['model_id'], False)
+                return region, models
+            except Exception as e:
+                logger.debug(f"Mantle not available in {region}: {e}")
+                return region, []
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(collect_from_region, r): r for r in self.quota_regions}
+            for future in as_completed(futures):
+                region, models = future.result()
+                for m in models:
+                    model_id = m.get('model_id', '')
+                    if model_id:
+                        if model_id not in mantle_by_model:
+                            mantle_by_model[model_id] = {'regions': set(), 'supports_responses_api': False}
+                        mantle_by_model[model_id]['regions'].add(region)
+                        if m.get('supports_responses_api', False):
+                            mantle_by_model[model_id]['supports_responses_api'] = True
+
+        # Convert sets to sorted lists (same as aggregate_mantle in final-aggregator)
+        return {
+            mid: {'regions': sorted(list(info['regions'])), 'supports_responses_api': info['supports_responses_api']}
+            for mid, info in mantle_by_model.items()
+        }
 
     def _collect_pricing(self) -> list:
         """Collect pricing data from AWS Pricing API."""
