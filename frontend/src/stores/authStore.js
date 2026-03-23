@@ -38,7 +38,7 @@ export const useAuthStore = create((set, get) => ({
         sub: profile.sub || null,
         // Cognito groups (e.g., ['admins'])
         groups: Array.isArray(groups) ? groups : [],
-        // Midway/Federate geo attributes (non-PII, used for aggregated analytics only)
+        // OIDC provider geo attributes (non-PII, used for aggregated analytics only)
         country: profile['custom:country'] || null,
         region: profile['custom:region'] || null,
         geoLocation: profile['custom:geo_location'] || null,

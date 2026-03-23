@@ -1,6 +1,6 @@
 /**
  * Auto-generated constants from backend profiler-config.json
- * Generated at: 2026-03-23T15:47:16.336Z
+ * Generated at: 2026-03-23T16:17:45.080Z
  * Source version: 1.0.0-auto-updated-auto-updated
  * 
  * DO NOT EDIT MANUALLY - Run 'npm run sync-config' to regenerate
@@ -535,7 +535,7 @@ export const contextWindowThresholds = {
 // Config metadata
 export const configMetadata = {
   version: "1.0.0-auto-updated-auto-updated",
-  generatedAt: "2026-03-23T15:47:16.338Z",
+  generatedAt: "2026-03-23T16:17:45.081Z",
   source: "profiler-config.json"
 };
 

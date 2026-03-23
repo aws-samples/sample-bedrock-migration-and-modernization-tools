@@ -3,7 +3,7 @@
 > **Version:** 2.1  
 > **Last Updated:** March 2026  
 > **Status:** Production  
-> **Live URL:** https://d3oem6l61p8j11.cloudfront.net
+> **Live URL:** *(your CloudFront distribution URL)*
 
 This document is the **single source of truth** for understanding the Bedrock Model Profiler architecture.
 

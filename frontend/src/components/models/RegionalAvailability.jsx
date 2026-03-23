@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback, Fragment, memo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUpDown, Zap, Globe, Globe2, Cpu, ExternalLink, AlertTriangle, AlertCircle, Info } from 'lucide-react'
+import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUpDown, Zap, Globe, Globe2, Cpu, AlertTriangle, AlertCircle, Info } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -1353,20 +1353,6 @@ export function RegionalAvailability() {
             Model availability across AWS regions at a glance
           </p>
         </div>
-        <a
-          href="https://bedrock-pfr-onboarding.rodzanto.people.aws.dev/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border whitespace-nowrap',
-            isLight
-              ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:border-amber-300'
-              : 'bg-[#1A9E7A]/10 text-[#1A9E7A] border-[#1A9E7A]/20 hover:bg-[#1A9E7A]/20 hover:border-[#1A9E7A]/30'
-          )}
-        >
-          See model onboarding and PFRs
-          <ExternalLink className="w-3 h-3" />
-        </a>
       </div>
 
       {/* Search + Legend + Geo pills */}

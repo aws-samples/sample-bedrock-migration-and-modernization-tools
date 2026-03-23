@@ -20,6 +20,7 @@ env/
 
 # SAM
 .aws-sam/
+*samconfig.toml
 
 # IDE
 .idea/
@@ -56,10 +57,8 @@ temp/
 credentials.json
 
 # CDK
-cdk/cdk.json
-cdk/cdk.out/
-cdk/*.js
-cdk/*.d.ts
+cdk/
+
 
 # Runtime data files (fetched from S3/CloudFront, not source-controlled)
 frontend/public/bedrock_models.json
@@ -68,4 +67,9 @@ frontend/public/bedrock_pricing.json
 # Local tooling
 .corvus/
 .opencode/
+.claude/
 frontend/public/latest/
+
+# Test output artifacts
+backend/tests/workflow_output/
+backend/tests/output/

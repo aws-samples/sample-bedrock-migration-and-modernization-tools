@@ -2,7 +2,7 @@
 
 A React-based web application for exploring, analyzing, and comparing Amazon Bedrock foundation models with pricing, regional availability, and technical specifications.
 
-**Live URL**: https://d3oem6l61p8j11.cloudfront.net
+**Live URL**: *(your CloudFront distribution URL after deployment)*
 
 ## Tech Stack
 
@@ -19,12 +19,10 @@ A React-based web application for exploring, analyzing, and comparing Amazon Bed
 ## Features
 
 - **Model Explorer**: Browse/filter/search 100+ models with 13 filter types, sortable, paginated, responsive grid
-- **Model Detail**: Expanded modal with Technical Specs, Quotas (auth-gated), Pricing tabs; expandable availability pills showing In Region, CRIS, Batch, Mantle with inline detail sections
+- **Model Detail**: Expanded modal with Technical Specs, Quotas, Pricing tabs; expandable availability pills showing In Region, CRIS, Batch, Mantle with inline detail sections
 - **Model Comparison**: Up to 5 models side-by-side across 4 tabs (Overview, Pricing, Availability, Tech Specs)
-- **Regional Availability**: Comprehensive model x region x consumption matrix (auth-gated, beta+)
+- **Regional Availability**: Comprehensive model x region x consumption matrix
 - **Favorites**: Persistent model shortlist (localStorage)
-- **Region Roadmap**: Internal planning tool for model launches (operators/admins)
-- **Usage Analytics**: Admin-only dashboards (Recharts)
 - **Dark/Light Theme**: Full theme support
 
 ## Project Structure

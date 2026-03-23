@@ -8,7 +8,7 @@
  */
 
 // S3 configuration from environment variables
-const S3_BUCKET = import.meta.env.VITE_S3_BUCKET || 'bedrock-profiler-data-169497827606-dev'
+const S3_BUCKET = import.meta.env.VITE_S3_BUCKET || 'your-data-bucket-name'
 const S3_REGION = import.meta.env.VITE_S3_REGION || 'us-east-1'
 const S3_PREFIX = import.meta.env.VITE_S3_PREFIX || 'latest'
 
