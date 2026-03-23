@@ -261,7 +261,7 @@ bucket/
 | **Bedrock** | Model data | ListFoundationModels, ListInferenceProfiles, InvokeModel |
 | **Bedrock Console REST API** | Extended metadata | SigV4-signed requests with x-console-consumer header |
 | **Pricing API** | Pricing data | GetProducts (3 service codes) |
-| **Service Quotas** | Regional quotas | ListServiceQuotas (27+ regions) |
+| **Service Quotas** | Regional quotas | ListServiceQuotas (all enabled regions) |
 | **Step Functions** | Orchestration | 4-phase workflow |
 | **S3** | Storage | Data, frontend hosting, caching, config |
 | **CloudFront** | CDN | OAC distribution |

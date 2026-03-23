@@ -54,7 +54,7 @@ Step Functions Workflow (daily)
   Phase 0: region-discovery → config-sync
   Phase 1 (parallel):
     ├→ pricing-collector (3x service codes) → pricing-aggregator
-    ├→ model-extractor (27+ regions, caches to S3) → model-merger
+    ├→ model-extractor (all regions, caches to S3) → model-merger
     └→ quota-collector (N regions)
   Phase 2 (parallel):
     ├→ pricing-linker + regional-availability (from cache) + feature-collector (from cache)
@@ -130,7 +130,7 @@ If environment variables are not set, the app runs without authentication.
 ## AWS Services Used
 - **Bedrock**: ListFoundationModels, ListInferenceProfiles, InvokeModel (self-healing agent)
 - **Pricing API**: GetProducts (us-east-1 only, 3 service codes)
-- **Service Quotas**: ListServiceQuotas (27+ regions)
+- **Service Quotas**: ListServiceQuotas (all regions)
 - **Step Functions**: Workflow orchestration (4 phases)
 - **S3**: Data storage, frontend hosting, inter-Lambda caching, config storage
 - **CloudFront**: CDN distribution with OAC

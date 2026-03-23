@@ -9,7 +9,7 @@ A comprehensive tool for exploring, analyzing, and comparing Amazon Bedrock foun
 - **Model Selection** — Compare capabilities, context windows, and specifications to find the right model for your use case
 - **Migration Planning** — Analyze Bedrock models when migrating workloads from other AI providers
 - **Cost Optimization** — Compare pricing across models, regions, and consumption options (on-demand, batch, provisioned, [CRIS](https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html), and Mantle)
-- **Regional Planning** — Identify model availability across 27+ AWS regions for multi-region deployments
+- **Regional Planning** — Identify model availability across all AWS regions for multi-region deployments
 - **Capability Matching** — Find models with specific features: vision, code generation, embeddings, function calling
 - **Quota Analysis** — Review service quotas and throughput limits for capacity planning
 
@@ -92,7 +92,7 @@ npm run dev
 
 Open http://localhost:5173 in your browser. The dev server uses local data files by default — no S3 bucket or AWS deployment needed.
 
-> **Note:** The profiler only shows data for AWS regions that are enabled in your account. To see all 27+ regions, [enable them](https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-regions.html) in the AWS Console first. This applies to both local and deployed versions.
+> **Note:** The profiler only shows data for AWS regions that are enabled in your account. To see all regions, [enable them](https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-regions.html) in the AWS Console first. This applies to both local and deployed versions.
 
 ### Option 2: Full AWS Deployment
 
@@ -178,7 +178,7 @@ Four specialized views:
 <details>
 <summary><strong>Regional Availability Matrix</strong> — Model-by-region availability analysis</summary>
 
-- 27+ AWS regions with geographic grouping (NAMER, EMEA, APAC, LATAM)
+- All AWS regions with geographic grouping (NAMER, EMEA, APAC, LATAM)
 - Five consumption types: on-demand, CRIS, Mantle, batch, provisioned throughput
 - Filter by availability type, provider, or model status
 - Expandable detail sections showing inference profiles, source regions, and geographic scopes
@@ -239,7 +239,7 @@ Four specialized views:
 │  Phase 1    │  Phase 1        │  Phase 1     │  Phase 2+3        │
 │  Pricing    │  Model          │  Quota       │  Enrichment,      │
 │  Collector  │  Extractor      │  Collector   │  Aggregation,     │
-│  (3 svc)    │  (27+ regions)  │  (27+ reg)   │  Gap Detection    │
+│  (3 svc)    │  (all regions)  │  (all reg)   │  Gap Detection    │
 └─────────────┴─────────────────┴──────────────┴───────────────────┘
 ```
 
