@@ -81,7 +81,7 @@ python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r local/requirements.txt
 
-# Collect model data (takes ~90 seconds)
+# Collect model data (takes ~90 seconds, auto-copies to frontend)
 python -m local collect --profile your-aws-profile
 
 # Start the frontend
@@ -90,7 +90,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 in your browser.
+Open http://localhost:5173 in your browser. The dev server uses local data files by default — no S3 bucket or AWS deployment needed.
 
 ### Option 2: Full AWS Deployment
 
