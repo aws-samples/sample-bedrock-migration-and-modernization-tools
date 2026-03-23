@@ -24,17 +24,19 @@ python -m local collect
 python -m local collect --profile my-aws-profile --output ./data
 ```
 
-### Backend Deployment
+### Backend-Only Deployment
 ```bash
 cd infra
 sam build -t backend-template.yaml
-sam deploy --stack-name bedrock-profiler --capabilities CAPABILITY_NAMED_IAM --resolve-s3
+sam deploy --stack-name bmp-backend --capabilities CAPABILITY_NAMED_IAM --resolve-s3 \
+  --parameter-overrides "DataBucketName=<data-bucket> FrontendStackName=bmp-frontend"
 ```
 
-### Full Deployment
+### Full AWS Deployment
 ```bash
-./setup-infrastructure.sh    # Deploy backend + frontend infrastructure
-cd frontend && ./scripts/deploy.sh  # Deploy frontend files only
+./setup-infrastructure.sh bmp                                                      # Deploy everything
+AWS_REGION=eu-west-1 ./setup-infrastructure.sh bmp                                 # Deploy to a specific region
+cd frontend && AWS_REGION=eu-west-1 FRONTEND_STACK=bmp-frontend ./scripts/deploy.sh  # Redeploy frontend only
 ```
 
 ### Backend Testing

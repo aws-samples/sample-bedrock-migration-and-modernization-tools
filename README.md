@@ -99,15 +99,11 @@ Deploy the complete solution with automated daily data refresh.
 - AWS credentials with deployment permissions (CloudFormation, S3, Lambda, Step Functions)
 
 ```bash
-# 1. Deploy backend (data pipeline)
-cd infra
-sam build -t backend-template.yaml
-sam deploy --guided
-
-# 2. Deploy everything (frontend + backend linking)
-cd ..
-./setup-infrastructure.sh
+# One command deploys everything — choose any stack name
+./setup-infrastructure.sh bmp
 ```
+
+This creates two stacks (`bmp-frontend` and `bmp-backend`), seeds placeholder data, builds and deploys the frontend, and triggers the data pipeline. Data appears on the site within ~3 minutes.
 
 This deploys:
 - **S3 buckets** for frontend hosting and data storage
@@ -115,6 +111,31 @@ This deploys:
 - **Step Functions workflow** for automated data collection (daily at 6 AM UTC)
 - **16 Lambda functions** for data processing and enrichment
 - **EventBridge rule** for scheduling
+
+**Deploying to a different region:**
+```bash
+AWS_REGION=eu-west-1 ./setup-infrastructure.sh bmp
+```
+
+
+### Updating the Frontend
+
+After making frontend code changes, rebuild and redeploy without redeploying the full infrastructure:
+
+```bash
+cd frontend
+npm install
+npm run build
+AWS_REGION=<your-region> FRONTEND_STACK=<stack-name>-frontend ./scripts/deploy.sh
+```
+
+Replace `<stack-name>` with the name you passed to `setup-infrastructure.sh` (e.g., `bmp`) and `<your-region>` with the region you deployed to. For example:
+
+```bash
+AWS_REGION=eu-west-1 FRONTEND_STACK=bmp-frontend ./scripts/deploy.sh
+```
+
+This uploads the built files to S3 and invalidates the CloudFront cache. Changes propagate within a few minutes.
 
 ## Architecture
 
@@ -224,19 +245,19 @@ CloudFormation stack creation and SAM deployment are free. You only pay for the 
 To remove all deployed resources and stop incurring charges:
 
 ```bash
-# Set your environment (default: dev)
-ENVIRONMENT="${ENVIRONMENT:-dev}"
+# Set your stack name (the name you passed to setup-infrastructure.sh)
+STACK_NAME="bmp"
 REGION="${AWS_REGION:-us-east-1}"
 
 # 1. Empty the S3 buckets (required before stack deletion)
 DATA_BUCKET=$(aws cloudformation describe-stacks \
-    --stack-name "bedrock-profiler-${ENVIRONMENT}" \
+    --stack-name "${STACK_NAME}-frontend" \
     --region "$REGION" \
     --query "Stacks[0].Outputs[?OutputKey=='DataBucketName'].OutputValue" \
     --output text)
 
 FRONTEND_BUCKET=$(aws cloudformation describe-stacks \
-    --stack-name "bedrock-profiler-frontend-${ENVIRONMENT}" \
+    --stack-name "${STACK_NAME}-frontend" \
     --region "$REGION" \
     --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" \
     --output text)
@@ -244,17 +265,17 @@ FRONTEND_BUCKET=$(aws cloudformation describe-stacks \
 aws s3 rm "s3://${DATA_BUCKET}" --recursive
 aws s3 rm "s3://${FRONTEND_BUCKET}" --recursive
 
-# 2. Delete the stacks (frontend first, then backend)
+# 2. Delete the stacks (backend first since it imports from frontend, then frontend)
 aws cloudformation delete-stack \
-    --stack-name "bedrock-profiler-frontend-${ENVIRONMENT}" \
+    --stack-name "${STACK_NAME}-backend" \
     --region "$REGION"
 
 aws cloudformation wait stack-delete-complete \
-    --stack-name "bedrock-profiler-frontend-${ENVIRONMENT}" \
+    --stack-name "${STACK_NAME}-backend" \
     --region "$REGION"
 
 aws cloudformation delete-stack \
-    --stack-name "bedrock-profiler-${ENVIRONMENT}" \
+    --stack-name "${STACK_NAME}-frontend" \
     --region "$REGION"
 
 echo "All resources deleted."

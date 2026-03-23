@@ -576,8 +576,18 @@ export function useModels() {
   useEffect(() => {
     // Load both models and pricing in parallel
     Promise.all([
-      fetch(DATA_URLS.models).then(r => r.ok ? r.json() : Promise.reject('Failed to load models')),
-      fetch(DATA_URLS.pricing).then(r => r.ok ? r.json() : null).catch(() => null)
+      fetch(DATA_URLS.models).then(r => {
+        if (!r.ok) return Promise.reject('Failed to load models')
+        const ct = r.headers.get('content-type') || ''
+        if (ct.includes('text/html')) return Promise.reject('Data pipeline has not completed yet. Please refresh in a few minutes.')
+        return r.json()
+      }),
+      fetch(DATA_URLS.pricing).then(r => {
+        if (!r.ok) return null
+        const ct = r.headers.get('content-type') || ''
+        if (ct.includes('text/html')) return null
+        return r.json()
+      }).catch(() => null)
     ])
       .then(([modelsData, pricing]) => {
         setRawData(modelsData)

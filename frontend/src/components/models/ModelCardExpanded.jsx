@@ -3157,7 +3157,7 @@ function LifecycleDetailsSection({ model, isLight }) {
   )
 }
 
-function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
+function SpecsTab({ model, getPricingForModel, preferredRegion }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
   
@@ -3207,9 +3207,9 @@ function SpecsTab({ model, user, getPricingForModel, preferredRegion }) {
           )}>
             <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="font-medium">No pricing data available</p>
+              <p className="font-medium">No pricing in API</p>
               <p className={cn('text-xs mt-0.5', isLight ? 'text-amber-700' : 'text-amber-400/80')}>
-                This model is not listed in the AWS Pricing API. Please verify model availability before use.
+                May not be available for consumption. Please verify model availability before use.
               </p>
             </div>
           </div>
@@ -3923,7 +3923,7 @@ function QuotasTab({ model, getPricingForModel, preferredRegion }) {
             : 'bg-violet-500/10 text-violet-300 border border-violet-500/20'
         )}>
           <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-          <span>These quotas are internal service quotas and may not reflect customer-facing limits.</span>
+          <span>These quotas apply to the specific AWS account used to deploy this solution. Actual limits may vary by account — verify in the AWS Service Quotas console.</span>
         </div>
 
         {/* No pricing warning banner */}
@@ -3936,9 +3936,9 @@ function QuotasTab({ model, getPricingForModel, preferredRegion }) {
           )}>
             <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="font-medium">No pricing data available</p>
+              <p className="font-medium">No pricing in API</p>
               <p className={cn('text-xs mt-0.5', isLight ? 'text-amber-700' : 'text-amber-400/80')}>
-                This model is not listed in the AWS Pricing API. Please verify model availability before use.
+                May not be available for consumption. Please verify model availability before use.
               </p>
             </div>
           </div>
@@ -4976,7 +4976,7 @@ function CRISPricingSection({
   )
 }
 
-function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', user }) {
+function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1' }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedSections, setExpandedSections] = useState({})
   const [selectedGeoByTier, setSelectedGeoByTier] = useState({})
@@ -5117,9 +5117,9 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
       )}>
         <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
         <div>
-          <p className="font-medium">No pricing data available</p>
+          <p className="font-medium">No pricing in API</p>
           <p className={cn('text-sm mt-1', isLight ? 'text-amber-700' : 'text-amber-400/80')}>
-            This model is not listed in the AWS Pricing API. Please verify model availability before use.
+            May not be available for consumption. Please verify model availability before use.
           </p>
         </div>
       </div>
@@ -5813,23 +5813,6 @@ function PricingTab({ model, getPricingForModel, preferredRegion = 'us-east-1', 
                   </TooltipContent>
                 </Tooltip>
               )}
-              {/* Show badge for Provisioned group indicating why user can see it */}
-              {parentGroup.id === 'provisioned' && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className={cn(
-                      'text-[9px] px-1.5 py-0.5 rounded border font-medium',
-                      getSectionBadge(user, 'availability')?.light || 'bg-purple-100 text-purple-700 border-purple-200/60',
-                      !isLight && (getSectionBadge(user, 'availability')?.dark || 'bg-purple-500/15 text-purple-400 border-purple-500/20')
-                    )}>
-                      {getSectionBadge(user, 'availability')?.text || 'BETA'}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p className="text-xs">Visible to {getSectionBadge(user, 'availability')?.text === 'ADM' ? 'admins' : getSectionBadge(user, 'availability')?.text === 'OP' ? 'operators' : 'beta users'}</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
               <Badge className={cn('text-[10px]', colors.badge)}>
                 {totalRegions} regions
               </Badge>
@@ -6408,17 +6391,7 @@ export function ModelCardExpanded({
                   </TabsTrigger>
                   {showQuotas && (
                     <TabsTrigger value="quotas" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
-                      <span className="flex items-center gap-2">
-                        Service Quotas
-                        {getSectionBadge(user, 'quotas') && (
-                          <span className={cn(
-                            'text-[9px] font-bold leading-none px-1.5 py-0.5 rounded-full border',
-                            isLight ? getSectionBadge(user, 'quotas').light : getSectionBadge(user, 'quotas').dark
-                          )}>
-                            {getSectionBadge(user, 'quotas').text}
-                          </span>
-                        )}
-                      </span>
+                      Service Quotas
                     </TabsTrigger>
                   )}
                   <TabsTrigger value="pricing" className="rounded-none border-b-2 border-transparent data-[state=active]:border-current px-6 py-3">
@@ -6427,7 +6400,7 @@ export function ModelCardExpanded({
                 </TabsList>
 
                 <TabsContent value="specs" className="flex-1 mt-0 min-h-0 overflow-hidden">
-                  <SpecsTab model={model} user={user} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} />
+                  <SpecsTab model={model} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} />
                 </TabsContent>
 
                 {showQuotas && (
@@ -6437,7 +6410,7 @@ export function ModelCardExpanded({
                 )}
 
                 <TabsContent value="pricing" className="flex-1 mt-0 min-h-0 overflow-hidden">
-                  <PricingTab model={model} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} user={user} />
+                  <PricingTab model={model} getPricingForModel={getPricingForModel} preferredRegion={preferredRegion} />
                 </TabsContent>
               </Tabs>
             </div>

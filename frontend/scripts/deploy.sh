@@ -5,15 +5,20 @@ set -e
 # Uploads built files to S3 and invalidates CloudFront cache
 
 # Configuration
-ENVIRONMENT="${ENVIRONMENT:-dev}"
-STACK_NAME="bedrock-profiler-frontend-${ENVIRONMENT}"
+STACK_NAME="${FRONTEND_STACK:-${1:-}}"
 REGION="${AWS_REGION:-us-east-1}"
+
+if [ -z "$STACK_NAME" ]; then
+    echo "Usage: ./scripts/deploy.sh <frontend-stack-name>"
+    echo "  Example: ./scripts/deploy.sh bmp-frontend"
+    echo "  Example: FRONTEND_STACK=bmp-frontend ./scripts/deploy.sh"
+    exit 1
+fi
 DIST_DIR="dist"
 
 echo "=========================================="
 echo "Bedrock Model Profiler - Frontend Deploy"
 echo "=========================================="
-echo "Environment: ${ENVIRONMENT}"
 echo "Stack Name: ${STACK_NAME}"
 echo "Region: ${REGION}"
 echo ""
@@ -34,7 +39,7 @@ BUCKET_NAME=$(aws cloudformation describe-stacks \
 
 if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" == "None" ]; then
     echo "Error: Could not find S3 bucket. Make sure the infrastructure is deployed."
-    echo "Run: npm run deploy:infra:${ENVIRONMENT}"
+    echo "Run: ./setup-infrastructure.sh <stack-name>"
     exit 1
 fi
 

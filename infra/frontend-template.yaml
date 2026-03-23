@@ -1,27 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Bedrock Model Profiler - Frontend CloudFront + S3 Distribution
+Description: Bedrock Model Profiler - Frontend CloudFront + S3 Distribution + Data Bucket
 
 Parameters:
-  Environment:
-    Type: String
-    Default: dev
-    AllowedValues: [dev, staging, prod]
-    Description: Deployment environment
-
-  DataBucketName:
-    Type: String
-    Description: Name of the existing S3 bucket containing model/pricing data
-    Default: ''
-
-  DataBucketAccountId:
-    Type: String
-    Description: AWS Account ID where the data bucket exists (for cross-account access)
-    Default: ''
-
   DomainName:
     Type: String
-    Description: Custom domain name for the CloudFront distribution (e.g. bedrock-model-profiler.avelizf.people.aws.dev). Leave empty to skip custom domain setup.
+    Description: Custom domain name for the CloudFront distribution. Leave empty to skip custom domain setup.
     Default: ''
 
   HostedZoneId:
@@ -30,7 +14,6 @@ Parameters:
     Default: ''
 
 Conditions:
-  UseDefaultDataBucket: !Equals [!Ref DataBucketName, '']
   HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
 
 Resources:
@@ -40,7 +23,7 @@ Resources:
   FrontendBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'bedrock-profiler-frontend-${AWS::AccountId}-${Environment}'
+      BucketName: !Sub '${AWS::StackName}-${AWS::AccountId}'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -53,9 +36,6 @@ Resources:
             AllowedOrigins: ['*']
             MaxAge: 3600
 
-  #############################################
-  # S3 Bucket Policy for CloudFront OAC
-  #############################################
   FrontendBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -74,13 +54,56 @@ Resources:
                 AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
 
   #############################################
+  # S3 Bucket for Pipeline Data Storage
+  #############################################
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-data-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldExecutions
+            Status: Enabled
+            Prefix: executions/
+            ExpirationInDays: 30
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 7
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  DataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DataBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource:
+              - !Sub '${DataBucket.Arn}/latest/*'
+              - !Sub '${DataBucket.Arn}/config/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  #############################################
   # CloudFront Origin Access Control
   #############################################
   FrontendOAC:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
       OriginAccessControlConfig:
-        Name: !Sub 'bedrock-profiler-frontend-oac-${Environment}'
+        Name: !Sub '${AWS::StackName}-frontend-oac'
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
@@ -89,7 +112,7 @@ Resources:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
       OriginAccessControlConfig:
-        Name: !Sub 'bedrock-profiler-data-oac-${Environment}'
+        Name: !Sub '${AWS::StackName}-data-oac'
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
@@ -101,7 +124,7 @@ Resources:
     Type: AWS::CloudFront::Function
     Condition: HasCustomDomain
     Properties:
-      Name: !Sub 'bedrock-profiler-domain-redirect-${Environment}'
+      Name: !Sub '${AWS::StackName}-domain-redirect'
       AutoPublish: true
       FunctionConfig:
         Comment: !Sub 'Redirect CloudFront domain to ${DomainName}'
@@ -124,10 +147,12 @@ Resources:
   #############################################
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
+    DependsOn:
+      - DataBucket
     Properties:
       DistributionConfig:
         Enabled: true
-        Comment: !Sub 'Bedrock Model Profiler - ${Environment}'
+        Comment: !Sub 'Bedrock Model Profiler - ${AWS::StackName}'
         DefaultRootObject: index.html
         HttpVersion: http2and3
         PriceClass: PriceClass_100
@@ -153,14 +178,9 @@ Resources:
               OriginAccessIdentity: ''
             OriginAccessControlId: !Ref FrontendOAC
 
-          # Data bucket origin (for /data/* requests)
+          # Data bucket origin (for /latest/* and /config/* requests)
           - Id: DataOrigin
-            DomainName: !Sub
-              - '${BucketName}.s3.${AWS::Region}.amazonaws.com'
-              - BucketName: !If
-                  - UseDefaultDataBucket
-                  - !Sub 'bedrock-profiler-data-${AWS::AccountId}-${Environment}'
-                  - !Ref DataBucketName
+            DomainName: !GetAtt DataBucket.RegionalDomainName
             S3OriginConfig:
               OriginAccessIdentity: ''
             OriginAccessControlId: !Ref DataBucketOAC
@@ -180,7 +200,7 @@ Resources:
                 FunctionARN: !GetAtt DomainRedirectFunction.FunctionARN
             - !Ref 'AWS::NoValue'
 
-        # Cache behavior for /latest/* - serve from data bucket
+        # Cache behaviors for data paths - serve from data bucket
         CacheBehaviors:
           - PathPattern: '/latest/*'
             TargetOriginId: DataOrigin
@@ -196,7 +216,23 @@ Resources:
                   FunctionARN: !GetAtt DomainRedirectFunction.FunctionARN
               - !Ref 'AWS::NoValue'
 
+          - PathPattern: '/config/*'
+            TargetOriginId: DataOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            CachePolicyId: !Ref DataCachePolicy
+            ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+            FunctionAssociations: !If
+              - HasCustomDomain
+              - - EventType: viewer-request
+                  FunctionARN: !GetAtt DomainRedirectFunction.FunctionARN
+              - !Ref 'AWS::NoValue'
+
         # Custom error responses for SPA routing
+        # Note: These apply to ALL origins including DataOrigin.
+        # The frontend handles HTML-instead-of-JSON responses gracefully.
         CustomErrorResponses:
           - ErrorCode: 403
             ResponseCode: 200
@@ -214,7 +250,7 @@ Resources:
     Type: AWS::CloudFront::CachePolicy
     Properties:
       CachePolicyConfig:
-        Name: !Sub 'bedrock-profiler-frontend-cache-${Environment}'
+        Name: !Sub '${AWS::StackName}-frontend-cache'
         DefaultTTL: 86400
         MaxTTL: 31536000
         MinTTL: 0
@@ -232,7 +268,7 @@ Resources:
     Type: AWS::CloudFront::CachePolicy
     Properties:
       CachePolicyConfig:
-        Name: !Sub 'bedrock-profiler-data-cache-${Environment}'
+        Name: !Sub '${AWS::StackName}-data-cache'
         DefaultTTL: 3600
         MaxTTL: 86400
         MinTTL: 0
@@ -293,7 +329,7 @@ Resources:
     Type: AWS::CloudFront::ResponseHeadersPolicy
     Properties:
       ResponseHeadersPolicyConfig:
-        Name: !Sub 'bedrock-profiler-security-headers-${Environment}'
+        Name: !Sub '${AWS::StackName}-security-headers'
         SecurityHeadersConfig:
           ContentTypeOptions:
             Override: true
@@ -319,6 +355,18 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-FrontendBucket'
 
+  DataBucketName:
+    Description: Name of the S3 data bucket
+    Value: !Ref DataBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-DataBucket'
+
+  DataBucketArn:
+    Description: ARN of the S3 data bucket
+    Value: !GetAtt DataBucket.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DataBucketArn'
+
   CloudFrontDistributionId:
     Description: CloudFront Distribution ID
     Value: !Ref CloudFrontDistribution
@@ -336,13 +384,6 @@ Outputs:
     Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
     Export:
       Name: !Sub '${AWS::StackName}-URL'
-
-  DataBucketUsed:
-    Description: Data bucket being used
-    Value: !If
-      - UseDefaultDataBucket
-      - !Sub 'bedrock-profiler-data-${AWS::AccountId}-${Environment}'
-      - !Ref DataBucketName
 
   CustomDomainURL:
     Condition: HasCustomDomain

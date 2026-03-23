@@ -14,20 +14,14 @@ Parameters:
     AllowedValues: ['true', 'false']
     Description: Enable daily scheduled execution
 
-  CloudFrontDistributionArn:
+  DataBucketName:
     Type: String
-    Default: ''
-    Description: ARN of the CloudFront distribution that needs access to the data bucket (optional)
+    Description: Name of the S3 data bucket (created by the frontend stack)
 
   FrontendStackName:
     Type: String
     Default: ''
-    Description: Name of the frontend CloudFormation stack (e.g. bedrock-profiler-frontend-prod). Used to import the CloudFront distribution ID for automatic cache invalidation.
-
-  ExistingDataBucket:
-    Type: String
-    Default: ''
-    Description: Name of existing S3 bucket to use (leave empty to create new bucket)
+    Description: Name of the frontend CloudFormation stack. Used to import the CloudFront distribution ID for automatic cache invalidation.
 
   LogLevel:
     Type: String
@@ -113,10 +107,8 @@ Parameters:
     Description: AWS region for EC2 API calls (region discovery)
 
 Conditions:
-  HasCloudFrontAccess: !Not [!Equals [!Ref CloudFrontDistributionArn, '']]
   HasFrontendStack: !Not [!Equals [!Ref FrontendStackName, '']]
   ScheduleEnabledCondition: !Equals [!Ref ScheduleEnabled, 'true']
-  CreateNewBucket: !Equals [!Ref ExistingDataBucket, '']
 
 Globals:
   Function:
@@ -129,7 +121,7 @@ Globals:
     Environment:
       Variables:
         ENVIRONMENT: !Ref Environment
-        DATA_BUCKET: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
+        DATA_BUCKET: !Ref DataBucketName
         LOG_LEVEL: !Ref LogLevel
         POWERTOOLS_SERVICE_NAME: bedrock-profiler
         POWERTOOLS_LOG_LEVEL: !Ref LogLevel
@@ -150,58 +142,12 @@ Resources:
   SharedUtilsLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
-      LayerName: !Sub 'bedrock-profiler-shared-utils-${Environment}'
-      Description: Shared utilities for Bedrock Model Profiler Lambda functions - v2.6.0 Efficiency optimizations with full region caching and TTL-based external data caching
+      LayerName: !Sub '${AWS::StackName}-shared-utils'
+      Description: Shared utilities for Bedrock Model Profiler Lambda functions
       ContentUri: ../backend/layers/common/
       CompatibleRuntimes:
         - python3.11
       RetentionPolicy: Delete
-
-  #############################################
-  # S3 Bucket for Data Storage
-  #############################################
-  DataBucket:
-    Type: AWS::S3::Bucket
-    Condition: CreateNewBucket
-    Properties:
-      BucketName: !Sub 'bedrock-profiler-data-${AWS::AccountId}-${Environment}'
-      VersioningConfiguration:
-        Status: Enabled
-      LifecycleConfiguration:
-        Rules:
-          - Id: DeleteOldExecutions
-            Status: Enabled
-            Prefix: executions/
-            ExpirationInDays: 30
-          - Id: DeleteOldVersions
-            Status: Enabled
-            NoncurrentVersionExpirationInDays: 7
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-
-  # Bucket policy to allow CloudFront OAC access (only if CloudFront ARN is provided AND creating new bucket)
-  DataBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Condition: HasCloudFrontAccess
-    Properties:
-      Bucket: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Sid: AllowCloudFrontServicePrincipal
-            Effect: Allow
-            Principal:
-              Service: cloudfront.amazonaws.com
-            Action: s3:GetObject
-            Resource: !Sub
-              - '${BucketArn}/latest/*'
-              - BucketArn: !If [CreateNewBucket, !GetAtt DataBucket.Arn, !Sub 'arn:aws:s3:::${ExistingDataBucket}']
-            Condition:
-              StringEquals:
-                AWS:SourceArn: !Ref CloudFrontDistributionArn
 
   #############################################
   # Lambda Functions
@@ -211,7 +157,7 @@ Resources:
   PricingCollectorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-pricing-collector-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-pricing-collector'
       CodeUri: ../backend/lambdas/pricing-collector/
       Handler: handler.lambda_handler
       Timeout: 300
@@ -234,15 +180,12 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   PricingAggregatorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-pricing-aggregator-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-pricing-aggregator'
       CodeUri: ../backend/lambdas/pricing-aggregator/
       Handler: handler.lambda_handler
       Timeout: 120
@@ -254,16 +197,13 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   # Wave 1: Model Extraction
   ModelExtractorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-model-extractor-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-model-extractor'
       CodeUri: ../backend/lambdas/model-extractor/
       Handler: handler.lambda_handler
       Timeout: 60
@@ -278,15 +218,12 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   ModelMergerFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-model-merger-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-model-merger'
       CodeUri: ../backend/lambdas/model-merger/
       Handler: handler.lambda_handler
       Timeout: 60
@@ -298,16 +235,13 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   # Wave 1: Quota Collection
   QuotaCollectorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-quota-collector-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-quota-collector'
       CodeUri: ../backend/lambdas/quota-collector/
       Handler: handler.lambda_handler
       Timeout: 60
@@ -326,16 +260,13 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   # Wave 2: Enrichment
   PricingLinkerFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-pricing-linker-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-pricing-linker'
       CodeUri: ../backend/lambdas/pricing-linker/
       Handler: handler.lambda_handler
       Timeout: 120
@@ -347,15 +278,12 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   RegionalAvailabilityFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-regional-availability-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-regional-availability'
       CodeUri: ../backend/lambdas/regional-availability/
       Handler: handler.lambda_handler
       Timeout: 60
@@ -375,15 +303,12 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   FeatureCollectorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-feature-collector-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-feature-collector'
       CodeUri: ../backend/lambdas/feature-collector/
       Handler: handler.lambda_handler
       Timeout: 60
@@ -398,15 +323,12 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   RegionDiscoveryFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-region-discovery-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-region-discovery'
       CodeUri: ../backend/lambdas/region-discovery/
       Handler: handler.lambda_handler
       Timeout: 120
@@ -426,7 +348,7 @@ Resources:
   TokenSpecsCollectorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-token-specs-collector-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-token-specs-collector'
       CodeUri: ../backend/lambdas/token-specs-collector/
       Handler: handler.lambda_handler
       Timeout: 120
@@ -438,16 +360,13 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   # Wave 2: Mantle Collection
   MantleCollectorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-mantle-collector-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-mantle-collector'
       CodeUri: ../backend/lambdas/mantle-collector/
       Handler: handler.lambda_handler
       Timeout: 120
@@ -462,16 +381,13 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   # Wave 2: Lifecycle Collection
   LifecycleCollectorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-lifecycle-collector-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-lifecycle-collector'
       CodeUri: ../backend/lambdas/lifecycle-collector/
       Handler: handler.lambda_handler
       Timeout: 60
@@ -482,16 +398,13 @@ Resources:
             - Effect: Allow
               Action:
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   # Final Aggregation
   FinalAggregatorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-final-aggregator-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-final-aggregator'
       CodeUri: ../backend/lambdas/final-aggregator/
       Handler: handler.lambda_handler
       Timeout: 180
@@ -503,15 +416,12 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   CopyToLatestFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-copy-to-latest-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-copy-to-latest'
       CodeUri: ../backend/lambdas/copy-to-latest/
       Handler: handler.lambda_handler
       Timeout: 120
@@ -524,16 +434,13 @@ Resources:
                 - s3:GetObject
                 - s3:PutObject
                 - s3:CopyObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   # Cache Invalidator - Invalidates CloudFront cache after data update
   CacheInvalidatorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-cache-invalidator-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-cache-invalidator'
       CodeUri: ../backend/lambdas/cache-invalidator/
       Handler: handler.lambda_handler
       Timeout: 30
@@ -563,7 +470,7 @@ Resources:
   GapDetectionFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-gap-detection-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-gap-detection'
       CodeUri: ../backend/lambdas/gap-detection/
       Handler: handler.lambda_handler
       Timeout: 120
@@ -575,16 +482,13 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
   # Self-Healing Agent - Uses Bedrock Claude to suggest config updates
   SelfHealingAgentFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-self-healing-agent-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-self-healing-agent'
       CodeUri: ../backend/lambdas/self-healing-agent/
       Handler: handler.lambda_handler
       Timeout: 300
@@ -596,10 +500,7 @@ Resources:
               Action:
                 - s3:GetObject
                 - s3:PutObject
-              Resource: !If
-                - CreateNewBucket
-                - !Sub '${DataBucket.Arn}/*'
-                - !Sub 'arn:aws:s3:::${ExistingDataBucket}/*'
+              Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
             - Effect: Allow
               Action:
                 - bedrock:InvokeModel
@@ -613,14 +514,14 @@ Resources:
   ConfigSyncFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub 'bedrock-profiler-config-sync-${Environment}'
+      FunctionName: !Sub '${AWS::StackName}-config-sync'
       CodeUri: ../backend/lambdas/config-sync/
       Handler: handler.lambda_handler
       Timeout: 60
       MemorySize: 256
       Policies:
         - S3CrudPolicy:
-            BucketName: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
+            BucketName: !Ref DataBucketName
 
   #############################################
   # Step Functions State Machine
@@ -628,7 +529,7 @@ Resources:
   StateMachineRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'bedrock-profiler-sfn-role-${Environment}'
+      RoleName: !Sub '${AWS::StackName}-sfn-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -682,16 +583,16 @@ Resources:
   StateMachineLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub '/aws/stepfunctions/bedrock-profiler-${Environment}'
+      LogGroupName: !Sub '/aws/stepfunctions/${AWS::StackName}'
       RetentionInDays: 30
 
   BedrockProfilerStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
-      Name: !Sub 'bedrock-profiler-workflow-${Environment}'
+      Name: !Sub '${AWS::StackName}-workflow'
       DefinitionUri: ../backend/statemachine/bedrock-profiler.asl.json
       DefinitionSubstitutions:
-        S3Bucket: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
+        S3Bucket: !Ref DataBucketName
         PricingCollectorFunction: !GetAtt PricingCollectorFunction.Arn
         PricingAggregatorFunction: !GetAtt PricingAggregatorFunction.Arn
         ModelExtractorFunction: !GetAtt ModelExtractorFunction.Arn
@@ -726,7 +627,7 @@ Resources:
   DailyScheduleRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'bedrock-profiler-schedule-role-${Environment}'
+      RoleName: !Sub '${AWS::StackName}-schedule-role'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -748,7 +649,7 @@ Resources:
     Type: AWS::Scheduler::Schedule
     Condition: ScheduleEnabledCondition
     Properties:
-      Name: !Sub 'bedrock-profiler-daily-${Environment}'
+      Name: !Sub '${AWS::StackName}-daily'
       Description: 'Daily execution of Bedrock Model Profiler workflow'
       ScheduleExpression: 'cron(0 6,18 * * ? *)'  # 6 AM and 6 PM UTC daily
       ScheduleExpressionTimezone: 'UTC'
@@ -769,31 +670,16 @@ Outputs:
       Name: !Sub '${AWS::StackName}-StateMachineArn'
 
   DataBucketName:
-    Description: Name of the S3 data bucket
-    Value: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
-    Export:
-      Name: !Sub '${AWS::StackName}-DataBucketName'
-
-  DataBucketArn:
-    Description: ARN of the S3 data bucket
-    Value: !If
-      - CreateNewBucket
-      - !GetAtt DataBucket.Arn
-      - !Sub 'arn:aws:s3:::${ExistingDataBucket}'
-    Export:
-      Name: !Sub '${AWS::StackName}-DataBucketArn'
+    Description: Name of the S3 data bucket (from frontend stack)
+    Value: !Ref DataBucketName
 
   LatestModelsUrl:
     Description: S3 URL for latest models JSON
-    Value: !Sub
-      - 's3://${BucketName}/latest/bedrock_models.json'
-      - BucketName: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
+    Value: !Sub 's3://${DataBucketName}/latest/bedrock_models.json'
 
   LatestPricingUrl:
     Description: S3 URL for latest pricing JSON
-    Value: !Sub
-      - 's3://${BucketName}/latest/bedrock_pricing.json'
-      - BucketName: !If [CreateNewBucket, !Ref DataBucket, !Ref ExistingDataBucket]
+    Value: !Sub 's3://${DataBucketName}/latest/bedrock_pricing.json'
 
   # Configuration outputs
   LogLevel:
