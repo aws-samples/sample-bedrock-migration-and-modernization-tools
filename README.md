@@ -92,6 +92,8 @@ npm run dev
 
 Open http://localhost:5173 in your browser. The dev server uses local data files by default — no S3 bucket or AWS deployment needed.
 
+> **Note:** The profiler only shows data for AWS regions that are enabled in your account. To see all 27+ regions, [enable them](https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-regions.html) in the AWS Console first. This applies to both local and deployed versions.
+
 ### Option 2: Full AWS Deployment
 
 Deploy the complete solution with automated daily data refresh. One command deploys everything:
@@ -325,6 +327,7 @@ This tool is designed for exploration, analysis, and planning. While it uses off
 - **Verify before production decisions** — Always confirm pricing and availability in the [AWS Console](https://console.aws.amazon.com/bedrock/)
 - **Data freshness** — Model availability and pricing can change; data refreshes twice daily
 - **Regional variations** — Some features may not be available in all regions
+- **Enabled regions only** — The profiler collects data only from regions enabled in your AWS account. [Enable additional regions](https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-regions.html) to see more availability data
 - **Consult AWS** — Contact your AWS account team for production workload guidance
 
 ## Contributing
