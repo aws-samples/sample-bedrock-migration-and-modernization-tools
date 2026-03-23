@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Amazon Bedrock Model Profiler - A full-stack serverless tool for exploring, analyzing, and comparing Amazon Bedrock foundation models. Features a self-healing data pipeline with 17 Lambda functions, inter-Lambda caching, and Claude-powered gap detection.
+Amazon Bedrock Model Profiler - A full-stack serverless tool for exploring, analyzing, and comparing Amazon Bedrock foundation models. Features a self-healing data pipeline with 18 Lambda functions, inter-Lambda caching, and Claude-powered gap detection.
 
 ## Commands
 
@@ -87,7 +87,7 @@ Step Functions Workflow (daily)
 - **Config**: `config/constants.js` + `config/generated-constants.js` for app constants, `config/dataSource.js` for environment-aware URLs
 
 ### Backend Architecture
-- 17 Lambda functions (Python 3.11) orchestrated by Step Functions
+- 18 Lambda functions (Python 3.11) orchestrated by Step Functions
 - All Lambdas import from shared layer: `from shared import s3_utils, config, validation, model_matcher, cache_utils`
 - Consistent response format: `{status: "SUCCESS"|"FAILED", ...metadata}`
 - Retry config: 3 retries with exponential backoff for throttling
