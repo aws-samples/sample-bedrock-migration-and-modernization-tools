@@ -1,0 +1,90 @@
+{
+  "run_id": "demo-weather-agent",
+  "metadata": {
+    "source": "sample_trace",
+    "adapter_version": "1.0.0",
+    "processed_at": "2026-04-05T16:00:00Z",
+    "segmentation_strategy_used": "TURN_ID",
+    "run_confidence": 0.95,
+    "mapping_coverage": {
+      "ids_coverage": 1.0,
+      "time_coverage": 1.0,
+      "tool_coverage": 1.0,
+      "text_coverage": 1.0,
+      "overall_mapping_coverage": 1.0
+    }
+  },
+  "adapter_stats": {
+    "total_events_processed": 7,
+    "events_with_valid_timestamps": 7,
+    "turn_count": 2,
+    "confidence_penalties": [],
+    "segmentation_strategy": "TURN_ID",
+    "mapping_coverage": 1.0,
+    "orphan_tool_results": [],
+    "segmentation_strategy_reason": "All events have turn_id field"
+  },
+  "turns": [
+    {
+      "turn_id": "turn-1",
+      "user_query": "What is the weather in Seattle today?",
+      "final_answer": "It is 58°F and rainy in Seattle today.",
+      "confidence": 0.95,
+      "total_latency_ms": 5800,
+      "normalized_latency_ms": 5800,
+      "runtime_reported_latency_ms": null,
+      "steps": [
+        {
+          "name": "weather_api",
+          "kind": "TOOL_CALL",
+          "status": "success",
+          "tool_name": "weather_api",
+          "tool_run_id": "tool-001",
+          "start_ts": "2026-03-09T10:01:01Z",
+          "end_ts": "2026-03-09T10:01:04.200Z",
+          "latency_ms": 3200,
+          "event_order": 1,
+          "attributes": {"city": "Seattle"},
+          "raw": null
+        },
+        {
+          "name": "weather_api_result",
+          "kind": "TOOL_RESULT",
+          "status": "success",
+          "tool_name": "weather_api",
+          "tool_run_id": "tool-001",
+          "start_ts": "2026-03-09T10:01:04.200Z",
+          "end_ts": "2026-03-09T10:01:04.200Z",
+          "latency_ms": 0,
+          "event_order": 2,
+          "attributes": {"temp_f": 58, "condition": "Rain"},
+          "raw": null
+        }
+      ]
+    },
+    {
+      "turn_id": "turn-2",
+      "user_query": "Should I bring an umbrella?",
+      "final_answer": "Yes, since it's currently raining in Seattle, I'd recommend bringing an umbrella.",
+      "confidence": 0.90,
+      "total_latency_ms": 1800,
+      "normalized_latency_ms": 1800,
+      "runtime_reported_latency_ms": null,
+      "steps": [
+        {
+          "name": "model_reasoning",
+          "kind": "MODEL_INVOKE",
+          "status": "success",
+          "tool_name": null,
+          "tool_run_id": null,
+          "start_ts": "2026-03-09T10:02:00Z",
+          "end_ts": "2026-03-09T10:02:01.800Z",
+          "latency_ms": 1800,
+          "event_order": 3,
+          "attributes": null,
+          "raw": null
+        }
+      ]
+    }
+  ]
+}

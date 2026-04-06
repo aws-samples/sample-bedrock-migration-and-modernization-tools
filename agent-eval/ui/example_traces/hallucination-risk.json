@@ -1,0 +1,46 @@
+{
+  "session_id": "agent-hallucination-risk",
+  "trace_id": "trace-ea4c133b1df2",
+  "events": [
+    {
+      "timestamp": "2026-04-06T13:02:14.999Z",
+      "type": "user_message",
+      "turn_id": "turn-1",
+      "content": "What's Example Corp's annual revenue?"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:16.999Z",
+      "type": "model_output",
+      "turn_id": "turn-1",
+      "content": "Example Corp's annual revenue is approximately $4.2 billion based on their latest earnings report."
+    },
+    {
+      "timestamp": "2026-04-06T13:02:18.999Z",
+      "type": "user_message",
+      "turn_id": "turn-2",
+      "content": "Can you check their AWS spend?"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:19.499Z",
+      "type": "tool_call",
+      "turn_id": "turn-2",
+      "tool_name": "crm_account_search",
+      "tool_run_id": "tool-001",
+      "tool_arguments": "{\"queryTerm\": \"Example Corp\"}"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:20.999Z",
+      "type": "tool_result",
+      "turn_id": "turn-2",
+      "tool_run_id": "tool-001",
+      "tool_result": "{\"resultRecords\":[],\"totalCount\":0}",
+      "status": "success"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:22.999Z",
+      "type": "model_output",
+      "turn_id": "turn-2",
+      "content": "I couldn't find a Example Corp account in Salesforce. The account may be under a different name, or it might not be in our CRM. Could you double-check the account name?"
+    }
+  ]
+}

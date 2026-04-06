@@ -1,0 +1,82 @@
+{
+  "session_id": "agent-error-recovery",
+  "trace_id": "trace-9a8ed0c32530",
+  "events": [
+    {
+      "timestamp": "2026-04-06T13:02:14.999Z",
+      "type": "user_message",
+      "turn_id": "turn-1",
+      "content": "Show me the spend for account 001XYZ"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:15.499Z",
+      "type": "tool_call",
+      "turn_id": "turn-1",
+      "tool_name": "account_spend_api",
+      "tool_run_id": "tool-001",
+      "tool_arguments": "{\"accountId\": \"001XYZ\"}"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:17.499Z",
+      "type": "tool_result",
+      "turn_id": "turn-1",
+      "tool_run_id": "tool-001",
+      "tool_result": "Error: Access denied \u2014 you do not have permission to view this account",
+      "status": "error"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:17.999Z",
+      "type": "tool_call",
+      "turn_id": "turn-1",
+      "tool_name": "request_access",
+      "tool_run_id": "tool-002",
+      "tool_arguments": "{\"accountId\": \"001XYZ\"}"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:20.999Z",
+      "type": "tool_result",
+      "turn_id": "turn-1",
+      "tool_run_id": "tool-002",
+      "tool_result": "{\"status\":\"SUBMITTED\"}",
+      "status": "success"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:21.499Z",
+      "type": "tool_call",
+      "turn_id": "turn-1",
+      "tool_name": "request_access",
+      "tool_run_id": "tool-003",
+      "tool_arguments": "{\"accountId\": \"001XYZ\"}"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:26.499Z",
+      "type": "tool_result",
+      "turn_id": "turn-1",
+      "tool_run_id": "tool-003",
+      "tool_result": "{\"status\":\"APPROVED\"}",
+      "status": "success"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:26.999Z",
+      "type": "tool_call",
+      "turn_id": "turn-1",
+      "tool_name": "account_spend_api",
+      "tool_run_id": "tool-004",
+      "tool_arguments": "{\"accountId\": \"001XYZ\"}"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:28.999Z",
+      "type": "tool_result",
+      "turn_id": "turn-1",
+      "tool_run_id": "tool-004",
+      "tool_result": "{\"mtdCharge\":95000,\"ytdCharge\":780000}",
+      "status": "success"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:30.999Z",
+      "type": "model_output",
+      "turn_id": "turn-1",
+      "content": "I didn't have access initially, but I've requested and received permissions. Here's the spend:\n- MTD: $95K\n- YTD: $780K"
+    }
+  ]
+}

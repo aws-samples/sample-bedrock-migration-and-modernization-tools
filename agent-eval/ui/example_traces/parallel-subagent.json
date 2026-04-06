@@ -1,0 +1,50 @@
+{
+  "session_id": "agent-meeting-prep",
+  "trace_id": "trace-7a1ab4a2bc68",
+  "events": [
+    {
+      "timestamp": "2026-04-06T13:02:14.999Z",
+      "type": "user_message",
+      "turn_id": "turn-1",
+      "content": "Prep me for my 2pm meeting with Contoso"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:15.499Z",
+      "type": "tool_call",
+      "turn_id": "turn-1",
+      "tool_name": "delegate_to_agent",
+      "tool_run_id": "tool-001",
+      "tool_arguments": "{\"agent_name\": \"agent-meeting-prep\", \"query\": \"Get details for the 2pm Contoso meeting\"}"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:15.999Z",
+      "type": "tool_call",
+      "turn_id": "turn-1",
+      "tool_name": "delegate_to_agent",
+      "tool_run_id": "tool-002",
+      "tool_arguments": "{\"agent_name\": \"agent-account-research\", \"query\": \"Research Contoso account \\u2014 spend, opps, recent activity\"}"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:18.999Z",
+      "type": "tool_result",
+      "turn_id": "turn-1",
+      "tool_run_id": "tool-001",
+      "tool_result": "{\"subject\":\"Contoso Bedrock PoC Review\",\"attendees\":[\"jdoe@contoso.com\",\"asmith@contoso.com\"],\"location\":\"Chime\",\"duration\":60}",
+      "status": "success"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:19.999Z",
+      "type": "tool_result",
+      "turn_id": "turn-1",
+      "tool_run_id": "tool-002",
+      "tool_result": "{\"spend_ytd\":2100000,\"top_opp\":\"Contoso Bedrock Migration $1.2M at Business Validation\",\"recent_highlight\":\"Highlight: Contoso completed cloud PoC with 40% latency improvement\"}",
+      "status": "success"
+    },
+    {
+      "timestamp": "2026-04-06T13:02:21.999Z",
+      "type": "model_output",
+      "turn_id": "turn-1",
+      "content": "## Contoso 2pm Meeting Prep\n\n**Meeting:** Bedrock PoC Review (60min, Chime)\n**Attendees:** jdoe@contoso.com, asmith@contoso.com\n\n**Account context:**\n- YTD spend: $2.1M\n- Key opp: Bedrock Migration ($1.2M) at Business Validation\n- Recent win: PoC showed 40% latency improvement\n\n**Suggested talking points:**\n1. Celebrate the PoC results\n2. Discuss production timeline\n3. Address any remaining technical blockers"
+    }
+  ]
+}

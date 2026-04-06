@@ -1,0 +1,275 @@
+version: 1.0.0
+default_evidence_budget: 10000
+rubrics:
+- rubric_id: TOOL_SELECTION
+  description: Did the agent select the right tool for the user's request?
+  weight: 1.5
+  severity: high
+  enabled: true
+  scoring_scale:
+    type: numeric
+    min: 1
+    max: 5
+  aggregation_type: median
+  run_aggregation_policy: standard
+  requires_llm_judge: true
+  evaluation_instructions: "Score 1-5 based on whether the agent chose the correct tool for the task:\n5 = Perfect tool selection\
+    \ \u2014 the most efficient tool for the job\n4 = Correct tool but a slightly better option existed\n3 = Tool works but\
+    \ is suboptimal (e.g., execute_bash when fs_read would suffice)\n2 = Wrong tool chosen, required extra steps to recover\n\
+    1 = Completely wrong tool or unnecessary tool call\n"
+  evidence_selectors:
+  - $.user_query
+  - $.steps[?(@.kind=='TOOL_CALL')]
+  scope: turn
+  scope_behavior: per_turn
+  evidence_budget: 10000
+- rubric_id: ANSWER_ACCURACY
+  description: Is the agent's final answer factually accurate based on tool results?
+  weight: 2.0
+  severity: critical
+  enabled: true
+  scoring_scale:
+    type: numeric
+    min: 1
+    max: 5
+  aggregation_type: median
+  run_aggregation_policy: standard
+  requires_llm_judge: true
+  evaluation_instructions: 'Score 1-5 based on factual accuracy of the final answer:
+
+    5 = All facts in the answer are directly supported by tool results
+
+    4 = Minor details unsupported but core answer is accurate
+
+    3 = Answer is partially accurate but includes unsupported claims
+
+    2 = Significant inaccuracies or fabricated details
+
+    1 = Answer contradicts tool results or is entirely fabricated
+
+    '
+  evidence_selectors:
+  - $.steps[?(@.kind=='TOOL_RESULT')]
+  - $.final_answer
+  scope: turn
+  scope_behavior: per_turn
+  evidence_budget: 10000
+- rubric_id: ROUTING_QUALITY
+  description: 'For multi-agent systems: did the router send the request to the right subagent?'
+  weight: 1.5
+  severity: high
+  enabled: true
+  scoring_scale:
+    type: numeric
+    min: 1
+    max: 5
+  aggregation_type: median
+  run_aggregation_policy: standard
+  requires_llm_judge: true
+  evaluation_instructions: 'Score 1-5 based on routing decisions in multi-agent architectures:
+
+    5 = Request routed to the optimal subagent with correct context
+
+    4 = Correct subagent but context could be richer
+
+    3 = Acceptable subagent but a better specialist existed
+
+    2 = Wrong subagent chosen, causing delays or poor results
+
+    1 = Request handled by router itself when it should have been delegated, or vice versa
+
+    N/A = No routing decision in this turn (score 5)
+
+    '
+  evidence_selectors:
+  - $.user_query
+  - $.steps[?(@.kind=='TOOL_CALL')]
+  - $.final_answer
+  scope: turn
+  scope_behavior: per_turn
+  evidence_budget: 10000
+- rubric_id: CONCISENESS
+  description: Is the response appropriately concise without losing important information?
+  weight: 0.8
+  severity: medium
+  enabled: true
+  scoring_scale:
+    type: numeric
+    min: 1
+    max: 5
+  aggregation_type: median
+  run_aggregation_policy: standard
+  requires_llm_judge: true
+  evaluation_instructions: "Score 1-5 based on response conciseness:\n5 = Perfectly concise \u2014 every sentence adds value,\
+    \ no filler\n4 = Mostly concise with minor verbosity\n3 = Adequate but could be 30%+ shorter without losing meaning\n\
+    2 = Significantly verbose, buries key information\n1 = Extremely verbose, user must work hard to find the answer\n"
+  evidence_selectors:
+  - $.user_query
+  - $.final_answer
+  scope: turn
+  scope_behavior: per_turn
+  evidence_budget: 10000
+- rubric_id: CONVERSATION_COHERENCE
+  description: Does the agent maintain context and coherence across the full conversation?
+  weight: 1.0
+  severity: medium
+  enabled: true
+  scoring_scale:
+    type: numeric
+    min: 1
+    max: 5
+  aggregation_type: median
+  run_aggregation_policy: standard
+  requires_llm_judge: true
+  evaluation_instructions: "Score 1-5 based on conversation coherence across all turns:\n5 = Perfect context retention \u2014\
+    \ references prior turns naturally, no repetition\n4 = Good coherence with minor context gaps\n3 = Some context lost between\
+    \ turns, occasional repetition\n2 = Frequently loses context, asks for information already provided\n1 = No awareness\
+    \ of conversation history\n"
+  evidence_selectors:
+  - $.turns[*].user_query
+  - $.turns[*].final_answer
+  scope: run
+  scope_behavior: aggregate_all_turns
+  evidence_budget: 10000
+- rubric_id: ERROR_RECOVERY
+  description: When a tool call fails, does the agent recover gracefully?
+  weight: 1.2
+  severity: high
+  enabled: true
+  scoring_scale:
+    type: numeric
+    min: 1
+    max: 5
+  aggregation_type: median
+  run_aggregation_policy: standard
+  requires_llm_judge: true
+  evaluation_instructions: "Score 1-5 based on error handling:\n5 = Graceful recovery \u2014 explains the issue, tries alternative\
+    \ approach, succeeds\n4 = Recovers but with minor user-facing friction\n3 = Acknowledges error but doesn't attempt recovery\n\
+    2 = Ignores the error and provides incomplete answer\n1 = Error causes cascading failures or hallucinated results\nN/A\
+    \ = No errors occurred (score 5)\n"
+  evidence_selectors:
+  - $.steps[?(@.status=='error')]
+  - $.steps[?(@.kind=='TOOL_CALL')]
+  - $.final_answer
+  scope: turn
+  scope_behavior: per_turn
+  evidence_budget: 10000
+- rubric_id: HALLUCINATION_DETECTION
+  description: Does the agent avoid stating facts not grounded in tool results or prior context?
+  weight: 2.0
+  severity: critical
+  enabled: true
+  scoring_scale:
+    type: numeric
+    min: 1
+    max: 5
+  aggregation_type: median
+  run_aggregation_policy: standard
+  requires_llm_judge: true
+  evaluation_instructions: 'Score 1-5 based on hallucination risk:
+
+    5 = Every claim in the answer is directly supported by tool results or explicit user context
+
+    4 = Answer is grounded but includes minor inferences clearly marked as such
+
+    3 = Some claims lack tool grounding but are plausible
+
+    2 = Multiple unsupported claims presented as facts
+
+    1 = Answer contains fabricated data (numbers, names, dates) not from any tool result
+
+    '
+  evidence_selectors:
+  - $.user_query
+  - $.steps[?(@.kind=='TOOL_RESULT')]
+  - $.final_answer
+  scope: turn
+  scope_behavior: per_turn
+  evidence_budget: 10000
+- rubric_id: DATA_ACCURACY
+  description: When reporting account spend, opportunity values, or other numeric data, are the numbers accurate?
+  weight: 2.0
+  severity: critical
+  enabled: true
+  scoring_scale:
+    type: numeric
+    min: 1
+    max: 5
+  aggregation_type: median
+  run_aggregation_policy: standard
+  requires_llm_judge: true
+  evaluation_instructions: 'Score 1-5 based on numeric data accuracy:
+
+    5 = All numbers (spend, ARR, percentages, dates) exactly match tool results
+
+    4 = Numbers are correct but formatting differs (e.g., rounding $184,532 to $185K is acceptable)
+
+    3 = Most numbers correct but one value is slightly off
+
+    2 = Multiple numeric errors or misattributed values
+
+    1 = Numbers are fabricated or grossly incorrect
+
+    '
+  evidence_selectors:
+  - $.steps[?(@.kind=='TOOL_RESULT')]
+  - $.final_answer
+  scope: turn
+  scope_behavior: per_turn
+  evidence_budget: 10000
+- rubric_id: SUBAGENT_DELEGATION
+  description: In multi-agent architectures, did the router correctly delegate to specialized subagents vs handling directly?
+  weight: 1.5
+  severity: high
+  enabled: true
+  scoring_scale:
+    type: numeric
+    min: 1
+    max: 5
+  aggregation_type: median
+  run_aggregation_policy: standard
+  requires_llm_judge: true
+  evaluation_instructions: "Score 1-5 based on delegation decisions:\n5 = Optimal delegation \u2014 used subagents for specialized\
+    \ tasks, handled simple tasks directly, parallelized independent subagents\n4 = Correct delegation but missed a parallelization\
+    \ opportunity\n3 = Delegated correctly but included unnecessary subagent calls\n2 = Failed to delegate when a specialist\
+    \ subagent was available\n1 = Delegated to wrong subagent or handled complex domain task without specialist\n"
+  evidence_selectors:
+  - $.user_query
+  - $.steps[?(@.kind=='TOOL_CALL')]
+  - $.final_answer
+  scope: turn
+  scope_behavior: per_turn
+  evidence_budget: 10000
+- rubric_id: ACTION_ITEM_EXTRACTION
+  description: When the conversation implies follow-ups, does the agent surface clear action items?
+  weight: 1.0
+  severity: medium
+  enabled: true
+  scoring_scale:
+    type: numeric
+    min: 1
+    max: 5
+  aggregation_type: median
+  run_aggregation_policy: standard
+  requires_llm_judge: true
+  evaluation_instructions: 'Score 1-5 based on action item identification:
+
+    5 = All implied action items surfaced with owner and timeline
+
+    4 = Action items identified but missing owner or deadline
+
+    3 = Some action items surfaced but others missed
+
+    2 = Action items vaguely mentioned without structure
+
+    1 = Obvious follow-ups completely ignored
+
+    N/A = No action items implied in this turn (score 5)
+
+    '
+  evidence_selectors:
+  - $.user_query
+  - $.final_answer
+  scope: turn
+  scope_behavior: per_turn
+  evidence_budget: 10000

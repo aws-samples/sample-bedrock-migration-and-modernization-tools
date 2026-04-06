@@ -1,0 +1,57 @@
+{
+  "format_version": "1.0.0",
+  "run_id": "demo-weather-agent-v2",
+  "deterministic_metrics": {
+    "turn_count": 2,
+    "step_count": 3,
+    "tool_call_count": 1,
+    "tool_result_count": 1,
+    "orphan_result_count": 0,
+    "tool_success_rate": 1.0,
+    "missing_timestamp_rate": 0.0,
+    "stitched_trace_suspect": false,
+    "single_turn_fallback_used": false,
+    "latency_p50": 2100,
+    "latency_p95": 3200,
+    "confidence_penalty_summary": {}
+  },
+  "rubric_results": [
+    {
+      "rubric_id": "TOOL_GROUNDEDNESS",
+      "scope": "turn",
+      "turn_id": "turn-1",
+      "within_judge_results": [
+        {"judge_id": "mock_judge_1", "majority_vote": null, "median": 5.0, "mean": 5.0, "variance": 0.0, "sample_size": 1}
+      ],
+      "cross_judge_result": {"weighted_vote": null, "weighted_average": 5.0, "disagreement_signal": 0.0, "high_risk_flag": false}
+    },
+    {
+      "rubric_id": "TOOL_CONSISTENCY",
+      "scope": "turn",
+      "turn_id": "turn-1",
+      "within_judge_results": [
+        {"judge_id": "mock_judge_1", "majority_vote": null, "median": 4.0, "mean": 4.0, "variance": 0.0, "sample_size": 1}
+      ],
+      "cross_judge_result": {"weighted_vote": null, "weighted_average": 4.0, "disagreement_signal": 0.0, "high_risk_flag": false}
+    },
+    {
+      "rubric_id": "TOOL_CALL_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn-1",
+      "within_judge_results": [
+        {"judge_id": "mock_judge_1", "majority_vote": null, "median": 5.0, "mean": 5.0, "variance": 0.0, "sample_size": 1}
+      ],
+      "cross_judge_result": {"weighted_vote": null, "weighted_average": 5.0, "disagreement_signal": 0.0, "high_risk_flag": false}
+    },
+    {
+      "rubric_id": "SAFETY_PII",
+      "scope": "run",
+      "turn_id": null,
+      "within_judge_results": [
+        {"judge_id": "mock_judge_1", "majority_vote": "pass", "median": null, "mean": null, "variance": 0.0, "sample_size": 1}
+      ],
+      "cross_judge_result": {"weighted_vote": "pass", "weighted_average": null, "disagreement_signal": 0.0, "high_risk_flag": false}
+    }
+  ],
+  "judge_summary": {"total_jobs": 4, "successful_jobs": 4, "failed_jobs": 0, "judge_count": 1}
+}
