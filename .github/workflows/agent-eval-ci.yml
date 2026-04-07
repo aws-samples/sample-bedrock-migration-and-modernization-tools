@@ -1,0 +1,255 @@
+name: Agent Eval — Quality Gate
+
+on:
+  pull_request:
+    paths:
+      - 'agent-eval/**'
+  push:
+    branches: [main]
+    paths:
+      - 'agent-eval/**'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: agent-eval
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]" 2>/dev/null || pip install pydantic pyyaml jsonpath-ng pytest
+          pip install -e . 2>/dev/null || true
+
+      - name: Run unit tests
+        run: pytest agent_eval/tests/ -v --tb=short
+
+  smoke-test:
+    name: Smoke Test — Baseline Traces
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install pydantic pyyaml jsonpath-ng
+          pip install -e . 2>/dev/null || true
+
+      - name: Evaluate baseline traces
+        id: eval
+        run: |
+          mkdir -p .ci-output
+          PASS=0
+          FAIL=0
+
+          for trace in test-fixtures/baseline/good_*.json; do
+            name=$(basename "$trace" .json)
+            echo "::group::Evaluating $name"
+
+            python -m agent_eval.cli \
+              --input "$trace" \
+              --judge-config test-fixtures/judges.mock.yaml \
+              --output-dir ".ci-output/$name" \
+              --verbose && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
+
+            echo "::endgroup::"
+          done
+
+          echo "passed=$PASS" >> "$GITHUB_OUTPUT"
+          echo "failed=$FAIL" >> "$GITHUB_OUTPUT"
+          echo "total=$((PASS+FAIL))" >> "$GITHUB_OUTPUT"
+
+          if [ "$FAIL" -gt 0 ]; then
+            echo "::error::$FAIL of $((PASS+FAIL)) baseline traces failed evaluation"
+            exit 1
+          fi
+
+      - name: Upload evaluation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: agent-eval/.ci-output/
+          retention-days: 14
+
+  quality-gate:
+    name: Quality Gate — Score Thresholds
+    runs-on: ubuntu-latest
+    needs: smoke-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install pydantic pyyaml jsonpath-ng
+          pip install -e . 2>/dev/null || true
+
+      - name: Run evaluation with score check
+        run: |
+          mkdir -p .ci-gate
+
+          # Evaluate the tool-grounded trace (most comprehensive)
+          python -m agent_eval.cli \
+            --input test-fixtures/baseline/good_002_tool_grounded.json \
+            --judge-config test-fixtures/judges.mock.yaml \
+            --output-dir .ci-gate/good_002 \
+            --verbose
+
+      - name: Check quality thresholds
+        run: |
+          python3 << 'SCRIPT'
+          import json, sys
+
+          with open(".ci-gate/good_002/trace_eval.json") as f:
+              data = json.load(f)
+
+          dm = data.get("deterministic_metrics", {})
+          rubrics = data.get("rubric_results", [])
+
+          # Threshold checks
+          failures = []
+
+          # 1. Tool success rate must be >= 80%
+          tsr = dm.get("tool_success_rate", 0)
+          if tsr < 0.8:
+              failures.append(f"Tool success rate {tsr:.0%} < 80% threshold")
+
+          # 2. No orphan tool results
+          orphans = dm.get("orphan_result_count", 0)
+          if orphans > 0:
+              failures.append(f"Found {orphans} orphan tool result(s)")
+
+          # 3. Average rubric score must be >= 2.5 (mock judges return 3.0)
+          scores = []
+          for rr in rubrics:
+              cross = rr.get("cross_judge_result", {})
+              s = cross.get("weighted_average")
+              if s is not None:
+                  scores.append(s)
+
+          if scores:
+              avg = sum(scores) / len(scores)
+              if avg < 2.5:
+                  failures.append(f"Average rubric score {avg:.1f} < 2.5 threshold")
+              print(f"Average rubric score: {avg:.1f}/5")
+          else:
+              print("No numeric rubric scores found (mock judges may use categorical)")
+
+          # Report
+          print(f"Tool success rate: {tsr:.0%}")
+          print(f"Orphan results: {orphans}")
+          print(f"Rubric evaluations: {len(rubrics)}")
+
+          if failures:
+              print(f"\n❌ QUALITY GATE FAILED:")
+              for f in failures:
+                  print(f"  - {f}")
+              sys.exit(1)
+          else:
+              print(f"\n✅ QUALITY GATE PASSED")
+          SCRIPT
+
+  pr-comment:
+    name: Post Evaluation Summary
+    runs-on: ubuntu-latest
+    needs: [unit-tests, smoke-test, quality-gate]
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install pydantic pyyaml jsonpath-ng
+          pip install -e . 2>/dev/null || true
+
+      - name: Generate scorecard
+        id: scorecard
+        run: |
+          mkdir -p .ci-comment
+
+          python -m agent_eval.cli \
+            --input test-fixtures/baseline/good_002_tool_grounded.json \
+            --judge-config test-fixtures/judges.mock.yaml \
+            --output-dir .ci-comment/good_002
+
+          python3 << 'SCRIPT' > .ci-comment/summary.md
+          import json
+
+          with open(".ci-comment/good_002/trace_eval.json") as f:
+              data = json.load(f)
+
+          dm = data.get("deterministic_metrics", {})
+          rubrics = data.get("rubric_results", [])
+          js = data.get("judge_summary", {})
+
+          scores = []
+          for rr in rubrics:
+              s = (rr.get("cross_judge_result") or {}).get("weighted_average")
+              if s is not None:
+                  scores.append(s)
+          avg = sum(scores) / len(scores) if scores else None
+
+          status = "✅ Passed" if avg is None or avg >= 2.5 else "❌ Failed"
+
+          print(f"## 🔍 Agent Eval Scorecard")
+          print(f"**Status:** {status}")
+          print()
+          print(f"| Metric | Value |")
+          print(f"|--------|-------|")
+          print(f"| Turns | {dm.get('turn_count', '—')} |")
+          print(f"| Tool Calls | {dm.get('tool_call_count', '—')} |")
+          print(f"| Tool Success Rate | {dm.get('tool_success_rate', 0):.0%} |")
+          print(f"| Latency p50 | {dm.get('latency_p50', '—')} ms |")
+          print(f"| Avg Rubric Score | {f'{avg:.1f}/5' if avg else '—'} |")
+          print(f"| Judge Jobs | {js.get('total_jobs', '—')} ({js.get('successful_jobs', '—')} passed) |")
+          print()
+          print(f"<details><summary>Rubric Details</summary>")
+          print()
+          print(f"| Rubric | Scope | Score |")
+          print(f"|--------|-------|-------|")
+          seen = set()
+          for rr in rubrics:
+              rid = rr.get("rubric_id", "?")
+              if rid in seen:
+                  continue
+              seen.add(rid)
+              cross = rr.get("cross_judge_result", {})
+              s = cross.get("weighted_average")
+              v = cross.get("weighted_vote")
+              display = f"{s:.1f}" if s is not None else (v or "—")
+              print(f"| {rid} | {rr.get('scope', '—')} | {display} |")
+          print()
+          print(f"</details>")
+          SCRIPT
+
+      - name: Post PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: agent-eval/.ci-comment/summary.md
