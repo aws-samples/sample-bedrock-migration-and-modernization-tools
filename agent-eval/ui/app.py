@@ -22,6 +22,7 @@ from datetime import datetime
 import streamlit as st
 import pandas as pd
 import altair as alt
+import yaml
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -423,24 +424,39 @@ if trace_eval:
 
     st.caption(f"Run: `{run['run_id']}`")
 
-    # Per-rubric traffic lights in a row
+    # Per-rubric traffic lights — aggregate by rubric_id, show worst score
     if rubric_results:
-        cols = st.columns(min(len(rubric_results), 6))
-        for i, rr in enumerate(rubric_results):
-            col = cols[i % len(cols)]
+        # Group by rubric_id: keep min numeric score (worst case) or first vote
+        rubric_agg: dict[str, dict] = {}
+        for rr in rubric_results:
             rid = rr.get("rubric_id", "?")
             s = rubric_score(rr)
-            status = score_to_status(s)
-            scfg = STATUS_CONFIG[status]
-            # Check for categorical (pass/fail) rubrics
             cross = rr.get("cross_judge_result", {})
             vote = cross.get("weighted_vote")
+            if rid not in rubric_agg:
+                rubric_agg[rid] = {"score": s, "vote": vote, "turns": 1}
+            else:
+                rubric_agg[rid]["turns"] += 1
+                prev = rubric_agg[rid]["score"]
+                if s is not None and (prev is None or s < prev):
+                    rubric_agg[rid]["score"] = s
+
+        unique_rubrics = list(rubric_agg.keys())
+        cols = st.columns(min(len(unique_rubrics), 6))
+        for i, rid in enumerate(unique_rubrics):
+            col = cols[i % len(cols)]
+            agg = rubric_agg[rid]
+            s = agg["score"]
+            turn_count = agg["turns"]
+            turn_hint = f" <span style='font-size:0.7em;color:#888'>(worst of {turn_count} turns)</span>" if turn_count > 1 else ""
             if s is not None:
-                col.markdown(f"{scfg['emoji']} **{rid}**<br><span class='score-big'>{s:.1f}</span>/5", unsafe_allow_html=True)
-            elif vote:
-                vote_status = "pass" if vote == "pass" else "fail"
+                status = score_to_status(s)
+                scfg = STATUS_CONFIG[status]
+                col.markdown(f"{scfg['emoji']} **{rid}**<br><span class='score-big'>{s:.1f}</span>/5{turn_hint}", unsafe_allow_html=True)
+            elif agg["vote"]:
+                vote_status = "pass" if agg["vote"] == "pass" else "fail"
                 vcfg = STATUS_CONFIG[vote_status]
-                col.markdown(f"{vcfg['emoji']} **{rid}**<br><span class='score-big'>{vote.upper()}</span>", unsafe_allow_html=True)
+                col.markdown(f"{vcfg['emoji']} **{rid}**<br><span class='score-big'>{agg['vote'].upper()}</span>", unsafe_allow_html=True)
 
     st.divider()
 
@@ -448,8 +464,8 @@ if trace_eval:
 # Tabs
 # ---------------------------------------------------------------------------
 
-tab_overview, tab_turns, tab_rubrics, tab_judges, tab_trends = st.tabs(
-    ["📊 Metrics", "🔄 Turns", "📋 Rubrics", "⚖️ Judges", "📈 Trends"]
+tab_overview, tab_turns, tab_rubrics, tab_judges, tab_trends, tab_builder = st.tabs(
+    ["📊 Metrics", "🔄 Turns", "📋 Rubrics", "⚖️ Judges", "📈 Trends", "🛠️ Rubric Builder"]
 )
 
 # ---------------------------------------------------------------------------
@@ -592,37 +608,98 @@ with tab_turns:
 
             turn = turns[selected_idx]
 
-            tc1, tc2, tc3 = st.columns(3)
-            tc1.metric("Confidence", f"{turn.get('confidence', 0):.2f}")
-            lat = turn.get("total_latency_ms")
-            tc2.metric("Latency", f"{lat:.0f}ms" if lat else "—")
-            tc3.metric("Steps", len(turn.get("steps", [])))
+            # --- Executive Summary Card ---
+            turn_id_str = f"turn_{selected_idx}"
+            turn_rubric_scores = {}
+            if trace_eval:
+                for rr in trace_eval.get("rubric_results", []):
+                    if rr.get("turn_id") == turn_id_str:
+                        rid = rr.get("rubric_id", "?")
+                        s = rubric_score(rr)
+                        if s is not None:
+                            turn_rubric_scores[rid] = s
 
-            # User query
-            st.markdown("**💬 User Query**")
-            st.info(turn.get("user_query") or "_No query captured_")
-
-            # Steps
             steps = turn.get("steps", [])
-            if steps:
-                st.markdown("**🔧 Steps**")
-                for i, step in enumerate(steps):
-                    kind = step.get("kind") or step.get("type") or "STEP"
-                    name = step.get("name", "unnamed")
-                    status = step.get("status", "unknown")
-                    latency = step.get("latency_ms")
-                    icon = {"success": "✅", "error": "❌", "unknown": "⚪", "skipped": "⏭️"}.get(status, "⚪")
-                    lat_str = f" ({latency:.0f}ms)" if latency else ""
+            tool_calls = [s for s in steps if s.get("kind") == "TOOL_CALL" or s.get("type") == "tool_call"]
+            tool_names = [s.get("name", "unknown") for s in tool_calls]
+            errors = [s for s in steps if s.get("status") == "error"]
+            answer = turn.get("final_answer") or ""
+            answer_preview = (answer[:200] + "…") if len(answer) > 200 else answer
+            query = turn.get("user_query") or "(no query)"
 
-                    with st.expander(f"{icon} {i+1}. [{kind}] {name}{lat_str}", expanded=False):
+            # Determine overall turn health
+            red_flags = []
+            if turn_rubric_scores:
+                for rid, s in turn_rubric_scores.items():
+                    if s <= 2.0:
+                        red_flags.append(f"{rid}: {s:.0f}/5")
+                avg = sum(turn_rubric_scores.values()) / len(turn_rubric_scores)
+                turn_status = score_to_status(avg)
+            else:
+                avg = None
+                turn_status = "unknown"
+            tcfg = STATUS_CONFIG[turn_status]
+
+            with st.container():
+                st.markdown(
+                    f"### {tcfg['emoji']} Turn {selected_idx + 1} Summary"
+                    + (f" — Avg: **{avg:.1f}/5**" if avg else "")
+                )
+
+                sc1, sc2, sc3 = st.columns(3)
+                sc1.markdown(f"**Asked:** {query[:80]}{'…' if len(query) > 80 else ''}")
+                sc2.markdown(f"**Tools:** {', '.join(tool_names) if tool_names else 'None ⚠️'}")
+                sc3.markdown(f"**Errors:** {len(errors)}" + (" 🚨" if errors else " ✅"))
+
+                if answer_preview:
+                    st.markdown(f"**Answer:** {answer_preview}")
+
+                # Turn-level rubric lights
+                if turn_rubric_scores:
+                    light_cols = st.columns(min(len(turn_rubric_scores), 6))
+                    for i, (rid, s) in enumerate(turn_rubric_scores.items()):
+                        col = light_cols[i % len(light_cols)]
+                        status = score_to_status(s)
+                        scfg = STATUS_CONFIG[status]
+                        col.markdown(f"{scfg['emoji']} {rid}<br>**{s:.0f}**/5", unsafe_allow_html=True)
+
+                if red_flags:
+                    st.error(f"🚨 **Red flags:** {' · '.join(red_flags)}")
+
+                st.divider()
+
+            # Detailed view (collapsible)
+            with st.expander("🔍 Detailed Turn Breakdown", expanded=False):
+                tc1, tc2, tc3 = st.columns(3)
+                tc1.metric("Confidence", f"{turn.get('confidence', 0):.2f}")
+                lat = turn.get("total_latency_ms")
+                tc2.metric("Latency", f"{lat:.0f}ms" if lat else "—")
+                tc3.metric("Steps", len(steps))
+
+                # User query
+                st.markdown("**💬 User Query**")
+                st.info(turn.get("user_query") or "_No query captured_")
+
+                # Steps
+                if steps:
+                    st.markdown("**🔧 Steps**")
+                    for i, step in enumerate(steps):
+                        kind = step.get("kind") or step.get("type") or "STEP"
+                        name = step.get("name", "unnamed")
+                        status = step.get("status", "unknown")
+                        latency = step.get("latency_ms")
+                        icon = {"success": "✅", "error": "❌", "unknown": "⚪", "skipped": "⏭️"}.get(status, "⚪")
+                        lat_str = f" ({latency:.0f}ms)" if latency else ""
+
+                        st.markdown(f"{icon} **{i+1}. [{kind}] {name}{lat_str}**")
                         st.json({k: v for k, v in step.items() if v is not None and k != "raw"})
                         if step.get("raw"):
                             st.caption("Raw source:")
                             st.json(step["raw"])
 
-            # Final answer
-            st.markdown("**🎯 Final Answer**")
-            st.success(turn.get("final_answer") or "_No answer captured_")
+                # Final answer
+                st.markdown("**🎯 Final Answer**")
+                st.success(turn.get("final_answer") or "_No answer captured_")
 
 # ---------------------------------------------------------------------------
 # Tab 3 — Rubric Scorecard (progressive drill-down)
@@ -851,3 +928,176 @@ with tab_trends:
         # Summary table
         st.subheader("Run Summary Table")
         st.dataframe(trend_df, use_container_width=True, hide_index=True)
+
+# ---------------------------------------------------------------------------
+# Tab 6 — Rubric Builder
+# ---------------------------------------------------------------------------
+
+with tab_builder:
+
+    st.subheader("🛠️ Rubric Builder")
+    st.caption("Create custom rubrics visually, preview the YAML, and export a ready-to-use rubrics file.")
+
+    # Session state for rubric list
+    if "custom_rubrics" not in st.session_state:
+        st.session_state.custom_rubrics = []
+
+    # --- Form ---
+    with st.form("rubric_form", clear_on_submit=True):
+        st.markdown("**Define a new rubric**")
+
+        fc1, fc2 = st.columns(2)
+        rubric_id = fc1.text_input("Rubric ID", placeholder="e.g. MY_CUSTOM_CHECK", help="Uppercase with underscores")
+        severity = fc2.selectbox("Severity", ["critical", "high", "medium"])
+
+        description = st.text_input("Description", placeholder="What does this rubric measure?")
+
+        fc3, fc4, fc5 = st.columns(3)
+        weight = fc3.number_input("Weight", min_value=0.1, max_value=5.0, value=1.5, step=0.1)
+        scope = fc4.selectbox("Scope", ["turn", "run"], help="turn = evaluated per turn, run = evaluated once for the whole session")
+        scoring_type = fc5.selectbox("Scoring Type", ["numeric", "categorical"])
+
+        evaluation_instructions = st.text_area(
+            "Evaluation Instructions",
+            height=180,
+            placeholder="Score 1-5 based on ...:\n5 = Excellent — ...\n4 = Good — ...\n3 = Adequate — ...\n2 = Poor — ...\n1 = Failing — ...",
+            help="Detailed scoring guide the LLM judge will follow",
+        )
+
+        st.markdown("**Evidence Selectors** — what context does the judge see?")
+        ev_col1, ev_col2 = st.columns(2)
+        ev_query = ev_col1.checkbox("User query", value=True)
+        ev_tool_calls = ev_col1.checkbox("Tool calls", value=False)
+        ev_tool_results = ev_col2.checkbox("Tool results", value=True)
+        ev_final_answer = ev_col2.checkbox("Final answer", value=True)
+
+        submitted = st.form_submit_button("➕ Add Rubric", use_container_width=True)
+
+    if submitted:
+        errors = []
+        if not rubric_id.strip():
+            errors.append("Rubric ID is required")
+        if not description.strip():
+            errors.append("Description is required")
+        if not evaluation_instructions.strip():
+            errors.append("Evaluation instructions are required")
+        if any(r["rubric_id"] == rubric_id.strip().upper() for r in st.session_state.custom_rubrics):
+            errors.append(f"Rubric ID '{rubric_id.strip().upper()}' already exists")
+
+        if errors:
+            for e in errors:
+                st.error(e)
+        else:
+            evidence = []
+            if ev_query:
+                evidence.append("$.user_query")
+            if ev_tool_calls:
+                evidence.append("$.steps[?(@.kind=='TOOL_CALL')]")
+            if ev_tool_results:
+                evidence.append("$.steps[?(@.kind=='TOOL_RESULT')]")
+            if ev_final_answer:
+                evidence.append("$.final_answer")
+
+            rubric = {
+                "rubric_id": rubric_id.strip().upper(),
+                "description": description.strip(),
+                "weight": float(weight),
+                "severity": severity,
+                "enabled": True,
+                "scoring_scale": {"type": scoring_type, "min": 1, "max": 5},
+                "aggregation_type": "median",
+                "run_aggregation_policy": "standard",
+                "requires_llm_judge": True,
+                "evaluation_instructions": evaluation_instructions.strip(),
+                "evidence_selectors": evidence,
+                "scope": scope,
+                "scope_behavior": "per_turn" if scope == "turn" else "aggregate_all_turns",
+                "evidence_budget": 10000,
+            }
+            st.session_state.custom_rubrics.append(rubric)
+            st.success(f"Added **{rubric['rubric_id']}**")
+            st.rerun()
+
+    # --- Current rubrics list ---
+    if st.session_state.custom_rubrics:
+        st.markdown("---")
+        st.subheader(f"📦 Your Rubrics ({len(st.session_state.custom_rubrics)})")
+
+        for i, r in enumerate(st.session_state.custom_rubrics):
+            sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡"}[r["severity"]]
+            with st.expander(f"{sev_icon} **{r['rubric_id']}** — {r['description']}", expanded=False):
+                mc1, mc2, mc3, mc4 = st.columns(4)
+                mc1.metric("Weight", f"{r['weight']:.1f}")
+                mc2.metric("Severity", r["severity"])
+                mc3.metric("Scope", r["scope"])
+                mc4.metric("Evidence", f"{len(r['evidence_selectors'])} selectors")
+                st.markdown("**Instructions:**")
+                st.text(r["evaluation_instructions"])
+                if st.button(f"🗑️ Remove", key=f"rm_{i}"):
+                    st.session_state.custom_rubrics.pop(i)
+                    st.rerun()
+
+        # --- YAML Preview & Export ---
+        st.markdown("---")
+        st.subheader("📄 YAML Preview")
+
+        yaml_doc = {
+            "version": "1.0.0",
+            "default_evidence_budget": 10000,
+            "rubrics": st.session_state.custom_rubrics,
+        }
+        yaml_str = yaml.dump(yaml_doc, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        st.code(yaml_str, language="yaml")
+
+        dl_col1, dl_col2 = st.columns(2)
+        dl_col1.download_button(
+            "⬇️ Download rubrics.yaml",
+            data=yaml_str,
+            file_name="rubrics.yaml",
+            mime="text/yaml",
+            use_container_width=True,
+        )
+        if dl_col2.button("🗑️ Clear All", use_container_width=True):
+            st.session_state.custom_rubrics = []
+            st.rerun()
+    else:
+        st.info("No rubrics yet. Use the form above to create your first rubric, or import an existing file below.")
+
+    # --- Import existing rubrics ---
+    st.markdown("---")
+    st.subheader("📂 Import Existing Rubrics")
+    uploaded = st.file_uploader("Upload a rubrics YAML file", type=["yaml", "yml"], key="rubric_upload")
+    if uploaded:
+        try:
+            parsed = yaml.safe_load(uploaded.read())
+            rubrics_list = parsed.get("rubrics", []) if isinstance(parsed, dict) else []
+            if not rubrics_list:
+                st.error("No rubrics found in the uploaded file. Expected a 'rubrics' key with a list.")
+            else:
+                st.success(f"Found **{len(rubrics_list)}** rubrics in file")
+                # Preview what will be imported
+                preview_ids = [r.get("rubric_id", "?") for r in rubrics_list]
+                existing_ids = {r["rubric_id"] for r in st.session_state.custom_rubrics}
+                new_ids = [rid for rid in preview_ids if rid not in existing_ids]
+                dupe_ids = [rid for rid in preview_ids if rid in existing_ids]
+
+                if dupe_ids:
+                    st.warning(f"Duplicates (will be skipped): {', '.join(dupe_ids)}")
+                if new_ids:
+                    st.info(f"Will import: {', '.join(new_ids)}")
+
+                imp_col1, imp_col2 = st.columns(2)
+                if imp_col1.button("✅ Import new rubrics", use_container_width=True):
+                    added = 0
+                    for r in rubrics_list:
+                        if r.get("rubric_id") not in existing_ids:
+                            st.session_state.custom_rubrics.append(r)
+                            added += 1
+                    st.success(f"Imported {added} rubrics")
+                    st.rerun()
+                if imp_col2.button("🔄 Replace all with imported", use_container_width=True):
+                    st.session_state.custom_rubrics = rubrics_list
+                    st.success(f"Replaced with {len(rubrics_list)} rubrics")
+                    st.rerun()
+        except yaml.YAMLError as e:
+            st.error(f"Invalid YAML: {e}")
