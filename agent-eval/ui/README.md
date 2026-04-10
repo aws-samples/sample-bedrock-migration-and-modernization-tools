@@ -7,7 +7,7 @@ Streamlit UI for visualizing agent evaluation results.
 ```bash
 pip install streamlit
 cd agent-eval
-streamlit run ui/app.py
+streamlit run ui/app.py --theme.base dark
 ```
 
 ## Views

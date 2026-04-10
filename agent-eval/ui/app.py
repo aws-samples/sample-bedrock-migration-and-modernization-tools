@@ -179,17 +179,28 @@ url_tab = query_params.get("tab", None)
 # Dark-mode-friendly custom CSS + keyboard nav
 st.markdown("""
 <style>
+    /* Traffic light badges */
     .traffic-light { display: inline-flex; align-items: center; gap: 6px;
-        padding: 6px 14px; border-radius: 8px; font-weight: 600; font-size: 0.95rem; }
-    .tl-pass { background: rgba(46,204,113,0.15); color: #2ecc71; }
-    .tl-warn { background: rgba(243,156,18,0.15); color: #f39c12; }
-    .tl-fail { background: rgba(231,76,60,0.15); color: #e74c3c; }
-    .tl-unknown { background: rgba(149,165,166,0.15); color: #95a5a6; }
-    .score-big { font-size: 2rem; font-weight: 700; }
+        padding: 8px 16px; border-radius: 10px; font-weight: 600; font-size: 0.95rem;
+        margin-bottom: 4px; }
+    .tl-pass { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.25); }
+    .tl-warn { background: rgba(243,156,18,0.15); color: #f39c12; border: 1px solid rgba(243,156,18,0.25); }
+    .tl-fail { background: rgba(231,76,60,0.15); color: #e74c3c; border: 1px solid rgba(231,76,60,0.25); }
+    .tl-unknown { background: rgba(149,165,166,0.15); color: #95a5a6; border: 1px solid rgba(149,165,166,0.25); }
+    .score-big { font-size: 1.8rem; font-weight: 700; }
     .drill-hint { font-size: 0.8rem; color: #888; margin-top: 2px; }
     .embed-card { border: 1px solid #333; border-radius: 10px; padding: 16px;
         margin: 8px 0; font-family: monospace; font-size: 0.85rem;
         background: rgba(0,0,0,0.03); }
+    /* Section headers */
+    .section-header { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.5rem 0; }
+    /* Metric cards */
+    [data-testid="stMetric"] { background: rgba(255,255,255,0.03); border-radius: 8px;
+        padding: 12px; border: 1px solid rgba(255,255,255,0.06); }
+    /* Sidebar styling */
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1 { font-size: 1.2rem; }
+    /* Expander styling */
+    [data-testid="stExpander"] { border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -202,8 +213,25 @@ _default_sample = str(_app_dir / "sample_output")
 
 st.sidebar.header("📂 Load Evaluation")
 
+# Sidebar info section (360-eval pattern)
+with st.sidebar:
+    st.markdown("""
+    ### Agent Eval Dashboard
+
+    Visualize and analyze agent evaluation results:
+    - 📊 Deterministic metrics & rubric scores
+    - 🔄 Turn-by-turn trace exploration
+    - 📋 Rubric scorecard with drill-down
+    - ⚖️ Judge reasoning detail
+    - 📈 Cross-run trend analysis
+    - 🛠️ Visual rubric builder
+
+    [View on GitHub](https://github.com/aws-samples/sample-bedrock-migration-and-modernization-tools/tree/main/agent-eval)
+    """)
+    st.divider()
+
 # Drag-and-drop trace upload
-st.sidebar.markdown("**Quick Evaluate**")
+st.sidebar.markdown("#### Quick Evaluate")
 uploaded_file = st.sidebar.file_uploader(
     "Drop a trace JSON to evaluate",
     type=["json"],
@@ -247,11 +275,21 @@ if base_dir and base_dir.is_dir():
 
 if not runs:
     st.title("🔍 Agent Evaluation Dashboard")
+    st.caption("Offline trace-based evaluation for AI agents")
+    st.divider()
     st.info(
-        "👈 Enter the path to an evaluation output directory.\n\n"
+        "👈 Enter the path to an evaluation output directory in the sidebar.\n\n"
         "```\npython -m agent_eval.cli --input trace.json "
         "--judge-config judges.yaml --rubrics rubrics.yaml --output-dir ./output\n```"
     )
+    with st.expander("ℹ️ Getting Started"):
+        st.markdown("""
+        **1.** Run an evaluation using the CLI to generate output artifacts
+        **2.** Point this dashboard at the output directory
+        **3.** Explore metrics, rubric scores, and judge reasoning
+
+        The dashboard auto-discovers all evaluation runs in the directory tree.
+        """)
     st.stop()
 
 # Mode selection
@@ -322,6 +360,7 @@ if run.get("trace_eval"):
 # ---------------------------------------------------------------------------
 
 st.title("🔍 Agent Evaluation Dashboard")
+st.caption("Offline trace-based evaluation for AI agents — analyze quality without re-running the agent")
 
 # ===================================================================
 # COMPARE MODE
@@ -359,7 +398,7 @@ if compare_mode and len(selected_runs) == 2:
             col.metric(label, "—")
 
     # --- Rubric comparison ---
-    st.subheader("Rubric Score Comparison")
+    st.markdown("#### ⚖️ Rubric Score Comparison")
 
     def _rubric_map(r):
         te = r.get("trace_eval") or {}
@@ -476,6 +515,7 @@ with tab_overview:
     if trace_eval:
         dm = trace_eval.get("deterministic_metrics", {})
 
+        st.markdown("#### 📊 Deterministic Metrics")
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Turns", dm.get("turn_count", "—"))
         col2.metric("Steps", dm.get("step_count", "—"))
@@ -502,7 +542,8 @@ with tab_overview:
         numeric_rubrics = [(rr.get("rubric_id"), rubric_score(rr)) for rr in rubric_results if rubric_score(rr) is not None]
 
         if numeric_rubrics:
-            st.subheader("Rubric Radar")
+            st.divider()
+            st.markdown("#### 📋 Rubric Radar")
             radar_df = pd.DataFrame(numeric_rubrics, columns=["rubric", "score"])
             radar_df["color"] = radar_df["score"].apply(
                 lambda v: "#2ecc71" if v >= 4 else ("#f39c12" if v >= 3 else "#e74c3c")
@@ -548,7 +589,7 @@ with tab_turns:
             st.info("No turns in this trace.")
         else:
             # Turn timeline overview
-            st.subheader("Turn Timeline")
+            st.markdown("#### ⏱️ Turn Timeline")
             timeline_data = []
             for i, t in enumerate(turns):
                 lat = t.get("total_latency_ms") or 0
@@ -578,7 +619,8 @@ with tab_turns:
             st.altair_chart(lat_chart, use_container_width=True)
 
             # Turn detail drill-down
-            st.subheader("Turn Detail")
+            st.divider()
+            st.markdown("#### 🔎 Turn Detail")
             turn_labels = [f"Turn {i+1}: {(t.get('user_query') or '(no query)')[:60]}" for i, t in enumerate(turns)]
 
             # Navigation with Prev/Next buttons
@@ -871,7 +913,7 @@ with tab_trends:
         # Score trend chart
         score_df = trend_df[trend_df["Avg Score"].notna()].copy()
         if not score_df.empty:
-            st.subheader("Average Rubric Score")
+            st.markdown("#### 📊 Average Rubric Score")
             score_df["color"] = score_df["Avg Score"].apply(
                 lambda v: "#2ecc71" if v >= 4 else ("#f39c12" if v >= 3 else "#e74c3c")
             )
@@ -886,7 +928,7 @@ with tab_trends:
         # Latency trend
         lat_df = trend_df[trend_df["Latency p50 (ms)"].notna()].copy()
         if not lat_df.empty:
-            st.subheader("Latency Trend")
+            st.markdown("#### ⏱️ Latency Trend")
             lat_melted = lat_df.melt(
                 id_vars=["Run"],
                 value_vars=["Latency p50 (ms)", "Latency p95 (ms)"],
@@ -902,7 +944,8 @@ with tab_trends:
             st.altair_chart(lat_chart, use_container_width=True)
 
         # Per-rubric trend across runs
-        st.subheader("Per-Rubric Scores Across Runs")
+        st.divider()
+        st.markdown("#### 🗺️ Per-Rubric Scores Across Runs")
         rubric_trend_rows = []
         for r in runs:
             te = r.get("trace_eval") or {}
@@ -926,7 +969,8 @@ with tab_trends:
             st.altair_chart(rubric_heatmap, use_container_width=True)
 
         # Summary table
-        st.subheader("Run Summary Table")
+        st.divider()
+        st.markdown("#### 📋 Run Summary Table")
         st.dataframe(trend_df, use_container_width=True, hide_index=True)
 
 # ---------------------------------------------------------------------------
@@ -935,7 +979,7 @@ with tab_trends:
 
 with tab_builder:
 
-    st.subheader("🛠️ Rubric Builder")
+    st.markdown("#### 🛠️ Rubric Builder")
     st.caption("Create custom rubrics visually, preview the YAML, and export a ready-to-use rubrics file.")
 
     # Session state for rubric list
@@ -1021,7 +1065,7 @@ with tab_builder:
     # --- Current rubrics list ---
     if st.session_state.custom_rubrics:
         st.markdown("---")
-        st.subheader(f"📦 Your Rubrics ({len(st.session_state.custom_rubrics)})")
+        st.markdown(f"#### 📦 Your Rubrics ({len(st.session_state.custom_rubrics)})")
 
         for i, r in enumerate(st.session_state.custom_rubrics):
             sev_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡"}[r["severity"]]
@@ -1039,7 +1083,7 @@ with tab_builder:
 
         # --- YAML Preview & Export ---
         st.markdown("---")
-        st.subheader("📄 YAML Preview")
+        st.markdown("#### 📄 YAML Preview")
 
         yaml_doc = {
             "version": "1.0.0",
@@ -1065,7 +1109,8 @@ with tab_builder:
 
     # --- Import existing rubrics ---
     st.markdown("---")
-    st.subheader("📂 Import Existing Rubrics")
+    st.divider()
+    st.markdown("#### 📂 Import Existing Rubrics")
     uploaded = st.file_uploader("Upload a rubrics YAML file", type=["yaml", "yml"], key="rubric_upload")
     if uploaded:
         try:
