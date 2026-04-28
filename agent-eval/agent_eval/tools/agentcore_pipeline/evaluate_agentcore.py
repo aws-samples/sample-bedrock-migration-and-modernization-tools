@@ -88,7 +88,7 @@ def run_agentcore_export(
         cmd.extend(extra_args)
 
     print(f"Running AgentCore export: {' '.join(cmd)}")
-    result = subprocess.run(cmd, capture_output=False)
+    result = subprocess.run(cmd, capture_output=False)  # nosec B603 — list-form call with CLI args
 
     # Find the merged output directory
     export_root = Path(output_dir) / "agentcore_exports"
@@ -118,7 +118,7 @@ def run_evaluation(
     if verbose:
         cmd.append("--verbose")
 
-    result = subprocess.run(cmd, capture_output=False)
+    result = subprocess.run(cmd, capture_output=False)  # nosec B603 — list-form call with CLI args
     return result.returncode
 
 

@@ -173,7 +173,7 @@ def run_script(
         if cwd:
             logger.info(f"CWD: {cwd}")
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 — list-form call with internally constructed args
             cmd,
             capture_output=True,
             text=True,

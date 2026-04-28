@@ -504,7 +504,7 @@ def run_benchmark_process(eval_id):
 
         # Run the benchmark command with output capture
         try:
-            process = subprocess.Popen(
+            process = subprocess.Popen(  # nosec B603 — list-form call with internally constructed args
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

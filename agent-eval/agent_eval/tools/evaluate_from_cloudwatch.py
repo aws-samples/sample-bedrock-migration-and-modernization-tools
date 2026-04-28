@@ -199,7 +199,7 @@ def main():
         if args.verbose:
             cmd.append("--verbose")
 
-        result = subprocess.run(cmd, capture_output=not args.verbose)
+        result = subprocess.run(cmd, capture_output=not args.verbose)  # nosec B603 — list-form call with argparse-validated CLI args
         success = result.returncode == 0
         results.append({"trace": str(trace_path), "output": str(eval_output), "success": success})
         print(f"  {'✓' if success else '✗'} Output: {eval_output}")

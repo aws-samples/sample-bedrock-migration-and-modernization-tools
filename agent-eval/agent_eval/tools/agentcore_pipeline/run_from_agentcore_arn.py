@@ -771,8 +771,9 @@ def execute_script1(
         cmd.extend(["--profile", profile])
     
     # Execute Script 1 using subprocess.run
+    # Security: cmd is a list built from validated CLI args and internal paths — no shell injection risk
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 — list-form call with internally constructed args
             cmd,
             capture_output=True,
             text=True,
@@ -850,8 +851,9 @@ def execute_script2(
     env["AWS_REGION"] = region
     
     # Execute Script 2 using subprocess.run
+    # Security: cmd is a list built from validated CLI args and internal paths — no shell injection risk
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 — list-form call with internally constructed args
             cmd,
             capture_output=True,
             text=True,
@@ -916,8 +918,9 @@ def execute_script3(
         cmd.append("--debug")
     
     # Execute Script 3 using subprocess.run
+    # Security: cmd is a list built from validated CLI args and internal paths — no shell injection risk
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 — list-form call with internally constructed args
             cmd,
             capture_output=True,
             text=True,
