@@ -139,7 +139,7 @@ class EvidenceExtractor:
                 
                 # Use stable hash-based key to avoid collisions
                 import hashlib
-                selector_hash = hashlib.sha1(selector.encode('utf-8')).hexdigest()[:8]
+                selector_hash = hashlib.sha256(selector.encode('utf-8')).hexdigest()[:8]
                 key = f"s{idx}_{selector_hash}"
                 
                 extracted[key] = {

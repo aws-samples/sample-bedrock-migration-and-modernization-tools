@@ -196,41 +196,41 @@ def _load_mantle_functions():
 
     # Execute constants first (from model_matcher)
     for const_src in constants_source:
-        exec(const_src, namespace)
+        exec(const_src, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
 
     # Execute handler constants
     if mantle_provider_names_source:
-        exec(mantle_provider_names_source, namespace)
+        exec(mantle_provider_names_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if mantle_model_name_overrides_source:
-        exec(mantle_model_name_overrides_source, namespace)
+        exec(mantle_model_name_overrides_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if uppercase_words_source:
-        exec(uppercase_words_source, namespace)
+        exec(uppercase_words_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
 
     # Execute model_matcher functions (dependencies)
-    exec(canonical_source, namespace)
+    exec(canonical_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if calculate_match_score_source:
-        exec(calculate_match_score_source, namespace)
+        exec(calculate_match_score_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if has_semantic_conflict_source:
-        exec(has_semantic_conflict_source, namespace)
+        exec(has_semantic_conflict_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if get_provider_display_name_source:
-        exec(get_provider_display_name_source, namespace)
+        exec(get_provider_display_name_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if get_provider_source:
-        exec(get_provider_source, namespace)
+        exec(get_provider_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
 
     # Execute handler functions
-    exec(has_mantle_pricing_source, namespace)
-    exec(build_mantle_inference_source, namespace)
+    exec(has_mantle_pricing_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+    exec(build_mantle_inference_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if get_size_category_source:
-        exec(get_size_category_source, namespace)
+        exec(get_size_category_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if build_specs_source:
-        exec(build_specs_source, namespace)
+        exec(build_specs_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if build_pricing_alias_source:
-        exec(build_pricing_alias_source, namespace)
-    exec(build_availability_source, namespace)
+        exec(build_pricing_alias_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+    exec(build_availability_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if derive_model_name_source:
-        exec(derive_model_name_source, namespace)
+        exec(derive_model_name_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if create_mantle_only_stub_source:
-        exec(create_mantle_only_stub_source, namespace)
+        exec(create_mantle_only_stub_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
 
     return namespace
 

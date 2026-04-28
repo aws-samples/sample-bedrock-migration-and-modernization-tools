@@ -137,7 +137,7 @@ def run_inline_evaluation(trace_data: dict, app_dir: Path) -> Optional[Path]:
         ]
         if default_rubrics.exists():
             cmd.extend(["--rubrics", str(default_rubrics)])
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, cwd=str(app_dir.parent))  # nosec B603 — list-form call with internal paths
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, cwd=str(app_dir.parent))  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True, paths are internal
         if result.returncode == 0 and output_dir.exists():
             return output_dir
         return None
@@ -690,7 +690,7 @@ elif active_page == "Run":
                     if rubrics_path:
                         cmd.extend(["--rubrics", str(rubrics_path)])
 
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd=str(cli_base))  # nosec B603 — list-form call with UI-selected paths
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd=str(cli_base))  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True, paths from UI selection
 
                     if result.returncode == 0:
                         succeeded += 1

@@ -116,25 +116,25 @@ def _load_pricing_aggregator_functions():
 
     # Execute in order: constants first, then helper functions, then main functions
     if mantle_patterns_source:
-        exec(mantle_patterns_source, namespace)
+        exec(mantle_patterns_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if cris_regional_patterns_source:
-        exec(cris_regional_patterns_source, namespace)
+        exec(cris_regional_patterns_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if reserved_patterns_source:
-        exec(reserved_patterns_source, namespace)
+        exec(reserved_patterns_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if cache_patterns_source:
-        exec(cache_patterns_source, namespace)
+        exec(cache_patterns_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if commitment_patterns_source:
-        exec(commitment_patterns_source, namespace)
+        exec(commitment_patterns_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if detect_mantle_source:
-        exec(detect_mantle_source, namespace)
+        exec(detect_mantle_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if detect_cris_regional_source:
-        exec(detect_cris_regional_source, namespace)
+        exec(detect_cris_regional_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if detect_reserved_source:
-        exec(detect_reserved_source, namespace)
+        exec(detect_reserved_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
     if detect_cache_source:
-        exec(detect_cache_source, namespace)
-    exec(func_source, namespace)
-    exec(agg_source, namespace)
+        exec(detect_cache_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+    exec(func_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+    exec(agg_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
 
     return namespace
 

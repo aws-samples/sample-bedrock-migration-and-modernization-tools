@@ -138,13 +138,13 @@ def _load_direct_match_functions():
 
     # Execute constants first
     for const_src in constants_source:
-        exec(const_src, namespace)
+        exec(const_src, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
 
     # Execute get_canonical_model_id (dependency)
-    exec(canonical_source, namespace)
+    exec(canonical_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
 
     # Execute try_direct_match
-    exec(try_direct_match_source, namespace)
+    exec(try_direct_match_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
 
     return namespace
 

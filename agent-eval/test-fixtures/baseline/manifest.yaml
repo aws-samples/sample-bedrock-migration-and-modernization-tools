@@ -136,7 +136,7 @@ traces:
     
   - file: ambiguous_001_hedged_without_tool.json
     trace_id: ambiguous-001
-    expected_outcome_key: ambiguous-001
+    expected_outcome_key: ambiguous-001  # nosemgrep: generic.secrets.gitleaks.generic-api-key — not a secret, test fixture identifier
     category: ambiguous
     description: "Answer hedged, tool missing"
     validates:

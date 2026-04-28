@@ -773,7 +773,7 @@ def execute_script1(
     # Execute Script 1 using subprocess.run
     # Security: cmd is a list built from validated CLI args and internal paths — no shell injection risk
     try:
-        result = subprocess.run(  # nosec B603 — list-form call with internally constructed args
+        result = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True
             cmd,
             capture_output=True,
             text=True,
@@ -853,7 +853,7 @@ def execute_script2(
     # Execute Script 2 using subprocess.run
     # Security: cmd is a list built from validated CLI args and internal paths — no shell injection risk
     try:
-        result = subprocess.run(  # nosec B603 — list-form call with internally constructed args
+        result = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True
             cmd,
             capture_output=True,
             text=True,
@@ -920,7 +920,7 @@ def execute_script3(
     # Execute Script 3 using subprocess.run
     # Security: cmd is a list built from validated CLI args and internal paths — no shell injection risk
     try:
-        result = subprocess.run(  # nosec B603 — list-form call with internally constructed args
+        result = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True
             cmd,
             capture_output=True,
             text=True,
