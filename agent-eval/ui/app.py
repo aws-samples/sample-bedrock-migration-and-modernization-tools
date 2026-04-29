@@ -898,8 +898,8 @@ elif active_page == "Results":
         st.divider()
 
     # ── Results Sub-tabs ──
-    metrics_tab, turns_tab, rubrics_tab, judges_tab, cost_tab = st.tabs(
-        ["📊 Metrics", "🔄 Turns", "📋 Rubric Scorecard", "⚖️ Judge Detail", "💰 Cost"]
+    metrics_tab, turns_tab, rubrics_tab, judges_tab, cost_tab, latency_tab = st.tabs(
+        ["📊 Metrics", "🔄 Turns", "📋 Rubric Scorecard", "⚖️ Judge Detail", "💰 Cost", "⏱️ Latency"]
     )
 
     # ── Metrics ──
@@ -1227,6 +1227,67 @@ elif active_page == "Results":
                 ])
                 if not chart_df.empty and chart_df["Cost (USD)"].sum() > 0:
                     st.bar_chart(chart_df.set_index("Turn"))
+
+    # ── Latency Insights ──
+    with latency_tab:
+        run_results = run.get("results") if run else None
+        lat_data = run_results.get("latency_insights") if run_results else None
+        if not lat_data:
+            st.info("No latency insights available. Latency analysis requires traces with timestamps on steps.")
+        else:
+            st.markdown("#### ⏱️ Latency Summary")
+            lc1, lc2, lc3, lc4 = st.columns(4)
+            lc1.metric("Total Latency", f"{lat_data.get('total_ms', 0):,.0f} ms")
+            lc2.metric("Avg Turn Latency", f"{lat_data.get('avg_turn_ms', 0):,.0f} ms")
+            ttft = lat_data.get("ttft_ms")
+            lc3.metric("TTFT", f"{ttft:,.0f} ms" if ttft is not None else "N/A")
+            tps = lat_data.get("tokens_per_second")
+            lc4.metric("Tokens/sec", f"{tps:,.1f}" if tps is not None else "N/A")
+
+            # Latency breakdown
+            st.markdown("#### 📊 Where Time Is Spent")
+            total_llm = lat_data.get("total_llm_ms", 0)
+            total_tool = lat_data.get("total_tool_ms", 0)
+            total_overhead = lat_data.get("total_overhead_ms", 0)
+            total_all = total_llm + total_tool + total_overhead
+            if total_all > 0:
+                bc1, bc2, bc3 = st.columns(3)
+                bc1.metric("🧠 LLM Time", f"{total_llm:,.0f} ms", f"{total_llm/total_all*100:.0f}%")
+                bc2.metric("🔧 Tool Time", f"{total_tool:,.0f} ms", f"{total_tool/total_all*100:.0f}%")
+                bc3.metric("⚙️ Overhead", f"{total_overhead:,.0f} ms", f"{total_overhead/total_all*100:.0f}%")
+
+            # Per-turn breakdown table
+            per_turn = lat_data.get("per_turn", [])
+            if per_turn:
+                st.markdown("#### 🔄 Latency per Turn")
+                import pandas as pd
+                turn_rows = []
+                for t in per_turn:
+                    turn_rows.append({
+                        "Turn": t["turn_id"],
+                        "Total (ms)": f"{t.get('total_ms', 0):,.0f}",
+                        "LLM (ms)": f"{t.get('llm_ms', 0):,.0f}",
+                        "Tool (ms)": f"{t.get('tool_ms', 0):,.0f}",
+                        "Overhead (ms)": f"{t.get('overhead_ms', 0):,.0f}",
+                        "TTFT (ms)": f"{t['ttft_ms']:,.0f}" if t.get("ttft_ms") is not None else "—",
+                    })
+                st.dataframe(turn_rows, use_container_width=True, hide_index=True)
+
+                # Stacked bar chart
+                chart_data = pd.DataFrame([
+                    {"Turn": t["turn_id"], "LLM": t.get("llm_ms", 0), "Tool": t.get("tool_ms", 0), "Overhead": t.get("overhead_ms", 0)}
+                    for t in per_turn
+                ]).set_index("Turn")
+                if chart_data.sum().sum() > 0:
+                    st.bar_chart(chart_data)
+
+            # Slowest steps
+            slowest = lat_data.get("slowest_steps", [])
+            if slowest:
+                st.markdown("#### 🐢 Slowest Steps (optimization targets)")
+                for i, s in enumerate(slowest, 1):
+                    kind_icon = "🧠" if s.get("kind") in ("MODEL_INVOKE", "LLM_OUTPUT_CHUNK") else "🔧" if s.get("kind") in ("TOOL_CALL", "TOOL_RESULT") else "⚙️"
+                    st.markdown(f"{i}. {kind_icon} **{s['name']}** — {s['latency_ms']:,.0f} ms *(turn: {s['turn_id']})*")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # PAGE: TRENDS
