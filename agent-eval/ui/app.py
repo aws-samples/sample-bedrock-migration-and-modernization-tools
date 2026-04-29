@@ -494,7 +494,7 @@ if active_page == "Setup":
                 st.markdown("**Define a new judge**")
                 jc1, jc2 = st.columns(2)
                 judge_id = jc1.text_input("Judge ID", placeholder="e.g. claude_sonnet_4")
-                provider = jc2.selectbox("Provider", ["bedrock", "mock"], index=["bedrock", "mock"].index(preset.get("provider", "bedrock")))
+                provider = jc2.selectbox("Provider", ["bedrock", "litellm", "mock"], index=["bedrock", "litellm", "mock"].index(preset.get("provider", "bedrock")))
                 model_id = st.text_input("Model ID", value=preset.get("model_id", ""), placeholder="e.g. us.anthropic.claude-sonnet-4-20250514-v1:0")
                 st.markdown("**Parameters**")
                 pc1, pc2 = st.columns(2)
@@ -576,7 +576,7 @@ if active_page == "Setup":
             if st.session_state.custom_judges:
                 st.markdown(f"**📦 Your Judges ({len(st.session_state.custom_judges)}/5)**")
                 for i, j in enumerate(st.session_state.custom_judges):
-                    prov_icon = "🟣" if j["provider"] == "bedrock" else "⚪"
+                    prov_icon = "🟣" if j["provider"] == "bedrock" else "🟢" if j["provider"] == "litellm" else "⚪"
                     with st.expander(f"{prov_icon} **{j['judge_id']}** — {j['provider']} / {j['model_id']}", expanded=False):
                         mc1, mc2, mc3, mc4 = st.columns(4)
                         mc1.metric("Repeats", j["repeats"])
@@ -868,8 +868,8 @@ elif active_page == "Results":
         st.divider()
 
     # ── Results Sub-tabs ──
-    metrics_tab, turns_tab, rubrics_tab, judges_tab = st.tabs(
-        ["📊 Metrics", "🔄 Turns", "📋 Rubric Scorecard", "⚖️ Judge Detail"]
+    metrics_tab, turns_tab, rubrics_tab, judges_tab, cost_tab = st.tabs(
+        ["📊 Metrics", "🔄 Turns", "📋 Rubric Scorecard", "⚖️ Judge Detail", "💰 Cost"]
     )
 
     # ── Metrics ──
@@ -1141,6 +1141,61 @@ elif active_page == "Results":
                 with st.expander(f"[{rid}] Judge: {jid} → Score: {score}"):
                     if reasoning: st.markdown(reasoning)
                     st.json({k: v for k, v in record.items() if k != "reasoning" and v is not None})
+
+    # ── Cost Insights ──
+    with cost_tab:
+        cost_data = results.get("cost_insights") if results else None
+        if not cost_data:
+            st.info("No cost data available. Cost insights require traces with token usage data (e.g., `prompt_tokens`, `completion_tokens` in step attributes).")
+        else:
+            st.markdown("#### 💰 Cost Summary")
+            cc1, cc2, cc3, cc4 = st.columns(4)
+            cc1.metric("Total Cost", f"${cost_data.get('total_cost_usd', 0):.4f}")
+            cc2.metric("Input Tokens", f"{cost_data.get('total_input_tokens', 0):,}")
+            cc3.metric("Output Tokens", f"{cost_data.get('total_output_tokens', 0):,}")
+            cc4.metric("Total Tokens", f"{cost_data.get('total_tokens', 0):,}")
+
+            st.caption(f"Pricing source: {cost_data.get('pricing_source', 'unknown')}")
+
+            # Cost by model
+            cost_by_model = cost_data.get("cost_by_model", {})
+            tokens_by_model = cost_data.get("tokens_by_model", {})
+            if cost_by_model:
+                st.markdown("#### 📊 Cost by Model")
+                model_rows = []
+                for model_id, cost in sorted(cost_by_model.items(), key=lambda x: -x[1]):
+                    toks = tokens_by_model.get(model_id, {})
+                    model_rows.append({
+                        "Model": model_id,
+                        "Input Tokens": toks.get("input", 0),
+                        "Output Tokens": toks.get("output", 0),
+                        "Cost (USD)": f"${cost:.6f}",
+                    })
+                st.dataframe(model_rows, use_container_width=True, hide_index=True)
+
+            # Cost per turn
+            cost_per_turn = cost_data.get("cost_per_turn", [])
+            if cost_per_turn:
+                st.markdown("#### 🔄 Cost per Turn")
+                turn_rows = []
+                for t in cost_per_turn:
+                    turn_rows.append({
+                        "Turn": t["turn_id"],
+                        "Input Tokens": t.get("input_tokens", 0),
+                        "Output Tokens": t.get("output_tokens", 0),
+                        "Model Calls": t.get("model_calls", 0),
+                        "Cost (USD)": f"${t.get('total_cost_usd', 0):.6f}",
+                    })
+                st.dataframe(turn_rows, use_container_width=True, hide_index=True)
+
+                # Bar chart of cost per turn
+                import pandas as pd
+                chart_df = pd.DataFrame([
+                    {"Turn": t["turn_id"], "Cost (USD)": t.get("total_cost_usd", 0)}
+                    for t in cost_per_turn
+                ])
+                if not chart_df.empty and chart_df["Cost (USD)"].sum() > 0:
+                    st.bar_chart(chart_df.set_index("Turn"))
 
 # ═══════════════════════════════════════════════════════════════════════════
 # PAGE: TRENDS
