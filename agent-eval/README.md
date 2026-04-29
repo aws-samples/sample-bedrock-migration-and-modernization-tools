@@ -48,6 +48,20 @@ Evaluation behavior is controlled by configuration files:
 - `judges.yaml`
 - `rubrics.yaml`
 
+### Provider-agnostic judge models
+
+Use any LLM provider as a judge via [LiteLLM](https://github.com/BerriAI/litellm) integration. Set `provider: litellm` in your judge config and route to any model:
+- `bedrock/anthropic.claude-sonnet-4-20250514` → Amazon Bedrock
+- `gpt-4o` → OpenAI
+- `anthropic/claude-sonnet-4-20250514` → Anthropic direct
+- `gemini/gemini-pro` → Google
+
+The native Amazon Bedrock judge client (`provider: bedrock`) is also available for direct API access.
+
+### Cost insights
+
+Automatically extracts token usage from trace data and calculates per-turn, per-model, and total costs. Pricing is resolved via LiteLLM's built-in cost data or user-provided overrides. Cost breakdown is included in `results.json` when token data is present in traces.
+
 ## Quick Start
 
 Run the evaluator using the included sample trace:
@@ -142,10 +156,28 @@ The quick start uses mock judges so the pipeline can run without external APIs.
 ### Example real judge configuration
 
 ```yaml
+# Amazon Bedrock (native client)
 judges:
   - judge_id: judge_1
     provider: bedrock
     model_id: anthropic.claude-3-sonnet-20240229-v1:0
+    params:
+      temperature: 0.0
+      max_tokens: 1000
+```
+
+```yaml
+# LiteLLM (any provider — requires: pip install litellm)
+judges:
+  - judge_id: judge_1
+    provider: litellm
+    model_id: bedrock/anthropic.claude-sonnet-4-20250514
+    params:
+      temperature: 0.0
+      max_tokens: 1000
+  - judge_id: judge_2
+    provider: litellm
+    model_id: gpt-4o
     params:
       temperature: 0.0
       max_tokens: 1000
