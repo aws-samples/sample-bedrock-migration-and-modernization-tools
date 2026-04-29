@@ -1,4 +1,4 @@
-# Bedrock Model Profiler — Backend
+# Amazon Bedrock Model Profiler — Backend
 
 Serverless data pipeline using AWS Step Functions to collect, enrich, and aggregate Amazon Bedrock model data from 10+ sources. Runs twice daily at 6 AM and 6 PM UTC. Features inter-Lambda caching (~97% cache hit rate), self-healing with Claude Opus 4.5, and centralized model ID matching.
 
@@ -33,11 +33,11 @@ The pipeline consists of 17 Lambda functions with carefully tuned concurrency an
 
 | Function | Timeout | Memory | Concurrency | Description |
 |----------|---------|--------|-------------|-------------|
-| region-discovery | 120s | 256MB | 1 | Discover Bedrock regions + cache inference profiles |
+| region-discovery | 120s | 256MB | 1 | Discover Amazon Bedrock regions + cache inference profiles |
 | config-sync | 60s | 256MB | 1 | Sync frontend config from backend profiler-config.json |
 | pricing-collector | 300s | 512MB | 3 (Map) | Collect pricing per service code from AWS Pricing API |
 | pricing-aggregator | 120s | 1GB | 1 | Merge pricing from 3 service codes |
-| model-extractor | 60s | 256MB | 10 (Map) | Extract models from all regions + Bedrock Console REST API |
+| model-extractor | 60s | 256MB | 10 (Map) | Extract models from all regions + Amazon Bedrock Console REST API |
 | model-merger | 60s | 512MB | 1 | Deduplicate and merge models from all regions |
 | quota-collector | 60s | 256MB | 10 (Map) | Collect Service Quotas per region |
 | pricing-linker | 120s | 1GB | 1 | Fuzzy-match models to pricing (confidence threshold 0.7) |
@@ -217,7 +217,7 @@ cd backend/tests
 - AWS SAM CLI
 - Python 3.11
 - AWS credentials with permissions for:
-  - Bedrock (ListFoundationModels, ListInferenceProfiles)
+  - Amazon Bedrock (ListFoundationModels, ListInferenceProfiles)
   - Pricing API (GetProducts)
   - Service Quotas (ListServiceQuotas)
   - S3, Lambda, Step Functions, IAM, CloudWatch
@@ -292,7 +292,7 @@ Per execution (~51+ Lambda invocations):
 - Lambda: ~$0.01-0.02
 - Step Functions: ~$0.0003 (state transitions)
 - S3: ~$0.001 (PUT requests + storage)
-- Bedrock (self-healing): ~$0.003-0.01 (conditional)
+- Amazon Bedrock (self-healing): ~$0.003-0.01 (conditional)
 
 **Estimated monthly cost**: ~$1.00-2.00 (twice-daily execution)
 
@@ -308,7 +308,7 @@ Per execution (~51+ Lambda invocations):
 
 ## AWS Services Used
 
-- **Bedrock**: ListFoundationModels, ListInferenceProfiles
+- **Amazon Bedrock**: ListFoundationModels, ListInferenceProfiles
 - **Pricing API**: GetProducts (us-east-1 only)
 - **Service Quotas**: ListServiceQuotas
 - **Step Functions**: Workflow orchestration

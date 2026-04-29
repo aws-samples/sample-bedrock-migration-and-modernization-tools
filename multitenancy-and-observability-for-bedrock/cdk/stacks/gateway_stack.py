@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 from aws_cdk import (
     Stack,
     Duration,
@@ -53,7 +54,7 @@ class GatewayStack(Stack):
             self,
             "GatewayApi",
             rest_api_name="isv-observability-gateway-api",
-            description="ISV Bedrock Observability Gateway API",
+            description="ISV Amazon Bedrock Observability Gateway API",
             endpoint_types=[apigw.EndpointType.REGIONAL],
             deploy_options=apigw.StageOptions(stage_name="v1"),
             default_cors_preflight_options=apigw.CorsOptions(

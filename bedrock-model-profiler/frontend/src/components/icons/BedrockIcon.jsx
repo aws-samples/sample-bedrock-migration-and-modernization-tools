@@ -1,6 +1,9 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { cn } from '@/lib/utils'
 
-export function BedrockIcon({ className, ...props }) {
+export function Amazon BedrockIcon({ className, ...props }) {
   return (
     <svg
       fill="currentColor"

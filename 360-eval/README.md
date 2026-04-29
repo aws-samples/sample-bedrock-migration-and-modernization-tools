@@ -2,7 +2,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![AWS Bedrock](https://img.shields.io/badge/AWS-Bedrock-orange.svg)](https://aws.amazon.com/bedrock/)
+[![Amazon Bedrock](https://img.shields.io/badge/AWS-Bedrock-orange.svg)](https://aws.amazon.com/bedrock/)
 [![Streamlit](https://img.shields.io/badge/Built%20with-Streamlit-red.svg)](https://streamlit.io/)
 
 ## 📑 Table of Contents
@@ -85,7 +85,7 @@ This project provides tools for:
 - **Configuration validation**: Pre-validate configuration files to catch errors before running evaluations
 - **Regional performance analysis**: Analyze performance by AWS region with timezone-aware reporting
 - **Unprocessed record tracking**: Automatically log failed evaluations for debugging
-- **Service tier support**: Test Bedrock models across different service tiers (default, priority, flex)
+- **Service tier support**: Test Amazon Bedrock models across different service tiers (default, priority, flex)
 - **Prompt optimization**: Use Amazon Bedrock's API to optimize compatible models prompts
 
 ---
@@ -202,8 +202,8 @@ Before installing and using the framework, ensure you have:
   aws configure
   # Enter your AWS Access Key ID, Secret Access Key, and default region
   ```
-- **Bedrock Model Access**: Enable model access in the AWS Bedrock console
-  - Go to AWS Console → Bedrock → Model access
+- **Amazon Bedrock Model Access**: Enable model access in the Amazon Bedrock console
+  - Go to AWS Console → Amazon Bedrock → Model access
   - Request access to the models you want to evaluate
   - **Required for reports**: `us.amazon.nova-premier-v1:0` (used for HTML report generation)
 
@@ -329,7 +329,7 @@ prompt,golden_answer
 
 **1. Select Models to Evaluate**
 - Choose from available LLM models (Bedrock and third-party)
-- Configure regions for Bedrock models
+- Configure regions for Amazon Bedrock models
 - Set cost parameters for each model (input/output token costs)
 - Configure service tiers if applicable (default, priority, flex)
 
@@ -814,19 +814,19 @@ The benchmarking tool requires input data in **JSONL format**, with each line co
 
 ### Model Profiles Data Format
 
-The benchmarking tool requires model profiles in **JSONL format**, with each line containing a model identifier, region (for Bedrock models), and cost data.
+The benchmarking tool requires model profiles in **JSONL format**, with each line containing a model identifier, region (for Amazon Bedrock models), and cost data.
 
 #### Field Descriptions
 
 - **`model_id`**: Target model identifier
-  - For Bedrock models: `"bedrock/us.amazon.nova-pro-v1:0"`
+  - For Amazon Bedrock models: `"bedrock/us.amazon.nova-pro-v1:0"`
   - For OpenAI models: `"openai/gpt-4o"`
   - For Google models: `"gemini/gemini-2.0-flash-exp"`
   - For Azure models: Follow LiteLLM Azure format
 
-- **`region`**: AWS region for Bedrock models (example: `"us-west-2"`)
-  - **Required for Bedrock models only**
-  - Region where the Bedrock model is available
+- **`region`**: AWS region for Amazon Bedrock models (example: `"us-west-2"`)
+  - **Required for Amazon Bedrock models only**
+  - Region where the Amazon Bedrock model is available
   - Not required for third-party models (OpenAI, Google, Azure)
 
 - **`input_token_cost`**: Cost per 1,000 input tokens (example: `0.0008`)
@@ -841,8 +841,8 @@ The benchmarking tool requires model profiles in **JSONL format**, with each lin
   - Useful for identifying error rates and throttling thresholds
   - Set to `null` or omit the field for no rate limiting
 
-- **`service_tier`** (optional): Inference service tier for Bedrock models (example: `"priority"`)
-  - **Bedrock models only** - controls the processing tier for model requests
+- **`service_tier`** (optional): Inference service tier for Amazon Bedrock models (example: `"priority"`)
+  - **Amazon Bedrock models only** - controls the processing tier for model requests
   - Valid values: `"default"`, `"priority"`, or `"flex"`
     - `priority`: Higher priority processing with guaranteed capacity
     - `default`: Standard processing tier (used if not specified)
@@ -856,7 +856,7 @@ The benchmarking tool requires model profiles in **JSONL format**, with each lin
 #### Model Profile Examples
 
 <details>
-<summary>Bedrock Model (Basic)</summary>
+<summary>Amazon Bedrock Model (Basic)</summary>
 
 ```json
 {"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032}
@@ -864,7 +864,7 @@ The benchmarking tool requires model profiles in **JSONL format**, with each lin
 </details>
 
 <details>
-<summary>Bedrock Model with Rate Limiting</summary>
+<summary>Amazon Bedrock Model with Rate Limiting</summary>
 
 ```json
 {"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "target_rpm": 60}
@@ -872,7 +872,7 @@ The benchmarking tool requires model profiles in **JSONL format**, with each lin
 </details>
 
 <details>
-<summary>Bedrock Model with Service Tier</summary>
+<summary>Amazon Bedrock Model with Service Tier</summary>
 
 ```json
 {"model_id": "bedrock/us.amazon.nova-pro-v1:0", "region": "us-west-2", "input_token_cost": 0.0008, "output_token_cost": 0.0032, "service_tier": "priority"}
@@ -913,15 +913,15 @@ The benchmarking tool requires model profiles in **JSONL format**, with each lin
 
 ### Jury Configuration
 
-Jury are required input data in **JSONL format**, with each line containing a judge model used to evaluate the models' responses. Currently, only Bedrock models are supported as judges.
+Jury are required input data in **JSONL format**, with each line containing a judge model used to evaluate the models' responses. Currently, only Amazon Bedrock models are supported as judges.
 
 #### Field Descriptions
 
 - **`model_id`**: Jury model identifier (example: `"bedrock/us.amazon.nova-premier-v1:0"`)
-  - Currently only supporting Bedrock model judges
+  - Currently only supporting Amazon Bedrock model judges
 
-- **`region`**: AWS region for Bedrock models (example: `"us-east-1"`)
-  - Region where the Bedrock model is available
+- **`region`**: AWS region for Amazon Bedrock models (example: `"us-east-1"`)
+  - Region where the Amazon Bedrock model is available
 
 - **`input_cost_per_1k`**: Input cost per one thousand tokens
   - Used for input pricing calculations
@@ -986,7 +986,7 @@ Amazon Bedrock supports automatic prompt optimization for specific target models
 
 **CLI:**
 ```bash
-# Optimize prompts for all Bedrock models
+# Optimize prompts for all Amazon Bedrock models
 python src/benchmarks_run.py runs/input_file.jsonl \
     --prompt_optimization_mode optimize_only
 
@@ -1009,7 +1009,7 @@ python src/benchmarks_run.py runs/input_file.jsonl \
 
 #### Notes
 
-- Only works with Bedrock models (non-Bedrock models will use original prompts)
+- Only works with Amazon Bedrock models (non-Bedrock models will use original prompts)
 - Requires access to Amazon Bedrock's prompt optimization API
 - Failed optimizations automatically fall back to original prompts
 - Optimization adds slight latency to the evaluation setup phase
@@ -1148,7 +1148,7 @@ Amazon Bedrock supports multiple service tiers for model inference, allowing you
 
 **Dashboard:**
 1. Navigate to **Setup** → **Model Configuration** tab
-2. Select a Bedrock model that supports service tiers (e.g., Amazon Nova, Claude 3.5+)
+2. Select a Amazon Bedrock model that supports service tiers (e.g., Amazon Nova, Claude 3.5+)
 3. Check one or more service tier options (Default, Priority, Flex)
 4. Click **Add Model** - this will create separate entries for each selected tier
 5. Each tier variant will appear in results as `model-name_priority`, `model-name_flex`, etc.
@@ -1252,7 +1252,7 @@ In addition to HTML reports, the framework generates detailed CSV files:
 **Prevention:**
 - Use appropriate sleep intervals between calls (60-120 seconds for production)
 - Reduce parallel calls if hitting rate limits
-- Monitor AWS Bedrock quotas in AWS Console
+- Monitor Amazon Bedrock quotas in AWS Console
 </details>
 
 <details>
@@ -1275,14 +1275,14 @@ In addition to HTML reports, the framework generates detailed CSV files:
 
 **Solution:**
 - Verify AWS credentials and region settings: `aws configure list`
-- Ensure Bedrock model access is enabled in your AWS account (AWS Console → Bedrock → Model access)
+- Ensure Amazon Bedrock model access is enabled in your AWS account (AWS Console → Amazon Bedrock → Model access)
 - Check that you're using the correct region for the model
 - Run model capability validation: `python src/validate_model_capabilities.py`
 
 **Note:** The system performs parallel model access checks before evaluation starts and provides immediate feedback on model availability.
 
 **Prevention:**
-- Request model access in AWS Bedrock console before configuring evaluations
+- Request model access in Amazon Bedrock console before configuring evaluations
 - Verify model availability in specific regions (some models are region-limited)
 - Keep model profiles updated with correct region information
 </details>
@@ -1299,7 +1299,7 @@ In addition to HTML reports, the framework generates detailed CSV files:
 **Note:** Each evaluation automatically creates its own report upon completion.
 
 **Prevention:**
-- Enable `us.amazon.nova-premier-v1:0` in AWS Bedrock model access
+- Enable `us.amazon.nova-premier-v1:0` in Amazon Bedrock model access
 - Monitor evaluation completion status
 - Check terminal/logs for report generation errors
 </details>
@@ -1482,7 +1482,7 @@ Both use the same underlying evaluation engine and produce identical results.
 - Balanced: 3 judges (e.g., Nova Premier + Claude 3.5 Sonnet + Nova Pro)
 - High-accuracy: 3-4 judges with diverse models
 
-Currently, only **Bedrock models** are supported as judges.
+Currently, only **Amazon Bedrock models** are supported as judges.
 </details>
 
 <details>
@@ -1540,7 +1540,7 @@ Currently, only **Bedrock models** are supported as judges.
    - OpenAI: `"openai/gpt-4o"`
    - Google: `"gemini/gemini-2.0-flash-exp"`
 
-**Note:** Jury models currently only support Bedrock models.
+**Note:** Jury models currently only support Amazon Bedrock models.
 </details>
 
 <details>
@@ -1622,7 +1622,7 @@ Currently, only **Bedrock models** are supported as judges.
 - Run `python src/validate_model_capabilities.py` before evaluations
 - Validate configurations with `python src/config_validator.py config/`
 - Start with small test datasets to catch issues early
-- Monitor AWS Bedrock quotas and rate limits
+- Monitor Amazon Bedrock quotas and rate limits
 </details>
 
 ---
@@ -1720,10 +1720,10 @@ Currently, only **Bedrock models** are supported as judges.
 - **Disk Space**: 1GB+ for outputs and reports
 
 ### Python Dependencies
-- **Boto3**: AWS SDK for Python (Bedrock API access)
+- **Boto3**: AWS SDK for Python (Amazon Bedrock API access)
 - **Plotly**: Interactive visualizations and charts
 - **Pandas**: Data processing and analysis
-- **LiteLLM**: Multi-provider LLM client (Bedrock, OpenAI, Google, Azure)
+- **LiteLLM**: Multi-provider LLM client (Amazon Bedrock, OpenAI, Google, Azure)
 - **Jinja2**: HTML report templating
 - **Python-Dotenv**: Environment variable management
 - **Streamlit**: Dashboard web interface
@@ -1758,7 +1758,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 5. Open a Pull Request
 
 **Areas where contributions are especially welcome:**
-- Additional judge model providers (currently Bedrock only)
+- Additional judge model providers (currently Amazon Bedrock only)
 - New visualization types for reports
 - Performance optimizations
 - Documentation improvements

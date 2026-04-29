@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # adapter_config.yaml (v6 - production-ready + explicit implementation contracts)
 version: 1
 adapter_name: generic-json-adapter

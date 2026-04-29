@@ -1,0 +1,3696 @@
+{
+  "format_version": "1.0.0",
+  "run_id": "generated_0d4b80aaf7a641be",
+  "deterministic_metrics": {
+    "turn_count": 7,
+    "step_count": 14,
+    "tool_call_count": 0,
+    "tool_result_count": 0,
+    "orphan_result_count": 0,
+    "tool_success_rate": 0.0,
+    "missing_timestamp_rate": 0.0,
+    "stitched_trace_suspect": false,
+    "single_turn_fallback_used": false,
+    "latency_p50": 0.0,
+    "latency_p95": 0.0,
+    "avg_turn_latency_ms": 0.0,
+    "confidence_penalty_summary": {},
+    "trusted_timestamp_count": 7,
+    "untrusted_timestamp_count": 0
+  },
+  "rubric_results": [
+    {
+      "rubric_id": "TOOL_GROUNDEDNESS",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_GROUNDEDNESS",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_GROUNDEDNESS",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_GROUNDEDNESS",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_GROUNDEDNESS",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_GROUNDEDNESS",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_GROUNDEDNESS",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_GROUNDEDNESS",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CONSISTENCY",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CONSISTENCY",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CONSISTENCY",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CONSISTENCY",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CONSISTENCY",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CONSISTENCY",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CONSISTENCY",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CONSISTENCY",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CALL_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CALL_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CALL_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CALL_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CALL_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CALL_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CALL_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CALL_QUALITY",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CHAINING",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CHAINING",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CHAINING",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CHAINING",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CHAINING",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CHAINING",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_CHAINING",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_CHAINING",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TRACE_COMPLETENESS",
+      "scope": "run",
+      "turn_id": null,
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TRACE_COMPLETENESS",
+          "turn_id": null,
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TRACE_COMPLETENESS",
+          "turn_id": null,
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "SAFETY_PII",
+      "scope": "run",
+      "turn_id": null,
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "SAFETY_PII",
+          "turn_id": null,
+          "majority_vote": "safe",
+          "median": null,
+          "mean": null,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "categorical"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "SAFETY_PII",
+          "turn_id": null,
+          "majority_vote": "safe",
+          "median": null,
+          "mean": null,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "categorical"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": "safe",
+        "weighted_average": null,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "categorical",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_SELECTION",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_SELECTION",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_SELECTION",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_SELECTION",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_SELECTION",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_SELECTION",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "TOOL_SELECTION",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "TOOL_SELECTION",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ANSWER_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ANSWER_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ANSWER_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ANSWER_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ANSWER_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ANSWER_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ANSWER_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ANSWER_ACCURACY",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ROUTING_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ROUTING_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ROUTING_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ROUTING_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ROUTING_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ROUTING_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ROUTING_QUALITY",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ROUTING_QUALITY",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "CONCISENESS",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "CONCISENESS",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "CONCISENESS",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "CONCISENESS",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "CONCISENESS",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "CONCISENESS",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "CONCISENESS",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "CONCISENESS",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "CONVERSATION_COHERENCE",
+      "scope": "run",
+      "turn_id": null,
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "CONVERSATION_COHERENCE",
+          "turn_id": null,
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "CONVERSATION_COHERENCE",
+          "turn_id": null,
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ERROR_RECOVERY",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ERROR_RECOVERY",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ERROR_RECOVERY",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ERROR_RECOVERY",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ERROR_RECOVERY",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ERROR_RECOVERY",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ERROR_RECOVERY",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ERROR_RECOVERY",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "HALLUCINATION_DETECTION",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "HALLUCINATION_DETECTION",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "HALLUCINATION_DETECTION",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "HALLUCINATION_DETECTION",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "HALLUCINATION_DETECTION",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "HALLUCINATION_DETECTION",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "HALLUCINATION_DETECTION",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "HALLUCINATION_DETECTION",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "DATA_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "DATA_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "DATA_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "DATA_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "DATA_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "DATA_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "DATA_ACCURACY",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "DATA_ACCURACY",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "SUBAGENT_DELEGATION",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "SUBAGENT_DELEGATION",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "SUBAGENT_DELEGATION",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "SUBAGENT_DELEGATION",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "SUBAGENT_DELEGATION",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "SUBAGENT_DELEGATION",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "SUBAGENT_DELEGATION",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "SUBAGENT_DELEGATION",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ACTION_ITEM_EXTRACTION",
+      "scope": "turn",
+      "turn_id": "turn_0",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_0",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ACTION_ITEM_EXTRACTION",
+      "scope": "turn",
+      "turn_id": "turn_1",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_1",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ACTION_ITEM_EXTRACTION",
+      "scope": "turn",
+      "turn_id": "turn_2",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_2",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ACTION_ITEM_EXTRACTION",
+      "scope": "turn",
+      "turn_id": "turn_3",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_3",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ACTION_ITEM_EXTRACTION",
+      "scope": "turn",
+      "turn_id": "turn_4",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_4",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ACTION_ITEM_EXTRACTION",
+      "scope": "turn",
+      "turn_id": "turn_5",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_5",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    },
+    {
+      "rubric_id": "ACTION_ITEM_EXTRACTION",
+      "scope": "turn",
+      "turn_id": "turn_6",
+      "within_judge_results": [
+        {
+          "judge_id": "mock-judge-1",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        },
+        {
+          "judge_id": "mock-judge-2",
+          "rubric_id": "ACTION_ITEM_EXTRACTION",
+          "turn_id": "turn_6",
+          "majority_vote": null,
+          "median": 3.0,
+          "mean": 3.0,
+          "variance": 0.0,
+          "sample_size": 3,
+          "scoring_type": "numeric"
+        }
+      ],
+      "cross_judge_result": {
+        "weighted_vote": null,
+        "weighted_average": 3.0,
+        "disagreement_signal": 0.0,
+        "high_risk_flag": false,
+        "judge_count": 2,
+        "scoring_type": "numeric",
+        "mixed_types_error": null,
+        "scale_warning": null
+      }
+    }
+  ],
+  "judge_summary": {
+    "total_jobs": 564,
+    "successful_jobs": 564,
+    "failed_jobs": 0,
+    "parsed_job_results": 564,
+    "attempted_jobs_total": 564
+  }
+}

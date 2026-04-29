@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, useMemo } from 'react'
 import { Star, GitCompare, ExternalLink, Globe, MessageSquare, Image, FileText, Video, Mic, Check, X, MapPin, Radio, ArrowRight, CheckCircle2, Copy, Search, Clock, Cpu, AlertTriangle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'

@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Tests for model extraction caching (Task 09).
 
@@ -171,7 +172,7 @@ class TestModelExtractorCacheIntegration:
 
     @pytest.fixture
     def mock_bedrock_response(self):
-        """Return mock Bedrock ListFoundationModels response."""
+        """Return mock Amazon Bedrock ListFoundationModels response."""
         return {
             "modelSummaries": [
                 {

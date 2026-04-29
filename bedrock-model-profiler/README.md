@@ -7,7 +7,7 @@ A comprehensive tool for exploring, analyzing, and comparing Amazon Bedrock foun
 ## Use Cases
 
 - **Model Selection** — Compare capabilities, context windows, and specifications to find the right model for your use case
-- **Migration Planning** — Analyze Bedrock models when migrating workloads from other AI providers
+- **Migration Planning** — Analyze Amazon Bedrock models when migrating workloads from other AI providers
 - **Cost Optimization** — Compare pricing across models, regions, and consumption options (on-demand, batch, provisioned, [CRIS](https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html), and Mantle)
 - **Regional Planning** — Identify model availability across all AWS regions for multi-region deployments
 - **Capability Matching** — Find models with specific features: vision, code generation, embeddings, function calling
@@ -137,7 +137,7 @@ The solution uses serverless, pay-per-use services to minimize costs.
 
 **Estimated total: ~$1-2/month** for typical usage with low traffic. CloudFormation stack creation and SAM deployment are free — you only pay for the resources created.
 
-> **Note:** The self-healing agent (optional) uses Bedrock InvokeModel with Claude, which incurs token-based charges. This only runs when data gaps are detected (~1-2 times/month) and costs approximately $0.01-0.05 per invocation.
+> **Note:** The self-healing agent (optional) uses Amazon Bedrock InvokeModel with Claude, which incurs token-based charges. This only runs when data gaps are detected (~1-2 times/month) and costs approximately $0.01-0.05 per invocation.
 
 ## Key Features
 
@@ -263,8 +263,8 @@ bedrock-model-profiler/
 
 **"Access Denied" during data collection**
 - Verify AWS credentials: `aws sts get-caller-identity`
-- Check your profile has Bedrock and Pricing API access
-- Some regions may fail due to Bedrock not being available — this is normal
+- Check your profile has Amazon Bedrock and Pricing API access
+- Some regions may fail due to Amazon Bedrock not being available — this is normal
 
 **Frontend won't start**
 - Delete `node_modules` and `package-lock.json`, then run `npm install`

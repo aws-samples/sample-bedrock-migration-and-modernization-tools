@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { Database, Users, Globe, Cpu, Image, Zap } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTheme } from '@/components/layout/ThemeProvider'

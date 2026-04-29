@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for Mantle pricing detection (Task 05).
 
 Tests for Phase 2 - Mantle Pricing Detection:

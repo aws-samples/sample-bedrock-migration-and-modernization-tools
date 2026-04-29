@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for infrastructure environment variable usage (Task 07).
 
 Tests the environment variable configuration in:

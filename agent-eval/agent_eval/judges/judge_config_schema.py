@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Judge Configuration Schema and Loader
 
@@ -44,9 +45,9 @@ class Judge:
     timeout_seconds: int = 30
     
     # Provider-specific optional settings
-    region_name: Optional[str] = None  # AWS region for Bedrock
-    streaming: bool = False  # Enable streaming responses (Bedrock)
-    use_converse_api: bool = True  # Use Converse API when available (Bedrock)
+    region_name: Optional[str] = None  # AWS region for Amazon Bedrock
+    streaming: bool = False  # Enable streaming responses (Amazon Bedrock)
+    use_converse_api: bool = True  # Use Converse API when available (Amazon Bedrock)
     
     def __post_init__(self):
         """Validate judge fields after initialization."""

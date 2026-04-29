@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 02_build_session_trace_index.py  (Script 2 - OTEL robust)
 

@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Model Drift Detection Utilities
 
@@ -100,13 +101,13 @@ class DriftAnalysis:
 
 def create_bedrock_client(region: str = DEFAULT_REGION) -> boto3.client:
     """
-    Create a Bedrock Runtime client for invoking models.
+    Create a Amazon Bedrock Runtime client for invoking models.
 
     Args:
-        region: AWS region for the Bedrock service
+        region: AWS region for the Amazon Bedrock service
 
     Returns:
-        boto3 Bedrock Runtime client
+        boto3 Amazon Bedrock Runtime client
     """
     return boto3.client('bedrock-runtime', region_name=region)
 
@@ -124,12 +125,12 @@ def invoke_bedrock_model(
     region: str = DEFAULT_REGION
 ) -> ModelResponse:
     """
-    Invoke a Bedrock model with the given prompt.
+    Invoke a Amazon Bedrock model with the given prompt.
 
     Args:
         prompt: The user prompt to send to the model
         system_prompt: System instructions for the model
-        model_id: Bedrock model ID to invoke
+        model_id: Amazon Bedrock model ID to invoke
         max_tokens: Maximum tokens in response
         bedrock_client: Optional pre-configured Bedrock client
         region: AWS region (used if bedrock_client not provided)
@@ -178,7 +179,7 @@ def invoke_model_with_rag_context(
         query: Patient/user question
         rag_context: Retrieved document content from RAG
         system_prompt: System instructions for the model
-        model_id: Bedrock model ID to invoke
+        model_id: Amazon Bedrock model ID to invoke
         bedrock_client: Optional pre-configured Bedrock client
 
     Returns:
@@ -715,7 +716,7 @@ def compute_token_cost_estimate(
         Estimated cost in USD
     """
     # Approximate pricing for Claude 3.5 Haiku (as of 2024)
-    # These are example prices - check current Bedrock pricing
+    # These are example prices - check current Amazon Bedrock pricing
     PRICING = {
         "anthropic.claude-3-5-haiku-20241022-v1:0": {
             "input_per_1k": 0.00025,
@@ -1303,7 +1304,7 @@ def compute_model_cost(
     model_id: str
 ) -> float:
     """
-    Calculate cost from token counts for various Bedrock models.
+    Calculate cost from token counts for various Amazon Bedrock models.
 
     Args:
         input_tokens: Number of input tokens
@@ -1313,7 +1314,7 @@ def compute_model_cost(
     Returns:
         Estimated cost in USD
     """
-    # Pricing per 1K tokens (approximate, check current Bedrock pricing)
+    # Pricing per 1K tokens (approximate, check current Amazon Bedrock pricing)
     PRICING = {
         # Claude models
         "us.anthropic.claude-3-5-haiku-20241022-v1:0": {"input": 0.00025, "output": 0.00125},

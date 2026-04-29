@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import React, { useState, useMemo } from 'react';
 import { listModels, getPricing } from '../api/discovery';
 import type { Model, PricingInfo } from '../types';

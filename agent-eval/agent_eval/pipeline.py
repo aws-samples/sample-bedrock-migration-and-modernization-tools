@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Pipeline orchestrator for end-to-end trace evaluation.
 

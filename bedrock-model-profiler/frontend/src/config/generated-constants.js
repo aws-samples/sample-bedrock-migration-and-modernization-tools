@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Auto-generated constants from backend profiler-config.json
  * Generated at: 2026-03-27T16:48:16.090Z

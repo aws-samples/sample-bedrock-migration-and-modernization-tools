@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Evidence Extraction for Agent Traces Evaluator
 

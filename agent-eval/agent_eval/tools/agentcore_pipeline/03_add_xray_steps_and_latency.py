@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 03_add_xray_steps_and_latency_v4.py
 

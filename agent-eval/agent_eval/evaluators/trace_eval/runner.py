@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Trace Evaluator Runner - Main orchestration for trace evaluation.
 

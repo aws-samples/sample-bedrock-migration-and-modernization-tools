@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Mock judge client for testing and development.
 
@@ -93,7 +94,7 @@ class MockJudgeClient(JudgeClient):
             elif self.failure_mode == "api_error":
                 raise APIError(f"Mock API error on attempt {self._call_count}")
             elif self.failure_mode == "invalid_transport_payload":
-                # Simulate JSON parse failure (like Bedrock returning malformed JSON)
+                # Simulate JSON parse failure (like Amazon Bedrock returning malformed JSON)
                 raise ValidationError(
                     message=f"Mock JSON parse error on attempt {self._call_count}: invalid json {{",
                     error_code="INVALID_JSON",

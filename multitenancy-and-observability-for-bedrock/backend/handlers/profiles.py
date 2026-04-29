@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Lambda handler for profile CRUD operations.
 
 Routes based on httpMethod + resource path from API Gateway proxy integration.
@@ -95,7 +96,7 @@ def _create_profile(event):
     if not region:
         region = os.environ.get("AWS_REGION", "us-east-1")
 
-    # Create Bedrock inference profile
+    # Create Amazon Bedrock inference profile
     inference_profile_id = ""
     inference_profile_arn = ""
     profile_strategy = "dedicated"
@@ -105,7 +106,7 @@ def _create_profile(event):
 
     # Resolve the model source ARN for create_inference_profile.
     # Models with a regional prefix (us., eu., ap.) are system-defined
-    # inference profiles — look up their real ARN from Bedrock.
+    # inference profiles — look up their real ARN from Amazon Bedrock.
     # Plain model IDs are foundation models — construct the ARN directly.
     _REGIONAL_PREFIXES = ("us.", "eu.", "ap.")
     if any(model_id.startswith(p) for p in _REGIONAL_PREFIXES):
@@ -122,7 +123,7 @@ def _create_profile(event):
     else:
         model_source_arn = f"arn:aws:bedrock:{region}::foundation-model/{model_id}"
 
-    # Format tags for Bedrock API — skip empty values (Bedrock rejects them)
+    # Format tags for Amazon Bedrock API — skip empty values (Amazon Bedrock rejects them)
     bedrock_tags = []
     for k, v in tags.items():
         val = " / ".join(v) if isinstance(v, list) else str(v)

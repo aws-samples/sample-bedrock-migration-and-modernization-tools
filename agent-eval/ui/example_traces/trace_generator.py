@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Trace Generator — Converts agent sessions into evaluation trace format.
 

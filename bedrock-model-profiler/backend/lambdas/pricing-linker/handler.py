@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Pricing Linker Lambda - V2 (With PORT Features)
 

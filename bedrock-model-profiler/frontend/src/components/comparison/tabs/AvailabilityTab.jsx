@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, useMemo, useRef, memo, Fragment, useEffect } from 'react'
 import { Minus, Zap, Globe, Globe2, Cpu, Check, ChevronDown, ChevronRight, MapPin, Users, Maximize2, Minimize2, ChevronsUpDown, Map, AlertTriangle, AlertCircle, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'

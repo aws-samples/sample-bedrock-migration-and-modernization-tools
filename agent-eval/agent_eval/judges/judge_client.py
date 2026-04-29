@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Abstract base class for judge client implementations.
 
@@ -40,7 +41,7 @@ class JudgeClient(ABC):
     """
     Abstract base class for judge client implementations.
     
-    All judge clients (Bedrock, OpenAI, Anthropic, etc.) must extend
+    All judge clients (Amazon Bedrock, OpenAI, Anthropic, etc.) must extend
     this class and implement the execute_judge method.
     """
     

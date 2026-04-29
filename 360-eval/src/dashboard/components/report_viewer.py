@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Report viewer component for displaying HTML reports within the Streamlit app."""
 
 import streamlit as st

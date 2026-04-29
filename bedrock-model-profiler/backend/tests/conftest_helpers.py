@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Shared test helpers for loading handler source code into test namespaces.
 
 Uses importlib to dynamically load extracted source code from Lambda handler

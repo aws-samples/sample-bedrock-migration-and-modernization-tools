@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for model-merger handler functions.
 
 Tests the get_base_model_id() function which handles deduplication

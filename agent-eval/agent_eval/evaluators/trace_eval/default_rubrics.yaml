@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # Default Rubrics for Agent Traces Evaluator
 # These rubrics provide built-in evaluation criteria for normalized agent traces
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Model Capability Validation CLI Tool
 
-Validates Bedrock model availability and service tier support by making test API calls.
+Validates Amazon Bedrock model availability and service tier support by making test API calls.
 Results are cached for use by the dashboard and benchmark tools.
 
 Usage:
@@ -112,7 +113,7 @@ def validate_single_model(model_id: str, region: str, tier: str = None):
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
-        description="Validate Bedrock model availability and service tier support",
+        description="Validate Amazon Bedrock model availability and service tier support",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
 

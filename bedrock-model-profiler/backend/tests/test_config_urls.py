@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for externalized URL configuration (Task 05).
 
 Tests the URL externalization in config_loader.py:

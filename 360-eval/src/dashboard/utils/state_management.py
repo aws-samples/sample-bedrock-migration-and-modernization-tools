@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Session state management for the Streamlit dashboard."""
 
 import streamlit as st

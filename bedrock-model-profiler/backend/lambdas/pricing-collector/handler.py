@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Pricing Collector Lambda
 
@@ -68,7 +69,7 @@ def fetch_bulk_pricing(service_code: str, region: str = "us-east-1") -> list[dic
     such as Stability AI models.
 
     Args:
-        service_code: AWS service code (e.g., 'AmazonBedrockFoundationModels')
+        service_code: AWS service code (e.g., 'AmazonAmazon BedrockFoundationModels')
         region: Region for pricing (default: us-east-1)
 
     Returns:
@@ -139,7 +140,7 @@ def collect_pricing_for_service(pricing_client, service_code: str) -> list[dict]
 
     Args:
         pricing_client: Boto3 Pricing client
-        service_code: AWS service code (e.g., 'AmazonBedrock')
+        service_code: AWS service code (e.g., 'AmazonAmazon Bedrock')
 
     Returns:
         List of pricing product dictionaries

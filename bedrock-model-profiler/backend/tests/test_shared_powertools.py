@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for Powertools shared module.
 
 These tests require the aws-lambda-powertools package to be installed.

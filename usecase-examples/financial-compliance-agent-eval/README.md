@@ -74,7 +74,7 @@ The pipeline integrates:
 
 ### Prerequisites
 
-AWS account with Bedrock, SageMaker, and S3 access
+AWS account with Amazon Bedrock, SageMaker, and S3 access
 
 Python 3.8+
 
@@ -202,7 +202,7 @@ Only save a prompt/model if thresholds (e.g., accuracy or factuality) are met.
 ---
 ## Troubleshooting
 
-Bedrock Permissions
+Amazon Bedrock Permissions
 
 Model Access
 
@@ -237,7 +237,7 @@ Apache License — see LICENSE
 
 Create an issue
 
-Reference Bedrock docs
+Reference Amazon Bedrock docs
 
 Reference SageMaker Pipelines guide
 

@@ -1,7 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Self-Healing Agent Lambda
 
-Uses Bedrock Claude Opus 4.5 to analyze gaps and suggest configuration updates.
+Uses Amazon Bedrock Claude Opus 4.5 to analyze gaps and suggest configuration updates.
 Auto-applies safe suggestions and flags high-risk changes for review.
 
 Features:
@@ -47,7 +48,7 @@ def _get_config():
 
 
 def get_bedrock_client():
-    """Create Bedrock runtime client."""
+    """Create Amazon Bedrock runtime client."""
     return boto3.client("bedrock-runtime")
 
 
@@ -83,8 +84,8 @@ def build_analysis_prompt(gap_report: dict, current_config: dict) -> str:
     if len(context_specs_str) > 2000:
         context_specs_str = context_specs_str[:2000] + "\n... (truncated)"
 
-    prompt = f"""You are an expert system analyzing a Bedrock Model Profiler data collection pipeline.
-The pipeline collects model information from AWS Bedrock and needs to match models to their pricing data.
+    prompt = f"""You are an expert system analyzing a Amazon Bedrock Model Profiler data collection pipeline.
+The pipeline collects model information from Amazon Bedrock and needs to match models to their pricing data.
 
 ## Current Configuration
 
@@ -184,7 +185,7 @@ Return ONLY the JSON object, no other text."""
 
 def invoke_claude(prompt: str, bedrock_client: Any) -> dict:
     """
-    Invoke Claude Opus 4.5 via Bedrock to analyze gaps.
+    Invoke Claude Opus 4.5 via Amazon Bedrock to analyze gaps.
 
     Returns parsed JSON response from Claude.
     """
@@ -192,7 +193,7 @@ def invoke_claude(prompt: str, bedrock_client: Any) -> dict:
     model_id = config.get_bedrock_model_id()
     max_tokens = config.get_agent_config().get("max_tokens", 4096)
 
-    logger.info(f"Invoking Bedrock model: {model_id}")
+    logger.info(f"Invoking Amazon Bedrock model: {model_id}")
 
     try:
         response = bedrock_client.invoke_model(

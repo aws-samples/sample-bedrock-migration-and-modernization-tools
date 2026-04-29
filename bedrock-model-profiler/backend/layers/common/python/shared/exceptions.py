@@ -1,4 +1,5 @@
-"""Custom exception hierarchy for Bedrock Model Profiler.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+"""Custom exception hierarchy for Amazon Bedrock Model Profiler.
 
 This module provides a structured exception hierarchy with retry classification
 for use with Step Functions error handling.
@@ -16,7 +17,7 @@ from typing import Any, Optional
 
 
 class ProfilerError(Exception):
-    """Base exception for Bedrock Model Profiler.
+    """Base exception for Amazon Bedrock Model Profiler.
 
     All custom exceptions inherit from this class, providing consistent
     attributes for error handling and logging.
@@ -199,8 +200,8 @@ class ThrottlingError(APIError):
         )
 
 
-class BedrockAPIError(APIError):
-    """Error calling Bedrock API.
+class Amazon BedrockAPIError(APIError):
+    """Error calling Amazon Bedrock API.
 
     Retryable for throttling and transient errors, not retryable for
     access denied or invalid requests.

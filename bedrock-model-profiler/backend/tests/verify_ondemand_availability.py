@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 On-Demand Availability Verification Script
 
@@ -65,7 +66,7 @@ def _log(msg: str) -> None:
 
 def discover_bedrock_regions() -> list[str]:
     """
-    Dynamically discover AWS regions where the Bedrock control-plane is
+    Dynamically discover AWS regions where the Amazon Bedrock control-plane is
     reachable.  Uses EC2 DescribeRegions then probes each with a
     lightweight ListFoundationModels(maxResults=1) call.
     """
@@ -99,7 +100,7 @@ def discover_bedrock_regions() -> list[str]:
             "sa-east-1",
         ]
 
-    _log(f"[discovery] Probing {len(all_regions)} regions for Bedrock endpoint ...")
+    _log(f"[discovery] Probing {len(all_regions)} regions for Amazon Bedrock endpoint ...")
 
     def _probe(region: str) -> tuple[str, bool]:
         try:
@@ -123,7 +124,7 @@ def discover_bedrock_regions() -> list[str]:
                 bedrock_regions.append(region)
 
     bedrock_regions.sort()
-    _log(f"[discovery] Found {len(bedrock_regions)} Bedrock regions")
+    _log(f"[discovery] Found {len(bedrock_regions)} Amazon Bedrock regions")
     return bedrock_regions
 
 
@@ -175,7 +176,7 @@ def _query_region_both(region: str) -> dict:
 def run_phase1(regions: list[str]) -> dict:
     """
     Phase 1: compare unfiltered vs ON_DEMAND-filtered ListFoundationModels
-    for every Bedrock region.
+    for every Amazon Bedrock region.
 
     Returns:
         {
@@ -669,7 +670,7 @@ def print_phase3(phase3: dict) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Verify on-demand model availability across Bedrock regions",
+        description="Verify on-demand model availability across Amazon Bedrock regions",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

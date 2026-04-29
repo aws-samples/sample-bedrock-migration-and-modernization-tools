@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Utilities for processing CSV files in the Streamlit dashboard."""
 
 import pandas as pd

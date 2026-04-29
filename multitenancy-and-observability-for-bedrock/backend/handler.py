@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Backend Lambda entry point — routes to the appropriate handler based on path."""
 
 import json

@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listProfiles, createProfile, deleteProfile } from '../api/profiles';

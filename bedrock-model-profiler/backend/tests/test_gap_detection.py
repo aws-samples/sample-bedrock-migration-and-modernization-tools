@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Tests for enhanced gap detection Lambda (Task 01).
 
@@ -37,7 +38,7 @@ def mock_config():
                 "meta.llama3": {"standard_context": 128000},
             }
         },
-        "pricing_service_codes": ["AmazonBedrock", "AmazonBedrockService"],
+        "pricing_service_codes": ["AmazonBedrock", "AmazonAmazon BedrockService"],
         "region_configuration": {
             "region_locations": {
                 "us-east-1": "US East (N. Virginia)",
@@ -206,7 +207,7 @@ class TestServiceCodeDetection:
         pricing_data = {
             "providers": {
                 "Anthropic": {
-                    "claude-3-5-sonnet": {"service_code": "AmazonBedrockNewService"}
+                    "claude-3-5-sonnet": {"service_code": "AmazonAmazon BedrockNewService"}
                 }
             }
         }
@@ -217,7 +218,7 @@ class TestServiceCodeDetection:
         )
 
         # Assert
-        assert "AmazonBedrockNewService" in result
+        assert "AmazonAmazon BedrockNewService" in result
 
     def test_detect_unknown_service_codes_all_known(
         self, mock_config, gap_detection_handler

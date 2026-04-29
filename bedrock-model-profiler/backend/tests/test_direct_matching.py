@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for Direct Matching in pricing-linker (Task 09).
 
 Tests for Phase 3 - Direct Match Step:

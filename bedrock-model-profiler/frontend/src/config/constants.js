@@ -1,5 +1,8 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 /**
- * Centralized constants for Bedrock Model Profiler frontend.
+ * Centralized constants for Amazon Bedrock Model Profiler frontend.
  *
  * This file re-exports generated constants and adds any manual overrides.
  * The generated constants come from backend profiler-config.json via sync-config.js

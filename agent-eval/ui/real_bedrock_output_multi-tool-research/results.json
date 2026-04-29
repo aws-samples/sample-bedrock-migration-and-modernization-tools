@@ -1,0 +1,396 @@
+{
+  "format_version": "1.0.0",
+  "run_id": "generated_b155bf082b0ce466",
+  "rubrics_hash": "5dde417b202ba6e67295e5da424d3c3844b09a1c645fcf715425de085f34ebb7",
+  "judge_config_hash": "48f18886710c29cc323c296c9c40fdd0454f952acf8edfa49467dd111b2315df",
+  "input_hash": "0c9a6f3de8aec4bf158376aa12d658a0dc12cce2b1760e89b3845cb5c5ec2c02",
+  "deterministic_metrics": {
+    "turn_count": 2,
+    "step_count": 12,
+    "tool_call_count": 4,
+    "tool_result_count": 4,
+    "orphan_result_count": 0,
+    "tool_success_rate": 1.0,
+    "missing_timestamp_rate": 0.0,
+    "stitched_trace_suspect": false,
+    "single_turn_fallback_used": false,
+    "latency_p50": 6000.0,
+    "latency_p95": 8000.0,
+    "avg_turn_latency_ms": 6000.0,
+    "confidence_penalty_summary": {},
+    "trusted_timestamp_count": 2,
+    "untrusted_timestamp_count": 0
+  },
+  "rubric_results": {
+    "TOOL_CONSISTENCY": {
+      "scope": "turn",
+      "turns": {
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_0": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "TOOL_GROUNDEDNESS": {
+      "scope": "turn",
+      "turns": {
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_0": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "TOOL_CALL_QUALITY": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 4.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 3.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "TOOL_CHAINING": {
+      "scope": "turn",
+      "turns": {
+        "turn_1": {
+          "cross_judge_score": 3.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_0": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "TRACE_COMPLETENESS": {
+      "scope": "run",
+      "turns": {
+        "run": {
+          "cross_judge_score": 4.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "SAFETY_PII": {
+      "scope": "run",
+      "turns": {
+        "run": {
+          "cross_judge_score": "potential_pii",
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "categorical",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "TOOL_SELECTION": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "ANSWER_ACCURACY": {
+      "scope": "turn",
+      "turns": {
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_0": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "ROUTING_QUALITY": {
+      "scope": "turn",
+      "turns": {
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_0": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "CONCISENESS": {
+      "scope": "turn",
+      "turns": {
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_0": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "CONVERSATION_COHERENCE": {
+      "scope": "run",
+      "turns": {
+        "run": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "ERROR_RECOVERY": {
+      "scope": "turn",
+      "turns": {
+        "turn_1": {
+          "cross_judge_score": 3.0000000000000004,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_0": {
+          "cross_judge_score": 3.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "HALLUCINATION_DETECTION": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 4.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "DATA_ACCURACY": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "SUBAGENT_DELEGATION": {
+      "scope": "turn",
+      "turns": {
+        "turn_1": {
+          "cross_judge_score": 3.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_0": {
+          "cross_judge_score": 2.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "ACTION_ITEM_EXTRACTION": {
+      "scope": "turn",
+      "turns": {
+        "turn_1": {
+          "cross_judge_score": 2.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_0": {
+          "cross_judge_score": 2.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    }
+  },
+  "judge_disagreements": [],
+  "artifact_paths": {
+    "judge_runs": "/home/douzia/aire-traffic-control/thought-leadership/agent-evaluation/repos/sample-bedrock-migration-and-modernization-tools/agent-eval/ui/real_bedrock_output_multi-tool-research/judge_runs.jsonl",
+    "trace_eval": "/home/douzia/aire-traffic-control/thought-leadership/agent-evaluation/repos/sample-bedrock-migration-and-modernization-tools/agent-eval/ui/real_bedrock_output_multi-tool-research/trace_eval.json"
+  },
+  "artifact_hashes": {
+    "judge_runs": "615813460fb69ac8f45c28b51897c6f13fc1542a9ee2ec46b3cbcad60b31b828",
+    "trace_eval": "20a6cb1a49b0abc64bf815e41ca21cacdbdd90ddef084db177d165cb29deb2ee"
+  },
+  "execution_stats": {
+    "total_jobs": 87,
+    "completed_jobs": 87,
+    "failed_jobs": 0,
+    "skipped_jobs": 0,
+    "failure_ratio": 0.0,
+    "failed_job_ids": [],
+    "sum_job_latency_ms": 274253.13210487366,
+    "duration_seconds": 29.100239038467407,
+    "aggregation_stats": {
+      "lines_total": 87,
+      "lines_parsed": 87,
+      "lines_skipped_bad_json": 0,
+      "lines_skipped_missing_fields": 0,
+      "lines_skipped_bad_jobresult": 0,
+      "lines_skipped_runid_mismatch": 0,
+      "unknown_rubric_ids": [],
+      "unknown_rubric_count": 0
+    }
+  }
+}

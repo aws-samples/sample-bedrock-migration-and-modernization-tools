@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for Step Functions retry configuration (Phase 4 - Task 17).
 
 Tests verify that the Step Functions workflow has proper retry configuration
@@ -139,7 +140,7 @@ class TestRetryMaxDelay:
 
         Note: Most standard retries have MaxDelaySeconds <= 60, but some tasks
         like the self-healing agent may have longer delays (up to 120) due to
-        the nature of their operations (e.g., calling Bedrock Claude).
+        the nature of their operations (e.g., calling Amazon Bedrock Claude).
         """
         # Arrange
         workflow = load_workflow()

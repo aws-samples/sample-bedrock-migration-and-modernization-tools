@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Lambda handler for report generation (placeholder).
 
 Will be fully implemented in Phase 5.

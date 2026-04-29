@@ -1,4 +1,4 @@
-# Bedrock Model Profiler — Frontend
+# Amazon Bedrock Model Profiler — Frontend
 
 A React-based web application for exploring, analyzing, and comparing Amazon Bedrock foundation models with pricing, regional availability, and technical specifications.
 

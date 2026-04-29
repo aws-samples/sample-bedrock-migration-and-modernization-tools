@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 from aws_cdk import (
     Stack,
     RemovalPolicy,
@@ -136,7 +137,7 @@ class FoundationStack(Stack):
             ],
         )
 
-        # Gateway Lambda permissions: Bedrock invoke
+        # Gateway Lambda permissions: Amazon Bedrock invoke
         self.gateway_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
@@ -216,7 +217,7 @@ class FoundationStack(Stack):
             )
         )
 
-        # Backend Lambda permissions: Bedrock manage inference profiles
+        # Backend Lambda permissions: Amazon Bedrock manage inference profiles
         self.backend_lambda_role.add_to_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,

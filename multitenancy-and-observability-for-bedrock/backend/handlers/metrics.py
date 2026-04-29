@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Lambda handler for CloudWatch metric queries.
 
 Proxies CloudWatch GetMetricData calls scoped to ISVBedrock/Gateway namespace.

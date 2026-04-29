@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { Menu, Clock } from 'lucide-react'
 import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
@@ -64,7 +67,7 @@ export function MainContent({ children, className, onMenuToggle }) {
           </>
         ) : (
           <>
-            {/* Dark theme: Bedrock green gradients */}
+            {/* Dark theme: Amazon Bedrock green gradients */}
             <div className="absolute -top-[30%] -left-[20%] w-[60%] h-[60%] bg-[#1A9E7A]/10 rounded-full blur-[120px]" />
             <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] bg-[#1A9E7A]/5 rounded-full blur-[100px]" />
             <div className="absolute top-[40%] left-[30%] w-[40%] h-[40%] bg-slate-700/20 rounded-full blur-[80px]" />
@@ -91,7 +94,7 @@ export function MainContent({ children, className, onMenuToggle }) {
           )} />
         </Button>
         <div className="flex items-center gap-2">
-          <BedrockIcon className={cn(
+          <Amazon BedrockIcon className={cn(
             'h-8 w-8',
             isLight ? 'text-amber-700' : 'text-[#1A9E7A]'
           )} />
@@ -99,7 +102,7 @@ export function MainContent({ children, className, onMenuToggle }) {
             'font-semibold text-sm',
             isLight ? 'text-stone-900' : 'text-white'
           )}>
-            Bedrock Profiler
+            Amazon Bedrock Profiler
           </span>
         </div>
         {lastUpdatedLabel && (

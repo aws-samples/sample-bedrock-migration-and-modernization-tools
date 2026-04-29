@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """In-memory profile status cache with TTL.
 
 Persists across warm Lambda invocations since it lives at module level.

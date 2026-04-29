@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Worker Pool for executing JudgeJobs with bounded concurrency.
 
@@ -439,7 +440,7 @@ class WorkerPool:
             )
             
             # Validate response before creating success result
-            # This ensures consistent validation across all providers (Bedrock, Mock, etc.)
+            # This ensures consistent validation across all providers (Amazon Bedrock, Mock, etc.)
             await judge_client.validate_response(
                 response=judge_response.raw_response,
                 scoring_scale=job.prompt_payload.get('scoring_scale', {})

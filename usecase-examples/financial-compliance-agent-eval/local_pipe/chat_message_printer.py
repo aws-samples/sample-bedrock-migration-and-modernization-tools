@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 from typing import Dict, Any, List
 import json
 from datetime import datetime

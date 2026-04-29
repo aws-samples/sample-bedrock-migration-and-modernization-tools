@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Token bucket rate limiter for per-model RPM control."""
 
 import time

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Configuration file validator for 360-eval
 
@@ -88,7 +89,7 @@ def validate_model_profile(profile: Dict, line_num: int) -> Tuple[List[str], Lis
                 if not is_service_tier_supported(model_id, region):
                     warnings.append(f"Line {line_num}: Model '{model_id}' in region '{region}' may not support service_tier '{service_tier}'. Will fall back to default tier at runtime.")
             elif model_id:
-                warnings.append(f"Line {line_num}: service_tier is only supported for Bedrock models, not '{model_id}'. This field will be ignored.")
+                warnings.append(f"Line {line_num}: service_tier is only supported for Amazon Bedrock models, not '{model_id}'. This field will be ignored.")
 
     return errors, warnings
 

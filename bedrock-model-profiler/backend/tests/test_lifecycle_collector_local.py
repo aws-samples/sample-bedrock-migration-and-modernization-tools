@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Local test runner for lifecycle-collector Lambda.
 
@@ -56,7 +57,7 @@ def main():
 
         def fetch_lifecycle_page() -> str:
             headers = {
-                "User-Agent": "Mozilla/5.0 (compatible; BedrockProfiler/1.0)",
+                "User-Agent": "Mozilla/5.0 (compatible; Amazon BedrockProfiler/1.0)",
                 "Accept": "text/html,application/xhtml+xml",
             }
             response = requests.get(

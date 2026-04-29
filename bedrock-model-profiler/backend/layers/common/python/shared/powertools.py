@@ -1,7 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Centralized AWS Lambda Powertools configuration.
 
 This module provides pre-configured Logger, Tracer, and Metrics instances
-for use across all Lambda handlers in the Bedrock Model Profiler.
+for use across all Lambda handlers in the Amazon Bedrock Model Profiler.
 
 Usage:
     from shared.powertools import logger, tracer, metrics, LambdaContext

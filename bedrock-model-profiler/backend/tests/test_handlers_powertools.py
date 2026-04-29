@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for Powertools integration across all handlers.
 
 This module verifies that all 17 Lambda handlers (excluding self-healing-agent)

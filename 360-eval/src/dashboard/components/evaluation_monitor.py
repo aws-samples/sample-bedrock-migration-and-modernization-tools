@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Evaluation monitor component for the Streamlit dashboard."""
 
 import streamlit as st

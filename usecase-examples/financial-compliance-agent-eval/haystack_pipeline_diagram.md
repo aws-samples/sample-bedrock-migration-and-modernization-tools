@@ -6,7 +6,7 @@ graph TD
     A[PDF Documents<br/>AMZN-2023-10k.pdf] --> B[PyPDFToDocument<br/>Converter]
     B --> C[DocumentCleaner<br/>Preprocessor]
     C --> D[DocumentSplitter<br/>split_by=word, length=250]
-    D --> E[AmazonBedrockDocumentEmbedder<br/>cohere.embed-english-v3]
+    D --> E[AmazonAmazon BedrockDocumentEmbedder<br/>cohere.embed-english-v3]
     E --> F[DocumentWriter]
     F --> G[(InMemoryDocumentStore<br/>Vector Database)]
     

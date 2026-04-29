@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Tests for analytics handler — Phase 1, Phase 2, Phase 3 & Phase 4.
 

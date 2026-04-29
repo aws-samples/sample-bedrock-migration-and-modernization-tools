@@ -65,10 +65,10 @@ judges/
 ```
 providers/
 ├── __init__.py                      ⚠️  TODO - Provider registry (resolve provider: bedrock|openai|anthropic)
-└── bedrock_client.py                ⚠️  TODO - Bedrock judge implementation (PRIORITY)
+└── bedrock_client.py                ⚠️  TODO - Amazon Bedrock judge implementation (PRIORITY)
 ```
 
-**Note**: Start with Bedrock only. Add OpenAI/Anthropic clients later after Stage 3 tests pass.
+**Note**: Start with Amazon Bedrock only. Add OpenAI/Anthropic clients later after Stage 3 tests pass.
 
 ### `agent_eval/evaluators/results/` ✅ EXISTS (directory)
 **Results aggregation and composition (optional - may merge into trace_eval)**
@@ -160,7 +160,7 @@ Must implement:
 
 Must implement:
 - Registry mapping provider string to client class
-- Start with Bedrock only, add others later
+- Start with Amazon Bedrock only, add others later
 
 ### 7. Results Module Decision
 **Why critical**: Avoid dead code or unclear ownership.
@@ -241,7 +241,7 @@ class TraceEvaluator:
 - All evaluator components (validator, metrics, loader, runner, writer)
 - All judging components (job builder, queue runner, aggregator, evidence extractor)
 - All judge primitives (config loader, client interface, models, exceptions)
-- Bedrock provider implementation
+- Amazon Bedrock provider implementation
 - Rate limiting and retry policy
 - Timestamp trust policy
 - All unit, integration, property, and golden tests

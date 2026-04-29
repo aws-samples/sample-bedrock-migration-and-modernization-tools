@@ -1,5 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
-Shared utilities for Bedrock Model Profiler Lambda functions.
+Shared utilities for Amazon Bedrock Model Profiler Lambda functions.
 
 This module provides common functionality used across all Lambda handlers:
 - S3 operations with proper exception handling
@@ -35,7 +36,7 @@ from shared.exceptions import (
     S3WriteError,
     APIError,
     ThrottlingError,
-    BedrockAPIError,
+    Amazon BedrockAPIError,
     PricingAPIError,
     QuotaAPIError,
     ConfigurationError,

@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for type definitions.
 
 These tests require Python 3.11+ due to the use of NotRequired from typing.

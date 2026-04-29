@@ -1,10 +1,13 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { NavLink, Outlet } from 'react-router-dom';
 
 export default function Layout() {
   return (
     <div className="app-layout">
       <aside className="sidebar">
-        <div className="sidebar-title">ISV Bedrock Observability</div>
+        <div className="sidebar-title">ISV Amazon Bedrock Observability</div>
         <nav className="sidebar-nav">
           <NavLink to="/profiles" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
             Inference Profiles

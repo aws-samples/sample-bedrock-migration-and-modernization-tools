@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 import pytz
 import datetime
 import json
@@ -274,12 +275,12 @@ def get_optimization_target_model(model_id):
 
 def optimize_prompt_bedrock(prompt, model_id, region='us-east-1'):
     """
-    Optimize a prompt using Bedrock's optimize_prompt API.
+    Optimize a prompt using Amazon Bedrock's optimize_prompt API.
 
     This function:
     1. Validates the region supports prompt optimization
     2. Maps the model ID to a supported optimization target
-    3. Calls the Bedrock optimize_prompt API
+    3. Calls the Amazon Bedrock optimize_prompt API
     4. Parses the streaming response to extract optimized prompt and analysis
 
     Args:
@@ -397,7 +398,7 @@ def optimize_prompt_bedrock(prompt, model_id, region='us-east-1'):
 def prepare_model_for_litellm(model_id):
     """
     Prepare model ID for litellm completion call.
-    For Bedrock models, ensures correct format is bedrock/<model-id>.
+    For Amazon Bedrock models, ensures correct format is bedrock/<model-id>.
     LiteLLM automatically uses the converse route for supported models.
 
     Handles edge cases:
@@ -424,14 +425,14 @@ def prepare_model_for_litellm(model_id):
         "openai/gpt-4o"
     """
 
-    # Check if this is a Bedrock model (contains regional prefix like us., eu., or anthropic., amazon., etc.)
+    # Check if this is a Amazon Bedrock model (contains regional prefix like us., eu., or anthropic., amazon., etc.)
     is_bedrock_model = model_id.startswith('bedrock/')
     if not is_bedrock_model:
-        # Not a Bedrock model, return as-is
-        logger.debug(f"Not a Bedrock model, returning as-is: {model_id}")
+        # Not a Amazon Bedrock model, return as-is
+        logger.debug(f"Not a Amazon Bedrock model, returning as-is: {model_id}")
         return model_id
 
-    # It's a Bedrock model - ensure correct format: bedrock/<model-id>
+    # It's a Amazon Bedrock model - ensure correct format: bedrock/<model-id>
     # LiteLLM will automatically use converse route for supported models
 
     # Step 1: Remove any existing bedrock/ and converse/ prefixes (including stacked ones)
@@ -1045,7 +1046,7 @@ def check_model_access(provider_params, model_id):
     """
     try:
         messages = [{"content": 'HI', "role": "user"}]
-        # Prepare model ID for litellm (adds /converse for Bedrock models)
+        # Prepare model ID for litellm (adds /converse for Amazon Bedrock models)
         litellm_model = prepare_model_for_litellm(model_id)
         completed = completion(
             model=litellm_model,

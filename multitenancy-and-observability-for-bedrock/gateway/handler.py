@@ -1,4 +1,5 @@
-"""Gateway Lambda handler for the ISV Bedrock Observability platform.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+"""Gateway Lambda handler for the ISV Amazon Bedrock Observability platform.
 
 Sits behind API Gateway, proxies profile requests to Amazon Bedrock
 ``converse()`` and emits per-profile CloudWatch metrics (tokens, cost,
@@ -244,7 +245,7 @@ def handler(event, context):  # noqa: ARG001 – context unused but required
     input_cost_rate = float(pricing.get("input_cost", 0)) if pricing else 0.0
     output_cost_rate = float(pricing.get("output_cost", 0)) if pricing else 0.0
 
-    # 6. Call Bedrock converse() ------------------------------------------
+    # 6. Call Amazon Bedrock converse() ------------------------------------------
     latency_ms = 0.0
     try:
         start = time.monotonic()

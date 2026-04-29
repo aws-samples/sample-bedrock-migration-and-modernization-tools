@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Validation utilities for schema compliance checking and confidence scoring.
 

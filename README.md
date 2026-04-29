@@ -16,7 +16,7 @@ Explore, analyze, and compare 100+ Amazon Bedrock foundation models.
 **[360-eval](360-eval/)**
 
 Comprehensive LLM evaluation framework with LLM-as-a-Jury methodology.
-- Multi-model comparison (Bedrock, OpenAI, Azure, Gemini)
+- Multi-model comparison (Amazon Bedrock, OpenAI, Azure, Gemini)
 - Quality scoring across 6 dimensions
 - Interactive HTML reports
 
@@ -47,7 +47,7 @@ It is designed to be:
 
 ## Prerequisites
 
-- AWS Account with Bedrock access
+- AWS Account with Amazon Bedrock access
 - Python 3.10+
 - AWS CLI configured
 

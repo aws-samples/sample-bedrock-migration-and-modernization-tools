@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useMemo, useState } from 'react'
 import { Check, X, MessageSquare, Image, FileText, Video, Mic, Trophy, DollarSign, Globe, ChevronDown, ChevronRight, Cpu, Copy, Info, Radar as RadarIcon } from 'lucide-react'
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts'

@@ -1,7 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Tests for lifecycle-collector Lambda.
 
-Tests the parsing and scraping logic for AWS Bedrock model lifecycle data.
+Tests the parsing and scraping logic for Amazon Bedrock model lifecycle data.
 """
 
 import json

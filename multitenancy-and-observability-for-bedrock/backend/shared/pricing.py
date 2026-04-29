@@ -1,12 +1,13 @@
-"""Bedrock model pricing with 3-tier fallback and DynamoDB caching.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+"""Amazon Bedrock model pricing with 3-tier fallback and DynamoDB caching.
 
 Flow:
     1. Check DynamoDB cache -- if < 24h old, return immediately
     2. Tier 1: Query AWS Price List API (all 3 service codes)
        -> If both input + output found: pricing_source = "api"
-    3. Tier 2: If output missing, re-query AmazonBedrockService only
+    3. Tier 2: If output missing, re-query AmazonAmazon BedrockService only
        -> If filled: pricing_source = "api_partial"
-    4. Tier 3: Scrape the AWS Bedrock pricing webpage bulk JSON
+    4. Tier 3: Scrape the Amazon Bedrock pricing webpage bulk JSON
        -> If filled: pricing_source = "webpage"
     5. If still missing -> "unavailable" with None costs
     6. Cache the result in DynamoDB with 24h TTL
@@ -33,13 +34,13 @@ logger = logging.getLogger(__name__)
 
 SERVICE_CODES = [
     "AmazonBedrock",
-    "AmazonBedrockService",
-    "AmazonBedrockFoundationModels",
+    "AmazonAmazon BedrockService",
+    "AmazonAmazon BedrockFoundationModels",
 ]
 PRICING_CLIENT_REGION = "us-east-1"
 CACHE_TTL_SECONDS = 86400  # 24 hours
 
-# AWS Bedrock pricing page and bulk JSON endpoints
+# Amazon Bedrock pricing page and bulk JSON endpoints
 _PRICING_PAGE_URL = "https://aws.amazon.com/bedrock/pricing/"
 _BULK_JSON_URL = "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/{svc}/USD/current/{svc}.json"
 
@@ -249,36 +250,36 @@ def _query_price_list_api(model_id: str, region: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Tier 2: Re-query AmazonBedrockService only for missing output pricing
+# Tier 2: Re-query AmazonAmazon BedrockService only for missing output pricing
 # ---------------------------------------------------------------------------
 
 def _query_bedrock_service_only(model_id: str, region: str) -> dict:
-    """Tier 2: Re-query only AmazonBedrockService for missing pricing.
+    """Tier 2: Re-query only AmazonAmazon BedrockService for missing pricing.
 
-    Some models (older Anthropic) have input pricing in AmazonBedrock
-    but output pricing only in AmazonBedrockService.
+    Some models (older Anthropic) have input pricing in AmazonAmazon Bedrock
+    but output pricing only in AmazonAmazon BedrockService.
 
     Returns {"input_cost": float|None, "output_cost": float|None}.
     """
     pricing_client = boto3.client("pricing", region_name=PRICING_CLIENT_REGION)
 
     try:
-        products = get_all_products(pricing_client, "AmazonBedrockService")
+        products = get_all_products(pricing_client, "AmazonAmazon BedrockService")
     except Exception as exc:
-        logger.warning("Failed to query AmazonBedrockService for tier 2: %s", exc)
+        logger.warning("Failed to query AmazonAmazon BedrockService for tier 2: %s", exc)
         return {"input_cost": None, "output_cost": None}
 
     return _extract_costs_from_products(products, model_id, region)
 
 
 # ---------------------------------------------------------------------------
-# Tier 3: Scrape AWS Bedrock pricing webpage bulk JSON
+# Tier 3: Scrape Amazon Bedrock pricing webpage bulk JSON
 # ---------------------------------------------------------------------------
 
 def _fetch_url(url: str, timeout: int = 15) -> bytes:
     """Fetch a URL and return raw bytes. Handles gzip encoding."""
     req = urllib.request.Request(url, headers={
-        "User-Agent": "ISVBedrockObservability/1.0",
+        "User-Agent": "ISVAmazon BedrockObservability/1.0",
         "Accept-Encoding": "gzip, deflate",
     })
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -289,7 +290,7 @@ def _fetch_url(url: str, timeout: int = 15) -> bytes:
 
 
 def _parse_pricing_page(page_html: str) -> list[dict]:
-    """Parse the AWS Bedrock pricing page HTML to extract model-to-hash mappings.
+    """Parse the Amazon Bedrock pricing page HTML to extract model-to-hash mappings.
 
     Extracts entries of the form:
         ModelName</td><td>{priceOf!service/sub!HASH[!*!N][!opt]}</td>
@@ -449,7 +450,7 @@ def _fetch_bulk_json(service_path: str) -> Optional[dict]:
 
 
 def _scrape_webpage_pricing(model_id: str, region: str) -> dict:
-    """Tier 3: Scrape AWS Bedrock pricing webpage for missing prices.
+    """Tier 3: Scrape Amazon Bedrock pricing webpage for missing prices.
 
     Fetches the pricing page HTML to build a model→hash mapping, then
     resolves prices from the public bulk JSON at b0.p.awsstatic.com.
@@ -549,7 +550,7 @@ def get_model_pricing(model_id: str, region: str) -> dict:
     """Get pricing for a model using 3-tier fallback.
 
     Tier 1: Query Price List API (all 3 service codes) -> "api"
-    Tier 2: Re-query AmazonBedrockService for gaps -> "api_partial"
+    Tier 2: Re-query AmazonAmazon BedrockService for gaps -> "api_partial"
     Tier 3: Scrape AWS pricing webpage bulk JSON -> "webpage"
     Otherwise -> "unavailable" with None costs.
 
@@ -566,7 +567,7 @@ def get_model_pricing(model_id: str, region: str) -> dict:
             "pricing_source": "api",
         }
 
-    # Tier 2: Re-query AmazonBedrockService for missing pricing
+    # Tier 2: Re-query AmazonAmazon BedrockService for missing pricing
     if result["input_cost"] is not None or result["output_cost"] is not None:
         tier2 = _query_bedrock_service_only(model_id, region)
         if result["input_cost"] is None and tier2["input_cost"] is not None:

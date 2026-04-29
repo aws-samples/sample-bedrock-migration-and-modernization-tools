@@ -1,7 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
-Local data collector for Bedrock Model Profiler.
+Local data collector for Amazon Bedrock Model Profiler.
 
-Collects Bedrock model and pricing data using local AWS credentials,
+Collects Amazon Bedrock model and pricing data using local AWS credentials,
 producing JSON files IDENTICAL to the AWS Step Functions pipeline.
 
 All transformation functions are imported directly from the actual Lambda
@@ -100,7 +101,7 @@ DEFAULT_MODEL_REGIONS = ['us-east-1', 'us-west-2']
 
 class LocalCollector:
     """
-    Collects Bedrock model and pricing data using local AWS credentials.
+    Collects Amazon Bedrock model and pricing data using local AWS credentials.
 
     Uses the actual Lambda handler functions imported from the backend to ensure
     identical output between local and cloud execution.
@@ -116,9 +117,9 @@ class LocalCollector:
         self.quota_regions = []
 
         self.pricing_service_codes = [
-            'AmazonBedrock',
-            'AmazonBedrockFoundationModels',
-            'AmazonBedrockService'
+            'AmazonAmazon Bedrock',
+            'AmazonAmazon BedrockFoundationModels',
+            'AmazonAmazon BedrockService'
         ]
 
         # Set boto3 default session so Lambda handlers that call
@@ -148,7 +149,7 @@ class LocalCollector:
         print("=" * 60 + "\n")
 
         # Phase 0: Discover regions (same as region-discovery Lambda)
-        print("[0/8] Discovering Bedrock regions...")
+        print("[0/8] Discovering Amazon Bedrock regions...")
         self.quota_regions = self._discover_regions()
         print(f"       Found {len(self.quota_regions)} Bedrock-enabled regions")
 
@@ -288,7 +289,7 @@ class LocalCollector:
     # Phase 0: Region discovery
     # ------------------------------------------------------------------
     def _discover_regions(self) -> list:
-        """Dynamically discover all Bedrock-enabled regions (same as region-discovery Lambda)."""
+        """Dynamically discover all Amazon Bedrock-enabled regions (same as region-discovery Lambda)."""
         try:
             ec2 = self.session.client('ec2', region_name='us-east-1')
             response = ec2.describe_regions(

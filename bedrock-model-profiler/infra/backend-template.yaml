@@ -1,6 +1,9 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Bedrock Model Profiler - Step Functions Workflow
+Description: Amazon Bedrock Model Profiler - Step Functions Workflow
 
 Parameters:
   Environment:
@@ -125,7 +128,7 @@ Globals:
         LOG_LEVEL: !Ref LogLevel
         POWERTOOLS_SERVICE_NAME: bedrock-profiler
         POWERTOOLS_LOG_LEVEL: !Ref LogLevel
-        POWERTOOLS_METRICS_NAMESPACE: BedrockProfiler
+        POWERTOOLS_METRICS_NAMESPACE: Amazon BedrockProfiler
         # AWS client configuration
         AWS_CONNECT_TIMEOUT: !Ref AwsConnectTimeout
         AWS_READ_TIMEOUT: !Ref AwsReadTimeout
@@ -143,7 +146,7 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: !Sub '${AWS::StackName}-shared-utils'
-      Description: Shared utilities for Bedrock Model Profiler Lambda functions
+      Description: Shared utilities for Amazon Bedrock Model Profiler Lambda functions
       ContentUri: ../backend/layers/common/
       CompatibleRuntimes:
         - python3.11
@@ -484,7 +487,7 @@ Resources:
                 - s3:PutObject
               Resource: !Sub 'arn:aws:s3:::${DataBucketName}/*'
 
-  # Self-Healing Agent - Uses Bedrock Claude to suggest config updates
+  # Self-Healing Agent - Uses Amazon Bedrock Claude to suggest config updates
   SelfHealingAgentFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -626,7 +629,7 @@ Resources:
               ArnLike:
                 kms:EncryptionContext:aws:logs:arn: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/stepfunctions/${AWS::StackName}'
 
-  BedrockProfilerStateMachine:
+  Amazon BedrockProfilerStateMachine:
     Type: AWS::Serverless::StateMachine
     Properties:
       Name: !Sub '${AWS::StackName}-workflow'
@@ -688,21 +691,21 @@ Resources:
           - Effect: Allow
             Action:
               - states:StartExecution
-            Resource: !Ref BedrockProfilerStateMachine
+            Resource: !Ref Amazon BedrockProfilerStateMachine
 
   DailySchedule:
     Type: AWS::Scheduler::Schedule
     Condition: ScheduleEnabledCondition
     Properties:
       Name: !Sub '${AWS::StackName}-daily'
-      Description: 'Daily execution of Bedrock Model Profiler workflow'
+      Description: 'Daily execution of Amazon Bedrock Model Profiler workflow'
       ScheduleExpression: 'cron(0 6,18 * * ? *)'  # 6 AM and 6 PM UTC daily
       ScheduleExpressionTimezone: 'UTC'
       FlexibleTimeWindow:
         Mode: 'FLEXIBLE'
         MaximumWindowInMinutes: 30
       Target:
-        Arn: !Ref BedrockProfilerStateMachine
+        Arn: !Ref Amazon BedrockProfilerStateMachine
         RoleArn: !GetAtt DailyScheduleRole.Arn
         Input: '{}'
       State: ENABLED
@@ -710,7 +713,7 @@ Resources:
 Outputs:
   StateMachineArn:
     Description: ARN of the Step Functions state machine
-    Value: !Ref BedrockProfilerStateMachine
+    Value: !Ref Amazon BedrockProfilerStateMachine
     Export:
       Name: !Sub '${AWS::StackName}-StateMachineArn'
 

@@ -1,4 +1,5 @@
-"""Type definitions for Bedrock Model Profiler Lambda handlers.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+"""Type definitions for Amazon Bedrock Model Profiler Lambda handlers.
 
 This module provides TypedDict definitions for Lambda handler inputs and outputs,
 enabling static type checking and IDE autocompletion.

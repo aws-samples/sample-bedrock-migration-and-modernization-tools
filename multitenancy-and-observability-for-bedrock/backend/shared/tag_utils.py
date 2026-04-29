@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Utilities for Cost Allocation Tag integration and tag-based filtering."""
 
 import logging

@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { ChevronDown, ChevronUp, Filter, X, Search, Check, Zap, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'

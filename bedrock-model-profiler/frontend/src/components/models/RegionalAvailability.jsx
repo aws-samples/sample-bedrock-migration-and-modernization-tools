@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, useMemo, useRef, useEffect, useCallback, Fragment, memo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Search, X, Check, Minus, ChevronDown, ChevronRight, ChevronsUpDown, Zap, Globe, Globe2, Cpu, AlertTriangle, AlertCircle, Info } from 'lucide-react'

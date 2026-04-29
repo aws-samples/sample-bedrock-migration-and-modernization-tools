@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Token Specs Collector Lambda
 
@@ -215,11 +216,11 @@ def fetch_litellm_data() -> dict:
 
 
 def filter_bedrock_models(litellm_data: dict) -> dict:
-    """Filter LiteLLM data to only include Bedrock models."""
+    """Filter LiteLLM data to only include Amazon Bedrock models."""
     bedrock_models = {}
 
     for model_key, model_data in litellm_data.items():
-        # Check if it's a Bedrock model
+        # Check if it's a Amazon Bedrock model
         # Include models with 'bedrock' in key or provider containing 'bedrock'
         litellm_provider = model_data.get("litellm_provider", "")
         is_bedrock = (

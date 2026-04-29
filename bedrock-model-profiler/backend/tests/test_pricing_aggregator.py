@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for Pricing Aggregator dimension extraction and aggregation.
 
 Tests for Task 02 - Pricing Dimensions Restructure:

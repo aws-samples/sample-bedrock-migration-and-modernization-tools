@@ -1,14 +1,15 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
-Bedrock Invocation Log Extraction
+Amazon Bedrock Invocation Log Extraction
 
 Utilities for extracting and parsing Amazon Bedrock invocation logs
 from CloudWatch Logs or S3.
 
-Bedrock invocation logging captures every model request/response when enabled.
+Amazon Bedrock invocation logging captures every model request/response when enabled.
 Logs can be sent to CloudWatch Logs, S3, or both.
 
 Prerequisites:
-    - Invocation logging must be enabled via the Bedrock console or API
+    - Invocation logging must be enabled via the Amazon Bedrock console or API
     - IAM permissions for CloudWatch Logs read access or S3 read access
 
 Actual log schema (verified from CloudWatch):
@@ -64,8 +65,8 @@ import boto3
 # ============================================================================
 
 @dataclass
-class BedrockInvocationLog:
-    """Parsed Bedrock invocation log entry."""
+class Amazon BedrockInvocationLog:
+    """Parsed Amazon Bedrock invocation log entry."""
     request_id: str
     timestamp: str
     model_id: str
@@ -118,8 +119,8 @@ class BedrockInvocationLog:
         return ""
 
 
-def _parse_log_record(record: Dict[str, Any]) -> BedrockInvocationLog:
-    """Parse a raw log record dict into a BedrockInvocationLog."""
+def _parse_log_record(record: Dict[str, Any]) -> Amazon BedrockInvocationLog:
+    """Parse a raw log record dict into a Amazon BedrockInvocationLog."""
     inp = record.get("input", {})
     out = record.get("output", {})
     output_body = out.get("outputBodyJson", {})
@@ -127,7 +128,7 @@ def _parse_log_record(record: Dict[str, Any]) -> BedrockInvocationLog:
     # Latency is inside output.outputBodyJson.metrics.latencyMs
     latency_ms = output_body.get("metrics", {}).get("latencyMs", 0)
 
-    return BedrockInvocationLog(
+    return Amazon BedrockInvocationLog(
         request_id=record.get("requestId", ""),
         timestamp=record.get("timestamp", ""),
         model_id=record.get("modelId", ""),
@@ -149,7 +150,7 @@ def _parse_log_record(record: Dict[str, Any]) -> BedrockInvocationLog:
 
 def check_logging_config(region: str = "us-east-1") -> Dict[str, Any]:
     """
-    Check the current Bedrock invocation logging configuration.
+    Check the current Amazon Bedrock invocation logging configuration.
 
     Returns:
         Dict with logging configuration, or empty dict if not configured.
@@ -193,9 +194,9 @@ def extract_logs_from_cloudwatch(
     max_records: int = 100,
     hours_back: Optional[int] = None,
     region: str = "us-east-1",
-) -> List[BedrockInvocationLog]:
+) -> List[Amazon BedrockInvocationLog]:
     """
-    Extract and parse Bedrock invocation logs from CloudWatch Logs.
+    Extract and parse Amazon Bedrock invocation logs from CloudWatch Logs.
 
     Args:
         log_group: CloudWatch log group name
@@ -206,7 +207,7 @@ def extract_logs_from_cloudwatch(
         region: AWS region
 
     Returns:
-        List of parsed BedrockInvocationLog entries
+        List of parsed Amazon BedrockInvocationLog entries
     """
     logs_client = boto3.client("logs", region_name=region)
 
@@ -223,7 +224,7 @@ def extract_logs_from_cloudwatch(
         )
         kwargs["endTime"] = int(datetime.now(timezone.utc).timestamp() * 1000)
 
-    logs: List[BedrockInvocationLog] = []
+    logs: List[Amazon BedrockInvocationLog] = []
     next_token = None
 
     while len(logs) < max_records:
@@ -292,9 +293,9 @@ def extract_logs_from_s3(
     model_id_filter: Optional[str] = None,
     max_records: int = 1000,
     region: str = "us-east-1",
-) -> List[BedrockInvocationLog]:
+) -> List[Amazon BedrockInvocationLog]:
     """
-    Extract and parse Bedrock invocation logs from S3.
+    Extract and parse Amazon Bedrock invocation logs from S3.
 
     Args:
         s3_bucket: S3 bucket where logs are stored
@@ -305,14 +306,14 @@ def extract_logs_from_s3(
         region: AWS region
 
     Returns:
-        List of parsed BedrockInvocationLog entries
+        List of parsed Amazon BedrockInvocationLog entries
     """
     s3 = boto3.client("s3", region_name=region)
     keys = list_log_files(s3_bucket, s3_prefix, hours_back, region)
 
     print(f"Found {len(keys)} log files in s3://{s3_bucket}/{s3_prefix}")
 
-    logs: List[BedrockInvocationLog] = []
+    logs: List[Amazon BedrockInvocationLog] = []
 
     for key in keys:
         if len(logs) >= max_records:
@@ -357,20 +358,20 @@ def extract_logs_from_s3(
 # ============================================================================
 
 def sample_logs(
-    logs: List[BedrockInvocationLog],
+    logs: List[Amazon BedrockInvocationLog],
     n: int = 10,
     seed: int = 42,
-) -> List[BedrockInvocationLog]:
+) -> List[Amazon BedrockInvocationLog]:
     """
     Randomly sample n logs from the extracted records.
 
     Args:
-        logs: List of BedrockInvocationLog entries
+        logs: List of Amazon BedrockInvocationLog entries
         n: Number of samples to select
         seed: Random seed for reproducibility
 
     Returns:
-        List of sampled BedrockInvocationLog entries
+        List of sampled Amazon BedrockInvocationLog entries
     """
     random.seed(seed)
     n = min(n, len(logs))

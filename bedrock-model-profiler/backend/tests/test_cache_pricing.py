@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for Cache pricing detection (Task 07).
 
 Tests for Phase 2 - Cache Write 1H Detection:

@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 import json
 import os
 import sys
@@ -55,7 +56,7 @@ def generate_model_info(filename='models_profiles.jsonl'):
                     else:
                         bedrock_models.append([model_id, region])
                         
-                        # Build region/model mappings for Bedrock models
+                        # Build region/model mappings for Amazon Bedrock models
                         if region and region != "N/A":
                             # Add to model_to_regions mapping
                             if model_id not in model_to_regions:

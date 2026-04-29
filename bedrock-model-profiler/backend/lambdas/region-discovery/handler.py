@@ -1,7 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Region Discovery Lambda
 
-Dynamically discovers all AWS regions where Bedrock inference profiles are available.
+Dynamically discovers all AWS regions where Amazon Bedrock inference profiles are available.
 This replaces hardcoded region lists with dynamic discovery.
 
 Also caches the full inference profiles response to S3 for downstream consumers
@@ -103,7 +104,7 @@ def check_bedrock_available(
     region: str, s3_bucket: Optional[str] = None, execution_id: Optional[str] = None
 ) -> tuple[str, bool, Optional[str]]:
     """
-    Check if Bedrock inference profiles are available in a region.
+    Check if Amazon Bedrock inference profiles are available in a region.
 
     If S3 bucket and execution_id are provided, caches the full inference profiles
     response to S3 for downstream consumers.
@@ -148,19 +149,19 @@ def check_bedrock_available(
     except ClientError as e:
         error_code = e.response.get("Error", {}).get("Code", "")
         if error_code in ("UnrecognizedClientException", "InvalidIdentityToken"):
-            # Region not enabled or Bedrock not available
+            # Region not enabled or Amazon Bedrock not available
             logger.debug(
                 "Bedrock not available in region",
                 extra={"region": region, "error_code": error_code},
             )
             return (region, False, None)
         elif error_code == "AccessDeniedException":
-            # Bedrock exists but we don't have access - still count it
+            # Amazon Bedrock exists but we don't have access - still count it
             logger.debug("Bedrock exists but access denied", extra={"region": region})
             return (region, True, None)
         else:
             logger.warning(
-                "Error checking Bedrock in region",
+                "Error checking Amazon Bedrock in region",
                 extra={"region": region, "error": str(e)},
             )
             return (region, False, None)
@@ -179,13 +180,13 @@ def discover_bedrock_regions(
     execution_id: Optional[str] = None,
 ) -> tuple[list[str], dict[str, str]]:
     """
-    Discover which regions have Bedrock inference profiles available.
+    Discover which regions have Amazon Bedrock inference profiles available.
 
     If S3 bucket and execution_id are provided, caches the full inference profiles
     to S3 for each region.
 
     Returns:
-        Tuple of (list of regions with Bedrock, dict mapping region to cache key)
+        Tuple of (list of regions with Amazon Bedrock, dict mapping region to cache key)
     """
     bedrock_regions = []
     cache_keys = {}
@@ -209,7 +210,7 @@ def discover_bedrock_regions(
     # Sort for consistent ordering
     bedrock_regions.sort()
     logger.info(
-        "Regions with Bedrock discovered",
+        "Regions with Amazon Bedrock discovered",
         extra={"region_count": len(bedrock_regions), "cached_regions": len(cache_keys)},
     )
     return bedrock_regions, cache_keys
@@ -264,11 +265,11 @@ def lambda_handler(event: dict, context: LambdaContext) -> dict:
         # Get all enabled regions in the account
         all_regions = get_all_enabled_regions()
         logger.info(
-            "Checking enabled regions for Bedrock availability",
+            "Checking enabled regions for Amazon Bedrock availability",
             extra={"region_count": len(all_regions)},
         )
 
-        # Filter to regions with Bedrock inference profiles
+        # Filter to regions with Amazon Bedrock inference profiles
         # Also cache profiles if S3 info provided
         bedrock_regions, cache_keys = discover_bedrock_regions(
             all_regions, s3_bucket, execution_id

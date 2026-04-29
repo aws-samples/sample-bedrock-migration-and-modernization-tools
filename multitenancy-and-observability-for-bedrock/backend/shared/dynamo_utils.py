@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """DynamoDB helper functions for profile, dashboard, alert, and pricing access patterns.
 
 All functions accept table name strings and create Table references internally.

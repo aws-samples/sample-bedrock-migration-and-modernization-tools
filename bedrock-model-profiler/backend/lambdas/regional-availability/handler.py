@@ -1,7 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Regional Availability Lambda
 
-Discovers model availability across all AWS regions using the Bedrock API
+Discovers model availability across all AWS regions using the Amazon Bedrock API
 (ListFoundationModels) with explicit inference-type filtering.
 
 Why ON_DEMAND filtering?
@@ -15,7 +16,7 @@ Why ON_DEMAND filtering?
 Why no pricing data?
     Pricing data was previously unioned into the availability map, but
     investigation showed it adds ~130 phantom model IDs that use pricing-
-    specific identifiers (e.g. region-prefixed names) rather than real Bedrock
+    specific identifiers (e.g. region-prefixed names) rather than real Amazon Bedrock
     model IDs.  These never resolve to invocable models.  Removing the pricing
     union eliminates all false positives with zero loss of genuine coverage.
 

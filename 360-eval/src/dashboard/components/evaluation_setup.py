@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Evaluation setup component for the Streamlit dashboard."""
 
 import streamlit as st
@@ -91,7 +92,7 @@ class EvaluationSetupComponent:
                 )
 
             # Prompt Optimization Configuration
-            st.markdown("#### Prompt Optimization (Bedrock Models Only)")
+            st.markdown("#### Prompt Optimization (Amazon Bedrock Models Only)")
 
             # Prompt optimization checkbox
             prompt_opt_enabled = st.session_state.current_evaluation_config.get("prompt_optimization_enabled", False)
@@ -100,14 +101,14 @@ class EvaluationSetupComponent:
                 value=prompt_opt_enabled,
                 key="prompt_optimization_enabled",
                 on_change=self._update_prompt_optimization_enabled,
-                help="Enable AWS Bedrock prompt optimization to automatically improve your prompts for better model performance. Only works with supported Bedrock models and regions."
+                help="Enable Amazon Bedrock prompt optimization to automatically improve your prompts for better model performance. Only works with supported Amazon Bedrock models and regions."
             )
 
             # Show optimization controls only if enabled
             if st.session_state.current_evaluation_config.get("prompt_optimization_enabled", False):
                 st.info("""
-**Prompt Optimization** uses AWS Bedrock to automatically improve your prompts for better model performance.
-- ✅ Only works with supported Bedrock model families (Nova, Claude, Llama, etc.)
+**Prompt Optimization** uses Amazon Bedrock to automatically improve your prompts for better model performance.
+- ✅ Only works with supported Amazon Bedrock model families (Nova, Claude, Llama, etc.)
 - ✅ Only available in specific AWS regions (us-east-1, us-west-2, eu-west-1, etc.)
 - ⚠️ Unsupported models/regions will use original prompts (no failures)
                 """)

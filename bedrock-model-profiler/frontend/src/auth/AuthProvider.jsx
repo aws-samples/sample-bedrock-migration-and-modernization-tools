@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { AuthProvider as OidcAuthProvider } from 'react-oidc-context'
 import { getOidcConfig, isAuthConfigured } from '@/config/auth'
 

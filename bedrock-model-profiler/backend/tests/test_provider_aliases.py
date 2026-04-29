@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Tests for Phase 1 Task 01: Provider Aliases
 

@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for Mantle Availability Flags in final-aggregator (Task 10).
 
 Tests for Phase 3 - Mantle Availability Flags:

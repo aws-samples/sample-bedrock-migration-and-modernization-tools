@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { Layout } from '@/components/layout/Layout'
 import { ModelExplorer } from '@/components/models/ModelExplorer'
 import { Favorites } from '@/components/models/Favorites'

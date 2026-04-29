@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for Wave 2 handler Powertools integration.
 
 Wave 2 handlers (Task 07):

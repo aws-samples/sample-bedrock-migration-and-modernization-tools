@@ -1,5 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
-Local deployment package for Bedrock Model Profiler.
+Local deployment package for Amazon Bedrock Model Profiler.
 
 This package enables running the data collection pipeline locally using AWS credentials,
 without deploying the full Step Functions infrastructure.

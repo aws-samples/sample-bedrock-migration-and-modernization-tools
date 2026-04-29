@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
-Complete AWS Bedrock Model Discovery Script
+Complete Amazon Bedrock Model Discovery Script
 
-This script discovers all Bedrock models available and accessible to your account
+This script discovers all Amazon Bedrock models available and accessible to your account
 across all regions, including cross-region inference profile models.
 
 Returns a clean JSONL file with:
@@ -137,7 +138,7 @@ def get_inference_profile_models(region: str) -> List[Dict]:
 
 
 def check_bedrock_in_region(region: str) -> Tuple[str, Optional[Dict]]:
-    """Check Bedrock models in a specific region"""
+    """Check Amazon Bedrock models in a specific region"""
     try:
         bedrock = boto3.client('bedrock', region_name=region)
         bedrock_runtime = boto3.client('bedrock-runtime', region_name=region)
@@ -217,9 +218,9 @@ def check_bedrock_in_region(region: str) -> Tuple[str, Optional[Dict]]:
 
 
 def discover_all_models(output_file: str = "default-config/models_profiles.jsonl") -> Dict:
-    """Discover all accessible Bedrock models across all regions"""
+    """Discover all accessible Amazon Bedrock models across all regions"""
     
-    print("🔍 AWS Bedrock Complete Model Discovery")
+    print("🔍 Amazon Bedrock Complete Model Discovery")
     print("=" * 60)
     
     # Check credentials
@@ -233,7 +234,7 @@ def discover_all_models(output_file: str = "default-config/models_profiles.jsonl
     print(f"   Found {len(regions)} regions")
     
     # Check all regions in parallel
-    print(f"\n🔄 Checking Bedrock models across {len(regions)} regions...")
+    print(f"\n🔄 Checking Amazon Bedrock models across {len(regions)} regions...")
     print("   ✓ Testing actual model access (this may take a few minutes)")
     print("   ✓ Including cross-region inference profiles")
     
@@ -310,7 +311,7 @@ def discover_all_models(output_file: str = "default-config/models_profiles.jsonl
     print(f"✅ Total accessible models: {len(models_data)}")
     print(f"   • Regular foundation models: {regular_models}")
     print(f"   • Cross-region inference profiles: {cross_region_models}")
-    print(f"🌍 Regions with Bedrock access: {available_regions}/{len(regions)}")
+    print(f"🌍 Regions with Amazon Bedrock access: {available_regions}/{len(regions)}")
     print(f"📄 Output file: {output_file}")
     
     # Show sample cross-region models
@@ -339,7 +340,7 @@ def main():
         print(f"\n❌ Discovery failed: {result['error']}")
         return 1
     else:
-        print(f"\n🎉 Success! All accessible Bedrock models discovered.")
+        print(f"\n🎉 Success! All accessible Amazon Bedrock models discovered.")
         return 0
 
 

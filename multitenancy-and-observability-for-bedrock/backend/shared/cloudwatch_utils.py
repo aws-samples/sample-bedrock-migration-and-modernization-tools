@@ -1,6 +1,7 @@
-"""CloudWatch metric publishing for Bedrock inference tracing.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+"""CloudWatch metric publishing for Amazon Bedrock inference tracing.
 
-Namespace: BedrockInvocationTracing
+Namespace: Amazon BedrockInvocationTracing
 Dimensions: InferenceProfile, TenantId, ModelId
 """
 

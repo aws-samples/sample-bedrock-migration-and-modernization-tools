@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Environment validation script for 360-eval
 
@@ -13,7 +14,7 @@ from typing import List, Tuple
 
 
 def check_aws_credentials() -> Tuple[bool, str]:
-    """Check AWS credentials and Bedrock access"""
+    """Check AWS credentials and Amazon Bedrock access"""
     try:
         # Check if AWS credentials are configured
         session = boto3.Session()
@@ -26,13 +27,13 @@ def check_aws_credentials() -> Tuple[bool, str]:
         sts_client = boto3.client('sts')
         identity = sts_client.get_caller_identity()
         
-        # Test Bedrock access
+        # Test Amazon Bedrock access
         bedrock_client = boto3.client('bedrock', region_name='us-east-1')
         try:
             bedrock_client.list_foundation_models()
-            bedrock_status = "✅ Bedrock access confirmed"
+            bedrock_status = "✅ Amazon Bedrock access confirmed"
         except Exception as e:
-            bedrock_status = f"⚠️  Bedrock access issue: {str(e)[:100]}"
+            bedrock_status = f"⚠️  Amazon Bedrock access issue: {str(e)[:100]}"
         
         return True, f"✅ AWS credentials valid (Account: {identity['Account'][:4]}***)\n   {bedrock_status}"
         

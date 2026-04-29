@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Model configuration component for the Streamlit dashboard."""
 
 import streamlit as st
@@ -72,11 +73,11 @@ class ModelConfigurationComponent:
             on_change=self._on_region_change
         )
         
-        # Available models tabs (Bedrock, OpenAI)
+        # Available models tabs (Amazon Bedrock, OpenAI)
         tab1, tab2 = st.tabs(["Bedrock Models", "Other Models"])
         
         with tab1:
-            # Show Bedrock models available in the selected region
+            # Show Amazon Bedrock models available in the selected region
             if selected_region in REGION_TO_MODELS:
                 bedrock_models = sorted(REGION_TO_MODELS[selected_region])
             else:
@@ -212,7 +213,7 @@ class ModelConfigurationComponent:
                 )
 
         # Initialize cost keys in session state if not already set
-        # Look up pricing by (model_id, region), fall back to (model_id, "N/A") for non-Bedrock
+        # Look up pricing by (model_id, region), fall back to (model_id, "N/A") for non-Amazon Bedrock
         default_costs = DEFAULT_COST_MAP.get((selected_model, region)) or DEFAULT_COST_MAP.get((selected_model, "N/A"), {"input": 0.001, "output": 0.002})
         default_input_cost = default_costs["input"]
         default_output_cost = default_costs["output"]
@@ -242,7 +243,7 @@ class ModelConfigurationComponent:
             )
 
         with col4:
-            # Service tier dropdown for Bedrock models
+            # Service tier dropdown for Amazon Bedrock models
             if prefix == "bedrock":
                 # Get available tiers from models_profiles.jsonl (no API calls needed)
                 available_tiers = MODEL_SERVICE_TIERS.get((selected_model, region), ["default"])
@@ -263,7 +264,7 @@ class ModelConfigurationComponent:
                         help="Service tier for this model"
                     )
             else:
-                # Non-Bedrock models - show Target RPM in col4
+                # Non-Amazon Bedrock models - show Target RPM in col4
                 target_rpm = st.number_input(
                     "Target RPM",
                     min_value=0,
@@ -277,7 +278,7 @@ class ModelConfigurationComponent:
                 target_rpm = target_rpm if target_rpm > 0 else None
 
         with col5:
-            # For Bedrock models, show Target RPM in col5; for others, show Add button
+            # For Amazon Bedrock models, show Target RPM in col5; for others, show Add button
             if prefix == "bedrock":
                 target_rpm = st.number_input(
                     "Target RPM",
@@ -291,8 +292,8 @@ class ModelConfigurationComponent:
                 # Convert 0 to None for storage (0 means no rate limiting)
                 target_rpm = target_rpm if target_rpm > 0 else None
 
-            # Check if model is unavailable (for Bedrock models)
-            # Get the selected tier for Bedrock models
+            # Check if model is unavailable (for Amazon Bedrock models)
+            # Get the selected tier for Amazon Bedrock models
             selected_tier = st.session_state.get(f"{prefix}_service_tier_select", "default") if prefix == "bedrock" else None
 
             st.button(
@@ -303,7 +304,7 @@ class ModelConfigurationComponent:
                 help="Add this model to your evaluation"
             )
 
-        # Show service tier info for Bedrock models
+        # Show service tier info for Amazon Bedrock models
         if prefix == "bedrock":
             tiers = MODEL_SERVICE_TIERS.get((selected_model, region), [])
             if len(tiers) > 1:
@@ -373,10 +374,10 @@ class ModelConfigurationComponent:
     def _add_model(self, model_id, region, input_cost, output_cost, target_rpm=None, prefix="bedrock", selected_tier=None):
         """Add a model to the selected models list.
 
-        For Bedrock models, adds the model with the specified service tier.
+        For Amazon Bedrock models, adds the model with the specified service tier.
         For non-Bedrock models, uses provider-specific region (e.g., "openai-region").
         """
-        # For Bedrock models, use the selected tier; for others, set to None
+        # For Amazon Bedrock models, use the selected tier; for others, set to None
         if prefix == "bedrock":
             tier = selected_tier if selected_tier else "default"
             # Create label suffix for display purposes
@@ -384,7 +385,7 @@ class ModelConfigurationComponent:
         else:
             tier = None
             tier_label = None
-            # For non-Bedrock models, derive region from model prefix
+            # For non-Amazon Bedrock models, derive region from model prefix
             # e.g., "openai/gpt-5-mini" -> "openai-region"
             if "/" in model_id:
                 provider = model_id.split("/")[0]

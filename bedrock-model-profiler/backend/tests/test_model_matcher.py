@@ -1,7 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Comprehensive tests for the model_matcher module.
 
 This module tests the centralized model ID matching utility used across
-multiple lambdas in the Bedrock Model Profiler pipeline.
+multiple lambdas in the Amazon Bedrock Model Profiler pipeline.
 
 Tests cover:
 - Canonical ID normalization (get_canonical_model_id)
@@ -649,8 +650,8 @@ class TestIntegration:
     """Integration tests for model matching scenarios."""
 
     def test_pricing_to_bedrock_matching(self):
-        """Test matching Pricing API IDs to Bedrock API IDs."""
-        # Pricing API format -> Bedrock API format
+        """Test matching Pricing API IDs to Amazon Bedrock API IDs."""
+        # Pricing API format -> Amazon Bedrock API format
         pricing_ids = {
             "deepseek.deepseek-v3-1": {"input_price": 0.001},
             "deepseek.deepseek-v3-2": {"input_price": 0.002},

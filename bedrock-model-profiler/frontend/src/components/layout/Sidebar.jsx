@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState } from 'react'
 import {
   LayoutGrid,
@@ -105,7 +108,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
       <div className={cn(
         'flex items-center p-4 min-h-[68px] transition-all duration-150 gap-3',
       )}>
-        <BedrockIcon className={cn(
+        <Amazon BedrockIcon className={cn(
           'flex-shrink-0 transition-all duration-150',
           collapsed && !mobileMenuOpen ? 'h-8 w-8' : 'h-9 w-9',
           isLight ? 'text-amber-700' : 'text-[#1A9E7A]'
@@ -118,7 +121,7 @@ export function Sidebar({ activeSection, onSectionChange, mobileMenuOpen, setMob
             'font-semibold text-[15px] leading-tight tracking-tight whitespace-nowrap',
             isLight ? 'text-stone-900' : 'text-white'
           )}>
-            Bedrock Model<br/>Profiler
+            Amazon Bedrock Model<br/>Profiler
           </span>
         </div>
 

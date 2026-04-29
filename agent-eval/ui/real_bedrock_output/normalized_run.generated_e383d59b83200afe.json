@@ -1,0 +1,232 @@
+{
+  "run_id": "generated_e383d59b83200afe",
+  "metadata": {
+    "segmentation_strategy_used": "TURN_ID",
+    "run_confidence": 1.0,
+    "mapping_coverage": {
+      "ids_coverage": 1.0,
+      "time_coverage": 1.0,
+      "tool_coverage": 0.3333,
+      "text_coverage": 0.6667,
+      "overall_mapping_coverage": 0.75
+    },
+    "adapter_version": "1.0.0",
+    "processed_at": "2026-04-07T12:22:04.035853+00:00"
+  },
+  "adapter_stats": {
+    "total_events_processed": 6,
+    "events_with_valid_timestamps": 6,
+    "events_with_missing_data": 0,
+    "dropped_events_count": 0,
+    "invalid_events_count": 0,
+    "turn_count": 2,
+    "mapping_coverage": 0.75,
+    "orphan_tool_results": [],
+    "segmentation_strategy": "TURN_ID",
+    "confidence_penalties": [],
+    "events_by_kind": {
+      "USER_INPUT": 2,
+      "LLM_OUTPUT_CHUNK": 2,
+      "TOOL_CALL": 1,
+      "TOOL_RESULT": 1
+    },
+    "raw_path": "events",
+    "canonical_sources": {
+      "timestamp": "timestamp",
+      "turn_id": "turn_id",
+      "event_type": "type",
+      "text": "content",
+      "tool_name": "tool_name",
+      "tool_run_id": "tool_run_id",
+      "tool_arguments": "tool_arguments",
+      "tool_result": "tool_result",
+      "status": "status"
+    },
+    "segmentation_strategy_reason": "Found explicit turn_id fields in events",
+    "warnings": [
+      "No run_id found in trace. Using generated ID: generated_e383d59b83200afe"
+    ]
+  },
+  "turns": [
+    {
+      "turn_id": "turn_0",
+      "request_id": null,
+      "timestamp": "2026-04-06T13:02:14.999000+00:00",
+      "user_query": "What's Example Corp's annual revenue?",
+      "final_answer": "Example Corp's annual revenue is approximately $4.2 billion based on their latest earnings report.",
+      "steps": [
+        {
+          "name": "user_message",
+          "status": "unknown",
+          "type": "user_message",
+          "kind": "USER_INPUT",
+          "start_ts": "2026-04-06T13:02:14.999000+00:00",
+          "end_ts": null,
+          "latency_ms": null,
+          "span_id": null,
+          "parent_span_id": null,
+          "tool_name": null,
+          "tool_run_id": null,
+          "event_order": 0,
+          "source_index": 0,
+          "attributes": {
+            "_kind_rule_id": "user_input_by_type_or_role",
+            "_kind_reason": "Matched rule 'user_input_by_type_or_role'; event_type matches regex '(?i)user(_message|input)|human|input'"
+          },
+          "raw": {
+            "timestamp": "2026-04-06T13:02:14.999Z",
+            "type": "user_message",
+            "turn_id": "turn-1",
+            "content": "What's Example Corp's annual revenue?"
+          }
+        },
+        {
+          "name": "model_output",
+          "status": "unknown",
+          "type": "model_output",
+          "kind": "LLM_OUTPUT_CHUNK",
+          "start_ts": "2026-04-06T13:02:16.999000+00:00",
+          "end_ts": null,
+          "latency_ms": null,
+          "span_id": null,
+          "parent_span_id": null,
+          "tool_name": null,
+          "tool_run_id": null,
+          "event_order": 1,
+          "source_index": 1,
+          "attributes": {
+            "_kind_rule_id": "llm_output_chunk_by_type_or_role",
+            "_kind_reason": "Matched rule 'llm_output_chunk_by_type_or_role'; event_type matches regex '(?i)llm(_output|_chunk|output_chunk)|model(_output'"
+          },
+          "raw": {
+            "timestamp": "2026-04-06T13:02:16.999Z",
+            "type": "model_output",
+            "turn_id": "turn-1",
+            "content": "Example Corp's annual revenue is approximately $4.2 billion based on their latest earnings report."
+          }
+        }
+      ],
+      "normalized_latency_ms": 2000.0,
+      "runtime_reported_latency_ms": null,
+      "total_latency_ms": 2000.0,
+      "confidence": 1.0
+    },
+    {
+      "turn_id": "turn_1",
+      "request_id": null,
+      "timestamp": "2026-04-06T13:02:18.999000+00:00",
+      "user_query": "Can you check their AWS spend?",
+      "final_answer": "I couldn't find a Example Corp account in Salesforce. The account may be under a different name, or it might not be in our CRM. Could you double-check the account name?",
+      "steps": [
+        {
+          "name": "user_message",
+          "status": "unknown",
+          "type": "user_message",
+          "kind": "USER_INPUT",
+          "start_ts": "2026-04-06T13:02:18.999000+00:00",
+          "end_ts": null,
+          "latency_ms": null,
+          "span_id": null,
+          "parent_span_id": null,
+          "tool_name": null,
+          "tool_run_id": null,
+          "event_order": 0,
+          "source_index": 2,
+          "attributes": {
+            "_kind_rule_id": "user_input_by_type_or_role",
+            "_kind_reason": "Matched rule 'user_input_by_type_or_role'; event_type matches regex '(?i)user(_message|input)|human|input'"
+          },
+          "raw": {
+            "timestamp": "2026-04-06T13:02:18.999Z",
+            "type": "user_message",
+            "turn_id": "turn-2",
+            "content": "Can you check their AWS spend?"
+          }
+        },
+        {
+          "name": "crm_account_search",
+          "status": "success",
+          "type": "tool_call",
+          "kind": "TOOL_CALL",
+          "start_ts": "2026-04-06T13:02:19.499000+00:00",
+          "end_ts": null,
+          "latency_ms": null,
+          "span_id": null,
+          "parent_span_id": null,
+          "tool_name": "crm_account_search",
+          "tool_run_id": "tool-001",
+          "event_order": 1,
+          "source_index": 3,
+          "attributes": {
+            "_kind_rule_id": "tool_call_strict",
+            "_kind_reason": "Matched rule 'tool_call_strict'; tool_name exists; tool_run_id exists"
+          },
+          "raw": {
+            "timestamp": "2026-04-06T13:02:19.499Z",
+            "type": "tool_call",
+            "turn_id": "turn-2",
+            "tool_name": "crm_account_search",
+            "tool_run_id": "tool-001",
+            "tool_arguments": "{\"queryTerm\": \"Example Corp\"}"
+          }
+        },
+        {
+          "name": "crm_account_search",
+          "status": "success",
+          "type": "tool_result",
+          "kind": "TOOL_RESULT",
+          "start_ts": "2026-04-06T13:02:20.999000+00:00",
+          "end_ts": null,
+          "latency_ms": null,
+          "span_id": null,
+          "parent_span_id": null,
+          "tool_name": "crm_account_search",
+          "tool_run_id": "tool-001",
+          "event_order": 2,
+          "source_index": 4,
+          "attributes": {
+            "_kind_rule_id": "tool_result_by_type_or_payload",
+            "_kind_reason": "Matched rule 'tool_result_by_type_or_payload'; tool_result exists"
+          },
+          "raw": {
+            "timestamp": "2026-04-06T13:02:20.999Z",
+            "type": "tool_result",
+            "turn_id": "turn-2",
+            "tool_run_id": "tool-001",
+            "tool_result": "{\"resultRecords\":[],\"totalCount\":0}",
+            "status": "success"
+          }
+        },
+        {
+          "name": "model_output",
+          "status": "unknown",
+          "type": "model_output",
+          "kind": "LLM_OUTPUT_CHUNK",
+          "start_ts": "2026-04-06T13:02:22.999000+00:00",
+          "end_ts": null,
+          "latency_ms": null,
+          "span_id": null,
+          "parent_span_id": null,
+          "tool_name": null,
+          "tool_run_id": null,
+          "event_order": 3,
+          "source_index": 5,
+          "attributes": {
+            "_kind_rule_id": "llm_output_chunk_by_type_or_role",
+            "_kind_reason": "Matched rule 'llm_output_chunk_by_type_or_role'; event_type matches regex '(?i)llm(_output|_chunk|output_chunk)|model(_output'"
+          },
+          "raw": {
+            "timestamp": "2026-04-06T13:02:22.999Z",
+            "type": "model_output",
+            "turn_id": "turn-2",
+            "content": "I couldn't find a Example Corp account in Salesforce. The account may be under a different name, or it might not be in our CRM. Could you double-check the account name?"
+          }
+        }
+      ],
+      "normalized_latency_ms": 4000.0,
+      "runtime_reported_latency_ms": null,
+      "total_latency_ms": 4000.0,
+      "confidence": 1.0
+    }
+  ]
+}

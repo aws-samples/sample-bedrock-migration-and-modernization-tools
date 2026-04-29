@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Final Aggregator Lambda
 
@@ -414,7 +415,7 @@ def build_mantle_inference(
     """Build mantle_inference object for a model.
 
     Uses the centralized model_matcher for fuzzy matching because the Mantle API
-    (/v1/models) returns model IDs in a different format than Bedrock's
+    (/v1/models) returns model IDs in a different format than Amazon Bedrock's
     ListFoundationModels. Common differences:
     - Missing version suffixes (-v1:0)
     - -instruct vs -v1:0 suffixes
@@ -771,9 +772,9 @@ def create_mantle_only_stub(
     supports_responses_api: bool = False,
 ) -> dict:
     """
-    Create a stub model entry for a Mantle-only model (not in Bedrock's ListFoundationModels).
+    Create a stub model entry for a Mantle-only model (not in Amazon Bedrock's ListFoundationModels).
 
-    These models exist in the Mantle API but have no corresponding Bedrock foundation model.
+    These models exist in the Mantle API but have no corresponding Amazon Bedrock foundation model.
     The stub provides minimal metadata to display the model in the UI.
     """
     # Extract provider using centralized utility from model_matcher
@@ -1454,14 +1455,14 @@ def build_api_support(
     """Build the unified api_support object for a model.
 
     Derives API support from existing collected data:
-    - InvokeModel: all Bedrock models support it (not Mantle-only)
+    - InvokeModel: all Amazon Bedrock models support it (not Mantle-only)
     - Converse: inferred from chat_features (non-empty = supported)
     - Chat Completions: inferred from mantle_inference.supported
     - Responses API: from mantle_inference.supports_responses_api
     """
     chat_features = model.get("chat_features", {})
 
-    # InvokeModel: all Bedrock models support it, Mantle-only don't
+    # InvokeModel: all Amazon Bedrock models support it, Mantle-only don't
     invoke_supported = not is_mantle_only
 
     # Converse: inferred from non-empty chat_features
@@ -1686,7 +1687,7 @@ def backfill_availability_from_pricing(
     """
     Backfill availability regions from pricing data when API data is missing.
 
-    Some models have pricing data but are not returned by the Bedrock API
+    Some models have pricing data but are not returned by the Amazon Bedrock API
     (ListFoundationModels). This function fills in the availability regions
     from pricing data to ensure these models appear in regional availability views.
 
@@ -2595,7 +2596,7 @@ def build_final_models(
     """Build the final comprehensive models structure in expected schema with tracing.
 
     Also creates stub entries for Mantle-only models (models that exist in the
-    Mantle API but not in Bedrock's ListFoundationModels).
+    Mantle API but not in Amazon Bedrock's ListFoundationModels).
     """
     logger.info("Building final models")
     providers = models_with_pricing.get("providers", {})
@@ -2612,7 +2613,7 @@ def build_final_models(
     govcloud_availability = pricing_data.get("govcloud_availability", {})
 
     result_providers = {}
-    # Track which Mantle model IDs have been matched to Bedrock models
+    # Track which Mantle model IDs have been matched to Amazon Bedrock models
     matched_mantle_ids = set()
 
     for provider, provider_data in providers.items():
@@ -2675,7 +2676,7 @@ def build_final_models(
 
     if unmatched_mantle_ids:
         logger.info(
-            f"Found {len(unmatched_mantle_ids)} Mantle-only models (not in Bedrock): "
+            f"Found {len(unmatched_mantle_ids)} Mantle-only models (not in Amazon Bedrock): "
             f"{sorted(unmatched_mantle_ids)}"
         )
 

@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 import streamlit as st
 import sys
 import logging
@@ -65,7 +66,7 @@ def main():
                     msg = (
                         "Generating model catalog from AWS..."
                         if needs_generate
-                        else f"Refreshing Bedrock model pricing (over {PRICING_REFRESH_DAYS} days old)..."
+                        else f"Refreshing Amazon Bedrock model pricing (over {PRICING_REFRESH_DAYS} days old)..."
                     )
                     status_placeholder = st.empty()
                     with status_placeholder.status(msg, expanded=True):

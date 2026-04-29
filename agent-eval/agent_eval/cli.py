@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """CLI entry point for agentic-eval."""
 
 import argparse

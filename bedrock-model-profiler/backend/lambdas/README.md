@@ -1,6 +1,6 @@
 # Lambda Function Interfaces
 
-This document defines the input/output contracts for each Lambda function in the Bedrock Profiler Step Functions workflow.
+This document defines the input/output contracts for each Lambda function in the Amazon Bedrock Profiler Step Functions workflow.
 
 ## Overview
 
@@ -66,8 +66,8 @@ Merges pricing data from all three service codes into a single structured JSON.
   "executionId": "arn:aws:states:...",
   "pricingResults": [
     {"status": "SUCCESS", "serviceCode": "AmazonBedrock", "s3Key": "..."},
-    {"status": "SUCCESS", "serviceCode": "AmazonBedrockService", "s3Key": "..."},
-    {"status": "SUCCESS", "serviceCode": "AmazonBedrockFoundationModels", "s3Key": "..."}
+    {"status": "SUCCESS", "serviceCode": "AmazonAmazon BedrockService", "s3Key": "..."},
+    {"status": "SUCCESS", "serviceCode": "AmazonAmazon BedrockFoundationModels", "s3Key": "..."}
   ]
 }
 ```
@@ -87,7 +87,7 @@ Merges pricing data from all three service codes into a single structured JSON.
 
 ### 3. model-extractor
 
-Lists foundation models from a single AWS region using Bedrock API.
+Lists foundation models from a single AWS region using Amazon Bedrock API.
 
 **Input:**
 ```json
@@ -146,7 +146,7 @@ Merges and deduplicates models from multiple regions.
 
 ### 5. quota-collector
 
-Collects Bedrock service quotas from a single region.
+Collects Amazon Bedrock service quotas from a single region.
 
 **Input:**
 ```json

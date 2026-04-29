@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Pure logic for converting a dashboard template + profile context into CloudWatch dashboard JSON.
 
 No AWS SDK calls -- this module is purely functional so it can be unit-tested

@@ -1,7 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Lambda handler for model and pricing discovery.
 
 Operations:
-    GET /discovery/models  - List available Bedrock foundation models
+    GET /discovery/models  - List available Amazon Bedrock foundation models
     GET /discovery/pricing - Get pricing for a model+region (3-tier fallback)
 
 Environment variables:
@@ -47,7 +48,7 @@ def handler(event, context):
 # ---------------------------------------------------------------------------
 
 def _list_models(event):
-    """GET /discovery/models - List available Bedrock foundation models."""
+    """GET /discovery/models - List available Amazon Bedrock foundation models."""
     params = event.get("queryStringParameters") or {}
     region = params.get("region", os.environ.get("AWS_REGION", "us-east-1"))
 

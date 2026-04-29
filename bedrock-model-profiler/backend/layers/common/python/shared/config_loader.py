@@ -1,5 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
-Configuration Loader for Bedrock Model Profiler.
+Configuration Loader for Amazon Bedrock Model Profiler.
 
 Loads externalized configuration from S3 with fallback to embedded defaults.
 This allows dynamic updates to provider patterns, region lists, and other
@@ -428,7 +429,7 @@ class ConfigLoader:
         return self.config.get("agent_configuration", {}).get("thresholds", {})
 
     def get_bedrock_model_id(self) -> str:
-        """Get Bedrock model ID for the self-healing agent."""
+        """Get Amazon Bedrock model ID for the self-healing agent."""
         return self.config.get("agent_configuration", {}).get(
             "bedrock_model_id", "us.anthropic.claude-opus-4-5-20251101-v1:0"
         )

@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Tests for enhanced self-healing agent Lambda (Task 02).
 
@@ -43,7 +44,7 @@ def mock_config():
                 "model10": {},
             }
         },
-        "pricing_service_codes": ["AmazonBedrock", "AmazonBedrockService"],
+        "pricing_service_codes": ["AmazonBedrock", "AmazonAmazon BedrockService"],
         "agent_configuration": {
             "auto_apply_rules": {
                 "max_models_affected_for_auto_apply": 0.2,
@@ -82,7 +83,7 @@ def mock_gap_report():
                     "variance": 0.1,
                 }
             ],
-            "unknown_service_codes": ["AmazonBedrockNewService"],
+            "unknown_service_codes": ["AmazonAmazon BedrockNewService"],
             "frontend_config_drift": {
                 "drift_detected": True,
                 "regions_missing_in_frontend": ["eu-west-1"],
@@ -173,10 +174,10 @@ class TestServiceCodeAddition:
         """Should add new service codes without duplicates."""
         # Arrange
         suggestion = {
-            "suggested_value": ["AmazonBedrockNewService", "AnotherNewService"]
+            "suggested_value": ["AmazonAmazon BedrockNewService", "AnotherNewService"]
         }
         current_config = {
-            "pricing_service_codes": ["AmazonBedrock", "AmazonBedrockService"]
+            "pricing_service_codes": ["AmazonBedrock", "AmazonAmazon BedrockService"]
         }
 
         # Act
@@ -186,7 +187,7 @@ class TestServiceCodeAddition:
 
         # Assert
         assert success is True
-        assert "AmazonBedrockNewService" in current_config["pricing_service_codes"]
+        assert "AmazonAmazon BedrockNewService" in current_config["pricing_service_codes"]
         assert "AnotherNewService" in current_config["pricing_service_codes"]
         # Original codes should still be there
         assert "AmazonBedrock" in current_config["pricing_service_codes"]
@@ -196,9 +197,9 @@ class TestServiceCodeAddition:
     ):
         """Should skip existing codes and return False if no new codes."""
         # Arrange - all codes already exist
-        suggestion = {"suggested_value": ["AmazonBedrock", "AmazonBedrockService"]}
+        suggestion = {"suggested_value": ["AmazonBedrock", "AmazonAmazon BedrockService"]}
         current_config = {
-            "pricing_service_codes": ["AmazonBedrock", "AmazonBedrockService"]
+            "pricing_service_codes": ["AmazonBedrock", "AmazonAmazon BedrockService"]
         }
 
         # Act

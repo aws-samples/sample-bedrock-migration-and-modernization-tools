@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL as string;
 const GATEWAY_API_URL = import.meta.env.VITE_GATEWAY_API_URL as string;
 

@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for Aggregation handler Powertools integration.
 
 Aggregation handlers (Task 08):

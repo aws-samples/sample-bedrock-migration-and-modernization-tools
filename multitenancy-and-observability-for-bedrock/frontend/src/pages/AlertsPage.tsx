@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import React, { useEffect, useState } from 'react';
 import { listAlerts, createAlert, deleteAlert } from '../api/alerts';
 import { listProfiles } from '../api/profiles';

@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { listProfiles } from '../api/profiles';
 import { invoke } from '../api/gateway';

@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Feature Collector Lambda
 
@@ -26,7 +27,7 @@ from aws_lambda_powertools.metrics import MetricUnit
 
 
 def get_bedrock_client(region: str):
-    """Create Bedrock client for a specific region."""
+    """Create Amazon Bedrock client for a specific region."""
     return boto3.client("bedrock", region_name=region, config=RETRY_CONFIG)
 
 

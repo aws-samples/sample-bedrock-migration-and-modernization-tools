@@ -1,4 +1,5 @@
-"""Bedrock model pricing with 3-tier fallback and local file caching.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+"""Amazon Bedrock model pricing with 3-tier fallback and local file caching.
 
 Adapted from multitenancy-and-observability-for-bedrock/backend/shared/pricing.py.
 Replaces DynamoDB caching with local file cache using the same hash-based
@@ -8,9 +9,9 @@ Flow:
     1. Check local cache -- if profiles_hash matches, return immediately
     2. Tier 1: Query AWS Price List API (all 3 service codes)
        -> If both input + output found: pricing_source = "api"
-    3. Tier 2: If output missing, re-query AmazonBedrockService only
+    3. Tier 2: If output missing, re-query AmazonAmazon BedrockService only
        -> If filled: pricing_source = "api_partial"
-    4. Tier 3: Scrape the AWS Bedrock pricing webpage bulk JSON
+    4. Tier 3: Scrape the Amazon Bedrock pricing webpage bulk JSON
        -> If filled: pricing_source = "webpage"
     5. If still missing -> "unavailable" with None costs
     6. Cache the result locally in .cache/model_pricing.json
@@ -44,13 +45,13 @@ JUDGE_PROFILE_PATH = PROJECT_ROOT / "config" / "judge_profiles.jsonl"
 
 SERVICE_CODES = [
     "AmazonBedrock",
-    "AmazonBedrockService",
-    "AmazonBedrockFoundationModels",
+    "AmazonAmazon BedrockService",
+    "AmazonAmazon BedrockFoundationModels",
 ]
 PRICING_CLIENT_REGION = "us-east-1"
 PRICING_REFRESH_DAYS = 7  # Re-fetch pricing after this many days
 
-# AWS Bedrock pricing page and bulk JSON endpoints
+# Amazon Bedrock pricing page and bulk JSON endpoints
 _PRICING_PAGE_URL = "https://aws.amazon.com/bedrock/pricing/"
 _BULK_JSON_URL = "https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/{svc}/USD/current/{svc}.json"
 
@@ -437,30 +438,30 @@ def _query_price_list_api(model_id: str, region: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Tier 2: Re-query AmazonBedrockService only for missing output pricing
+# Tier 2: Re-query AmazonAmazon BedrockService only for missing output pricing
 # ---------------------------------------------------------------------------
 
 def _query_bedrock_service_only(model_id: str, region: str) -> dict:
-    """Tier 2: Re-query only AmazonBedrockService for missing pricing.
+    """Tier 2: Re-query only AmazonAmazon BedrockService for missing pricing.
 
-    Some models (older Anthropic) have input pricing in AmazonBedrock
-    but output pricing only in AmazonBedrockService.
+    Some models (older Anthropic) have input pricing in AmazonAmazon Bedrock
+    but output pricing only in AmazonAmazon BedrockService.
 
     Returns {"input_cost": float|None, "output_cost": float|None}.
     """
     pricing_client = boto3.client("pricing", region_name=PRICING_CLIENT_REGION)
 
     try:
-        products = get_all_products(pricing_client, "AmazonBedrockService")
+        products = get_all_products(pricing_client, "AmazonAmazon BedrockService")
     except Exception as exc:
-        logger.warning("Failed to query AmazonBedrockService for tier 2: %s", exc)
+        logger.warning("Failed to query AmazonAmazon BedrockService for tier 2: %s", exc)
         return {"input_cost": None, "output_cost": None}
 
     return _extract_costs_from_products(products, model_id, region)
 
 
 # ---------------------------------------------------------------------------
-# Tier 3: Scrape AWS Bedrock pricing webpage bulk JSON
+# Tier 3: Scrape Amazon Bedrock pricing webpage bulk JSON
 # ---------------------------------------------------------------------------
 
 def _fetch_url(url: str, timeout: int = 15) -> bytes:
@@ -477,7 +478,7 @@ def _fetch_url(url: str, timeout: int = 15) -> bytes:
 
 
 def _parse_pricing_page(page_html: str) -> list[dict]:
-    """Parse the AWS Bedrock pricing page HTML to extract model-to-hash mappings."""
+    """Parse the Amazon Bedrock pricing page HTML to extract model-to-hash mappings."""
     content = html_module.unescape(page_html)
 
     token_re = (
@@ -619,7 +620,7 @@ def _fetch_bulk_json(service_path: str) -> Optional[dict]:
 
 
 def _scrape_webpage_pricing(model_id: str, region: str) -> dict:
-    """Tier 3: Scrape AWS Bedrock pricing webpage for a single model.
+    """Tier 3: Scrape Amazon Bedrock pricing webpage for a single model.
 
     Returns {"input_cost": float|None, "output_cost": float|None}.
     Costs are returned in per-1K-token format.
@@ -769,7 +770,7 @@ def get_model_pricing(model_id: str, region: str) -> dict:
             "pricing_source": "api",
         }
 
-    # Tier 2: Re-query AmazonBedrockService for missing pricing
+    # Tier 2: Re-query AmazonAmazon BedrockService for missing pricing
     if result["input_cost"] is not None or result["output_cost"] is not None:
         tier2 = _query_bedrock_service_only(model_id, region)
         if result["input_cost"] is None and tier2["input_cost"] is not None:
@@ -810,7 +811,7 @@ def get_model_pricing(model_id: str, region: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def _load_bedrock_entries_from_profile(path: Path) -> list[dict]:
-    """Load Bedrock model entries from a JSONL profile file."""
+    """Load Amazon Bedrock model entries from a JSONL profile file."""
     entries = []
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -832,7 +833,7 @@ def _load_bedrock_entries_from_profile(path: Path) -> list[dict]:
 
 
 def resolve_all_pricing(force: bool = False) -> dict:
-    """Resolve pricing for all Bedrock models in both profile files.
+    """Resolve pricing for all Amazon Bedrock models in both profile files.
 
     Uses local file cache with hash-based invalidation. Only re-resolves
     when models_profiles.jsonl or judge_profiles.jsonl content changes.
@@ -847,7 +848,7 @@ def resolve_all_pricing(force: bool = False) -> dict:
         logger.info("Pricing cache is valid, using cached pricing")
         return load_pricing_cache()
 
-    logger.info("Resolving Bedrock model pricing...")
+    logger.info("Resolving Amazon Bedrock model pricing...")
 
     cache = {
         "last_updated": None,
@@ -867,7 +868,7 @@ def resolve_all_pricing(force: bool = False) -> dict:
             seen.add(key)
             unique_entries.append(e)
 
-    logger.info("Resolving pricing for %d unique Bedrock model+region combinations", len(unique_entries))
+    logger.info("Resolving pricing for %d unique Amazon Bedrock model+region combinations", len(unique_entries))
 
     # Build list of (stripped_model_id, region) for bulk lookup
     model_region_pairs = []
@@ -943,7 +944,7 @@ def resolve_all_pricing(force: bool = False) -> dict:
 def enrich_model_entry(entry: dict) -> dict:
     """Overlay dynamic pricing onto a model/judge entry from JSONL.
 
-    For Bedrock models, looks up cached pricing and replaces cost fields.
+    For Amazon Bedrock models, looks up cached pricing and replaces cost fields.
     Falls back to original JSONL values if API pricing is unavailable.
     Non-Bedrock models are returned unchanged.
 
@@ -994,7 +995,7 @@ def enrich_model_entry(entry: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Profile generation from Bedrock APIs
+# Profile generation from Amazon Bedrock APIs
 # ---------------------------------------------------------------------------
 
 def fetch_foundation_models(region: str = "us-east-1") -> tuple[dict, dict]:
@@ -1172,7 +1173,7 @@ def _get_preferred_cross_region_id(model_id: str, cross_region_map: dict) -> str
 
 
 def _fetch_supported_models_page() -> list[dict]:
-    """Fetch model catalog from AWS Bedrock supported models page.
+    """Fetch model catalog from Amazon Bedrock supported models page.
 
     Parses https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html
     to get the definitive list of models, their IDs, and region availability.
@@ -1289,7 +1290,7 @@ def _find_pricing_for_region(
 
 
 def generate_models_profiles() -> list[dict]:
-    """Generate model profile entries from Bedrock APIs.
+    """Generate model profile entries from Amazon Bedrock APIs.
 
     Uses the AWS models-supported page as the authoritative source for which
     models exist and which regions they support. Uses the Price List API for
@@ -1442,7 +1443,7 @@ def ensure_models_profiles(models_path: Optional[Path] = None) -> Path:
     """Ensure models_profiles.jsonl exists and pricing is fresh.
 
     - If file doesn't exist: generate from Bedrock APIs
-    - If file exists but pricing is >7 days old: refresh Bedrock model pricing
+    - If file exists but pricing is >7 days old: refresh Amazon Bedrock model pricing
     - Non-Bedrock entries (openai/, gemini/) are preserved unchanged during refresh
 
     Args:
@@ -1478,11 +1479,11 @@ def ensure_models_profiles(models_path: Optional[Path] = None) -> Path:
         logger.info("Pricing is fresh (<%d days old), no refresh needed", PRICING_REFRESH_DAYS)
         return models_path
 
-    print(f"Pricing is over {PRICING_REFRESH_DAYS} days old. Refreshing Bedrock model pricing...")
+    print(f"Pricing is over {PRICING_REFRESH_DAYS} days old. Refreshing Amazon Bedrock model pricing...")
     print("This may take 20-30 seconds...")
-    logger.info("Pricing is stale (>%d days), refreshing Bedrock model pricing...", PRICING_REFRESH_DAYS)
+    logger.info("Pricing is stale (>%d days), refreshing Amazon Bedrock model pricing...", PRICING_REFRESH_DAYS)
     try:
-        # Read existing entries, preserve non-Bedrock
+        # Read existing entries, preserve non-Amazon Bedrock
         existing = []
         with open(models_path, "r", encoding="utf-8") as f:
             for line in f:
@@ -1492,10 +1493,10 @@ def ensure_models_profiles(models_path: Optional[Path] = None) -> Path:
 
         non_bedrock = [e for e in existing if not e.get("model_id", "").startswith("bedrock/")]
 
-        # Re-generate Bedrock entries from APIs
+        # Re-generate Amazon Bedrock entries from APIs
         bedrock_entries = generate_models_profiles()
 
-        # Combine: fresh Bedrock + preserved non-Bedrock
+        # Combine: fresh Amazon Bedrock + preserved non-Amazon Bedrock
         all_entries = bedrock_entries + non_bedrock
 
         with open(models_path, "w", encoding="utf-8") as f:
@@ -1503,7 +1504,7 @@ def ensure_models_profiles(models_path: Optional[Path] = None) -> Path:
                 f.write(json.dumps(e) + "\n")
 
         logger.info(
-            "Refreshed %s: %d Bedrock + %d non-Bedrock entries",
+            "Refreshed %s: %d Amazon Bedrock + %d non-Bedrock entries",
             models_path, len(bedrock_entries), len(non_bedrock),
         )
     except Exception as exc:

@@ -1,4 +1,4 @@
-# Real Bedrock Judge Evaluation Results
+# Real Amazon Bedrock Judge Evaluation Results
 
 ## Overview
 

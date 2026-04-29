@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 from aws_cdk import (
     Stack,
     Duration,
@@ -60,7 +61,7 @@ class BackendStack(Stack):
             self,
             "BackendApi",
             rest_api_name="isv-observability-backend-api",
-            description="ISV Bedrock Observability Backend API",
+            description="ISV Amazon Bedrock Observability Backend API",
             endpoint_types=[apigw.EndpointType.REGIONAL],
             deploy_options=apigw.StageOptions(stage_name="v1"),
             default_cors_preflight_options=apigw.CorsOptions(

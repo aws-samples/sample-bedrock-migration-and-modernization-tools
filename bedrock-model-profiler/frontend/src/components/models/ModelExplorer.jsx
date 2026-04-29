@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, useMemo } from 'react'
 import { Loader2, LayoutGrid, ArrowUpDown } from 'lucide-react'
 import {

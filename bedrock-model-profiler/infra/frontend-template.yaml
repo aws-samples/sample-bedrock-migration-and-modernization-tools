@@ -1,6 +1,9 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Bedrock Model Profiler - Frontend CloudFront + S3 Distribution + Data Bucket
+Description: Amazon Bedrock Model Profiler - Frontend CloudFront + S3 Distribution + Data Bucket
 
 Parameters:
   DomainName:
@@ -239,7 +242,7 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-        Comment: !Sub 'Bedrock Model Profiler - ${AWS::StackName}'
+        Comment: !Sub 'Amazon Bedrock Model Profiler - ${AWS::StackName}'
         DefaultRootObject: index.html
         HttpVersion: http2and3
         PriceClass: PriceClass_100

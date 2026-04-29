@@ -1,6 +1,6 @@
-# AWS Bedrock AgentCore Conversation Extractor
+# Amazon Bedrock AgentCore Conversation Extractor
 
-Extract complete conversation data from AWS Bedrock AgentCore by merging APPLICATION_LOGS with GenAI Observability OTEL spans.
+Extract complete conversation data from Amazon Bedrock AgentCore by merging APPLICATION_LOGS with GenAI Observability OTEL spans.
 
 ## 🚀 NEW: ARN-based Wrapper (Recommended)
 
@@ -408,8 +408,8 @@ python3 03_add_xray_steps_and_latency.py --index session_turns.json --detail ses
 - boto3
 - AWS credentials configured with access to:
   - CloudWatch Logs
-  - Bedrock AgentCore APPLICATION_LOGS
-  - Bedrock AgentCore Runtime logs
+  - Amazon Bedrock AgentCore APPLICATION_LOGS
+  - Amazon Bedrock AgentCore Runtime logs
   - X-Ray traces
 
 ---

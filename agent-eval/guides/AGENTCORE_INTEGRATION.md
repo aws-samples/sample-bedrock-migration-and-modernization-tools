@@ -45,7 +45,7 @@ python agent_eval/tools/agentcore_pipeline/evaluate_agentcore.py \
 |------|----------|-------------|
 | `--agent-runtime-arn` | One of these | AgentCore runtime ARN to extract traces from |
 | `--agentcore-export-dir` | required | Path to previously exported merged directory |
-| `--judge-config` | Yes (unless `--export-only`) | Path to judges.yaml (mock or real Bedrock) |
+| `--judge-config` | Yes (unless `--export-only`) | Path to judges.yaml (mock or real Amazon Bedrock) |
 | `--rubrics` | No | Custom rubrics.yaml (merges with defaults) |
 | `--output-dir` | No | Output directory (default: `./agentcore_eval_output`) |
 | `--days` | No | Days of traces to export (default: 7) |

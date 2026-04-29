@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState } from 'react'
 import { Star, Globe, Zap, MessageSquare, Image, FileText, Video, Mic, Check, X, ChevronDown, ChevronRight, Search, Database, Languages, Cpu, Layers, Package, Server, ExternalLink, Copy, DollarSign, GitCompareArrows, Radio, Info, Bot, BookOpen, Workflow, Shield, Clock, Route, Wrench, AlertTriangle, AlertCircle, MapPin, Split, Calculator } from 'lucide-react'
 import { useTheme } from '@/components/layout/ThemeProvider'
@@ -2585,8 +2588,8 @@ function ExpandableTagList({ label, items, maxVisible = 10, isLight }) {
   )
 }
 
-// Bedrock Features Section Component - dynamically displays all features from data
-function BedrockFeaturesSection({ featureSupport }) {
+// Amazon Bedrock Features Section Component - dynamically displays all features from data
+function Amazon BedrockFeaturesSection({ featureSupport }) {
   const { theme } = useTheme()
   const isLight = theme === 'light'
 
@@ -3299,15 +3302,15 @@ function SpecsTab({ model, getPricingForModel, preferredRegion }) {
             <div>
               <CategoryHeader icon={Wrench} title="Features & Integrations" />
               <div className="space-y-3">
-                {/* Bedrock Features - Expanded by default */}
+                {/* Amazon Bedrock Features - Expanded by default */}
                 {(model.features ?? model.feature_support) && (
                   <CollapsibleSection 
-                    title="Bedrock Features" 
+                    title="Amazon Bedrock Features" 
                     icon={Layers} 
                     defaultExpanded={true}
                     dataSource={<>Source: <a href="https://docs.aws.amazon.com/bedrock/latest/APIReference/API_ListFoundationModels.html" target="_blank" rel="noopener noreferrer" className="underline decoration-current hover:opacity-80">ListFoundationModels API</a> (includes data from AWS Console)</>}
                   >
-                    <BedrockFeaturesSection featureSupport={model.features ?? model.feature_support} />
+                    <Amazon BedrockFeaturesSection featureSupport={model.features ?? model.feature_support} />
                   </CollapsibleSection>
                 )}
 
@@ -3417,7 +3420,7 @@ function SpecsTab({ model, getPricingForModel, preferredRegion }) {
                                  : 'text-blue-400 hover:bg-blue-500/10'
                              )}>
                             <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" />
-                            AWS Bedrock Guide
+                            Amazon Bedrock Guide
                           </a>
                         )}
                         {documentationLinks.pricing_guide && (

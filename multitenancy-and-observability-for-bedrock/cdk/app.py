@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 import aws_cdk as cdk
 
 from stacks.foundation_stack import FoundationStack
@@ -11,7 +12,7 @@ app = cdk.App()
 foundation = FoundationStack(
     app,
     "IsvObservabilityFoundation",
-    description="ISV Bedrock Observability - Foundation (DynamoDB, S3, IAM)",
+    description="ISV Amazon Bedrock Observability - Foundation (DynamoDB, S3, IAM)",
 )
 
 # Gateway stack: API Gateway + Lambda for model invocation proxy
@@ -22,7 +23,7 @@ gateway = GatewayStack(
     pricing_cache_table=foundation.pricing_cache_table,
     storage_bucket=foundation.storage_bucket,
     gateway_lambda_role=foundation.gateway_lambda_role,
-    description="ISV Bedrock Observability - Gateway (API GW + Lambda)",
+    description="ISV Amazon Bedrock Observability - Gateway (API GW + Lambda)",
 )
 gateway.add_dependency(foundation)
 
@@ -37,7 +38,7 @@ backend = BackendStack(
     alerts_table=foundation.alerts_table,
     storage_bucket=foundation.storage_bucket,
     backend_lambda_role=foundation.backend_lambda_role,
-    description="ISV Bedrock Observability - Backend (Tenants + Discovery API)",
+    description="ISV Amazon Bedrock Observability - Backend (Tenants + Discovery API)",
 )
 backend.add_dependency(foundation)
 

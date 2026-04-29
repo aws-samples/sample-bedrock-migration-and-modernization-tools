@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for CRIS Regional and Reserved pricing detection (Task 06).
 
 Tests for Phase 2 - CRIS Regional & Reserved Detection:

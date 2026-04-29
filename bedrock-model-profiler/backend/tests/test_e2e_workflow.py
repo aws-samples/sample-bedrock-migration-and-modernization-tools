@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """End-to-end tests for the workflow (Phase 4 Integration).
 
 These tests require a deployed stack and are skipped by default.
@@ -210,7 +211,7 @@ class TestCloudWatchMetrics:
     def test_cloudwatch_metrics_emitted(self, cloudwatch_client):
         """CloudWatch metrics should be emitted by handlers.
 
-        This test queries CloudWatch for metrics in the BedrockProfiler namespace.
+        This test queries CloudWatch for metrics in the Amazon BedrockProfiler namespace.
         """
         # Arrange
         namespace = "BedrockProfiler"
@@ -228,11 +229,11 @@ class TestCloudWatchMetrics:
         # Assert
         if not metrics:
             pytest.skip(
-                "No metrics found in BedrockProfiler namespace. Run workflow first."
+                "No metrics found in Amazon BedrockProfiler namespace. Run workflow first."
             )
 
         assert len(metrics) > 0, (
-            "Expected at least one metric in BedrockProfiler namespace"
+            "Expected at least one metric in Amazon BedrockProfiler namespace"
         )
 
         # Verify we have expected metric names

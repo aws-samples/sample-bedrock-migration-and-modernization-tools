@@ -1,6 +1,6 @@
-# Bedrock Observability Platform
+# Amazon Bedrock Observability Platform
 
-A serverless platform for monitoring and managing multi-tenant Amazon Bedrock usage. It provides per-tenant cost tracking, performance dashboards, alerting, and access control through Bedrock inference profiles.
+A serverless platform for monitoring and managing multi-tenant Amazon Bedrock usage. It provides per-tenant cost tracking, performance dashboards, alerting, and access control through Amazon Bedrock inference profiles.
 
 ## Architecture
 
@@ -8,16 +8,16 @@ A serverless platform for monitoring and managing multi-tenant Amazon Bedrock us
 
 The platform has two main paths:
 
-**Management Path** — An admin uses the React UI to create inference profiles, configure CloudWatch dashboards and alerts, monitor cost/usage/performance, and suspend or throttle tenants. Requests flow through API Gateway to a Backend Lambda that manages DynamoDB records, CloudWatch dashboards/alarms, Bedrock inference profiles, SNS topics, and S3 templates.
+**Management Path** — An admin uses the React UI to create inference profiles, configure CloudWatch dashboards and alerts, monitor cost/usage/performance, and suspend or throttle tenants. Requests flow through API Gateway to a Backend Lambda that manages DynamoDB records, CloudWatch dashboards/alarms, Amazon Bedrock inference profiles, SNS topics, and S3 templates.
 
-**Invocation Path** — Tenant applications send messages via `POST /invoke`. The Gateway Lambda checks the tenant's status (active/suspended/throttled), proxies the request to Bedrock `converse()` through the tenant's dedicated inference profile, and emits per-invocation CloudWatch metrics: token counts, costs, latency, and success/failure — all tagged with TenantId, InferenceProfile, ModelId, and custom tag dimensions.
+**Invocation Path** — Tenant applications send messages via `POST /invoke`. The Gateway Lambda checks the tenant's status (active/suspended/throttled), proxies the request to Amazon Bedrock `converse()` through the tenant's dedicated inference profile, and emits per-invocation CloudWatch metrics: token counts, costs, latency, and success/failure — all tagged with TenantId, InferenceProfile, ModelId, and custom tag dimensions.
 
 ## Key Features
 
-- **Per-tenant inference profiles** — Each tenant gets a dedicated Bedrock inference profile with cost allocation tags, enabling isolated metrics and billing attribution.
+- **Per-tenant inference profiles** — Each tenant gets a dedicated Amazon Bedrock inference profile with cost allocation tags, enabling isolated metrics and billing attribution.
 - **CloudWatch dashboards** — Template-based dashboards (Cost, Performance, Capacity, Efficiency, Executive Summary, Latency) that support multi-tenant comparison, custom widget selection, and analysis overlays (trend, anomaly detection).
 - **Alerting with actions** — CloudWatch alarms with three action types: notify (SNS email), throttle (auto-block with 429), or suspend (hard block with 403). Supports absolute and percentage-based thresholds with auto-recovery.
-- **3-tier pricing discovery** — Automatic model pricing lookup: AWS Price List API, AmazonBedrockService fallback, then webpage bulk JSON scrape. Results cached in DynamoDB for 24 hours.
+- **3-tier pricing discovery** — Automatic model pricing lookup: AWS Price List API, AmazonAmazon BedrockService fallback, then webpage bulk JSON scrape. Results cached in DynamoDB for 24 hours.
 - **Tag-based filtering** — Predefined tag categories (Tenant, Environment, Region, Application, User, Model) flow through to CloudWatch dimensions, enabling tag-based dashboard filtering and cost grouping.
 
 ## Project Structure
@@ -26,7 +26,7 @@ The platform has two main paths:
 backend/                  # Backend Lambda (Python)
   handler.py              # Router — dispatches to handler modules by path
   handlers/
-    profiles.py           # CRUD for tenant profiles + Bedrock inference profiles
+    profiles.py           # CRUD for tenant profiles + Amazon Bedrock inference profiles
     dashboards.py         # CRUD for CloudWatch dashboards from templates
     alerts.py             # CRUD for CloudWatch alarms + SNS + throttle/suspend
     metrics.py            # Proxy for CloudWatch GetMetricData / ListMetrics
@@ -40,7 +40,7 @@ backend/                  # Backend Lambda (Python)
     pricing.py            # 3-tier pricing with DynamoDB cache
 
 gateway/                  # Gateway Lambda (Python)
-  handler.py              # Invoke proxy — status check, Bedrock call, metric emission
+  handler.py              # Invoke proxy — status check, Amazon Bedrock call, metric emission
   status_cache.py         # In-memory TTL cache for tenant status (30s)
 
 frontend/                 # React UI (TypeScript + Vite)
@@ -74,7 +74,7 @@ Deployed via AWS CDK as three stacks:
 
 ### Prerequisites
 
-- AWS account with Bedrock model access
+- AWS account with Amazon Bedrock model access
 - Python 3.12+, Node.js 20+, AWS CDK CLI
 - AWS credentials configured
 
@@ -127,7 +127,7 @@ curl -X POST $GATEWAY_API/invoke \
 | GET/PUT/DELETE | `/alerts/{id}` | Get, update, or delete an alert |
 | GET | `/metrics/query` | Query CloudWatch metrics |
 | GET | `/metrics/list` | List available metrics |
-| GET | `/discovery/models` | List Bedrock foundation models |
+| GET | `/discovery/models` | List Amazon Bedrock foundation models |
 | GET | `/discovery/pricing` | Get model pricing |
 | GET | `/cost-explorer/profile-costs` | Get per-tenant cost data |
 
@@ -135,4 +135,4 @@ curl -X POST $GATEWAY_API/invoke \
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/invoke` | Proxy to Bedrock converse() with metrics |
+| POST | `/invoke` | Proxy to Amazon Bedrock converse() with metrics |

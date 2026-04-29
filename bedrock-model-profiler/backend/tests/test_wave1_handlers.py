@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for Wave 1 handler Powertools integration.
 
 Wave 1 handlers (Task 06):

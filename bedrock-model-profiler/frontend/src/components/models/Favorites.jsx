@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, useMemo, useEffect } from 'react'
 import { Loader2, LayoutGrid, Star, ArrowRight } from 'lucide-react'
 import {
@@ -104,7 +107,7 @@ export function Favorites({ onNavigateToExplorer }) {
         <div className="mb-4 sm:mb-6">
           <h1 className={cn('text-xl sm:text-2xl font-bold', isLight ? 'text-slate-900' : 'text-white')}>Favorites</h1>
           <p className={cn('mt-1 text-sm sm:text-base', isLight ? 'text-slate-500' : 'text-slate-400')}>
-            Your favorited Bedrock models
+            Your favorited Amazon Bedrock models
           </p>
         </div>
         <div className={cn(
@@ -151,7 +154,7 @@ export function Favorites({ onNavigateToExplorer }) {
           </span>
         </div>
         <p className={cn('mt-1 text-sm sm:text-base', isLight ? 'text-slate-500' : 'text-slate-400')}>
-          Your favorited Bedrock models
+          Your favorited Amazon Bedrock models
         </p>
       </div>
 

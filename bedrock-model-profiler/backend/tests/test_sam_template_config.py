@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for SAM template configuration (Phase 4 - Task 16).
 
 Tests verify that the SAM template has proper configuration parameters

@@ -1,0 +1,13 @@
+{
+  "log_group": "/aws/bedrock/agent-eval-test",
+  "region": "us-east-1",
+  "minutes": 30,
+  "traces_extracted": 1,
+  "evaluations": [
+    {
+      "trace": "ui/cloudwatch_eval_output/extracted_trace_0.json",
+      "output": "ui/cloudwatch_eval_output/eval_0",
+      "success": true
+    }
+  ]
+}

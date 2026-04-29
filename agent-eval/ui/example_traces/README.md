@@ -59,7 +59,7 @@ python -m agent_eval.cli \
   --rubrics ui/example_traces/agent_rubrics.yaml \
   --output-dir ./output
 
-# With real Bedrock judges
+# With real Amazon Bedrock judges
 python -m agent_eval.cli \
   --input ui/example_traces/multi-tool-research.json \
   --judge-config test-fixtures/judges.real.single.yaml \

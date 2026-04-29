@@ -1,7 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
-AWS Bedrock judge client implementation.
+Amazon Bedrock judge client implementation.
 
-This module provides integration with AWS Bedrock for LLM-based
+This module provides integration with Amazon Bedrock for LLM-based
 rubric evaluation using boto3 with support for modern Bedrock APIs
 including Converse API and Messages format.
 """
@@ -34,11 +35,11 @@ from agent_eval.judges.exceptions import (
 logger = logging.getLogger(__name__)
 
 
-class BedrockJudgeClient(JudgeClient):
+class Amazon BedrockJudgeClient(JudgeClient):
     """
-    AWS Bedrock implementation of JudgeClient.
+    Amazon Bedrock implementation of JudgeClient.
     
-    Supports modern Bedrock APIs including:
+    Supports modern Amazon Bedrock APIs including:
     - Converse API (recommended for Claude 3+, Mistral, etc.)
     - InvokeModel API with Messages format (Claude 3+)
     - Legacy InvokeModel API (Claude 2.x, Titan)
@@ -64,11 +65,11 @@ class BedrockJudgeClient(JudgeClient):
         use_converse_api: bool = True
     ):
         """
-        Initialize Bedrock judge client.
+        Initialize Amazon Bedrock judge client.
         
         Args:
             judge_id: Unique identifier for this judge
-            model_id: Bedrock model ID (e.g., "anthropic.claude-3-sonnet-20240229-v1:0")
+            model_id: Amazon Bedrock model ID (e.g., "anthropic.claude-3-sonnet-20240229-v1:0")
             params: Model parameters (temperature, max_tokens, etc.)
             timeout_seconds: Maximum execution time per request
             region_name: AWS region (uses default if None)
@@ -117,7 +118,7 @@ class BedrockJudgeClient(JudgeClient):
             return "generic"
     
     def _initialize_client(self) -> None:
-        """Initialize boto3 Bedrock client with authentication."""
+        """Initialize boto3 Amazon Bedrock client with authentication."""
         try:
             session = boto3.Session()
             self.client = session.client(
@@ -125,14 +126,14 @@ class BedrockJudgeClient(JudgeClient):
                 region_name=self.region_name
             )
             logger.info(
-                f"Initialized Bedrock client for judge {self.judge_id} "
+                f"Initialized Amazon Bedrock client for judge {self.judge_id} "
                 f"(model: {self.model_id}, family: {self.model_family}, "
                 f"region: {self.region_name or 'default'})"
             )
         except Exception as e:
-            logger.error(f"Failed to initialize Bedrock client: {e}")
+            logger.error(f"Failed to initialize Amazon Bedrock client: {e}")
             raise APIError(
-                message=f"Failed to initialize Bedrock client: {str(e)}",
+                message=f"Failed to initialize Amazon Bedrock client: {str(e)}",
                 error_code="BEDROCK_INIT_FAILED",
                 retryable=False
             )
@@ -144,7 +145,7 @@ class BedrockJudgeClient(JudgeClient):
         scoring_scale: Dict[str, Any]
     ) -> JudgeResponse:
         """
-        Execute judge evaluation via Bedrock API.
+        Execute judge evaluation via Amazon Bedrock API.
         
         Retries up to 3 times on invalid JSON responses.
         
@@ -159,7 +160,7 @@ class BedrockJudgeClient(JudgeClient):
         Raises:
             JudgeTimeoutError: If execution exceeds timeout
             ValidationError: If response invalid after retries
-            APIError: If Bedrock API call fails
+            APIError: If Amazon Bedrock API call fails
         """
         max_json_retries = 3
         last_validation_result = None
@@ -270,7 +271,7 @@ class BedrockJudgeClient(JudgeClient):
                 logger.error(f"Unexpected error on attempt {attempt + 1}/{max_json_retries}: {e}")
                 if attempt == max_json_retries - 1:
                     raise APIError(
-                        message=f"Unexpected Bedrock error: {str(e)}",
+                        message=f"Unexpected Amazon Bedrock error: {str(e)}",
                         error_code="BEDROCK_UNKNOWN_ERROR",
                         context={
                             'judge_id': self.judge_id,
@@ -309,7 +310,7 @@ class BedrockJudgeClient(JudgeClient):
     
     async def _invoke_model(self, prompt: str) -> Union[Dict[str, Any], str]:
         """
-        Invoke Bedrock model with prompt.
+        Invoke Amazon Bedrock model with prompt.
         
         Args:
             prompt: Formatted prompt string
@@ -346,7 +347,7 @@ class BedrockJudgeClient(JudgeClient):
     
     async def _invoke_converse(self, prompt: str) -> Dict[str, Any]:
         """
-        Invoke model using Bedrock Converse API (recommended for Claude 3+).
+        Invoke model using Amazon Bedrock Converse API (recommended for Claude 3+).
         
         This is the modern, unified API that works across model families.
         Uses the correct boto3 client.converse() signature.
@@ -409,7 +410,7 @@ class BedrockJudgeClient(JudgeClient):
         """
         Invoke model with streaming using InvokeModelWithResponseStream API.
         
-        Properly handles Bedrock event stream format with chunk decoding.
+        Properly handles Amazon Bedrock event stream format with chunk decoding.
         """
         loop = asyncio.get_event_loop()
         
@@ -463,7 +464,7 @@ class BedrockJudgeClient(JudgeClient):
     
     def _build_request_body(self, prompt: str) -> Dict[str, Any]:
         """
-        Build request body for Bedrock InvokeModel API.
+        Build request body for Amazon Bedrock InvokeModel API.
         
         Formats request based on model family using appropriate API format.
         """
@@ -528,7 +529,7 @@ class BedrockJudgeClient(JudgeClient):
     
     def _parse_response(self, response: Union[Dict[str, Any], str]) -> Dict[str, Any]:
         """
-        Parse Bedrock response to extract completion text and convert to JSON.
+        Parse Amazon Bedrock response to extract completion text and convert to JSON.
         
         Handles different response formats from various model families and APIs.
         Uses robust JSON extraction to handle prose around JSON objects.

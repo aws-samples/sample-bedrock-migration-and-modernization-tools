@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Local End-to-End Workflow Test
 
@@ -37,7 +38,7 @@ sys.path.insert(0, str(SHARED_LAYER_DIR))
 # Output directory for test data
 OUTPUT_DIR = Path(__file__).parent / 'workflow_output'
 
-# All known Bedrock regions (used for regional availability and feature collection)
+# All known Amazon Bedrock regions (used for regional availability and feature collection)
 ALL_BEDROCK_REGIONS = [
     'us-east-1', 'us-west-2', 'us-east-2',
     'eu-west-1', 'eu-west-2', 'eu-west-3', 'eu-central-1', 'eu-north-1',
@@ -94,7 +95,7 @@ def run_pricing_collectors(output_dir: Path, quick: bool = False):
     # Import handler
     spec = import_module('pricing-collector.handler')
 
-    service_codes = ['AmazonBedrock', 'AmazonBedrockService', 'AmazonBedrockFoundationModels']
+    service_codes = ['AmazonAmazon Bedrock', 'AmazonAmazon BedrockService', 'AmazonAmazon BedrockFoundationModels']
     results = []
 
     def local_handler(event, context=None):
@@ -347,7 +348,7 @@ def run_token_specs_collector(output_dir: Path, models_path: Path):
     print("  Fetching from LiteLLM...")
     litellm_data = spec.fetch_litellm_data()
     bedrock_models = spec.filter_bedrock_models(litellm_data)
-    print(f"  Found {len(bedrock_models)} Bedrock models in LiteLLM")
+    print(f"  Found {len(bedrock_models)} Amazon Bedrock models in LiteLLM")
 
     # Match with our models
     models_data = load_json(models_path)
@@ -366,7 +367,7 @@ def run_token_specs_collector(output_dir: Path, models_path: Path):
 
 def run_regional_availability(output_dir: Path, regions: list, quick: bool = False):
     """
-    Compute regional availability using the actual Bedrock API.
+    Compute regional availability using the actual Amazon Bedrock API.
 
     This replicates the regional-availability Lambda behavior:
     - Queries ListFoundationModels with byInferenceType="ON_DEMAND" filter
@@ -482,7 +483,7 @@ def run_regional_availability(output_dir: Path, regions: list, quick: bool = Fal
     output_path = output_dir / 'intermediate' / 'regional-availability.json'
     save_json(output_path, output_data)
 
-    return {'status': 'SUCCESS', 's3Key': str(output_path), 'regionsWithBedrock': len(regions_summary)}
+    return {'status': 'SUCCESS', 's3Key': str(output_path), 'regionsWithAmazon Bedrock': len(regions_summary)}
 
 
 def run_feature_collectors(output_dir: Path, regions: list, quick: bool = False):

@@ -1,5 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
-CLI entry point for local Bedrock Model Profiler data collection.
+CLI entry point for local Amazon Bedrock Model Profiler data collection.
 
 Usage:
     python -m local.cli collect
@@ -56,7 +57,7 @@ def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
         prog='bedrock-profiler',
-        description='Bedrock Model Profiler - Local Data Collection'
+        description='Amazon Bedrock Model Profiler - Local Data Collection'
     )
 
     parser.add_argument(
@@ -70,7 +71,7 @@ def main():
     # Collect command
     collect_parser = subparsers.add_parser(
         'collect',
-        help='Collect Bedrock model and pricing data'
+        help='Collect Amazon Bedrock model and pricing data'
     )
     collect_parser.add_argument(
         '--profile', '-p',

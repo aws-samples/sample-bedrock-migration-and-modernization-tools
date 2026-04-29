@@ -1,4 +1,5 @@
-"""Data models for ISV Bedrock Observability platform.
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+"""Data models for ISV Amazon Bedrock Observability platform.
 
 Uses plain dataclasses for Lambda compatibility without extra dependencies.
 """
@@ -9,7 +10,7 @@ from typing import Optional  # noqa: F401 – used by callers
 
 @dataclass
 class Profile:
-    """Represents a profile with an associated Bedrock inference profile."""
+    """Represents a profile with an associated Amazon Bedrock inference profile."""
 
     tenant_id: str
     tenant_name: str

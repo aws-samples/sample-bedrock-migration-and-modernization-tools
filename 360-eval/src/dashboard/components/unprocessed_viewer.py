@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Unprocessed records viewer component for the Streamlit dashboard."""
 
 import streamlit as st

@@ -1,0 +1,396 @@
+{
+  "format_version": "1.0.0",
+  "run_id": "generated_e383d59b83200afe",
+  "rubrics_hash": "5dde417b202ba6e67295e5da424d3c3844b09a1c645fcf715425de085f34ebb7",
+  "judge_config_hash": "48f18886710c29cc323c296c9c40fdd0454f952acf8edfa49467dd111b2315df",
+  "input_hash": "8353ce675d155f6be0ac85ad186e705ad491228375243e1c1717248946e3c2c2",
+  "deterministic_metrics": {
+    "turn_count": 2,
+    "step_count": 6,
+    "tool_call_count": 1,
+    "tool_result_count": 1,
+    "orphan_result_count": 0,
+    "tool_success_rate": 1.0,
+    "missing_timestamp_rate": 0.0,
+    "stitched_trace_suspect": false,
+    "single_turn_fallback_used": false,
+    "latency_p50": 3000.0,
+    "latency_p95": 4000.0,
+    "avg_turn_latency_ms": 3000.0,
+    "confidence_penalty_summary": {},
+    "trusted_timestamp_count": 2,
+    "untrusted_timestamp_count": 0
+  },
+  "rubric_results": {
+    "TOOL_GROUNDEDNESS": {
+      "scope": "turn",
+      "turns": {
+        "turn_1": {
+          "cross_judge_score": 1.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_0": {
+          "cross_judge_score": 3.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "TOOL_CONSISTENCY": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 1.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "TOOL_CALL_QUALITY": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 1.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 3.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "TOOL_CHAINING": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 1.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 3.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "TRACE_COMPLETENESS": {
+      "scope": "run",
+      "turns": {
+        "run": {
+          "cross_judge_score": 4.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "SAFETY_PII": {
+      "scope": "run",
+      "turns": {
+        "run": {
+          "cross_judge_score": "safe",
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "categorical",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "TOOL_SELECTION": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 1.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 1.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "ANSWER_ACCURACY": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 1.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "ROUTING_QUALITY": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 3.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 2.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "CONCISENESS": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "CONVERSATION_COHERENCE": {
+      "scope": "run",
+      "turns": {
+        "run": {
+          "cross_judge_score": 2.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "ERROR_RECOVERY": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 3.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "HALLUCINATION_DETECTION": {
+      "scope": "turn",
+      "turns": {
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_0": {
+          "cross_judge_score": 1.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "DATA_ACCURACY": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 1.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 5.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "SUBAGENT_DELEGATION": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 1.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 2.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    },
+    "ACTION_ITEM_EXTRACTION": {
+      "scope": "turn",
+      "turns": {
+        "turn_0": {
+          "cross_judge_score": 3.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        },
+        "turn_1": {
+          "cross_judge_score": 3.0,
+          "disagreement_signal": 0.0,
+          "high_risk_flag": false,
+          "judge_count": 1,
+          "scoring_type": "numeric",
+          "mixed_types_error": null,
+          "scale_warning": null
+        }
+      }
+    }
+  },
+  "judge_disagreements": [],
+  "artifact_paths": {
+    "judge_runs": "/home/douzia/aire-traffic-control/thought-leadership/agent-evaluation/repos/sample-bedrock-migration-and-modernization-tools/agent-eval/ui/real_bedrock_output/judge_runs.jsonl",
+    "trace_eval": "/home/douzia/aire-traffic-control/thought-leadership/agent-evaluation/repos/sample-bedrock-migration-and-modernization-tools/agent-eval/ui/real_bedrock_output/trace_eval.json"
+  },
+  "artifact_hashes": {
+    "judge_runs": "bca888e3c6aef7c4532ad635bb90df673dc1c01432043ca819b6ab1495c4c894",
+    "trace_eval": "3c910fa628f1ca8314e651c088a5614e6f19d7ad694d4966d1287302d12c0c9a"
+  },
+  "execution_stats": {
+    "total_jobs": 87,
+    "completed_jobs": 87,
+    "failed_jobs": 0,
+    "skipped_jobs": 0,
+    "failure_ratio": 0.0,
+    "failed_job_ids": [],
+    "sum_job_latency_ms": 282494.5137500763,
+    "duration_seconds": 30.44135880470276,
+    "aggregation_stats": {
+      "lines_total": 87,
+      "lines_parsed": 87,
+      "lines_skipped_bad_json": 0,
+      "lines_skipped_missing_fields": 0,
+      "lines_skipped_bad_jobresult": 0,
+      "lines_skipped_runid_mismatch": 0,
+      "unknown_rubric_ids": [],
+      "unknown_rubric_count": 0
+    }
+  }
+}

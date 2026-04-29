@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 export const PREDEFINED_TAG_CATEGORIES = [
   'Tenant', 'Environment', 'Region', 'User', 'Model', 'Application',
 ] as const;

@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Allow running the local package as a module: python -m local collect"""
 
 from local.cli import main

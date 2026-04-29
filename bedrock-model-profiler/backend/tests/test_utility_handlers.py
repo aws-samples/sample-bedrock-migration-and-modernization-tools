@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Tests for Utility handler Powertools integration.
 
 Utility handlers (Task 09):

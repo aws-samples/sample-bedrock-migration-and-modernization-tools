@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 import os
 import time
 import concurrent.futures
@@ -280,7 +281,7 @@ def benchmark(
             params['api_key'] = os.getenv('AZURE_API_KEY')
         elif "bedrock" in model_id:
             params['aws_region_name'] = region
-            # Add service tier for Bedrock models if specified and not default
+            # Add service tier for Amazon Bedrock models if specified and not default
             if service_tier and service_tier != "default":
                 params['serviceTier'] = {"type": service_tier}
                 logging.info(f"Using service tier '{service_tier}' for model {model_id}")
@@ -1028,7 +1029,7 @@ def main(
 
                 optimization_log.append(log_entry)
             else:
-                # Non-Bedrock model, keep original
+                # Non-Amazon Bedrock model, keep original
                 optimized_scenarios.append(scn)
 
         # Save optimization log for user verification
@@ -1153,7 +1154,7 @@ if __name__ == "__main__":
     p.add_argument("--prompt_optimization_mode",
                    default="none",
                    choices=["none", "optimize_only", "evaluate_both"],
-                   help="Prompt optimization mode (Bedrock only): none, optimize_only, or evaluate_both")
+                   help="Prompt optimization mode (Amazon Bedrock only): none, optimize_only, or evaluate_both")
     p.add_argument("--latency_only_mode", type=lambda x: x.lower() == 'true', default=False,
                    help="Enable latency-only evaluation mode (skip LLM judge evaluation)")
     p.add_argument("--stream_evaluation", type=lambda x: x.lower() == 'true', default=True,

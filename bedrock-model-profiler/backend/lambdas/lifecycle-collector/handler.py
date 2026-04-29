@@ -1,7 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Lifecycle Collector Lambda
 
-Scrapes model lifecycle data from AWS Bedrock documentation.
+Scrapes model lifecycle data from Amazon Bedrock documentation.
 Source: https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html
 
 Includes TTL-based caching to reduce external scraping.
@@ -279,7 +280,7 @@ def get_all_list_items(cell) -> list[str]:
 def fetch_lifecycle_page() -> str:
     """Fetch the HTML content from the AWS lifecycle documentation page."""
     headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; BedrockProfiler/1.0)",
+        "User-Agent": "Mozilla/5.0 (compatible; Amazon BedrockProfiler/1.0)",
         "Accept": "text/html,application/xhtml+xml",
     }
 

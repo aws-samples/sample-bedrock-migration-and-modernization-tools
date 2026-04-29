@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Judge client factory for building judge client instances from configuration.
 
@@ -34,7 +35,7 @@ def _initialize_default_factories():
         from agent_eval.providers.bedrock_client import BedrockJudgeClient
         register_judge_client("bedrock", BedrockJudgeClient)
     except ImportError:
-        pass  # Bedrock client not available
+        pass  # Amazon Bedrock client not available
     
     try:
         from agent_eval.judges.mock_client import MockJudgeClient
@@ -52,7 +53,7 @@ def build_judge_clients(judge_config) -> Dict[str, Any]:
     Build judge client instances from judge configuration.
     
     Uses a registry pattern for extensibility. Supports:
-    - bedrock: AWS Bedrock judge client
+    - bedrock: Amazon Bedrock judge client
     - mock: Mock judge client for testing/development
     
     Args:
@@ -97,7 +98,7 @@ def build_judge_clients(judge_config) -> Dict[str, Any]:
             # Add provider-specific optional parameters if present
             # These are passed through to the client constructor
             if provider == "bedrock":
-                # Bedrock-specific parameters
+                # Amazon Bedrock-specific parameters
                 if hasattr(judge, 'region_name') and judge.region_name is not None:
                     client_kwargs["region_name"] = judge.region_name
                 if hasattr(judge, 'streaming'):

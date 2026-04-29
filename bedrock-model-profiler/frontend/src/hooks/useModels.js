@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState, useEffect, useMemo } from 'react'
 import { DATA_URLS } from '../config/dataSource'
 import { 
@@ -565,7 +568,7 @@ function extractSummaryPricing(modelPricing, region = DEFAULT_REGION, options = 
 }
 
 /**
- * Custom hook to load and manage Bedrock model data
+ * Custom hook to load and manage Amazon Bedrock model data
  */
 export function useModels() {
   const [rawData, setRawData] = useState(null)

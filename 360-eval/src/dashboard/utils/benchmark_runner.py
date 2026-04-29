@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Utilities for running benchmark evaluations from the dashboard."""
 
 import subprocess

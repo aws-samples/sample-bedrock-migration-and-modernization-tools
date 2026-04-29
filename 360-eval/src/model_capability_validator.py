@@ -1,7 +1,8 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Model Capability Validator
 
-Tests Bedrock model availability and service tier support by making actual API calls.
+Tests Amazon Bedrock model availability and service tier support by making actual API calls.
 Results are cached to avoid repeated validation costs.
 """
 
@@ -163,7 +164,7 @@ def test_service_tier(
 
         # Check if error is about serviceTier not being supported
         if "serviceTier" in error_msg and "not permitted" in error_msg:
-            logger.debug(f"Service tier '{service_tier}' not supported for {model_id} @ {region} (parameter not recognized by Bedrock)")
+            logger.debug(f"Service tier '{service_tier}' not supported for {model_id} @ {region} (parameter not recognized by Amazon Bedrock)")
             return False, "Service tier parameter not supported by this model"
 
         logger.debug(f"Service tier test failed for {model_id} @ {region} ({service_tier}): {error_msg}")
@@ -288,7 +289,7 @@ def validate_all_models(force: bool = False) -> Dict:
     logger.info(f"📋 Found {len(models)} model+region combinations")
 
     if not models:
-        logger.warning("No Bedrock models found in profiles")
+        logger.warning("No Amazon Bedrock models found in profiles")
         return cache
 
     # Update models hash

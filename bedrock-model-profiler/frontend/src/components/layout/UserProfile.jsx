@@ -1,3 +1,6 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useAuth } from 'react-oidc-context'
 import { useAuthStore } from '@/stores/authStore'
 import { isAuthConfigured } from '@/config/auth'

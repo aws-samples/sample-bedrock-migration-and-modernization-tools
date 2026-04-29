@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """Lambda handler for alert CRUD operations.
 
 Routes based on httpMethod + resource path from API Gateway proxy integration.

@@ -1,3 +1,4 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
 Model Extractor Lambda
 
@@ -33,7 +34,7 @@ from aws_lambda_powertools.metrics import MetricUnit
 
 
 def get_bedrock_client(region: str):
-    """Create Bedrock client for a specific region."""
+    """Create Amazon Bedrock client for a specific region."""
     return boto3.client("bedrock", region_name=region, config=RETRY_CONFIG)
 
 
@@ -255,7 +256,7 @@ def _normalize_capabilities(capabilities: list[str]) -> list[str]:
 @tracer.capture_method
 def fetch_console_metadata(region: str) -> dict:
     """
-    Fetch extended model metadata via direct Bedrock REST API with SigV4 signing.
+    Fetch extended model metadata via direct Amazon Bedrock REST API with SigV4 signing.
 
     Uses the x-console-consumer header to get consoleIDEMetadata which includes
     context windows, descriptions, languages, categories, feature support,

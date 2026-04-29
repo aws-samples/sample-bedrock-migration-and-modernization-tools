@@ -1,13 +1,14 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 """
-Centralized model ID matching utility for the Bedrock Model Profiler.
+Centralized model ID matching utility for the Amazon Bedrock Model Profiler.
 
 This module provides functions to normalize, compare, and match model IDs across
-different data sources (Bedrock API, Pricing API, Mantle API) that use different
+different data sources (Amazon Bedrock API, Pricing API, Mantle API) that use different
 ID formats.
 
 ID Format Examples by Source:
-    - Bedrock API: `deepseek.v3-v1:0` (API version suffix)
-    - Bedrock API: `deepseek.v3.2:0` (semantic version with API suffix)
+    - Amazon Bedrock API: `deepseek.v3-v1:0` (API version suffix)
+    - Amazon Bedrock API: `deepseek.v3.2:0` (semantic version with API suffix)
     - Pricing API: `deepseek.deepseek-v3-1` (redundant provider prefix)
     - Pricing API: `deepseek.r1` (short form)
     - Mantle API: `deepseek.v3.1` (semantic version only)
@@ -154,7 +155,7 @@ def get_canonical_model_id(model_id: str) -> str:
     Normalize any model ID to a canonical form for comparison.
 
     This function handles various ID formats from different sources:
-    - Bedrock API: `deepseek.v3-v1:0` -> `deepseek.v3.1`
+    - Amazon Bedrock API: `deepseek.v3-v1:0` -> `deepseek.v3.1`
     - Pricing API: `deepseek.deepseek-v3-1` -> `deepseek.v3.1`
     - Mantle API: `deepseek.v3.1` -> `deepseek.v3.1`
     - Mantle API: `moonshotai.kimi-k2` -> `moonshot.kimi-k2`
