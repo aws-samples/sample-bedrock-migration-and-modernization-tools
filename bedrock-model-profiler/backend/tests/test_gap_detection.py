@@ -38,7 +38,7 @@ def mock_config():
                 "meta.llama3": {"standard_context": 128000},
             }
         },
-        "pricing_service_codes": ["AmazonBedrock", "AmazonAmazon BedrockService"],
+        "pricing_service_codes": ["AmazonBedrock", "AmazonBedrockService"],
         "region_configuration": {
             "region_locations": {
                 "us-east-1": "US East (N. Virginia)",
@@ -207,7 +207,7 @@ class TestServiceCodeDetection:
         pricing_data = {
             "providers": {
                 "Anthropic": {
-                    "claude-3-5-sonnet": {"service_code": "AmazonAmazon BedrockNewService"}
+                    "claude-3-5-sonnet": {"service_code": "AmazonBedrockNewService"}
                 }
             }
         }
@@ -218,7 +218,7 @@ class TestServiceCodeDetection:
         )
 
         # Assert
-        assert "AmazonAmazon BedrockNewService" in result
+        assert "AmazonBedrockNewService" in result
 
     def test_detect_unknown_service_codes_all_known(
         self, mock_config, gap_detection_handler

@@ -35,7 +35,7 @@ from agent_eval.judges.exceptions import (
 logger = logging.getLogger(__name__)
 
 
-class Amazon BedrockJudgeClient(JudgeClient):
+class BedrockJudgeClient(JudgeClient):
     """
     Amazon Bedrock implementation of JudgeClient.
     

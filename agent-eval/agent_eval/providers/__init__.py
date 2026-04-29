@@ -8,4 +8,4 @@ various LLM providers (Amazon Bedrock, OpenAI, Anthropic, etc.).
 
 from agent_eval.providers.bedrock_client import BedrockJudgeClient
 
-__all__ = ['Amazon BedrockJudgeClient']
+__all__ = ['BedrockJudgeClient']

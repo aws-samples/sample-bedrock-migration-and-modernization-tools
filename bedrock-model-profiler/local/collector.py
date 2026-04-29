@@ -117,9 +117,9 @@ class LocalCollector:
         self.quota_regions = []
 
         self.pricing_service_codes = [
-            'AmazonAmazon Bedrock',
-            'AmazonAmazon BedrockFoundationModels',
-            'AmazonAmazon BedrockService'
+            'AmazonBedrock',
+            'AmazonBedrockFoundationModels',
+            'AmazonBedrockService'
         ]
 
         # Set boto3 default session so Lambda handlers that call

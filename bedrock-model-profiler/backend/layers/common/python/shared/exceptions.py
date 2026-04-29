@@ -200,7 +200,7 @@ class ThrottlingError(APIError):
         )
 
 
-class Amazon BedrockAPIError(APIError):
+class BedrockAPIError(APIError):
     """Error calling Amazon Bedrock API.
 
     Retryable for throttling and transient errors, not retryable for

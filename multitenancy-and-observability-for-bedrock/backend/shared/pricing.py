@@ -5,7 +5,7 @@ Flow:
     1. Check DynamoDB cache -- if < 24h old, return immediately
     2. Tier 1: Query AWS Price List API (all 3 service codes)
        -> If both input + output found: pricing_source = "api"
-    3. Tier 2: If output missing, re-query AmazonAmazon BedrockService only
+    3. Tier 2: If output missing, re-query AmazonBedrockService only
        -> If filled: pricing_source = "api_partial"
     4. Tier 3: Scrape the Amazon Bedrock pricing webpage bulk JSON
        -> If filled: pricing_source = "webpage"
@@ -34,8 +34,8 @@ logger = logging.getLogger(__name__)
 
 SERVICE_CODES = [
     "AmazonBedrock",
-    "AmazonAmazon BedrockService",
-    "AmazonAmazon BedrockFoundationModels",
+    "AmazonBedrockService",
+    "AmazonBedrockFoundationModels",
 ]
 PRICING_CLIENT_REGION = "us-east-1"
 CACHE_TTL_SECONDS = 86400  # 24 hours
@@ -250,23 +250,23 @@ def _query_price_list_api(model_id: str, region: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Tier 2: Re-query AmazonAmazon BedrockService only for missing output pricing
+# Tier 2: Re-query AmazonBedrockService only for missing output pricing
 # ---------------------------------------------------------------------------
 
 def _query_bedrock_service_only(model_id: str, region: str) -> dict:
-    """Tier 2: Re-query only AmazonAmazon BedrockService for missing pricing.
+    """Tier 2: Re-query only AmazonBedrockService for missing pricing.
 
-    Some models (older Anthropic) have input pricing in AmazonAmazon Bedrock
-    but output pricing only in AmazonAmazon BedrockService.
+    Some models (older Anthropic) have input pricing in AmazonBedrock
+    but output pricing only in AmazonBedrockService.
 
     Returns {"input_cost": float|None, "output_cost": float|None}.
     """
     pricing_client = boto3.client("pricing", region_name=PRICING_CLIENT_REGION)
 
     try:
-        products = get_all_products(pricing_client, "AmazonAmazon BedrockService")
+        products = get_all_products(pricing_client, "AmazonBedrockService")
     except Exception as exc:
-        logger.warning("Failed to query AmazonAmazon BedrockService for tier 2: %s", exc)
+        logger.warning("Failed to query AmazonBedrockService for tier 2: %s", exc)
         return {"input_cost": None, "output_cost": None}
 
     return _extract_costs_from_products(products, model_id, region)
@@ -550,7 +550,7 @@ def get_model_pricing(model_id: str, region: str) -> dict:
     """Get pricing for a model using 3-tier fallback.
 
     Tier 1: Query Price List API (all 3 service codes) -> "api"
-    Tier 2: Re-query AmazonAmazon BedrockService for gaps -> "api_partial"
+    Tier 2: Re-query AmazonBedrockService for gaps -> "api_partial"
     Tier 3: Scrape AWS pricing webpage bulk JSON -> "webpage"
     Otherwise -> "unavailable" with None costs.
 
@@ -567,7 +567,7 @@ def get_model_pricing(model_id: str, region: str) -> dict:
             "pricing_source": "api",
         }
 
-    # Tier 2: Re-query AmazonAmazon BedrockService for missing pricing
+    # Tier 2: Re-query AmazonBedrockService for missing pricing
     if result["input_cost"] is not None or result["output_cost"] is not None:
         tier2 = _query_bedrock_service_only(model_id, region)
         if result["input_cost"] is None and tier2["input_cost"] is not None:

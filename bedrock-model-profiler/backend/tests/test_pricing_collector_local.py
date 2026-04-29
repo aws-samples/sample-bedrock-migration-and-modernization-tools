@@ -93,8 +93,8 @@ def collect_pricing_for_service(pricing_client, service_code: str, max_batches: 
 
 def main():
     parser = argparse.ArgumentParser(description='Test pricing collector locally')
-    parser.add_argument('--service-code', default='AmazonAmazon Bedrock',
-                        choices=['AmazonAmazon Bedrock', 'AmazonAmazon BedrockService', 'AmazonAmazon BedrockFoundationModels'],
+    parser.add_argument('--service-code', default='AmazonBedrock',
+                        choices=['AmazonBedrock', 'AmazonBedrockService', 'AmazonBedrockFoundationModels'],
                         help='AWS Pricing service code')
     parser.add_argument('--output-dir', default='./output',
                         help='Output directory for JSON files')

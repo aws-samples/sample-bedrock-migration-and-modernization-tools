@@ -841,17 +841,17 @@ def extract_raw_model_name(attributes: dict) -> str:
     """Extract raw model name using multi-strategy approach.
 
     Priority order:
-    1. servicename (for AmazonAmazon BedrockFoundationModels)
-    2. model (for AmazonAmazon Bedrock, AmazonAmazon BedrockService)
+    1. servicename (for AmazonBedrockFoundationModels)
+    2. model (for AmazonBedrock, AmazonBedrockService)
     3. titanModel (special case for Titan models)
     4. Fallback extraction from usagetype
     """
-    # Strategy 1: servicename (most common in AmazonAmazon BedrockFoundationModels)
+    # Strategy 1: servicename (most common in AmazonBedrockFoundationModels)
     servicename = attributes.get("servicename", "").strip()
     if servicename and servicename not in ["Amazon Bedrock", "Amazon Bedrock Service"]:
         return servicename
 
-    # Strategy 2: model field (most common in AmazonAmazon Bedrock, AmazonAmazon BedrockService)
+    # Strategy 2: model field (most common in AmazonBedrock, AmazonBedrockService)
     model = attributes.get("model", "").strip()
     if model and model.lower() != "unknown":
         return model
@@ -1020,7 +1020,7 @@ def infer_provider(model_name: str, attributes: dict = None) -> str:
     """
     model_lower = model_name.lower()
 
-    # Strategy 1: Check explicit 'provider' attribute (AmazonAmazon BedrockService has this)
+    # Strategy 1: Check explicit 'provider' attribute (AmazonBedrockService has this)
     if attributes:
         explicit_provider = attributes.get("provider", "").strip()
         if explicit_provider and explicit_provider.lower() != "unknown":

@@ -95,7 +95,7 @@ def run_pricing_collectors(output_dir: Path, quick: bool = False):
     # Import handler
     spec = import_module('pricing-collector.handler')
 
-    service_codes = ['AmazonAmazon Bedrock', 'AmazonAmazon BedrockService', 'AmazonAmazon BedrockFoundationModels']
+    service_codes = ['AmazonBedrock', 'AmazonBedrockService', 'AmazonBedrockFoundationModels']
     results = []
 
     def local_handler(event, context=None):
@@ -483,7 +483,7 @@ def run_regional_availability(output_dir: Path, regions: list, quick: bool = Fal
     output_path = output_dir / 'intermediate' / 'regional-availability.json'
     save_json(output_path, output_data)
 
-    return {'status': 'SUCCESS', 's3Key': str(output_path), 'regionsWithAmazon Bedrock': len(regions_summary)}
+    return {'status': 'SUCCESS', 's3Key': str(output_path), 'regionsWithBedrock': len(regions_summary)}
 
 
 def run_feature_collectors(output_dir: Path, regions: list, quick: bool = False):

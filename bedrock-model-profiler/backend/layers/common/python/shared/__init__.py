@@ -36,7 +36,7 @@ from shared.exceptions import (
     S3WriteError,
     APIError,
     ThrottlingError,
-    Amazon BedrockAPIError,
+    BedrockAPIError,
     PricingAPIError,
     QuotaAPIError,
     ConfigurationError,
