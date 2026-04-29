@@ -13,13 +13,23 @@ import io
 import math
 import sys
 import tempfile
-import subprocess
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
 
-def _run_eval_cli(args: list[str], cwd: str, timeout: int = 120) -> subprocess.CompletedProcess:
+from dataclasses import dataclass
+
+
+@dataclass
+class _CliResult:
+    """Lightweight result object for CLI invocations."""
+    returncode: int
+    stdout: str = ""
+    stderr: str = ""
+
+
+def _run_eval_cli(args: list[str], cwd: str, timeout: int = 120) -> _CliResult:
     """Run agent_eval CLI by directly invoking its main function."""
     import os
     saved_cwd = os.getcwd()
@@ -27,14 +37,12 @@ def _run_eval_cli(args: list[str], cwd: str, timeout: int = 120) -> subprocess.C
         os.chdir(cwd)
         from agent_eval.cli import main as eval_main
         rc = eval_main(args) or 0
-        # Return a CompletedProcess-like result for compatibility
-        result = subprocess.CompletedProcess(args=args, returncode=rc, stdout="", stderr="")
-        return result
+        return _CliResult(returncode=rc)
     except SystemExit as e:
         rc = e.code if e.code else 0
-        return subprocess.CompletedProcess(args=args, returncode=rc, stdout="", stderr="")
+        return _CliResult(returncode=rc)
     except Exception as e:
-        return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr=str(e))
+        return _CliResult(returncode=1, stderr=str(e))
     finally:
         os.chdir(saved_cwd)
 
@@ -728,7 +736,7 @@ elif active_page == "Run":
                 # Auto-navigate to Results
                 st.info("👉 Switch to **Results** in the sidebar and point to the output directory to view results.")
 
-        except subprocess.TimeoutExpired:
+        except TimeoutError:
             st.error("Evaluation timed out (300s limit). Try fewer traces or simpler judge configs.")
         except Exception as e:
             st.error(f"Evaluation failed: {e}")
