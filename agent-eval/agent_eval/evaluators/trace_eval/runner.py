@@ -828,6 +828,10 @@ class TraceEvaluator:
             # Use dataclasses.asdict to recursively convert JudgeConfig and Judge objects
             judge_config_dict = asdict(judge_config)
             
+            # Compute cost insights from trace token usage
+            from agent_eval.evaluators.cost_insights import compute_cost_summary
+            cost_summary = compute_cost_summary(normalized_run)
+            
             # Write results.json with correct signature
             results_path = output_writer.write_results_json(
                 run_id=run_id,
@@ -838,7 +842,8 @@ class TraceEvaluator:
                 rubric_results=rubric_results_for_results_json,  # Correct structure
                 judge_disagreements=judge_disagreements,  # Now provided
                 artifact_paths=artifact_paths,  # Now provided
-                execution_stats=execution_stats
+                execution_stats=execution_stats,
+                cost_insights=cost_summary.to_dict() if cost_summary.total_tokens > 0 else None
             )
             self._log(f"✓ Wrote {results_path}")
             

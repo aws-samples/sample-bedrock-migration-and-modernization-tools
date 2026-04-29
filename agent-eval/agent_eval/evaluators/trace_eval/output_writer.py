@@ -165,7 +165,8 @@ class OutputWriter:
         rubric_results: Dict[str, Any],
         judge_disagreements: List[Dict[str, Any]],
         artifact_paths: Dict[str, str],
-        execution_stats: Dict[str, Any]
+        execution_stats: Dict[str, Any],
+        cost_insights: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Write results.json with stable canonical structure.
@@ -218,6 +219,9 @@ class OutputWriter:
             "artifact_hashes": artifact_hashes,
             "execution_stats": execution_stats
         }
+        
+        if cost_insights:
+            output_data["cost_insights"] = cost_insights
         
         # Write to file
         with open(output_path, 'w', encoding='utf-8') as f:

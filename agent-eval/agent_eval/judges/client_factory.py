@@ -38,6 +38,12 @@ def _initialize_default_factories():
         pass  # Amazon Bedrock client not available
     
     try:
+        from agent_eval.providers.litellm_client import LiteLLMJudgeClient
+        register_judge_client("litellm", LiteLLMJudgeClient)
+    except ImportError:
+        pass  # LiteLLM client not available
+    
+    try:
         from agent_eval.judges.mock_client import MockJudgeClient
         register_judge_client("mock", MockJudgeClient)
     except ImportError:
