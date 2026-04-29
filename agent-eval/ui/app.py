@@ -350,6 +350,8 @@ JUDGE_PRESETS = {
     "Claude Sonnet (Bedrock)": {"provider": "bedrock", "model_id": "us.anthropic.claude-sonnet-4-20250514-v1:0", "temperature": 0.0, "max_tokens": 2048, "timeout_seconds": 60},
     "Claude Opus (Bedrock)": {"provider": "bedrock", "model_id": "anthropic.claude-opus-4-20250514-v1:0", "temperature": 0.0, "max_tokens": 2048, "timeout_seconds": 60},
     "Nova Pro (Bedrock)": {"provider": "bedrock", "model_id": "amazon.nova-pro-v1:0", "temperature": 0.0, "max_tokens": 2048, "timeout_seconds": 60},
+    "Claude Sonnet (LiteLLM)": {"provider": "litellm", "model_id": "bedrock/anthropic.claude-sonnet-4-20250514", "temperature": 0.0, "max_tokens": 2048, "timeout_seconds": 60},
+    "GPT-4o (LiteLLM)": {"provider": "litellm", "model_id": "gpt-4o", "temperature": 0.0, "max_tokens": 2048, "timeout_seconds": 60},
     "Mock Judge": {"provider": "mock", "model_id": "mock-model-v1", "temperature": 0.0, "max_tokens": 1024, "timeout_seconds": 30},
 }
 
