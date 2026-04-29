@@ -189,7 +189,6 @@ def main():
         print(f"\n[{i+1}/{len(traces)}] Evaluating: {trace_path.name}")
 
         cmd = [
-            sys.executable, "-m", "agent_eval.cli",
             "--input", str(trace_path),
             "--judge-config", args.judge_config,
             "--output-dir", str(eval_output),
@@ -199,8 +198,12 @@ def main():
         if args.verbose:
             cmd.append("--verbose")
 
-        result = subprocess.run(cmd, capture_output=not args.verbose)  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit, python.lang.security.audit.dangerous-subprocess-use-tainted-env-args — list-form call, no shell=True, args from argparse
-        success = result.returncode == 0
+        from agent_eval.cli import main as eval_main
+        try:
+            rc = eval_main(cmd) or 0
+        except SystemExit as e:
+            rc = e.code if e.code else 0
+        success = rc == 0
         results.append({"trace": str(trace_path), "output": str(eval_output), "success": success})
         print(f"  {'✓' if success else '✗'} Output: {eval_output}")
 

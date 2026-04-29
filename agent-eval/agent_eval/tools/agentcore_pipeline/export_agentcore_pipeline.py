@@ -167,27 +167,57 @@ def run_script(
     timeout: Optional[int] = 3600
 ) -> Dict[str, Any]:
     """Run a pipeline script and capture results."""
+    import importlib
+    import io
+    from contextlib import redirect_stdout, redirect_stderr
+
     logger.info(f"Stage {stage_num}: {stage_name}")
     if print_commands:
         logger.info(f"Command: {' '.join(cmd)}")
         if cwd:
             logger.info(f"CWD: {cwd}")
+
+    # cmd is [sys.executable, script_path, --arg1, val1, ...]
+    # Extract script path and argv from the command list
+    script_path = cmd[1] if len(cmd) > 1 else ""
+    argv = cmd[2:]
+
+    # Derive module name from script path for importlib
+    module_name = Path(script_path).stem
+    package = "agent_eval.tools.agentcore_pipeline"
+    full_module = f"{package}.{module_name}"
+
+    stdout_buf = io.StringIO()
+    stderr_buf = io.StringIO()
+    saved_argv = sys.argv
+    saved_cwd = os.getcwd()
+
     try:
-        result = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-            cwd=str(cwd) if cwd else None,
-            timeout=timeout
-        )
-        if result.returncode != 0:
-            logger.error(f"Stage {stage_num} failed with exit code {result.returncode}")
-            if result.stdout:
-                logger.error(f"Stdout: {result.stdout[:500]}")
-            if result.stderr:
-                logger.error(f"Stderr: {result.stderr[:500]}")
-            combined_output = (result.stdout + result.stderr).lower()
+        if cwd:
+            os.chdir(str(cwd))
+        sys.argv = ["script"] + argv
+        mod = importlib.import_module(full_module)
+        # Reload in case it was already imported with different state
+        importlib.reload(mod)
+        with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
+            mod.main()
+        return {
+            "status": "success",
+            "stdout": stdout_buf.getvalue(),
+            "stderr": stderr_buf.getvalue(),
+            "returncode": 0
+        }
+    except SystemExit as e:
+        rc = e.code if e.code else 0
+        stdout_text = stdout_buf.getvalue()
+        stderr_text = stderr_buf.getvalue()
+        if rc != 0:
+            logger.error(f"Stage {stage_num} failed with exit code {rc}")
+            if stdout_text:
+                logger.error(f"Stdout: {stdout_text[:500]}")
+            if stderr_text:
+                logger.error(f"Stderr: {stderr_text[:500]}")
+            combined_output = (stdout_text + stderr_text).lower()
             is_aws_error = any(marker in combined_output for marker in [
                 "nocredentialserror", "partialcredentialserror",
                 "expiredtokenexception", "invalidclienttokenid",
@@ -198,52 +228,29 @@ def run_script(
             ])
             return {
                 "status": "failed",
-                "stage": stage_num,
-                "stage_name": stage_name,
-                "script_name": script_name,
-                "returncode": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "command": cmd,
-                "is_aws_error": is_aws_error,
-                "timed_out": False
+                "stdout": stdout_text,
+                "stderr": stderr_text,
+                "returncode": rc,
+                "is_aws_error": is_aws_error
             }
-        logger.info(f"Stage {stage_num} completed successfully")
         return {
             "status": "success",
-            "stage": stage_num,
-            "stage_name": stage_name,
-            "script_name": script_name,
-            "returncode": 0,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "command": cmd,
-            "timed_out": False
-        }
-    except subprocess.TimeoutExpired as e:
-        logger.error(f"Stage {stage_num} timed out after {timeout}s")
-        return {
-            "status": "timed_out",
-            "stage": stage_num,
-            "stage_name": stage_name,
-            "script_name": script_name,
-            "error": f"Timeout after {timeout}s",
-            "command": cmd,
-            "timed_out": True,
-            "is_aws_error": False
+            "stdout": stdout_text,
+            "stderr": stderr_text,
+            "returncode": 0
         }
     except Exception as e:
-        logger.error(f"Stage {stage_num} error: {e}")
+        logger.error(f"Stage {stage_num} failed: {e}")
         return {
-            "status": "error",
-            "stage": stage_num,
-            "stage_name": stage_name,
-            "script_name": script_name,
-            "error": str(e),
-            "command": cmd,
-            "timed_out": False,
+            "status": "failed",
+            "stdout": stdout_buf.getvalue(),
+            "stderr": str(e),
+            "returncode": 1,
             "is_aws_error": False
         }
+    finally:
+        sys.argv = saved_argv
+        os.chdir(saved_cwd)
 
 
 def compute_coverage_stats(

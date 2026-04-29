@@ -34,7 +34,7 @@ metadata:
 traces:
   - file: good_001_direct_answer.json
     trace_id: good-001
-    expected_outcome_key: good-001
+    expected_outcome_id: good-001
     category: clearly_good
     description: "Direct answer, no tools needed"
     validates:
@@ -47,7 +47,7 @@ traces:
     
   - file: good_002_tool_grounded.json
     trace_id: good-002
-    expected_outcome_key: good-002
+    expected_outcome_id: good-002
     category: clearly_good
     description: "Tool used correctly, answer grounded"
     validates:
@@ -60,7 +60,7 @@ traces:
     
   - file: good_003_two_turn_noise.json
     trace_id: good-003
-    expected_outcome_key: good-003
+    expected_outcome_id: good-003
     category: clearly_good
     description: "Two-turn conversation with noise filtering"
     validates:
@@ -75,7 +75,7 @@ traces:
     
   - file: bad_001_wrong_math.json
     trace_id: bad-001
-    expected_outcome_key: bad-001
+    expected_outcome_id: bad-001
     category: clearly_bad
     description: "Clearly wrong answer, no tools"
     validates:
@@ -86,7 +86,7 @@ traces:
     
   - file: bad_002_ignores_tool.json
     trace_id: bad-002
-    expected_outcome_key: bad-002
+    expected_outcome_id: bad-002
     category: clearly_bad
     description: "Tool used but result ignored"
     validates:
@@ -97,7 +97,7 @@ traces:
     
   - file: bad_003_tool_failed_hallucinated.json
     trace_id: bad-003
-    expected_outcome_key: bad-003
+    expected_outcome_id: bad-003
     category: clearly_bad
     description: "Failed tool and hallucinated confident answer"
     validates:
@@ -112,7 +112,7 @@ traces:
     
   - file: partial_001_incomplete_but_ok.json
     trace_id: partial-001
-    expected_outcome_key: partial-001
+    expected_outcome_id: partial-001
     category: partial
     description: "Incomplete but acceptable answer"
     validates:
@@ -123,7 +123,7 @@ traces:
     
   - file: partial_002_hedged_without_tool.json
     trace_id: partial-002
-    expected_outcome_key: partial-002
+    expected_outcome_id: partial-002
     category: ambiguous
     description: "Answer hedged, tool missing"
     validates:
@@ -136,7 +136,7 @@ traces:
     
   - file: ambiguous_001_hedged_without_tool.json
     trace_id: ambiguous-001
-    expected_outcome_key: ambiguous-001  # nosemgrep: generic.secrets.gitleaks.generic-api-key — not a secret, test fixture identifier
+    expected_outcome_id: ambiguous-001
     category: ambiguous
     description: "Answer hedged, tool missing"
     validates:
@@ -147,7 +147,7 @@ traces:
     
   - file: weird_001_duplicate_tool_calls.json
     trace_id: weird-001
-    expected_outcome_key: weird-001
+    expected_outcome_id: weird-001
     category: tool_weird
     description: "Duplicate tool call events"
     validates:
@@ -160,7 +160,7 @@ traces:
     
   - file: weird_002_orphan_tool_result.json
     trace_id: weird-002
-    expected_outcome_key: weird-002
+    expected_outcome_id: weird-002
     category: tool_weird
     description: "Orphan tool result, missing linkage"
     validates:

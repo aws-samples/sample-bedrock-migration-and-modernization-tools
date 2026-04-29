@@ -19,6 +19,12 @@ from .csv_processor import (
     create_judge_profiles_jsonl
 )
 
+
+def _popen_script(script_path: str, args: list, **kwargs) -> subprocess.Popen:
+    """Launch a Python script via Popen with static executable prefix."""
+    full_cmd = [sys.executable, script_path, *args]
+    return subprocess.Popen(full_cmd, **kwargs)
+
 # Set up dashboard logger
 from .constants import PROJECT_ROOT
 DASHBOARD_LOG_DIR = os.path.join(PROJECT_ROOT, 'logs')
@@ -426,9 +432,8 @@ def run_benchmark_process(eval_id):
         script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-        cmd = [
-            "python", 
-            os.path.join(script_dir, "benchmarks_run.py"),
+        benchmark_script = os.path.join(script_dir, "benchmarks_run.py")
+        benchmark_args = [
             jsonl_path,
             "--output_dir", str(output_dir),
             "--report", "False",
@@ -445,24 +450,26 @@ def run_benchmark_process(eval_id):
         ]
         
         if evaluation_config["user_defined_metrics"]:
-            cmd.extend(["--user_defined_metrics", evaluation_config["user_defined_metrics"]])
+            benchmark_args.extend(["--user_defined_metrics", evaluation_config["user_defined_metrics"]])
         
         # Add vision model support
         if evaluation_config.get("vision_enabled", False):
-            cmd.extend(["--vision_enabled", "True"])
+            benchmark_args.extend(["--vision_enabled", "True"])
 
         # Add prompt optimization mode
         if evaluation_config.get("prompt_optimization_mode", "none") != "none":
-            cmd.extend(["--prompt_optimization_mode", evaluation_config["prompt_optimization_mode"]])
+            benchmark_args.extend(["--prompt_optimization_mode", evaluation_config["prompt_optimization_mode"]])
 
         # Add latency-only mode
         if evaluation_config.get("latency_only_mode", False):
-            cmd.extend(["--latency_only_mode", "True"])
+            benchmark_args.extend(["--latency_only_mode", "True"])
 
         # Add stream evaluation mode
         if "stream_evaluation" in evaluation_config:
             stream_val = "True" if evaluation_config["stream_evaluation"] else "False"
-            cmd.extend(["--stream_evaluation", stream_val])
+            benchmark_args.extend(["--stream_evaluation", stream_val])
+
+        cmd = [sys.executable, benchmark_script] + benchmark_args
 
         # Start benchmark execution
         working_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -504,8 +511,9 @@ def run_benchmark_process(eval_id):
 
         # Run the benchmark command with output capture
         try:
-            process = subprocess.Popen(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True
-                cmd,
+            process = _popen_script(
+                benchmark_script,
+                benchmark_args,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,

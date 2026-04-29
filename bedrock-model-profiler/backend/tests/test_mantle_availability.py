@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 import re
 from pathlib import Path
+from conftest_helpers import load_source_into_namespace
 
 HANDLERS_PATH = Path(__file__).parent.parent / "lambdas"
 LAYERS_PATH = Path(__file__).parent.parent / "layers" / "common" / "python" / "shared"
@@ -196,41 +197,41 @@ def _load_mantle_functions():
 
     # Execute constants first (from model_matcher)
     for const_src in constants_source:
-        exec(const_src, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(const_src, namespace)
 
     # Execute handler constants
     if mantle_provider_names_source:
-        exec(mantle_provider_names_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(mantle_provider_names_source, namespace)
     if mantle_model_name_overrides_source:
-        exec(mantle_model_name_overrides_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(mantle_model_name_overrides_source, namespace)
     if uppercase_words_source:
-        exec(uppercase_words_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(uppercase_words_source, namespace)
 
     # Execute model_matcher functions (dependencies)
-    exec(canonical_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+    load_source_into_namespace(canonical_source, namespace)
     if calculate_match_score_source:
-        exec(calculate_match_score_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(calculate_match_score_source, namespace)
     if has_semantic_conflict_source:
-        exec(has_semantic_conflict_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(has_semantic_conflict_source, namespace)
     if get_provider_display_name_source:
-        exec(get_provider_display_name_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(get_provider_display_name_source, namespace)
     if get_provider_source:
-        exec(get_provider_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(get_provider_source, namespace)
 
     # Execute handler functions
-    exec(has_mantle_pricing_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
-    exec(build_mantle_inference_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+    load_source_into_namespace(has_mantle_pricing_source, namespace)
+    load_source_into_namespace(build_mantle_inference_source, namespace)
     if get_size_category_source:
-        exec(get_size_category_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(get_size_category_source, namespace)
     if build_specs_source:
-        exec(build_specs_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(build_specs_source, namespace)
     if build_pricing_alias_source:
-        exec(build_pricing_alias_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
-    exec(build_availability_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(build_pricing_alias_source, namespace)
+    load_source_into_namespace(build_availability_source, namespace)
     if derive_model_name_source:
-        exec(derive_model_name_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(derive_model_name_source, namespace)
     if create_mantle_only_stub_source:
-        exec(create_mantle_only_stub_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(create_mantle_only_stub_source, namespace)
 
     return namespace
 

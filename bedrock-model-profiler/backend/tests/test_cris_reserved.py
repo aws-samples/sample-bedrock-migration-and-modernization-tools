@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 import re
 from pathlib import Path
+from conftest_helpers import load_source_into_namespace
 
 HANDLERS_PATH = Path(__file__).parent.parent / "lambdas"
 
@@ -124,28 +125,28 @@ def _load_cris_reserved_functions():
 
     # Execute in order: constants first, then helper functions, then main functions
     if mantle_patterns_source:
-        exec(mantle_patterns_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(mantle_patterns_source, namespace)
     if cris_regional_patterns_source:
-        exec(cris_regional_patterns_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(cris_regional_patterns_source, namespace)
     if reserved_patterns_source:
-        exec(reserved_patterns_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(reserved_patterns_source, namespace)
     if commitment_patterns_source:
-        exec(commitment_patterns_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(commitment_patterns_source, namespace)
     if cache_patterns_source:
-        exec(cache_patterns_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(cache_patterns_source, namespace)
 
     # Execute helper functions
     if detect_mantle_source:
-        exec(detect_mantle_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(detect_mantle_source, namespace)
     if detect_cris_regional_source:
-        exec(detect_cris_regional_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(detect_cris_regional_source, namespace)
     if detect_reserved_source:
-        exec(detect_reserved_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(detect_reserved_source, namespace)
     if detect_cache_source:
-        exec(detect_cache_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(detect_cache_source, namespace)
 
     # Execute main function
-    exec(determine_group_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+    load_source_into_namespace(determine_group_source, namespace)
 
     return namespace
 

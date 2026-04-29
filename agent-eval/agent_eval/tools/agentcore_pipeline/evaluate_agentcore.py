@@ -62,22 +62,19 @@ def run_agentcore_export(
 
     Returns (exit_code, merged_dir_path).
     """
-    cmd = [sys.executable, "-m", "agent_eval.tools.agentcore_pipeline"]
+    import importlib
 
     if arn:
-        # Use the ARN-based wrapper
-        cmd = [
-            sys.executable, "-m",
-            "agent_eval.tools.agentcore_pipeline.run_from_agentcore_arn",
+        mod = importlib.import_module("agent_eval.tools.agentcore_pipeline.run_from_agentcore_arn")
+        argv = [
             "--agent-runtime-arn", arn,
             "--days", str(days),
             "--region", region,
             "--output-root", output_dir,
         ]
     else:
-        cmd = [
-            sys.executable, "-m",
-            "agent_eval.tools.agentcore_pipeline.export_agentcore_pipeline",
+        mod = importlib.import_module("agent_eval.tools.agentcore_pipeline.export_agentcore_pipeline")
+        argv = [
             "export-agentcore",
             "--days", str(days),
             "--region", region,
@@ -85,17 +82,28 @@ def run_agentcore_export(
         ]
 
     if extra_args:
-        cmd.extend(extra_args)
+        argv.extend(extra_args)
 
-    print(f"Running AgentCore export: {' '.join(cmd)}")
-    result = subprocess.run(cmd, capture_output=False)  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True
+    print(f"Running AgentCore export: {' '.join(argv)}")
+    saved_argv = sys.argv
+    returncode = 0
+    try:
+        sys.argv = ["script"] + argv
+        mod.main()
+    except SystemExit as e:
+        returncode = e.code if e.code else 0
+    except Exception as e:
+        print(f"AgentCore export failed: {e}")
+        returncode = 1
+    finally:
+        sys.argv = saved_argv
 
     # Find the merged output directory
     export_root = Path(output_dir) / "agentcore_exports"
     merged_dirs = sorted(export_root.glob("*/merged"), key=lambda p: p.stat().st_mtime, reverse=True)
     merged_dir = merged_dirs[0] if merged_dirs else export_root
 
-    return result.returncode, merged_dir
+    return returncode, merged_dir
 
 
 def run_evaluation(
@@ -106,20 +114,23 @@ def run_evaluation(
     verbose: bool = False,
 ) -> int:
     """Run the evaluation pipeline on a single normalized run."""
-    cmd = [
-        sys.executable, "-m", "agent_eval.cli",
+    from agent_eval.cli import main as eval_main
+
+    argv = [
         "--input", input_path,
         "--input-is-normalized",
         "--judge-config", judge_config_path,
         "--output-dir", output_dir,
     ]
     if rubrics_path:
-        cmd.extend(["--rubrics", rubrics_path])
+        argv.extend(["--rubrics", rubrics_path])
     if verbose:
-        cmd.append("--verbose")
+        argv.append("--verbose")
 
-    result = subprocess.run(cmd, capture_output=False)  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True
-    return result.returncode
+    try:
+        return eval_main(argv) or 0
+    except SystemExit as e:
+        return e.code if e.code else 0
 
 
 def main():

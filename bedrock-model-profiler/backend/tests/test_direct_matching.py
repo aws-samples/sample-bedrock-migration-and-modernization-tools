@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 import re
 from pathlib import Path
+from conftest_helpers import load_source_into_namespace
 
 HANDLERS_PATH = Path(__file__).parent.parent / "lambdas"
 LAYERS_PATH = Path(__file__).parent.parent / "layers" / "common" / "python" / "shared"
@@ -138,13 +139,13 @@ def _load_direct_match_functions():
 
     # Execute constants first
     for const_src in constants_source:
-        exec(const_src, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+        load_source_into_namespace(const_src, namespace)
 
     # Execute get_canonical_model_id (dependency)
-    exec(canonical_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+    load_source_into_namespace(canonical_source, namespace)
 
     # Execute try_direct_match
-    exec(try_direct_match_source, namespace)  # nosemgrep: python.lang.security.audit.exec-detected — test fixture loading source for unit testing
+    load_source_into_namespace(try_direct_match_source, namespace)
 
     return namespace
 

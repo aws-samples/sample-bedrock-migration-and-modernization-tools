@@ -18,6 +18,26 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
+
+def _run_eval_cli(args: list[str], cwd: str, timeout: int = 120) -> subprocess.CompletedProcess:
+    """Run agent_eval CLI by directly invoking its main function."""
+    import os
+    saved_cwd = os.getcwd()
+    try:
+        os.chdir(cwd)
+        from agent_eval.cli import main as eval_main
+        rc = eval_main(args) or 0
+        # Return a CompletedProcess-like result for compatibility
+        result = subprocess.CompletedProcess(args=args, returncode=rc, stdout="", stderr="")
+        return result
+    except SystemExit as e:
+        rc = e.code if e.code else 0
+        return subprocess.CompletedProcess(args=args, returncode=rc, stdout="", stderr="")
+    except Exception as e:
+        return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr=str(e))
+    finally:
+        os.chdir(saved_cwd)
+
 import streamlit as st
 import pandas as pd
 import altair as alt
@@ -129,15 +149,14 @@ def run_inline_evaluation(trace_data: dict, app_dir: Path) -> Optional[Path]:
         output_dir = tmp / "output"
         mock_judges = app_dir.parent / "test-fixtures" / "judges.mock.yaml"
         default_rubrics = app_dir.parent / "test-fixtures" / "rubrics.default.yaml"
-        cmd = [
-            "python", "-m", "agent_eval.cli",
+        cli_args = [
             "--input", str(trace_path),
             "--judge-config", str(mock_judges),
             "--output-dir", str(output_dir),
         ]
         if default_rubrics.exists():
-            cmd.extend(["--rubrics", str(default_rubrics)])
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, cwd=str(app_dir.parent))  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True, paths are internal
+            cli_args.extend(["--rubrics", str(default_rubrics)])
+        result = _run_eval_cli(cli_args, cwd=str(app_dir.parent), timeout=120)
         if result.returncode == 0 and output_dir.exists():
             return output_dir
         return None
@@ -680,17 +699,16 @@ elif active_page == "Run":
                     trace_out = out_base / trace_name
                     status_area.info(f"Evaluating **{trace_name}** ({idx+1}/{total})...")
 
-                    cmd = [
-                        sys.executable, "-m", "agent_eval.cli",
+                    cli_args = [
                         "--input", str(trace_file),
                         "--judge-config", str(judges_path),
                         "--output-dir", str(trace_out),
                         "--verbose",
                     ]
                     if rubrics_path:
-                        cmd.extend(["--rubrics", str(rubrics_path)])
+                        cli_args.extend(["--rubrics", str(rubrics_path)])
 
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd=str(cli_base))  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True, paths from UI selection
+                    result = _run_eval_cli(cli_args, cwd=str(cli_base), timeout=300)
 
                     if result.returncode == 0:
                         succeeded += 1

@@ -161,7 +161,7 @@ class TestBuildReservedCapacity:
                 "us-west-2": ["On-Demand", "Reserved 1 Month Geo", "Reserved 3 Month Geo"],
             }
         )
-        pricing_ref = {"provider": "Anthropic", "model_key": "claude-opus-4-5"}  # nosemgrep: generic.secrets.gitleaks.generic-api-key — not a secret, model identifier in test data
+        pricing_ref = {"provider": "Anthropic", "model_key": "claude-opus-4-5"}  # model identifier, not a secret
 
         result = build_reserved_capacity("anthropic.claude-opus-4-5-v1:0", pricing_data, pricing_ref)
 

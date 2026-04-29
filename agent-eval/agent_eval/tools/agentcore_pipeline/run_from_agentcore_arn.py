@@ -703,10 +703,17 @@ def discover_log_groups(
     )
 
 
-# Script execution helpers (MVP: subprocess orchestration)
-# NOTE: This is an MVP approach using subprocess.run to execute scripts.
-# Future refactoring should consider direct module imports for better error handling
-# and performance. Marked for future enhancement.
+# Script execution helpers — use importlib to invoke scripts directly
+
+
+def _invoke_script_main(script_module, argv: list[str]) -> None:
+    """Invoke a script's main() by temporarily overriding sys.argv."""
+    saved = sys.argv
+    try:
+        sys.argv = ["script"] + argv
+        script_module.main()
+    finally:
+        sys.argv = saved
 
 def execute_script1(
     log_group: str,
@@ -722,7 +729,7 @@ def execute_script1(
 
     This function builds and executes the command-line for Script 1, which queries
     CloudWatch Logs to extract turn data from AgentCore runtime logs. It uses
-    subprocess.run for execution (MVP approach - marked for future refactoring).
+    importlib for direct module invocation.
 
     Args:
         log_group: CloudWatch log group name for runtime logs
@@ -742,20 +749,14 @@ def execute_script1(
     """
     import sys
     import os
+    import importlib
     
-    # Build path to Script 1
-    script_path = os.path.join(
-        os.path.dirname(__file__),
-        "01_export_turns_from_app_logs.py"
+    script1 = importlib.import_module(
+        "agent_eval.tools.agentcore_pipeline.01_export_turns_from_app_logs"
     )
     
     # Build command-line arguments for Script 1
-    # Bug fixes:
-    # - Use sys.executable with script path instead of python -m (fixes digit-prefixed module issue)
-    # - Use --out instead of --output (matches Script 1's actual argument)
-    # - Add --log-stream-kind to support runtime vs application log streams
-    cmd = [
-        sys.executable, script_path,
+    argv = [
         "--log-group", log_group,
         "--minutes", str(minutes),
         "--out", output,
@@ -765,26 +766,23 @@ def execute_script1(
     ]
     
     if session_id:
-        cmd.extend(["--session-id", session_id])
+        argv.extend(["--session-id", session_id])
     
     if profile:
-        cmd.extend(["--profile", profile])
+        argv.extend(["--profile", profile])
     
-    # Execute Script 1 using subprocess.run
-    # Security: cmd is a list built from validated CLI args and internal paths — no shell injection risk
     try:
-        result = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True
-            cmd,
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        _invoke_script_main(script1, argv)
         return output
-    except subprocess.CalledProcessError as e:
+    except SystemExit as e:
+        if e.code and e.code != 0:
+            raise ScriptExecutionError(
+                f"Script 1 (01_export_turns_from_app_logs.py) failed with exit code {e.code}"
+            ) from e
+        return output
+    except Exception as e:
         raise ScriptExecutionError(
-            f"Script 1 (01_export_turns_from_app_logs.py) failed with return code {e.returncode}\n"
-            f"Command: {' '.join(cmd)}\n"
-            f"Error output:\n{e.stderr}"
+            f"Script 1 (01_export_turns_from_app_logs.py) failed: {e}"
         ) from e
 
 
@@ -800,7 +798,7 @@ def execute_script2(
 
     This function builds and executes the command-line for Script 2, which enriches
     the turn data from Script 1 with OTEL trace data from CloudWatch Logs. It uses
-    subprocess.run for execution (MVP approach - marked for future refactoring).
+    importlib for direct module invocation.
 
     Note: Script 2 doesn't support --profile flag, so we pass it via AWS_PROFILE
     environment variable to ensure consistent credentials with Script 1.
@@ -821,21 +819,13 @@ def execute_script2(
     """
     import sys
     import os
+    import importlib
     
-    # Build path to Script 2
-    script_path = os.path.join(
-        os.path.dirname(__file__),
-        "02_build_session_trace_index.py"
+    script2 = importlib.import_module(
+        "agent_eval.tools.agentcore_pipeline.02_build_session_trace_index"
     )
     
-    # Build command-line arguments for Script 2
-    # Bug fixes:
-    # - Use sys.executable with script path instead of python -m (fixes digit-prefixed module issue)
-    # - Use --out instead of --output (matches Script 2's actual argument)
-    # - Remove --profile (Script 2 doesn't support this flag)
-    # - Remove --debug (Script 2 doesn't support this flag, only --debug-sample-traces)
-    cmd = [
-        sys.executable, script_path,
+    argv = [
         "--turns", turns,
         "--otel-log-group", otel_log_group,
         "--region", region,
@@ -843,29 +833,23 @@ def execute_script2(
         "--out", output
     ]
     
-    # Pass profile and region via environment variables for consistent credentials
-    # AWS_REGION ensures boto3 uses the correct region even if internal code doesn't use --region arg
-    env = os.environ.copy()
+    # Set environment variables for consistent credentials
     if profile:
-        env["AWS_PROFILE"] = profile
-    env["AWS_REGION"] = region
+        os.environ["AWS_PROFILE"] = profile
+    os.environ["AWS_REGION"] = region
     
-    # Execute Script 2 using subprocess.run
-    # Security: cmd is a list built from validated CLI args and internal paths — no shell injection risk
     try:
-        result = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True
-            cmd,
-            capture_output=True,
-            text=True,
-            check=True,
-            env=env
-        )
+        _invoke_script_main(script2, argv)
         return output
-    except subprocess.CalledProcessError as e:
+    except SystemExit as e:
+        if e.code and e.code != 0:
+            raise ScriptExecutionError(
+                f"Script 2 (02_build_session_trace_index.py) failed with exit code {e.code}"
+            ) from e
+        return output
+    except Exception as e:
         raise ScriptExecutionError(
-            f"Script 2 (02_build_session_trace_index.py) failed with return code {e.returncode}\n"
-            f"Command: {' '.join(cmd)}\n"
-            f"Error output:\n{e.stderr}"
+            f"Script 2 (02_build_session_trace_index.py) failed: {e}"
         ) from e
 
 
@@ -879,7 +863,7 @@ def execute_script3(
 
     This function builds and executes the command-line for Script 3, which merges
     the turn data from Script 1 with the OTEL enrichment from Script 2 and produces
-    the final normalized trace output. It uses subprocess.run for execution
+    the final normalized trace output. It uses importlib for direct module invocation
     (MVP approach - marked for future refactoring).
 
     Args:
@@ -896,42 +880,33 @@ def execute_script3(
     """
     import sys
     import os
+    import importlib
     
-    # Build path to Script 3
-    script_path = os.path.join(
-        os.path.dirname(__file__),
-        "03_add_xray_steps_and_latency.py"
+    script3 = importlib.import_module(
+        "agent_eval.tools.agentcore_pipeline.03_add_xray_steps_and_latency"
     )
     
-    # Build command-line arguments for Script 3
-    # Bug fixes:
-    # - Use sys.executable with script path instead of python -m (fixes digit-prefixed module issue)
-    # - Use --out instead of --output (matches Script 3's actual argument)
-    cmd = [
-        sys.executable, script_path,
+    argv = [
         "--index", index,
         "--detail", detail,
         "--out", output
     ]
     
     if debug:
-        cmd.append("--debug")
+        argv.append("--debug")
     
-    # Execute Script 3 using subprocess.run
-    # Security: cmd is a list built from validated CLI args and internal paths — no shell injection risk
     try:
-        result = subprocess.run(  # nosemgrep: python.lang.security.audit.dangerous-subprocess-use-audit — list-form call, no shell=True
-            cmd,
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        _invoke_script_main(script3, argv)
         return output
-    except subprocess.CalledProcessError as e:
+    except SystemExit as e:
+        if e.code and e.code != 0:
+            raise ScriptExecutionError(
+                f"Script 3 (03_add_xray_steps_and_latency.py) failed with exit code {e.code}"
+            ) from e
+        return output
+    except Exception as e:
         raise ScriptExecutionError(
-            f"Script 3 (03_add_xray_steps_and_latency.py) failed with return code {e.returncode}\n"
-            f"Command: {' '.join(cmd)}\n"
-            f"Error output:\n{e.stderr}"
+            f"Script 3 (03_add_xray_steps_and_latency.py) failed: {e}"
         ) from e
 
 
