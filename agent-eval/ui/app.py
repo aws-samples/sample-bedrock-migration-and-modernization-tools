@@ -260,9 +260,24 @@ if active_page in ("Results", "Trends"):
         else:
             path_input = st.text_input("Output directory path", value=_default_sample)
 
+        load_clicked = st.button("📂 Load", use_container_width=True)
+
         base_dir = Path(path_input).expanduser().resolve() if path_input else None
         if base_dir and base_dir.is_file():
             base_dir = base_dir.parent
+
+        if load_clicked and base_dir:
+            if base_dir.is_dir():
+                st.session_state["confirmed_path"] = str(base_dir)
+            else:
+                st.error(f"Directory not found: `{base_dir}`")
+
+        confirmed = st.session_state.get("confirmed_path")
+        if confirmed:
+            base_dir = Path(confirmed)
+            st.success(f"✓ Loaded: `{base_dir.name}`")
+        else:
+            base_dir = None
 
         if base_dir and base_dir.is_dir():
             sub_dirs = find_output_dirs(base_dir)
