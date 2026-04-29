@@ -38,7 +38,7 @@ class EvidenceExtractor:
         "bearer", "x-api-key", "client_secret", "private_key"
     }
     
-    # Safe operational fields that should never be redacted
+    # Safe operational fields that should is not expected to be redacted
     SAFE_OPERATIONAL_FIELDS = {
         "tool_name", "tool_id", "status", "latency_ms", "timestamp",
         "turn_id", "step_id", "kind", "type", "name", "id",
@@ -135,7 +135,7 @@ class EvidenceExtractor:
                     extraction_warnings.append(warning_msg)
                     matches = matches[:self.MAX_MATCHES_PER_SELECTOR]
                 
-                # Collect matched values - always return list for consistency
+                # Collect matched values - typically return list for consistency
                 values = [match.value for match in matches]
                 
                 # Use stable hash-based key to avoid collisions

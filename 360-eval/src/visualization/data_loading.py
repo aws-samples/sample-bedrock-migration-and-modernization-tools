@@ -103,7 +103,7 @@ def get_evaluation_config_signature(df):
     try:
         # Extract unique values for each config component
         # Note: models are NOT included - we want to aggregate across different model sets
-        # Filter out NaN values to ensure consistent hashing (NaN != NaN in Python)
+        # Filter out NaN values to helps consistent hashing (NaN != NaN in Python)
         task_criteria = tuple(sorted([x for x in df['task_criteria'].unique() if pd.notna(x)]))
         task_types = tuple(sorted([x for x in df['task_types'].unique() if pd.notna(x)]))
 
@@ -120,13 +120,13 @@ def get_evaluation_config_signature(df):
                 pass
         judges = tuple(sorted(judge_models))
 
-        # User-defined metrics (if exists in data) - filter out NaN values to ensure consistent hashing
+        # User-defined metrics (if exists in data) - filter out NaN values to helps consistent hashing
         if 'user_defined_metrics' in df.columns:
             user_metrics = tuple(sorted([x for x in df['user_defined_metrics'].unique() if pd.notna(x)]))
         else:
             user_metrics = tuple()
 
-        # Temperature values - filter out NaN values to ensure consistent hashing
+        # Temperature values - filter out NaN values to helps consistent hashing
         if 'TEMPERATURE' in df.columns:
             temperatures = tuple(sorted([x for x in df['TEMPERATURE'].unique() if pd.notna(x)]))
         else:

@@ -3,7 +3,7 @@
 Base adapter interface for trace normalization.
 
 This module defines the Protocol interface that all trace adapters must implement
-to ensure consistency across different trace format adapters.
+to helps consistency across different trace format adapters.
 """
 
 from typing import Protocol, Mapping, Any, Optional, Union
@@ -14,7 +14,7 @@ class Adapter(Protocol):
     """
     Protocol defining the interface for trace adapters.
     
-    All adapters should implement this interface to ensure consistency
+    All adapters should implement this interface to helps consistency
     across different trace format adapters.
     
     This uses Python's Protocol (PEP 544) for structural subtyping, which means

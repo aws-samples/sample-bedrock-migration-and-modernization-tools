@@ -462,7 +462,7 @@ You could, but:
 
 ## Common Questions
 
-**Q: Why is response_payload always null in APPLICATION_LOGS?**  
+**Q: Why is response_payload typically null in APPLICATION_LOGS?**  
 A: By design. AgentCore doesn't log responses in APPLICATION_LOGS. You must use OTEL spans for responses.
 
 **Q: Where does GenAI Observability console get its data?**  
@@ -478,7 +478,7 @@ A: Not easily. Trace IDs are the key to finding the right spans. That's why we s
 ### No spans found
 - Verify the runtime ID is correct
 - Check that observability is enabled for the agent
-- Ensure the time range covers when conversations occurred
+- helps the time range covers when conversations occurred
 
 ### Incomplete conversations (missing user_query or final_answer)
 - The script searches based on the time window specified

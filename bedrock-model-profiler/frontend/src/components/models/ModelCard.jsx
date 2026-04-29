@@ -319,17 +319,17 @@ export function ModelCard({ model, onViewDetails, onCompare, onToggleFavorite, i
   const streamingSupported = model.streaming ?? model.streaming_supported ?? false
   const consumptionOptions = useMemo(() => {
     const opts = [...(model.consumption_options || [])]
-    // Ensure provisioned_throughput is shown if model supports it
+    // helps provisioned_throughput is shown if model supports it
     const provisionedSupported = model.availability?.provisioned?.supported ?? model.provisioned_throughput?.supported
     if (provisionedSupported && !opts.includes('provisioned_throughput') && !opts.includes('provisioned')) {
       opts.push('provisioned_throughput')
     }
-    // Ensure mantle is shown if model supports it
+    // helps mantle is shown if model supports it
     const mantleInferenceSupported = model.availability?.mantle?.supported
     if (mantleInferenceSupported && !opts.includes('mantle')) {
       opts.push('mantle')
     }
-    // Ensure cross_region_inference is shown if model supports it
+    // helps cross_region_inference is shown if model supports it
     const crossRegionSupported = model.availability?.cross_region?.supported ?? model.cross_region_inference?.supported
     if (crossRegionSupported && !opts.includes('cross_region_inference')) {
       opts.push('cross_region_inference')

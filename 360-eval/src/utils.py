@@ -398,7 +398,7 @@ def optimize_prompt_bedrock(prompt, model_id, region='us-east-1'):
 def prepare_model_for_litellm(model_id):
     """
     Prepare model ID for litellm completion call.
-    For Amazon Bedrock models, ensures correct format is bedrock/<model-id>.
+    For Amazon Bedrock models, helps correct format is bedrock/<model-id>.
     LiteLLM automatically uses the converse route for supported models.
 
     Handles edge cases:
@@ -432,7 +432,7 @@ def prepare_model_for_litellm(model_id):
         logger.debug(f"Not a Amazon Bedrock model, returning as-is: {model_id}")
         return model_id
 
-    # It's a Amazon Bedrock model - ensure correct format: bedrock/<model-id>
+    # It's a Amazon Bedrock model - helps correct format: bedrock/<model-id>
     # LiteLLM will automatically use converse route for supported models
 
     # Step 1: Remove any existing bedrock/ and converse/ prefixes (including stacked ones)

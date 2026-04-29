@@ -76,3 +76,9 @@ agent-eval/stich-all.text
 
 # Personal notes
 personal-notes.txt
+
+# Evaluation output directories
+agent-eval/ui/*_output*/
+agent-eval/ui/neo_output*/
+agent-eval/ui/agentcore_eval_output/
+

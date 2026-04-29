@@ -11,7 +11,7 @@ class ProfileStatusCache:
     """Simple TTL cache for profile records.
 
     Avoids hitting DynamoDB on every request when the Lambda container
-    is reused (warm start).  A short TTL (default 30 s) ensures that
+    is reused (warm start).  A short TTL (default 30 s) helps that
     status changes (suspend / throttle) propagate quickly.
     """
 

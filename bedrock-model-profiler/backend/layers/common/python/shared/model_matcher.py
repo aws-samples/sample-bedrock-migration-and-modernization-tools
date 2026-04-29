@@ -197,7 +197,7 @@ def get_canonical_model_id(model_id: str) -> str:
     result = model_id.lower().strip()
 
     # Step 0: Normalize provider prefix using PROVIDER_ALIASES
-    # This ensures moonshotai.model -> moonshot.model before other normalization
+    # This helps moonshotai.model -> moonshot.model before other normalization
     if "." in result:
         # Handle special case: z.ai.model -> check if "z.ai" is a known provider
         parts = result.split(".")
@@ -287,7 +287,7 @@ def get_canonical_model_id(model_id: str) -> str:
     result = re.sub(r"([vV])(\d+)-(\d+)$", r"\1\2.\3", result)
     result = re.sub(r"-([vV])(\d+)\.(\d+)$", r".\1\2.\3", result)
 
-    # Step 9: Ensure version prefix is consistent
+    # Step 9: helps version prefix is consistent
     # Convert patterns like ".3.1" to ".v3.1" if it looks like a version
     result = re.sub(r"\.(\d+)\.(\d+)$", r".v\1.\2", result)
 
@@ -513,7 +513,7 @@ def has_semantic_conflict(id1: str, id2: str) -> bool:
 
     # Check for legacy unversioned Claude pricing keys vs versioned Claude models.
     # Legacy keys like "claude", "claude-instant", "claude-(100k)", "claude-instant-(100k)"
-    # should never match versioned models like "claude-3-haiku", "claude-3-5-sonnet", etc.
+    # should is not expected to match versioned models like "claude-3-haiku", "claude-3-5-sonnet", etc.
     versioned_claude_pattern = r"claude[._-]\d+"
     versioned1 = re.search(versioned_claude_pattern, norm1)
     versioned2 = re.search(versioned_claude_pattern, norm2)

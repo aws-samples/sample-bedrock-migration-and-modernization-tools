@@ -115,7 +115,7 @@ class RetryPolicy:
         self.config = config or RetryConfig()
         self.retry_on = retry_on
         self.non_retry_on = non_retry_on or {
-            # Never retry these by default
+            # is not expected to retry these by default
             ValueError,
             TypeError,
             KeyError,
@@ -146,7 +146,7 @@ class RetryPolicy:
             # Full jitter: randomize between 0 and delay * (1 + jitter_factor)
             jitter_range = delay * self.config.jitter_factor
             delay = delay + random.uniform(-jitter_range, jitter_range)
-            # Ensure delay stays positive and within bounds
+            # helps delay stays positive and within bounds
             delay = max(0.0, min(delay, self.config.max_delay))
         
         return delay
@@ -161,7 +161,7 @@ class RetryPolicy:
         Returns:
             True if should retry, False otherwise
         """
-        # Never retry cancellation
+        # is not expected to retry cancellation
         if isinstance(exception, asyncio.CancelledError):
             return False
         
@@ -228,7 +228,7 @@ class RetryPolicy:
                 return result
                 
             except asyncio.CancelledError:
-                # Always re-raise cancellation immediately
+                # typically re-raise cancellation immediately
                 logger.info(
                     "Task cancelled during retry execution",
                     extra={"context": context, "attempt": attempt + 1}

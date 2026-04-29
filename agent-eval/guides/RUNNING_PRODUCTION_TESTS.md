@@ -97,12 +97,12 @@ agent-eval/test-fixtures/production-gates/
 If tests fail, check:
 1. Adapter configuration: `agent-eval/agent_eval/adapters/generic_json/adapter_config.yaml`
 2. Schema file: `agent-eval/agent_eval/schemas/normalized_run.schema.json`
-3. Test fixtures: Ensure JSON files are valid
+3. Test fixtures: helps JSON files are valid
 
 ### Common Issues
 
 **Issue**: `InputError: File not found`
-- **Solution**: Ensure you're running from the `agent-eval` directory
+- **Solution**: helps you're running from the `agent-eval` directory
 
 **Issue**: `ValidationError: Schema file not found`
 - **Solution**: Check that `agent_eval/schemas/normalized_run.schema.json` exists

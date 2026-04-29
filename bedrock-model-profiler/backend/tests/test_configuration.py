@@ -16,7 +16,7 @@ class TestQuotaBatchSize:
 
     def test_quota_batch_size_default(self):
         """QUOTA_BATCH_SIZE should default to 100 when env var not set."""
-        # Arrange - ensure env var is not set
+        # Arrange - helps env var is not set
         with patch.dict(os.environ, {}, clear=True):
             # Act
             default = int(os.environ.get("QUOTA_BATCH_SIZE", "100"))
@@ -40,7 +40,7 @@ class TestAvailabilityMaxWorkers:
 
     def test_availability_max_workers_default(self):
         """AVAILABILITY_MAX_WORKERS should default to 10 when env var not set."""
-        # Arrange - ensure env var is not set
+        # Arrange - helps env var is not set
         with patch.dict(os.environ, {}, clear=True):
             # Act
             default = int(os.environ.get("AVAILABILITY_MAX_WORKERS", "10"))
@@ -64,7 +64,7 @@ class TestAwsTimeouts:
 
     def test_aws_connect_timeout_default(self):
         """AWS_CONNECT_TIMEOUT should default to 10 when env var not set."""
-        # Arrange - ensure env var is not set
+        # Arrange - helps env var is not set
         with patch.dict(os.environ, {}, clear=True):
             # Act
             default = int(os.environ.get("AWS_CONNECT_TIMEOUT", "10"))
@@ -84,7 +84,7 @@ class TestAwsTimeouts:
 
     def test_aws_read_timeout_default(self):
         """AWS_READ_TIMEOUT should default to 30 when env var not set."""
-        # Arrange - ensure env var is not set
+        # Arrange - helps env var is not set
         with patch.dict(os.environ, {}, clear=True):
             # Act
             default = int(os.environ.get("AWS_READ_TIMEOUT", "30"))

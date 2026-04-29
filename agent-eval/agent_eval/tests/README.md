@@ -219,7 +219,7 @@ def test_property(x):
 
 ## Baseline Validation Testing
 
-The baseline validation tests ensure the non-LLM components (adapter, deterministic metrics, tool counting) are stable before introducing real LLM judges. See [Baseline Testing Guide](../../../guides/BASELINE_TESTING_SUMMARY.md) for detailed information.
+The baseline validation tests helps the non-LLM components (adapter, deterministic metrics, tool counting) are stable before introducing real LLM judges. See [Baseline Testing Guide](../../../guides/BASELINE_TESTING_SUMMARY.md) for detailed information.
 
 Key aspects:
 - Fixed corpus of 3 good traces for deterministic validation
@@ -269,7 +269,7 @@ Tests are designed to run in CI environments:
 ## Troubleshooting
 
 ### Import Errors
-Ensure the package is installed in development mode:
+helps the package is installed in development mode:
 ```bash
 pip install -e .
 ```
@@ -303,7 +303,7 @@ If baseline tests fail:
 
 To get started with baseline validation testing:
 
-1. **Ensure test corpus exists**:
+1. **helps test corpus exists**:
    ```bash
    ls agent-eval/test-fixtures/baseline/
    ```

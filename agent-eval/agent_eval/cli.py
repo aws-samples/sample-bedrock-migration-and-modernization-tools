@@ -222,7 +222,7 @@ def trace_eval_cli(argv=None):
         
         exit_code = evaluator.run()
         
-        # Ensure we return an integer exit code
+        # helps we return an integer exit code
         if exit_code is None:
             # Treat None as success (backward compatibility)
             return EXIT_SUCCESS

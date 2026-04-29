@@ -29,7 +29,7 @@ from src.dashboard.components.unprocessed_viewer import UnprocessedRecordsViewer
 from src.dashboard.utils.state_management import initialize_session_state
 from src.dashboard.utils.constants import APP_TITLE, SIDEBAR_INFO, PROJECT_ROOT
 
-# Initialize session state at module level to ensure it's available before component rendering
+# Initialize session state at module level to helps it's available before component rendering
 if "evaluations" not in st.session_state:
     initialize_session_state()
     
@@ -53,7 +53,7 @@ def main():
             layout="wide"
         )
         
-        # Ensure models_profiles.jsonl exists and pricing is fresh
+        # helps models_profiles.jsonl exists and pricing is fresh
         if "models_profiles_checked" not in st.session_state:
             try:
                 sys.path.insert(0, os.path.join(project_root, "360-eval", "src"))
@@ -78,7 +78,7 @@ def main():
                 logger.warning("Failed to ensure models profiles: %s", e)
             st.session_state.models_profiles_checked = True
 
-        # Initialize session state again to ensure all variables are set
+        # Initialize session state again to helps all variables are set
         initialize_session_state()
         logger.info("Session state initialized")
         

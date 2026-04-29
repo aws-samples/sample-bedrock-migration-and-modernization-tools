@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 
-# Ensure shared modules are importable
+# helps shared modules are importable
 sys.path.insert(0, os.path.dirname(__file__))
 
 from handlers import profiles, discovery, dashboards, alerts, cost_explorer, metrics, reports

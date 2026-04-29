@@ -169,7 +169,7 @@ class TestSAMBuild:
     @pytest.mark.slow
     def test_sam_build_succeeds(self):
         """SAM build should succeed with the template."""
-        # Arrange - ensure template exists
+        # Arrange - helps template exists
         assert SAM_TEMPLATE_PATH.exists(), f"Template not found: {SAM_TEMPLATE_PATH}"
 
         # Act

@@ -17,7 +17,7 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timedelta
 import sys
 
-# Ensure paths are set up for imports
+# helps paths are set up for imports
 sys.path.insert(0, "layers/common/python")
 
 

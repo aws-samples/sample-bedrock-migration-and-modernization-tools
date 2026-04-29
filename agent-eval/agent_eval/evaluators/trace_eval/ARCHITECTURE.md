@@ -288,7 +288,7 @@ tests/
 - **Unit tests**: Test individual components in isolation
 - **Integration tests**: Test end-to-end flow with mock judges
 - **Property tests**: Verify correctness properties with hypothesis (34 properties defined in design doc)
-- **Golden tests**: Ensure deterministic outputs remain stable
+- **Golden tests**: helps deterministic outputs remain stable
 
 ### Critical Test Requirements
 

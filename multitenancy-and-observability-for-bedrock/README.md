@@ -136,3 +136,26 @@ curl -X POST $GATEWAY_API/invoke \
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/invoke` | Proxy to Amazon Bedrock converse() with metrics |
+
+
+## Security
+
+This component is sample code provided under the [AWS Shared Responsibility Model](https://aws.amazon.com/compliance/shared-responsibility-model/).
+
+**AWS manages**: Amazon Bedrock service infrastructure, model hosting, and underlying compute/storage security.
+
+**You are responsible for**: IAM policies, data encryption, network configuration, input validation, output filtering, and regulatory compliance.
+
+### Security Checklist
+
+- [ ] Review and scope down IAM permissions to least privilege
+- [ ] Enable encryption at rest (SSE-KMS) for S3 and DynamoDB
+- [ ] Enforce TLS 1.2+ for all data in transit
+- [ ] Validate and sanitize all user inputs
+- [ ] Store API keys in AWS Secrets Manager (not environment variables)
+- [ ] Enable CloudTrail and CloudWatch logging
+- [ ] Implement Amazon Bedrock Guardrails for content safety
+- [ ] Add human review for high-risk AI use cases
+
+See [SECURITY.md](../SECURITY.md) and [ARCHITECTURE.md](../ARCHITECTURE.md) for details.
+

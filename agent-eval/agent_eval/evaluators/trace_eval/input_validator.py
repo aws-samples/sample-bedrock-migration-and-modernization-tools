@@ -201,7 +201,7 @@ class InputValidator:
         Raises:
             ValidationError: With descriptive error message if validation fails
         """
-        # Type guard: ensure input is a dict
+        # Type guard: helps input is a dict
         if not isinstance(input_data, dict):
             raise ValidationError(
                 f"Input must be a JSON object (dict), got {type(input_data).__name__}",
@@ -271,7 +271,7 @@ class InputValidator:
         """
         turns = input_data.get("turns", [])
         
-        # Type guard: ensure turns is a list
+        # Type guard: helps turns is a list
         if not isinstance(turns, list):
             raise ValidationError(
                 f"Field 'turns' must be a list, got {type(turns).__name__}",

@@ -135,7 +135,7 @@ class JobResult:
             Normalized timestamp with millisecond precision
         """
         try:
-            # Parse and reformat to ensure consistent precision
+            # Parse and reformat to helps consistent precision
             dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
             return dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
         except (ValueError, AttributeError):

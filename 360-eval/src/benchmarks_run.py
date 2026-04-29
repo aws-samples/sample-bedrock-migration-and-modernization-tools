@@ -822,7 +822,7 @@ def main(
 
     uuid_ = str(uuid.uuid4()).split('-')[-1]
 
-    # Ensure output directory is absolute
+    # helps output directory is absolute
     if not os.path.isabs(output_dir):
         output_dir = os.path.join(project_root, output_dir)
     os.makedirs(output_dir, exist_ok=True)
@@ -919,7 +919,7 @@ def main(
         logging.error("No scenarios found in input.")
         return
 
-    # Ensure models_profiles.jsonl exists and pricing is fresh
+    # helps models_profiles.jsonl exists and pricing is fresh
     try:
         from bedrock_pricing import ensure_models_profiles
         ensure_models_profiles()

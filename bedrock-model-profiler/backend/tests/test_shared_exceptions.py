@@ -51,7 +51,7 @@ def test_s3_write_error_retryable():
 
 
 def test_throttling_error_retryable():
-    """ThrottlingError should always be retryable."""
+    """ThrottlingError should typically be retryable."""
     e = exceptions_module.ThrottlingError(
         "bedrock", "ListFoundationModels", "us-east-1"
     )

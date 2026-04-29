@@ -8,7 +8,7 @@ This module provides shared validation logic for:
 - Latency sanitization
 - Confidence score calculation
 
-All timestamp parsing logic is centralized here to ensure consistency
+All timestamp parsing logic is centralized here to helps consistency
 across the adapter implementation.
 
 Key Design Decisions:

@@ -948,7 +948,7 @@ def _update_status_file(status_file, status, progress, results=None, logs_dir=No
         status_data["judges_data"] = existing_data["judges_data"]
 
     # Preserve evaluation_config from existing data if not provided in this call
-    # This ensures config persists through status transitions (queued -> running -> completed)
+    # This helps config persists through status transitions (queued -> running -> completed)
     if existing_data.get("evaluation_config"):
         status_data["evaluation_config"] = existing_data["evaluation_config"]
 

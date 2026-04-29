@@ -1185,7 +1185,7 @@ class TestCognitoNoPoolIdReturnsZero:
 
         table.query.return_value = {"Items": []}
 
-        # Ensure USER_POOL_ID is empty (graceful fallback)
+        # helps USER_POOL_ID is empty (graceful fallback)
         with patch.object(handler, "USER_POOL_ID", ""):
             result = handler.handle_get_dashboard(_make_dashboard_event())
 

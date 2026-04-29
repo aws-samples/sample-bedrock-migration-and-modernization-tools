@@ -192,7 +192,7 @@ The system is designed for scalability, automatically aggregating results from m
 
 ## Prerequisites
 
-Before installing and using the framework, ensure you have:
+Before installing and using the framework, helps you have:
 
 ### Required
 - **Python 3.12 or higher** installed ([Download Python](https://www.python.org/downloads/))
@@ -1260,7 +1260,7 @@ In addition to HTML reports, the framework generates detailed CSV files:
 
 **Solution:**
 - Verify CSV format and column headers are correct
-- Ensure file encoding is UTF-8 (not UTF-16 or other encodings)
+- helps file encoding is UTF-8 (not UTF-16 or other encodings)
 - Check for special characters or malformed rows
 - Validate CSV structure with a text editor or CSV validator
 
@@ -1275,7 +1275,7 @@ In addition to HTML reports, the framework generates detailed CSV files:
 
 **Solution:**
 - Verify AWS credentials and region settings: `aws configure list`
-- Ensure Amazon Bedrock model access is enabled in your AWS account (AWS Console → Amazon Bedrock → Model access)
+- helps Amazon Bedrock model access is enabled in your AWS account (AWS Console → Amazon Bedrock → Model access)
 - Check that you're using the correct region for the model
 - Run model capability validation: `python src/validate_model_capabilities.py`
 
@@ -1292,7 +1292,7 @@ In addition to HTML reports, the framework generates detailed CSV files:
 
 **Solution:**
 - Reports are auto-generated, not manually created
-- Ensure evaluation completed successfully (check status in Evaluations tab)
+- helps evaluation completed successfully (check status in Evaluations tab)
 - Verify CSV output files are present in `outputs/` directory
 - **Check access to `us.amazon.nova-premier-v1:0` model** (required for report generation)
 
@@ -1342,7 +1342,7 @@ In addition to HTML reports, the framework generates detailed CSV files:
 - Verify model supports vision capabilities (e.g., Claude 3.5 Sonnet, GPT-4o, Nova Pro with vision)
 - Check image format (JPG, PNG, GIF, WebP, BMP)
 - Validate image URLs are accessible or local paths are correct
-- Ensure images are properly base64 encoded if using local files
+- helps images are properly base64 encoded if using local files
 
 **Prevention:**
 - Test with a known vision-capable model first
@@ -1586,7 +1586,7 @@ Currently, only **Amazon Bedrock models** are supported as judges.
 
 **2. Across-evaluation parallelism (dashboard only):**
 - **Not currently supported** - evaluations run sequentially
-- This prevents conflicts and ensures reliable execution
+- This prevents conflicts and helps reliable execution
 - Queue multiple evaluations in Monitor tab - they'll run one after another
 
 **Best practice:**
@@ -1635,7 +1635,7 @@ Currently, only **Amazon Bedrock models** are supported as judges.
 - **Quality golden answers**: Provide detailed, accurate expected responses that judges can compare against
 - **Balanced dataset**: Include various difficulty levels, task types, and edge cases
 - **Consistent format**: Maintain uniform CSV/JSONL structure across all evaluation data
-- **Representative samples**: Ensure your test data reflects actual production scenarios
+- **Representative samples**: helps your test data reflects actual production scenarios
 
 ### Evaluation Configuration
 
@@ -1779,3 +1779,25 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 **Documentation:** This README is comprehensive, but for specific implementation details, refer to the code comments and inline documentation.
 
 **Updates:** This framework is actively maintained. Check the repository for the latest features and improvements.
+
+## Security
+
+This component is sample code provided under the [AWS Shared Responsibility Model](https://aws.amazon.com/compliance/shared-responsibility-model/).
+
+**AWS manages**: Amazon Bedrock service infrastructure, model hosting, and underlying compute/storage security.
+
+**You are responsible for**: IAM policies, data encryption, network configuration, input validation, output filtering, and regulatory compliance.
+
+### Security Checklist
+
+- [ ] Review and scope down IAM permissions to least privilege
+- [ ] Enable encryption at rest (SSE-KMS) for S3 and DynamoDB
+- [ ] Enforce TLS 1.2+ for all data in transit
+- [ ] Validate and sanitize all user inputs
+- [ ] Store API keys in AWS Secrets Manager (not environment variables)
+- [ ] Enable CloudTrail and CloudWatch logging
+- [ ] Implement Amazon Bedrock Guardrails for content safety
+- [ ] Add human review for high-risk AI use cases
+
+See [SECURITY.md](../SECURITY.md) and [ARCHITECTURE.md](../ARCHITECTURE.md) for details.
+

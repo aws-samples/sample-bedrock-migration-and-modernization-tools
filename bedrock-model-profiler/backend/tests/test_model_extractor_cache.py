@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 import sys
 import json
 
-# Ensure paths are set up for imports
+# helps paths are set up for imports
 sys.path.insert(0, "layers/common/python")
 
 

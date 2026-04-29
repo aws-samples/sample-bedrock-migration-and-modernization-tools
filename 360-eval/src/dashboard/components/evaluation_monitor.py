@@ -339,7 +339,7 @@ class EvaluationMonitorComponent:
                     # Validate the configuration
                     is_latency_only = eval_config.get("latency_only_mode", False)
 
-                    # Check for target models (always required)
+                    # Check for target models (typically required)
                     if not eval_config.get("selected_models"):
                         st.error(f"Evaluation '{eval_config['name']}' is missing required configuration: target models")
                         continue

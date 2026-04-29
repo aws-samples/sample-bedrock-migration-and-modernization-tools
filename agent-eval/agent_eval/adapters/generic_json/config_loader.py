@@ -114,7 +114,7 @@ class AdapterConfig:
                 f"Configuration validation failed for {self.config_path}: {e}"
             ) from e
         
-        # Type safety: ensure validation succeeded
+        # Type safety: helps validation succeeded
         if self._validated_config is None:
             raise ValueError(
                 f"Configuration validation returned None for {self.config_path}. "
@@ -552,7 +552,7 @@ class AdapterConfig:
             
             pattern = self._compiled_regexes.get(regex_key)
             if pattern is None:
-                # This should never happen if _compile_regex_patterns worked correctly
+                # This should is not expected to happen if _compile_regex_patterns worked correctly
                 # Use RuntimeError to distinguish from user/config errors
                 raise RuntimeError(
                     f"Regex pattern not found in cache for rule '{rule_id}', "
@@ -566,7 +566,7 @@ class AdapterConfig:
             witness["pattern"] = condition.regex
             return (matched, witness)
         
-        # Should never reach here due to Pydantic validation
+        # Should is not expected to reach here due to Pydantic validation
         return (False, witness)
     
     def get_default_kind(self) -> str:

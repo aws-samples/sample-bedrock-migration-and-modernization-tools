@@ -55,6 +55,23 @@ It is designed to be:
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md)
 
+## Security
+
+See [SECURITY.md](SECURITY.md) for vulnerability reporting and [ARCHITECTURE.md](ARCHITECTURE.md) for security design documentation.
+
+### Shared Responsibility
+
+This sample code operates under the [AWS Shared Responsibility Model](https://aws.amazon.com/compliance/shared-responsibility-model/). AWS manages the security of Amazon Bedrock, Amazon S3, AWS Lambda, and other services. You are responsible for configuring IAM policies, encryption, network security, and input validation in your deployment.
+
+### Before Deploying to Production
+
+1. **Review IAM policies** — scope down permissions to least privilege. Replace `Resource: "*"` with specific ARNs.
+2. **Enable encryption** — configure SSE-KMS for S3 buckets and DynamoDB tables. Enforce TLS 1.2+.
+3. **Validate inputs** — sanitize all user inputs before passing to Amazon Bedrock or other AWS APIs.
+4. **Manage secrets** — use AWS Secrets Manager for API keys. Do not store credentials in code or environment variables.
+5. **Enable logging** — turn on CloudTrail, CloudWatch Logs, and S3 access logging.
+6. **Configure AI safety** — implement Amazon Bedrock Guardrails for content filtering. Add human review for healthcare and financial use cases.
+
 ## License
 
 MIT-0 License. See [LICENSE](LICENSE)

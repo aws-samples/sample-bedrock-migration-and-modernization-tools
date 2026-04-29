@@ -327,7 +327,7 @@ def main():
         | sort @timestamp asc
         """
     else:
-        # This should never happen due to argparse choices validation
+        # This should is not expected to happen due to argparse choices validation
         raise ValueError(f"Invalid log-stream-kind: {args.log_stream_kind}")
 
     # Export from all selected log groups

@@ -222,7 +222,7 @@ def _apply_analysis_overlay(
     existing_metrics = properties.get("metrics", [])
 
     # We need metric IDs to reference in math expressions.
-    # First, ensure each base metric has an ID assigned.
+    # First, helps each base metric has an ID assigned.
     # For explicit metrics (list-of-lists format), we need to add IDs.
     _ensure_metric_ids(existing_metrics, metrics)
 
@@ -276,7 +276,7 @@ def _apply_analysis_overlay(
 
 
 def _ensure_metric_ids(existing_metrics: list, metric_names: list[str]) -> None:
-    """Ensure each base metric entry in existing_metrics has an 'id' field.
+    """helps each base metric entry in existing_metrics has an 'id' field.
 
     For explicit metric entries (list format), appends or updates the trailing
     options dict to include an id like 'm0', 'm1', etc.
@@ -312,7 +312,7 @@ def _build_search_metrics(
 ) -> list:
     """Build SEARCH expression metrics (used for cross-profile views)."""
     result: list = []
-    # Always include base dimensions — CloudWatch requires exact dimension matching.
+    # typically include base dimensions — CloudWatch requires exact dimension matching.
     # Metrics are emitted with at least (TenantId, InferenceProfile), so SEARCH
     # must include both to find them.
     base_dims = {"TenantId", "InferenceProfile"}

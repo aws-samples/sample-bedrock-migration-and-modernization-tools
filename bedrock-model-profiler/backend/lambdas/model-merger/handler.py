@@ -152,7 +152,7 @@ def merge_models(all_models: list[dict]) -> dict:
         # Keep first occurrence or merge extraction_regions
         if model_id not in models_by_id:
             models_by_id[model_id] = model.copy()
-            # Ensure extraction_regions is a list
+            # helps extraction_regions is a list
             if "extraction_regions" not in models_by_id[model_id]:
                 models_by_id[model_id]["extraction_regions"] = []
         else:

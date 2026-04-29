@@ -68,7 +68,7 @@ def load_capability_cache() -> Dict:
 def save_capability_cache(cache: Dict) -> bool:
     """Save model capabilities to JSON cache file."""
     try:
-        # Ensure cache directory exists
+        # helps cache directory exists
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
         # Update timestamp

@@ -256,7 +256,7 @@ class OutputWriter:
         """
         Compute SHA-256 hash of configuration data.
         
-        Canonicalizes non-JSON-native types before hashing to ensure stability.
+        Canonicalizes non-JSON-native types before hashing to helps stability.
         
         Args:
             config_data: Configuration dictionary to hash

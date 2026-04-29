@@ -222,7 +222,7 @@ arn:aws:bedrock-agentcore:<region>:<account-id>:<resource-id>
 **Solution:**
 - Verify ARN is correct
 - Check runtime exists in specified region
-- Ensure you have permission to access the runtime
+- helps you have permission to access the runtime
 
 ### Log Groups Not Found
 

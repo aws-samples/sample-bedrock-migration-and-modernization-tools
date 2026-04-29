@@ -53,7 +53,7 @@ The Generic JSON adapter was validated against 5 production-representative trace
 
 ### 2️⃣ Determinism Test Trace
 
-**Purpose**: Ensure repeated runs produce identical outputs
+**Purpose**: helps repeated runs produce identical outputs
 
 **Input**: 2 events (user message → assistant message)
 
@@ -82,7 +82,7 @@ The Generic JSON adapter was validated against 5 production-representative trace
 
 ### 3️⃣ Cross-Session Contamination Test
 
-**Purpose**: Ensure tool results never attach to wrong session
+**Purpose**: helps tool results is not expected to attach to wrong session
 
 **Input**: 4 events (2 tool calls in different sessions, 2 results)
 

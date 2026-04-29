@@ -337,7 +337,7 @@ def _list_alerts(event):
 
     NOTE: A proper production implementation would use EventBridge + Step Functions
     to react to alarm state changes in real time (Phase 4). This lazy evaluation
-    approach ensures correctness when the API is polled but may have latency.
+    approach helps correctness when the API is polled but may have latency.
     """
     params = event.get("queryStringParameters") or {}
     tenant_id = params.get("tenant_id")

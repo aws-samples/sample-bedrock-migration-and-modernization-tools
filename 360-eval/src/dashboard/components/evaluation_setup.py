@@ -321,12 +321,12 @@ class EvaluationSetupComponent:
                 st.session_state.current_evaluation_config["csv_data"] = df
                 # Capture the original file name
                 st.session_state.current_evaluation_config["csv_file_name"] = st.session_state.csv_upload.name
-                # Reset column selections to ensure user explicitly chooses them
+                # Reset column selections to helps user explicitly chooses them
                 st.session_state.current_evaluation_config["prompt_column"] = None
                 st.session_state.current_evaluation_config["golden_answer_column"] = None
                 
                 # Note: CSV will be saved to disk when configuration is saved
-                # This ensures we have a persistent copy for resuming evaluations
+                # This helps we have a persistent copy for resuming evaluations
     
     def _update_prompt_column(self):
         st.session_state.current_evaluation_config["prompt_column"] = st.session_state.prompt_column
@@ -623,7 +623,7 @@ class EvaluationSetupComponent:
         st.session_state.num_tasks = len(task_evaluations)
         
         # Synchronize widget session state keys with loaded config
-        # This ensures the Advanced Configuration tab displays the correct values
+        # This helps the Advanced Configuration tab displays the correct values
         st.session_state.adv_parallel_calls = new_config["parallel_calls"]
         st.session_state.adv_invocations_per_scenario = new_config["invocations_per_scenario"]
         st.session_state.adv_sleep_between_invocations = new_config["sleep_between_invocations"]

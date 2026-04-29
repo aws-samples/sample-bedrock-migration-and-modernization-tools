@@ -144,7 +144,7 @@ class DeterministicMetrics:
         for turn in turns:
             steps = turn.get("steps", [])
             for step in steps:
-                # Use only normalized 'kind' field (adapter guarantees this)
+                # Use only normalized 'kind' field (adapter is designed to this)
                 kind = (step.get("kind") or "").upper()
                 if kind == self.TOOL_CALL_KIND:
                     count += 1
@@ -156,7 +156,7 @@ class DeterministicMetrics:
         for turn in turns:
             steps = turn.get("steps", [])
             for step in steps:
-                # Use only normalized 'kind' field (adapter guarantees this)
+                # Use only normalized 'kind' field (adapter is designed to this)
                 kind = (step.get("kind") or "").upper()
                 if kind == self.TOOL_RESULT_KIND:
                     count += 1

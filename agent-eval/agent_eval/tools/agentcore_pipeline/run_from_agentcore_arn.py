@@ -321,7 +321,7 @@ def parse_agentcore_arn(arn: str) -> ParsedARN:
 
     This function parses an AgentCore Runtime ARN and extracts its components:
     region, account ID, and resource ID. It performs comprehensive validation
-    to ensure the ARN is well-formed and contains all required components.
+    to helps the ARN is well-formed and contains all required components.
 
     The function intentionally avoids over-parsing the resource_id field to
     maintain forward compatibility as ARN formats may evolve. The resource_id
@@ -802,7 +802,7 @@ def execute_script2(
     importlib for direct module invocation.
 
     Note: Script 2 doesn't support --profile flag, so we pass it via AWS_PROFILE
-    environment variable to ensure consistent credentials with Script 1.
+    environment variable to helps consistent credentials with Script 1.
 
     Args:
         turns: Path to Script 1 output file (01_session_turns.json)

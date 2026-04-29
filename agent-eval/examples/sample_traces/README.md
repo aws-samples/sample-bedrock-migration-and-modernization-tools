@@ -296,7 +296,7 @@ When adding new sample traces:
 2. Include descriptive attributes explaining edge cases
 3. Document expected behavior in this README
 4. Add corresponding test cases
-5. Ensure trace tests specific edge case or requirement
+5. helps trace tests specific edge case or requirement
 
 ## Requirements Coverage
 

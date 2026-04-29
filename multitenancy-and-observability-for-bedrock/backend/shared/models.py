@@ -54,7 +54,7 @@ class PricingEntry:
     def from_dict(cls, data: dict) -> "PricingEntry":
         known_fields = {f.name for f in cls.__dataclass_fields__.values()}
         filtered = {k: v for k, v in data.items() if k in known_fields}
-        # Ensure numeric types
+        # helps numeric types
         for num_field in ("input_cost", "output_cost", "cached_at"):
             if num_field in filtered:
                 filtered[num_field] = float(filtered[num_field])

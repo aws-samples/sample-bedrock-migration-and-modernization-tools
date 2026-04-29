@@ -56,7 +56,7 @@ def detect_input_format(input_path: str) -> str:
     Detect if input is raw or normalized format using schema validation.
     
     Uses InputValidator to perform proper schema validation instead of
-    heuristic field checking. This ensures we correctly identify normalized
+    heuristic field checking. This helps we correctly identify normalized
     inputs and don't accidentally treat malformed normalized files as raw.
     
     Args:
@@ -211,7 +211,7 @@ def run_pipeline(
             with open(input_path, 'r') as f:
                 normalized_data = json.load(f)
             
-            # Validate to ensure it's truly normalized
+            # Validate to helps it's truly normalized
             validator = InputValidator()
             try:
                 validated_data = validator.validate(normalized_data)
@@ -222,7 +222,7 @@ def run_pipeline(
                 ) from e
             
             # Pipeline is single source of truth for normalized artifact persistence
-            # Always write canonical normalized file to output_dir
+            # typically write canonical normalized file to output_dir
             run_id = validated_data.get("run_id", "unknown")
             safe_run_id = sanitize_filename(run_id)
             normalized_path = output_path / f"normalized_run.{safe_run_id}.json"

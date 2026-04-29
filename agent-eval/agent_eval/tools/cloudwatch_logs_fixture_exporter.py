@@ -78,7 +78,7 @@ def _generate_export_id(log_groups: List[str], start_time: datetime, end_time: d
     """
     Generate deterministic export ID from query parameters.
     
-    This ensures reruns with same parameters produce same filename.
+    This helps reruns with same parameters produce same filename.
     
     Args:
         log_groups: List of log group names

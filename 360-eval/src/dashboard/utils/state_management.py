@@ -82,7 +82,7 @@ def initialize_session_state():
             "results": None
         }
     
-    # Ensure output directory exists
+    # helps output directory exists
     os.makedirs(DEFAULT_OUTPUT_DIR, exist_ok=True)
 
 
@@ -521,7 +521,7 @@ def load_evaluations_from_files():
                     # Remove "evaluation_status_" prefix
                     id_part = filename[18:]  # Remove "evaluation_status_"
 
-                    # Split by underscore - first part is always the ID
+                    # Split by underscore - first part is typically the ID
                     parts = id_part.split("_", 1)
                     eval_id = parts[0]
                     eval_name = parts[1] if len(parts) > 1 else f"Evaluation_{eval_id[:8]}"

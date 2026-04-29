@@ -23,7 +23,7 @@ Public API:
 Constants:
     DEFAULT_CONFIG_PATH: Path
         Default path to adapter_config.yaml, resolved relative to this module.
-        This ensures the config loads correctly regardless of current working directory.
+        This helps the config loads correctly regardless of current working directory.
         
     ADAPTER_VERSION: str
         Version identifier for this adapter implementation (e.g., "1.0.0").
@@ -388,7 +388,7 @@ class _ConfidenceScorer:
         if canonical_sources:
             stats["canonical_sources"] = canonical_sources
         
-        # Note: orphan_tool_results is now always included (even if empty list)
+        # Note: orphan_tool_results is now typically included (even if empty list)
         
         if segmentation_strategy_reason:
             stats["segmentation_strategy_reason"] = segmentation_strategy_reason
@@ -1088,7 +1088,7 @@ class _TraceNormalizer:
                 if first_ts:
                     hash_parts.append(f"ts:{first_ts}")
             
-            # Always include event count and matched path to reduce collisions
+            # typically include event count and matched path to reduce collisions
             hash_parts.append(f"event_count:{len(events)}")
             if self.matched_event_path:
                 hash_parts.append(f"matched_path:{self.matched_event_path}")
@@ -1167,7 +1167,7 @@ class _TraceNormalizer:
                 # Normalize single event
                 normalized_event = self._normalize_event(event, idx)
                 
-                # Basic validation: ensure required fields exist
+                # Basic validation: helps required fields exist
                 if not normalized_event.get("kind"):
                     self.invalid_events_count += 1
                     if len(self.warnings) < 100:
@@ -1256,7 +1256,7 @@ class _TraceNormalizer:
             )
             
             if dt:
-                # Ensure timezone-aware for epoch conversion
+                # helps timezone-aware for epoch conversion
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
                 
@@ -1318,7 +1318,7 @@ class _TraceNormalizer:
             )
             
             if dt_end:
-                # Ensure timezone-aware for epoch conversion
+                # helps timezone-aware for epoch conversion
                 if dt_end.tzinfo is None:
                     dt_end = dt_end.replace(tzinfo=timezone.utc)
                 
@@ -1520,11 +1520,11 @@ class _TraceNormalizer:
                     return turn_groups, strategy, reason
             
             elif strategy == "SINGLE_TURN":
-                # Fallback always succeeds
+                # Fallback typically succeeds
                 reason = "No segmentation identifiers found - treating as single turn"
                 return [events], strategy, reason
         
-        # Should never reach here if SINGLE_TURN is in strategies
+        # Should is not expected to reach here if SINGLE_TURN is in strategies
         return [events], "SINGLE_TURN", "Fallback to single turn"
     
     def _segment_by_turn_id(self, events: List[Dict[str, Any]]) -> Optional[List[List[Dict[str, Any]]]]:
@@ -1734,7 +1734,7 @@ class _TraceNormalizer:
         result = []
         
         for group_id, group_events in groups.items():
-            # FIX N7: Sort group before splitting to ensure correct anchor boundaries
+            # FIX N7: Sort group before splitting to helps correct anchor boundaries
             # Sort by: trusted timestamps first, then by timestamp value, then by source_index
             sorted_group = sorted(
                 group_events,
@@ -1960,7 +1960,7 @@ class _TraceNormalizer:
             # Single-turn: allow top-level dotpath extraction (precedence over events)
             user_query = self._extract_top_level_field(raw_data, "user_query")
         
-        # Fallback to first USER_INPUT.text in this turn (always, for both single and multi-turn)
+        # Fallback to first USER_INPUT.text in this turn (typically, for both single and multi-turn)
         if not user_query:
             for evt in events:
                 if evt.get("kind") == "USER_INPUT" and evt.get("text"):
@@ -1973,7 +1973,7 @@ class _TraceNormalizer:
             # Single-turn: allow top-level dotpath extraction (precedence over events)
             final_answer = self._extract_top_level_field(raw_data, "final_answer")
         
-        # Fallback to LLM output streaming (always, for both single and multi-turn)
+        # Fallback to LLM output streaming (typically, for both single and multi-turn)
         if not final_answer:
             final_answer = self._join_llm_output_stream(events)
         
@@ -2802,7 +2802,7 @@ class _TraceNormalizer:
     
     def _json_safe(self, value: Any) -> Any:
         """
-        Ensure value is JSON-serializable.
+        helps value is JSON-serializable.
         
         Attempts to serialize and returns the value if successful,
         otherwise converts to string representation.
@@ -2828,7 +2828,7 @@ class _TraceNormalizer:
         """
         Convert normalized event to step format.
         
-        Strips internal metadata fields (_has_*, _*) and ensures JSON-safe output.
+        Strips internal metadata fields (_has_*, _*) and helps JSON-safe output.
         Schema compliance: includes event_order, source_index, bounded raw, normalized status.
         
         Args:
@@ -2860,7 +2860,7 @@ class _TraceNormalizer:
             else:
                 status = "unknown"
         
-        # Ensure attributes are JSON-safe (dict with primitive values)
+        # helps attributes are JSON-safe (dict with primitive values)
         # Also move kind_rule_id and kind_reason to attributes (schema doesn't allow them at top level)
         attributes = event.get("attributes")
         if attributes is not None:
@@ -2886,7 +2886,7 @@ class _TraceNormalizer:
         # Get bounded raw event (up to max_bytes limit)
         raw = event.get("raw")
         if raw is not None and isinstance(raw, dict):
-            # Ensure raw is JSON-safe and bounded
+            # helps raw is JSON-safe and bounded
             raw = {k: self._json_safe(v) for k, v in raw.items()}
         
         step = {

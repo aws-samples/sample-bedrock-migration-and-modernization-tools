@@ -144,7 +144,7 @@ Useful because LLMs often paraphrase valid answers.
 
 Measures whether the agent used the correct tool (rag vs web_search) according to the expected label.
 
-This ensures:
+This helps:
 
 Historical questions use RAG
 

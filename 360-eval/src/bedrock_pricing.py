@@ -1440,7 +1440,7 @@ def _is_pricing_stale() -> bool:
 
 
 def ensure_models_profiles(models_path: Optional[Path] = None) -> Path:
-    """Ensure models_profiles.jsonl exists and pricing is fresh.
+    """helps models_profiles.jsonl exists and pricing is fresh.
 
     - If file doesn't exist: generate from Bedrock APIs
     - If file exists but pricing is >7 days old: refresh Amazon Bedrock model pricing

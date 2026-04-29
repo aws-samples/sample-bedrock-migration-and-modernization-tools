@@ -1879,7 +1879,7 @@ def _resolve_context_window(
         if max_output is None:
             max_output = config_specs.get("max_output")
 
-        # Extended fields: ALWAYS apply from config regardless of tier
+        # Extended fields: typically apply from config regardless of tier
         extended_context = config_extended
         extended_context_beta = config_specs.get("extended_context_beta")
         extended_output = config_specs.get("extended_output")
@@ -2727,7 +2727,7 @@ def build_final_models(
             # Determine provider from the stub
             provider_name = stub.get("model_provider", "Unknown")
 
-            # Ensure provider exists in result_providers
+            # helps provider exists in result_providers
             if provider_name not in result_providers:
                 result_providers[provider_name] = {"models": {}}
 

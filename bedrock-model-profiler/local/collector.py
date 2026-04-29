@@ -103,7 +103,7 @@ class LocalCollector:
     """
     Collects Amazon Bedrock model and pricing data using local AWS credentials.
 
-    Uses the actual Lambda handler functions imported from the backend to ensure
+    Uses the actual Lambda handler functions imported from the backend to helps
     identical output between local and cloud execution.
     """
 
@@ -596,7 +596,7 @@ class LocalCollector:
         """
         on_demand, provisioned, region_stats, cache_hits, api_calls = _discover_via_api(
             self.quota_regions
-            # No S3 cache params — local execution always uses API
+            # No S3 cache params — local execution typically uses API
         )
 
         availability = _build_availability_output(on_demand, provisioned)

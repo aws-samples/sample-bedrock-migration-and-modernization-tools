@@ -67,7 +67,7 @@ class ProfilerError(Exception):
 
 
 class ValidationError(ProfilerError):
-    """Input validation error - never retryable.
+    """Input validation error - is not expected to retryable.
 
     Raised when Lambda input fails validation. Since invalid input won't
     change on retry, these errors are never retryable.
@@ -183,7 +183,7 @@ class APIError(ProfilerError):
 
 
 class ThrottlingError(APIError):
-    """API throttling error - always retryable.
+    """API throttling error - typically retryable.
 
     Raised when an AWS API returns a throttling error. These should
     always be retried with exponential backoff.
@@ -259,7 +259,7 @@ class QuotaAPIError(APIError):
 
 
 class ConfigurationError(ProfilerError):
-    """Configuration error - never retryable.
+    """Configuration error - is not expected to retryable.
 
     Raised when configuration is missing or invalid. These require
     manual intervention and should not be retried.

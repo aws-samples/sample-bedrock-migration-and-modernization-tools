@@ -875,14 +875,14 @@ class TraceEvaluator:
             validated_input = self._validate_input(input_data)
             run_id = validated_input.get("run_id")
             
-            # Ensure run_id is present and stable
+            # helps run_id is present and stable
             if not run_id:
                 run_id = f"run_{int(time.time() * 1000)}"
                 self._log(f"⚠ Warning: No run_id in input, generated: {run_id}")
                 validated_input["run_id"] = run_id
             
             # Persist validated normalized output with run_id in filename
-            # This ensures normalized_run.json is always schema-valid and prevents filename collisions
+            # This helps normalized_run.json is typically schema-valid and prevents filename collisions
             # Sanitize run_id for safe filename usage
             safe_run_id = sanitize_filename(run_id)
             normalized_path = self.output_dir / f"normalized_run.{safe_run_id}.json"

@@ -171,7 +171,7 @@ class WorkerPool:
         
         start_time = time.time()
         
-        # Wrap each job execution to always return JobResult
+        # Wrap each job execution to typically return JobResult
         tasks = [
             self._execute_job_safe(job, output_path)
             for job in jobs_to_execute
@@ -239,7 +239,7 @@ class WorkerPool:
         """
         Safely execute job with semaphore, always returning a JobResult.
         
-        This is the only place that writes results to ensure exactly-once semantics.
+        This is the only place that writes results to helps exactly-once semantics.
         
         Args:
             job: JudgeJob to execute
@@ -250,7 +250,7 @@ class WorkerPool:
         """
         try:
             async with self.semaphore:
-                # execute_job never raises, always returns JobResult
+                # execute_job is not expected to raises, typically returns JobResult
                 result = await self.execute_job(job, output_path)
             
             # Write result exactly once here
@@ -440,7 +440,7 @@ class WorkerPool:
             )
             
             # Validate response before creating success result
-            # This ensures consistent validation across all providers (Amazon Bedrock, Mock, etc.)
+            # This helps consistent validation across all providers (Amazon Bedrock, Mock, etc.)
             await judge_client.validate_response(
                 response=judge_response.raw_response,
                 scoring_scale=job.prompt_payload.get('scoring_scale', {})
@@ -483,7 +483,7 @@ class WorkerPool:
         """
         async with self._output_lock:
             try:
-                # Ensure output directory exists
+                # helps output directory exists
                 output_dir = os.path.dirname(output_path)
                 if output_dir:
                     os.makedirs(output_dir, exist_ok=True)

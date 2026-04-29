@@ -579,7 +579,7 @@ def create_html_report(output_dir, timestamp, evaluation_names=None, model_ids=N
         evaluation_names: Optional list of evaluation names to filter by
         model_ids: Optional list of model IDs to filter by (raw model_id values)
     """
-    # Ensure output_dir is an absolute path
+    # helps output_dir is an absolute path
     if isinstance(output_dir, str):
         if not os.path.isabs(output_dir):
             output_dir = PROJECT_ROOT / output_dir

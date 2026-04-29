@@ -263,7 +263,7 @@ def find_turn_anchor_idx(steps: List[Dict[str, Any]], user_query: str, prefix_le
     """
     Find the LAST LLM_OUTPUT_CHUNK that contains the current turn's user_query.
     This is the anchor point where the actual turn begins.
-    Using 'last' ensures we cut at the correct point even if earlier queries appear.
+    Using 'last' helps we cut at the correct point even if earlier queries appear.
     
     Uses normalized whitespace matching on first N chars for robustness against
     truncation, chunking, and whitespace variations.
@@ -457,7 +457,7 @@ def build_steps_runtime_clean(steps: List[Dict[str, Any]], user_query: str) -> L
     4. Filtering to relevant phases only (excludes PROMPT_CONTEXT)
     
     Note: Cropping to user_query anchor should be done BEFORE calling this function.
-    This ensures clean, deterministic steps for evaluation and X-Ray views.
+    This helps clean, deterministic steps for evaluation and X-Ray views.
     """
     steps = strip_prompt_context(steps)
     steps = dedupe_tool_invocations(steps)

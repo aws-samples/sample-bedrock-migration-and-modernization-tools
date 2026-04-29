@@ -108,7 +108,7 @@ def mock_frontend_config():
 @pytest.fixture
 def gap_detection_handler():
     """Import and return the gap-detection handler module."""
-    # Ensure the correct path is first
+    # helps the correct path is first
     if "lambdas/gap-detection" not in sys.path:
         sys.path.insert(0, "lambdas/gap-detection")
 
