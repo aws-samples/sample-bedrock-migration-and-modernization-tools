@@ -12,7 +12,7 @@
       "timestamp": "2026-04-29T10:00:01Z",
       "type": "model_invoke",
       "turn_id": "turn-1",
-      "model_id": "anthropic.claude-sonnet-4-20250514",
+      "model_id": "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
       "prompt_tokens": 245,
       "completion_tokens": 89,
       "content": "I'll search for restaurants near the Space Needle."
@@ -36,7 +36,7 @@
       "timestamp": "2026-04-29T10:00:05Z",
       "type": "model_invoke",
       "turn_id": "turn-1",
-      "model_id": "anthropic.claude-sonnet-4-20250514",
+      "model_id": "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
       "prompt_tokens": 412,
       "completion_tokens": 156,
       "content": "Here are the top 3 restaurants near the Space Needle:\n1. Toulouse Petit (4.6★) - French-Creole cuisine\n2. SkyCity (4.5★) - Rotating restaurant atop the Space Needle\n3. Serious Pie (4.4★) - Artisan pizza"
@@ -51,7 +51,7 @@
       "timestamp": "2026-04-29T10:00:11Z",
       "type": "model_invoke",
       "turn_id": "turn-2",
-      "model_id": "anthropic.claude-sonnet-4-20250514",
+      "model_id": "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
       "prompt_tokens": 520,
       "completion_tokens": 98,
       "content": "SkyCity has the best view — it's the rotating restaurant at the top of the Space Needle itself, offering 360-degree panoramic views of Seattle, Mount Rainier, and Puget Sound."

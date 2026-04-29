@@ -137,12 +137,15 @@ def _get_model_pricing(model_id: str, pricing_overrides: Optional[Dict] = None) 
     # Try LiteLLM pricing
     try:
         import litellm
-        cost_info = litellm.get_model_cost_map(url="").get(model_id, {})
-        if cost_info:
-            return (
-                cost_info.get("input_cost_per_token", 0.0),
-                cost_info.get("output_cost_per_token", 0.0),
-            )
+        cost_map = litellm.get_model_cost_map(url="")
+        # Try direct lookup, then with invoke prefix for Bedrock models
+        for key in [model_id, f"bedrock/invoke/{model_id.split('/', 1)[-1]}" if "/" in model_id else model_id]:
+            cost_info = cost_map.get(key, {})
+            if cost_info:
+                return (
+                    cost_info.get("input_cost_per_token", 0.0),
+                    cost_info.get("output_cost_per_token", 0.0),
+                )
     except Exception:
         pass
 
