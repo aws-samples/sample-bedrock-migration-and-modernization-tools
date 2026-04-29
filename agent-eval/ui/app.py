@@ -630,6 +630,17 @@ if active_page == "Setup":
         st.file_uploader("Upload trace JSON files", type=["json"], accept_multiple_files=True, key="trace_upload_setup")
         st.info("**Supported formats:** Generic JSON, AgentCore export, CloudWatch export")
         st.text_input("Or enter path to trace directory", placeholder="./traces/", key="trace_dir_setup")
+        trace_dir_val = st.session_state.get("trace_dir_setup", "")
+        if st.button("📂 Load Traces", use_container_width=True, key="load_traces_btn"):
+            if trace_dir_val:
+                p = Path(trace_dir_val).expanduser().resolve()
+                if p.is_dir():
+                    jsons = list(p.glob("*.json"))
+                    st.success(f"✓ Found {len(jsons)} JSON file(s) in `{p.name}/`")
+                else:
+                    st.error(f"Directory not found: `{p}`")
+            else:
+                st.warning("Enter a path first")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # PAGE: RUN
