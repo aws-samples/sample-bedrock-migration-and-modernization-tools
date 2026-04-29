@@ -25,6 +25,7 @@ Configure your evaluation before running.
 
 **⚖️ Judge Configuration**
 - Visual judge builder: ID, provider, model ID, temperature, max tokens, repeats, timeout, region
+- Provider options: Amazon Bedrock (🟣), LiteLLM (🟢 — 100+ providers), Mock (⚪)
 - Preset selector: Claude Sonnet, Claude Opus, Nova Pro, Mock Judge
 - 5-judge maximum enforced with duplicate detection
 - Import existing `judges.yaml` (merge or replace)
@@ -50,6 +51,8 @@ View evaluation results with traffic light summary and four sub-tabs:
 **📋 Rubric Scorecard** — All rubrics summary table, drill-down into per-judge breakdown and reasoning
 
 **⚖️ Judge Detail** — Raw judge run records, filter by rubric and judge, full reasoning text
+
+**💰 Cost** — Token usage and cost breakdown from trace data. Shows total cost, input/output tokens, cost-by-model table, cost-per-turn table with bar chart. Pricing resolved via LiteLLM or user overrides. Requires traces with token data (`prompt_tokens`, `completion_tokens` in step attributes).
 
 **Additional features:**
 - Run comparison mode (metric deltas + rubric score table)
