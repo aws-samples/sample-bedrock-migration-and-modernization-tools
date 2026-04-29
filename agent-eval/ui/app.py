@@ -84,12 +84,14 @@ def find_output_dirs(base: Path) -> list[Path]:
 def load_run(directory: Path) -> dict:
     trace_eval = load_json(directory / "trace_eval.json")
     judge_runs = load_jsonl(directory / "judge_runs.jsonl")
+    results = load_json(directory / "results.json")
     norm_files = list(directory.glob("normalized_run.*.json"))
     normalized = load_json(norm_files[0]) if norm_files else None
     return {
         "dir": directory,
         "trace_eval": trace_eval,
         "judge_runs": judge_runs,
+        "results": results,
         "normalized": normalized,
         "run_id": (trace_eval or {}).get("run_id", (normalized or {}).get("run_id", directory.name)),
     }
@@ -1144,7 +1146,8 @@ elif active_page == "Results":
 
     # ── Cost Insights ──
     with cost_tab:
-        cost_data = results.get("cost_insights") if results else None
+        run_results = run.get("results") if run else None
+        cost_data = run_results.get("cost_insights") if run_results else None
         if not cost_data:
             st.info("No cost data available. Cost insights require traces with token usage data (e.g., `prompt_tokens`, `completion_tokens` in step attributes).")
         else:
