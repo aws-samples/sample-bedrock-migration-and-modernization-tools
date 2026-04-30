@@ -54,6 +54,8 @@ View evaluation results with traffic light summary and four sub-tabs:
 
 **💰 Cost** — Token usage and cost breakdown from trace data. Shows total cost, input/output tokens, cost-by-model table, cost-per-turn table with bar chart. Pricing resolved via LiteLLM or user overrides. Requires traces with token data (`prompt_tokens`, `completion_tokens` in step attributes).
 
+**⏱️ Latency** — Performance analysis with time-to-first-token (TTFT), latency breakdown by category (🧠 LLM vs 🔧 Tool vs ⚙️ Overhead), per-turn latency table with stacked bar chart, tokens/sec throughput, and top 5 slowest steps for optimization targeting.
+
 **Additional features:**
 - Run comparison mode (metric deltas + rubric score table)
 - Drag-and-drop trace upload with inline mock evaluation

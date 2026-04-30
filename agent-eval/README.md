@@ -62,6 +62,10 @@ The native Amazon Bedrock judge client (`provider: bedrock`) is also available f
 
 Automatically extracts token usage from trace data and calculates per-turn, per-model, and total costs. Pricing is resolved via LiteLLM's built-in cost data or user-provided overrides. Cost breakdown is included in `results.json` when token data is present in traces.
 
+### Latency insights
+
+Analyzes execution performance with time-to-first-token (TTFT), per-turn latency breakdown by category (LLM thinking, tool execution, orchestration overhead), tokens-per-second throughput, and identification of the slowest steps for optimization targeting.
+
 ## Quick Start
 
 Run the evaluator using the included sample trace:
