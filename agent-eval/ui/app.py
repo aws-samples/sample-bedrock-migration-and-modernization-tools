@@ -371,7 +371,7 @@ JUDGE_PRESETS = {
 }
 
 if active_page == "Setup":
-    rubric_tab, judge_tab, trace_tab = st.tabs(["🛠️ Rubric Configuration", "⚖️ Judge Configuration", "📎 Trace Upload"])
+    rubric_tab, judge_tab, trace_tab, agentcore_tab = st.tabs(["🛠️ Rubric Configuration", "⚖️ Judge Configuration", "📎 Trace Upload", "☁️ AgentCore Config"])
 
     # ── Rubric Configuration ──
     with rubric_tab:
@@ -641,6 +641,101 @@ if active_page == "Setup":
                     st.error(f"Directory not found: `{p}`")
             else:
                 st.warning("Enter a path first")
+
+    # ── AgentCore Config ──
+    with agentcore_tab:
+        st.subheader("Amazon Bedrock AgentCore Configuration")
+        st.caption("Configure resource sizing and usage data source for AgentCore runtime cost analysis.")
+
+        try:
+            from agent_eval.evaluators.agentcore_cost import (
+                RESOURCE_CONFIGS, DEFAULT_CONFIG_LABEL, ResourceConfig,
+            )
+            from agent_eval.tools.fetch_agentcore_usage import (
+                fetch_metrics_from_cloudwatch, parse_uploaded_usage_file,
+            )
+        except ModuleNotFoundError:
+            _agent_eval_root = str(Path(__file__).resolve().parent.parent)
+            if _agent_eval_root not in sys.path:
+                sys.path.insert(0, _agent_eval_root)
+            from agent_eval.evaluators.agentcore_cost import (
+                RESOURCE_CONFIGS, DEFAULT_CONFIG_LABEL, ResourceConfig,
+            )
+            from agent_eval.tools.fetch_agentcore_usage import (
+                fetch_metrics_from_cloudwatch, parse_uploaded_usage_file,
+            )
+
+        config_options = list(RESOURCE_CONFIGS.keys()) + ["Custom"]
+        selected_config = st.selectbox(
+            "Resource Configuration",
+            config_options,
+            index=0,
+            help="Select the resource configuration matching your AgentCore agent deployment.",
+            key="ac_resource_config",
+        )
+        if selected_config == "Custom":
+            cc_v, cc_m = st.columns(2)
+            custom_vcpu = cc_v.number_input("vCPU", min_value=0.25, max_value=16.0, value=1.0, step=0.25, key="ac_custom_vcpu")
+            custom_mem = cc_m.number_input("Memory (GB)", min_value=0.25, max_value=32.0, value=0.5, step=0.25, key="ac_custom_mem")
+            st.session_state["ac_res_config"] = {"vcpu": custom_vcpu, "memory_gb": custom_mem, "label": f"Custom ({custom_vcpu} vCPU / {custom_mem} GB)"}
+        else:
+            cfg = RESOURCE_CONFIGS[selected_config]
+            st.session_state["ac_res_config"] = {"vcpu": cfg["vcpu"], "memory_gb": cfg["memory_gb"], "label": selected_config}
+
+        st.divider()
+        data_source = st.radio(
+            "Usage Data Source",
+            ["📊 Estimate from trace data", "🔗 Fetch from CloudWatch Metrics (exact)", "📎 Upload usage logs"],
+            index=0,
+            horizontal=True,
+            key="ac_data_source",
+        )
+
+        if data_source == "🔗 Fetch from CloudWatch Metrics (exact)":
+            st.info("Queries `AWS/Bedrock` CloudWatch metrics for exact token counts, invocations, and latency. Requires `cloudwatch:GetMetricData` and `cloudwatch:ListMetrics` permissions.")
+            fc1, fc2 = st.columns(2)
+            fetch_region = fc1.text_input("AWS Region", value="us-east-1", key="ac_fetch_region")
+            fetch_model = fc2.text_input("Model ID (optional)", placeholder="e.g. anthropic.claude-sonnet-4-20250514-v1:0", key="ac_fetch_model")
+            hours_back = st.slider("Time range (hours back)", min_value=1, max_value=24, value=1, key="ac_hours_back")
+            if st.button("🔗 Fetch Metrics", key="ac_fetch_btn"):
+                with st.spinner("Querying CloudWatch Metrics API..."):
+                    try:
+                        metrics = fetch_metrics_from_cloudwatch(
+                            region=fetch_region,
+                            model_id=fetch_model.strip() or None,
+                            hours_back=hours_back,
+                        )
+                        st.session_state["ac_cw_metrics"] = metrics
+                        st.success(f"✅ {metrics.input_tokens:,} input tokens, {metrics.output_tokens:,} output tokens, {metrics.invocations} invocations")
+                        if metrics.token_breakdown_by_model:
+                            st.caption(f"Models found: {', '.join(metrics.token_breakdown_by_model.keys())}")
+                    except Exception as e:
+                        st.error(f"Failed to fetch: {e}")
+
+        elif data_source == "📎 Upload usage logs":
+            st.caption("Upload vended APPLICATION_LOGS (JSONL) for session correlation. Compute cost will still be estimated from trace duration.")
+            uploaded = st.file_uploader("Upload usage logs", type=["json", "jsonl"], key="ac_usage_upload_setup")
+            if uploaded:
+                raw = uploaded.read().decode("utf-8")
+                st.text(f"📄 File: {uploaded.name} ({len(raw):,} bytes)")
+                if st.button("✅ Parse Upload", key="ac_parse_btn"):
+                    ac_usage_logs = parse_uploaded_usage_file(raw)
+                    st.success(f"✅ Parsed {len(ac_usage_logs)} records.")
+                    st.session_state["ac_usage_logs"] = ac_usage_logs
+
+        # Show current config summary
+        st.divider()
+        rc = st.session_state.get("ac_res_config", {})
+        has_metrics = "ac_cw_metrics" in st.session_state
+        has_logs = "ac_usage_logs" in st.session_state
+        st.markdown("**Current Configuration:**")
+        st.markdown(f"- Resource: **{rc.get('label', 'Small (1 vCPU / 512 MB)')}** ({rc.get('vcpu', 1)} vCPU, {rc.get('memory_gb', 0.5)} GB)")
+        st.markdown(f"- Data source: **{data_source}**")
+        if has_metrics:
+            m = st.session_state["ac_cw_metrics"]
+            st.markdown(f"- CloudWatch metrics: **{m.input_tokens:,} in / {m.output_tokens:,} out tokens, {m.invocations} invocations** ✅")
+        if has_logs:
+            st.markdown(f"- Usage logs: **{len(st.session_state['ac_usage_logs'])} records loaded** ✅")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # PAGE: RUN
@@ -1176,17 +1271,39 @@ elif active_page == "Results":
     with cost_tab:
         run_results = run.get("results") if run else None
         cost_data = run_results.get("cost_insights") if run_results else None
+        ac_data = run_results.get("agentcore_cost_insights") if run_results else None
+
+        # ── Combined Total ──
+        llm_total = cost_data.get("total_cost_usd", 0) if cost_data else 0
+        ac_total = ac_data.get("total_runtime_cost_usd", 0) if ac_data else 0
+        combined = llm_total + ac_total
+        if combined > 0:
+            st.markdown("### 🧾 Total Evaluated Run Cost")
+            tc1, tc2, tc3 = st.columns(3)
+            tc1.metric("Combined Cost", f"${combined:.4f}")
+            tc2.metric("LLM Inference", f"${llm_total:.4f}")
+            tc3.metric("AgentCore Runtime", f"${ac_total:.4f}")
+            st.caption("Aggregate cost across all agents in this run · LLM cost from trace token counts · AgentCore compute estimated from session duration · Memory service cost exact from operation counts")
+            st.divider()
+
+        # ── Section 1: LLM Cost ──
+        st.markdown("### 🤖 LLM Inference Cost")
         if not cost_data:
-            st.info("No cost data available. Cost insights require traces with token usage data (e.g., `prompt_tokens`, `completion_tokens` in step attributes).")
+            st.info("No LLM cost data available. Requires traces with token usage data (`prompt_tokens`, `completion_tokens` in step attributes).")
         else:
-            st.markdown("#### 💰 Cost Summary")
+            pricing_src = cost_data.get('pricing_source', 'unknown')
+            if pricing_src == "user_overrides":
+                st.caption("Token counts from trace data · Pricing: 🟢 user-provided overrides")
+            elif pricing_src == "litellm":
+                st.caption("Token counts from trace data · Pricing: 🟡 LiteLLM cost map (verify rates for your model)")
+            else:
+                st.caption(f"Token counts from trace data · Pricing: ⚪ {pricing_src}")
+
             cc1, cc2, cc3, cc4 = st.columns(4)
             cc1.metric("Total Cost", f"${cost_data.get('total_cost_usd', 0):.4f}")
             cc2.metric("Input Tokens", f"{cost_data.get('total_input_tokens', 0):,}")
             cc3.metric("Output Tokens", f"{cost_data.get('total_output_tokens', 0):,}")
             cc4.metric("Total Tokens", f"{cost_data.get('total_tokens', 0):,}")
-
-            st.caption(f"Pricing source: {cost_data.get('pricing_source', 'unknown')}")
 
             # Cost by model
             cost_by_model = cost_data.get("cost_by_model", {})
@@ -1203,6 +1320,21 @@ elif active_page == "Results":
                         "Cost (USD)": f"${cost:.6f}",
                     })
                 st.dataframe(model_rows, use_container_width=True, hide_index=True)
+
+            # Cost by agent
+            cost_by_agent = cost_data.get("cost_by_agent", {})
+            if cost_by_agent:
+                st.markdown("#### 🤖 Cost by Agent")
+                agent_rows = []
+                for agent_id, info in sorted(cost_by_agent.items(), key=lambda x: -x[1].get("total_cost_usd", 0)):
+                    agent_rows.append({
+                        "Agent": agent_id,
+                        "Input Tokens": info.get("input_tokens", 0),
+                        "Output Tokens": info.get("output_tokens", 0),
+                        "Model Calls": info.get("model_calls", 0),
+                        "Cost (USD)": f"${info.get('total_cost_usd', 0):.6f}",
+                    })
+                st.dataframe(agent_rows, use_container_width=True, hide_index=True)
 
             # Cost per turn
             cost_per_turn = cost_data.get("cost_per_turn", [])
@@ -1227,6 +1359,94 @@ elif active_page == "Results":
                 ])
                 if not chart_df.empty and chart_df["Cost (USD)"].sum() > 0:
                     st.bar_chart(chart_df.set_index("Turn"))
+
+        st.divider()
+
+        # ── Section 2: AgentCore Runtime Cost ──
+        st.markdown("### ☁️ Amazon Bedrock AgentCore Runtime Cost")
+
+        # Read config from session_state (set in Setup → AgentCore Config tab)
+        try:
+            from agent_eval.evaluators.agentcore_cost import (
+                ResourceConfig, compute_agentcore_cost_summary,
+            )
+        except ModuleNotFoundError:
+            _agent_eval_root = str(Path(__file__).resolve().parent.parent)
+            if _agent_eval_root not in sys.path:
+                sys.path.insert(0, _agent_eval_root)
+            from agent_eval.evaluators.agentcore_cost import (
+                ResourceConfig, compute_agentcore_cost_summary,
+            )
+
+        rc_cfg = st.session_state.get("ac_res_config", {"vcpu": 1.0, "memory_gb": 0.5, "label": "Small (1 vCPU / 512 MB)"})
+        res_config = ResourceConfig(vcpu=rc_cfg["vcpu"], memory_gb=rc_cfg["memory_gb"], label=rc_cfg["label"])
+        ac_usage_logs = st.session_state.get("ac_usage_logs")
+        ac_cw_metrics = st.session_state.get("ac_cw_metrics")
+
+        # Compute AgentCore cost
+        if ac_usage_logs:
+            norm_run = run.get("normalized", {}) if run else {}
+            ac_summary = compute_agentcore_cost_summary(norm_run, resource_config=res_config, usage_logs=ac_usage_logs)
+            ac_display = ac_summary.to_dict()
+        elif ac_data:
+            ac_display = ac_data
+        else:
+            norm_run = run.get("normalized", {}) if run else {}
+            if norm_run:
+                ac_summary = compute_agentcore_cost_summary(norm_run, resource_config=res_config)
+                ac_display = ac_summary.to_dict()
+            else:
+                ac_display = None
+
+        # Show CloudWatch metrics if fetched (exact LLM token data)
+        if ac_cw_metrics and ac_cw_metrics.input_tokens > 0:
+            st.markdown("#### 📡 LLM Token Usage — 🟢 Exact")
+            st.caption("Source: `AWS/Bedrock` CloudWatch metrics")
+            mc1, mc2, mc3, mc4 = st.columns(4)
+            mc1.metric("Input Tokens", f"{ac_cw_metrics.input_tokens:,}")
+            mc2.metric("Output Tokens", f"{ac_cw_metrics.output_tokens:,}")
+            mc3.metric("Invocations", f"{ac_cw_metrics.invocations:,}")
+            mc4.metric("Avg Latency", f"{ac_cw_metrics.avg_latency_ms:,.0f} ms")
+            if ac_cw_metrics.token_breakdown_by_model:
+                st.markdown("**Per-model breakdown:**")
+                model_rows = []
+                for mid, toks in sorted(ac_cw_metrics.token_breakdown_by_model.items(), key=lambda x: -(x[1].get("input", 0) + x[1].get("output", 0))):
+                    model_rows.append({"Model": mid, "Input Tokens": toks.get("input", 0), "Output Tokens": toks.get("output", 0)})
+                st.dataframe(model_rows, use_container_width=True, hide_index=True)
+            st.divider()
+
+        if not ac_display:
+            st.info("No AgentCore cost data available. Configure data source in **Setup → ☁️ AgentCore Config**, then load a run with trace data.")
+        else:
+            # Per-component accuracy indicators
+            st.markdown("#### ⚙️ AgentCore Compute — 🟡 Estimated")
+            st.caption("Source: trace duration × resource configuration. Per-invocation vCPU/memory metering is not yet available from CloudWatch.")
+
+            ac1, ac2, ac3 = st.columns(3)
+            ac1.metric("Compute Cost", f"${ac_display.get('compute_cost_usd', 0):.4f}")
+            ac2.metric("Memory Cost", f"${ac_display.get('memory_cost_usd', 0):.6f}")
+            ac3.metric("Total Runtime Cost", f"${ac_display.get('total_runtime_cost_usd', 0):.4f}")
+
+            det1, det2 = st.columns(2)
+            det1.metric("Session Duration", f"{ac_display.get('session_duration_seconds', 0):.2f}s")
+            det2.metric("vCPU-Hours Used", f"{ac_display.get('vcpu_hours_used', 0):.6f}")
+
+            rc = ac_display.get("resource_config")
+            if rc:
+                st.caption(f"Resource config: {rc.get('label', 'N/A')} ({rc.get('vcpu', '?')} vCPU, {rc.get('memory_gb', '?')} GB)")
+
+            # Memory service breakdown
+            mem_svc = ac_display.get("memory_service")
+            if mem_svc and (mem_svc.get("event_count", 0) > 0 or mem_svc.get("retrieval_count", 0) > 0):
+                st.divider()
+                st.markdown("#### 🧠 AgentCore Memory Service — 🟢 Exact")
+                st.caption("Source: operation counts from trace spans × published rates ($0.25/1K events, $0.50/1K retrievals)")
+                mc1, mc2, mc3 = st.columns(3)
+                mc1.metric("Memory Events", f"{mem_svc.get('event_count', 0):,}")
+                mc2.metric("Memory Retrievals", f"{mem_svc.get('retrieval_count', 0):,}")
+                mc3.metric("Memory Svc Cost", f"${mem_svc.get('total_cost_usd', 0):.6f}")
+            elif mem_svc:
+                st.caption("No AgentCore Memory operations detected in trace.")
 
     # ── Latency Insights ──
     with latency_tab:
