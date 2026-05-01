@@ -2824,6 +2824,20 @@ class _TraceNormalizer:
             # Fallback to string representation
             return str(value)
     
+    _AGENT_ID_KEYS = [
+        "agent_id", "agentId", "agent_name", "agentName",
+        "aws.local.service", "service.name",
+    ]
+
+    def _extract_agent_id(self, event: Dict[str, Any]) -> Optional[str]:
+        """Extract agent identifier from event attributes or raw data."""
+        for source in (event.get("attributes") or {}, event.get("raw") or {}, event):
+            for key in self._AGENT_ID_KEYS:
+                val = source.get(key)
+                if val and isinstance(val, str):
+                    return val
+        return None
+
     def _event_to_step(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """
         Convert normalized event to step format.
@@ -2903,6 +2917,7 @@ class _TraceNormalizer:
             "tool_run_id": event.get("tool_run_id"),
             "event_order": event.get("event_order"),
             "source_index": event.get("source_index"),
+            "agent_id": self._extract_agent_id(event),
             "attributes": attributes,
             "raw": raw
         }

@@ -298,6 +298,10 @@
                   "type": ["string", "null"],
                   "description": "Tool name for TOOL_CALL and TOOL_RESULT steps"
                 },
+                "agent_id": {
+                  "type": ["string", "null"],
+                  "description": "Identifier of the agent that executed this step, for per-agent cost attribution in multi-agent systems"
+                },
                 "event_order": {
                   "type": ["integer", "null"],
                   "minimum": 0,

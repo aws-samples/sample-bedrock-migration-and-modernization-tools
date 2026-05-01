@@ -42,6 +42,7 @@ class StepUsage:
     turn_id: str
     step_name: str
     model_id: Optional[str] = None
+    agent_id: Optional[str] = None
     input_tokens: int = 0
     output_tokens: int = 0
     total_tokens: int = 0
@@ -72,6 +73,7 @@ class CostSummary:
     cost_per_turn: List[TurnCost] = field(default_factory=list)
     cost_by_model: Dict[str, float] = field(default_factory=dict)
     tokens_by_model: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    cost_by_agent: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     step_details: List[StepUsage] = field(default_factory=list)
     pricing_source: str = "none"
 
@@ -97,6 +99,15 @@ class CostSummary:
                 k: round(v, 6) for k, v in self.cost_by_model.items()
             },
             "tokens_by_model": self.tokens_by_model,
+            "cost_by_agent": {
+                agent_id: {
+                    "total_cost_usd": round(info.get("total_cost", 0), 6),
+                    "input_tokens": info.get("input_tokens", 0),
+                    "output_tokens": info.get("output_tokens", 0),
+                    "model_calls": info.get("model_calls", 0),
+                }
+                for agent_id, info in self.cost_by_agent.items()
+            },
             "pricing_source": self.pricing_source,
         }
 
@@ -175,10 +186,16 @@ def extract_usage_from_steps(
             input_tok = int(input_tok or 0)
             output_tok = int(output_tok or 0)
 
+            agent_id = step.get("agent_id") or _extract_field(merged, [
+                "agent_id", "agentId", "agent_name", "agentName",
+                "aws.local.service", "service.name",
+            ])
+
             usages.append(StepUsage(
                 turn_id=turn_id,
                 step_name=step.get("name", "unknown"),
                 model_id=model_id,
+                agent_id=agent_id if isinstance(agent_id, str) else None,
                 input_tokens=input_tok,
                 output_tokens=output_tok,
                 total_tokens=input_tok + output_tok,
@@ -240,6 +257,16 @@ def compute_cost_summary(
         tb["input"] += su.input_tokens
         tb["output"] += su.output_tokens
 
+    # Aggregate per agent
+    cost_by_agent: Dict[str, Dict[str, Any]] = {}
+    for su in step_usages:
+        if su.agent_id:
+            ag = cost_by_agent.setdefault(su.agent_id, {"total_cost": 0.0, "input_tokens": 0, "output_tokens": 0, "model_calls": 0})
+            ag["total_cost"] += su.total_cost
+            ag["input_tokens"] += su.input_tokens
+            ag["output_tokens"] += su.output_tokens
+            ag["model_calls"] += 1
+
     # Totals
     total_in = sum(su.input_tokens for su in step_usages)
     total_out = sum(su.output_tokens for su in step_usages)
@@ -253,6 +280,7 @@ def compute_cost_summary(
         cost_per_turn=list(turn_map.values()),
         cost_by_model=cost_by_model,
         tokens_by_model=tokens_by_model,
+        cost_by_agent=cost_by_agent,
         step_details=step_usages,
         pricing_source=pricing_source,
     )

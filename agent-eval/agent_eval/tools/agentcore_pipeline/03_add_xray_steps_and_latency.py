@@ -613,6 +613,7 @@ def span_to_step(span: Dict[str, Any]) -> Dict[str, Any]:
         "tool_input": tool_inp,
         "tool_call_id": _first_str(span, ["tool_call_id", "toolCallId", "call_id", "callId"]),
         "tool_use_id": _first_str(span, ["tool_use_id", "toolUseId", "use_id", "useId"]),
+        "agent_id": _first_str(span, ["agent_id", "agentId", "agent_name", "agentName"]) or (span.get("annotations") or {}).get("aws.local.service"),
         "text": text,
     }
 
