@@ -60,7 +60,11 @@ The native Amazon Bedrock judge client (`provider: bedrock`) is also available f
 
 ### Cost insights
 
-Automatically extracts token usage from trace data and calculates per-turn, per-model, and total costs. Pricing is resolved via LiteLLM's built-in cost data or user-provided overrides. Cost breakdown is included in `results.json` when token data is present in traces.
+Automatically extracts token usage from trace data and calculates per-turn, per-model, per-agent, and total LLM inference costs. Pricing is resolved via LiteLLM's built-in cost data or user-provided overrides. For multi-agent systems, costs are attributed to individual agents via the `agent_id` field. Cost breakdown is included in `results.json` when token data is present in traces.
+
+### Amazon Bedrock AgentCore cost insights
+
+Calculates AgentCore runtime costs (compute vCPU, memory GB, and AgentCore Memory service) from trace-derived estimates or exact CloudWatch metrics. Supports three data paths: estimate from trace timestamps, fetch exact token counts from CloudWatch Metrics API, or upload application logs. Each cost component shows transparent accuracy labels (🟢 Exact / 🟡 Estimated). See `guides/AGENTCORE_COST.md` for details and `guides/OBSERVABILITY_SETUP.md` for what to enable at each level.
 
 ### Latency insights
 

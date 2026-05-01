@@ -34,6 +34,12 @@ Configure your evaluation before running.
 - Upload trace JSON files or point to a directory
 - Supports: Generic JSON, AgentCore export, CloudWatch export
 
+**☁️ AgentCore Config**
+- Resource configuration: Small / Medium / Large / X-Large / Custom (vCPU + memory)
+- Data source selection: Estimate from trace, Fetch from CloudWatch Metrics (exact), Upload usage logs
+- CloudWatch Metrics fetch: region, optional model ID filter, time range slider
+- See `guides/OBSERVABILITY_SETUP.md` for what to enable at each level
+
 ### ▶️ Run
 
 - Configuration summary with validation warnings
@@ -42,7 +48,7 @@ Configure your evaluation before running.
 
 ### 📤 Results
 
-View evaluation results with traffic light summary and four sub-tabs:
+View evaluation results with traffic light summary and six sub-tabs:
 
 **📊 Metrics** — Deterministic metrics (turns, steps, tool calls, latency, success rate), rubric radar chart, judge execution summary
 
@@ -52,7 +58,14 @@ View evaluation results with traffic light summary and four sub-tabs:
 
 **⚖️ Judge Detail** — Raw judge run records, filter by rubric and judge, full reasoning text
 
-**💰 Cost** — Token usage and cost breakdown from trace data. Shows total cost, input/output tokens, cost-by-model table, cost-per-turn table with bar chart. Pricing resolved via LiteLLM or user overrides. Requires traces with token data (`prompt_tokens`, `completion_tokens` in step attributes).
+**💰 Cost** — Layered cost analysis with transparent accuracy labels:
+- **🧾 Total Evaluated Run Cost** — Combined LLM + AgentCore runtime cost across all agents
+- **🤖 LLM Inference Cost** — Token usage and cost breakdown by model and turn. Pricing resolved via LiteLLM or user overrides.
+- **🤖 Cost by Agent** — Per-agent LLM cost attribution for multi-agent systems (requires X-Ray traces with agent identity)
+- **📡 CloudWatch Metrics (Exact)** — Exact token counts fetched from `AWS/Bedrock` CloudWatch metrics (requires Setup → ☁️ AgentCore Config)
+- **⚙️ AgentCore Compute (Estimated)** — vCPU and memory runtime cost estimated from session duration × resource configuration
+- **🧠 AgentCore Memory Service (Exact)** — Memory event and retrieval costs from trace operation counts
+- See `guides/AGENTCORE_COST.md` for details and `guides/OBSERVABILITY_SETUP.md` for what to enable.
 
 **⏱️ Latency** — Performance analysis with time-to-first-token (TTFT), latency breakdown by category (🧠 LLM vs 🔧 Tool vs ⚙️ Overhead), per-turn latency table with stacked bar chart, tokens/sec throughput, and top 5 slowest steps for optimization targeting.
 
