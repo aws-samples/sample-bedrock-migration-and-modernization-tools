@@ -167,7 +167,8 @@ class OutputWriter:
         artifact_paths: Dict[str, str],
         execution_stats: Dict[str, Any],
         cost_insights: Optional[Dict[str, Any]] = None,
-        latency_insights: Optional[Dict[str, Any]] = None
+        latency_insights: Optional[Dict[str, Any]] = None,
+        agentcore_cost_insights: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Write results.json with stable canonical structure.
@@ -225,6 +226,8 @@ class OutputWriter:
             output_data["cost_insights"] = cost_insights
         if latency_insights:
             output_data["latency_insights"] = latency_insights
+        if agentcore_cost_insights:
+            output_data["agentcore_cost_insights"] = agentcore_cost_insights
         
         # Write to file
         with open(output_path, 'w', encoding='utf-8') as f:

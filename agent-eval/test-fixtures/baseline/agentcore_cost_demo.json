@@ -1,0 +1,119 @@
+{
+  "run_id": "agentcore-cost-demo",
+  "agent_id": "customer-support-agent",
+  "session_id": "session-demo-001",
+  "turns": [
+    {
+      "turn_id": "turn-1",
+      "user_query": "What is the status of my order #12345?",
+      "steps": [
+        {
+          "name": "RetrieveMemoryRecords",
+          "kind": "TOOL_CALL",
+          "start_time_ms": 1714488000000,
+          "end_time_ms": 1714488000350,
+          "attributes": {
+            "aws.operation.name": "RetrieveMemoryRecords",
+            "memory.id": "mem-abc-123"
+          }
+        },
+        {
+          "name": "model_invoke",
+          "kind": "MODEL_INVOKE",
+          "start_time_ms": 1714488000400,
+          "end_time_ms": 1714488002800,
+          "attributes": {
+            "model_id": "anthropic.claude-sonnet-4-20250514",
+            "prompt_tokens": 850,
+            "completion_tokens": 220
+          }
+        },
+        {
+          "name": "order_lookup",
+          "kind": "TOOL_CALL",
+          "start_time_ms": 1714488002900,
+          "end_time_ms": 1714488003600,
+          "attributes": {}
+        },
+        {
+          "name": "model_invoke",
+          "kind": "MODEL_INVOKE",
+          "start_time_ms": 1714488003700,
+          "end_time_ms": 1714488005200,
+          "attributes": {
+            "model_id": "anthropic.claude-sonnet-4-20250514",
+            "prompt_tokens": 1200,
+            "completion_tokens": 350
+          }
+        },
+        {
+          "name": "CreateEvent",
+          "kind": "TOOL_CALL",
+          "start_time_ms": 1714488005300,
+          "end_time_ms": 1714488005500,
+          "attributes": {
+            "aws.operation.name": "CreateEvent",
+            "memory.id": "mem-abc-123",
+            "session.id": "session-demo-001"
+          }
+        }
+      ]
+    },
+    {
+      "turn_id": "turn-2",
+      "user_query": "Can you also check if there are any promotions for me?",
+      "steps": [
+        {
+          "name": "RetrieveMemoryRecords",
+          "kind": "TOOL_CALL",
+          "start_time_ms": 1714488006000,
+          "end_time_ms": 1714488006300,
+          "attributes": {
+            "aws.operation.name": "RetrieveMemoryRecords",
+            "memory.id": "mem-abc-123"
+          }
+        },
+        {
+          "name": "model_invoke",
+          "kind": "MODEL_INVOKE",
+          "start_time_ms": 1714488006400,
+          "end_time_ms": 1714488008900,
+          "attributes": {
+            "model_id": "anthropic.claude-sonnet-4-20250514",
+            "prompt_tokens": 1500,
+            "completion_tokens": 400
+          }
+        },
+        {
+          "name": "promotions_api",
+          "kind": "TOOL_CALL",
+          "start_time_ms": 1714488009000,
+          "end_time_ms": 1714488009800,
+          "attributes": {}
+        },
+        {
+          "name": "model_invoke",
+          "kind": "MODEL_INVOKE",
+          "start_time_ms": 1714488009900,
+          "end_time_ms": 1714488011500,
+          "attributes": {
+            "model_id": "anthropic.claude-sonnet-4-20250514",
+            "prompt_tokens": 1800,
+            "completion_tokens": 500
+          }
+        },
+        {
+          "name": "CreateEvent",
+          "kind": "TOOL_CALL",
+          "start_time_ms": 1714488011600,
+          "end_time_ms": 1714488011800,
+          "attributes": {
+            "aws.operation.name": "CreateEvent",
+            "memory.id": "mem-abc-123",
+            "session.id": "session-demo-001"
+          }
+        }
+      ]
+    }
+  ]
+}

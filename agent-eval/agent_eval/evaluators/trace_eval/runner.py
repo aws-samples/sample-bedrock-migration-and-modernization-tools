@@ -836,6 +836,10 @@ class TraceEvaluator:
             from agent_eval.evaluators.latency_insights import compute_latency_summary
             latency_summary = compute_latency_summary(normalized_run)
             
+            # Compute AgentCore runtime cost (estimated from trace timestamps)
+            from agent_eval.evaluators.agentcore_cost import compute_agentcore_cost_summary
+            agentcore_summary = compute_agentcore_cost_summary(normalized_run)
+            
             # Write results.json with correct signature
             results_path = output_writer.write_results_json(
                 run_id=run_id,
@@ -848,7 +852,8 @@ class TraceEvaluator:
                 artifact_paths=artifact_paths,  # Now provided
                 execution_stats=execution_stats,
                 cost_insights=cost_summary.to_dict() if cost_summary.total_tokens > 0 else None,
-                latency_insights=latency_summary.to_dict() if latency_summary.total_ms > 0 else None
+                latency_insights=latency_summary.to_dict() if latency_summary.total_ms > 0 else None,
+                agentcore_cost_insights=agentcore_summary.to_dict() if agentcore_summary.total_runtime_cost > 0 else None
             )
             self._log(f"✓ Wrote {results_path}")
             
