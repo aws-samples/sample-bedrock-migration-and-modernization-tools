@@ -7,5 +7,5 @@ litellm==1.80.12
 psutil==7.0.0
 streamlit==1.50.0
 scipy==1.16.2
-requests==2.32.4
+requests==2.33.0
 tenacity==9.1.2
