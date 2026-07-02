@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <title>LLM Benchmark Report</title>
+  <style>
+    /* ============================================
+       CSS VARIABLES - AWS Color System
+       ============================================ */
+    :root {
+      /* AWS Squid Ink (dark backgrounds) */
+      --squid-ink-darkest: #0d1117;
+      --squid-ink-dark: #161e2d;
+      --squid-ink: #232f3e;
+      --squid-ink-light: #2a3f5f;
+
+      /* AWS Orange (primary accent) */
+      --aws-orange: #ff9900;
+      --aws-orange-light: #ffb84d;
+      --aws-orange-dark: #ec7211;
+
+      /* AWS Blues & Teals */
+      --aws-blue: #0073bb;
+      --aws-blue-light: #00a1c9;
+      --aws-teal: #1a8a8a;
+      --aws-teal-light: #2ec4b6;
+
+      /* Text colors */
+      --text-primary: #f2f3f3;
+      --text-secondary: #aab7b8;
+      --text-muted: #687078;
+
+      /* Borders & shadows */
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-light: rgba(255, 255, 255, 0.15);
+      --glow-orange: rgba(255, 153, 0, 0.3);
+      --glow-blue: rgba(0, 115, 187, 0.3);
+    }
+
+    /* ============================================
+       BASE STYLES
+       ============================================ */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Source Sans Pro', 'Amazon Ember', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      margin: 0;
+      padding: 0;
+      color: var(--text-primary);
+      line-height: 1.7;
+      background:
+        radial-gradient(ellipse at top left, rgba(255, 153, 0, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at bottom right, rgba(0, 115, 187, 0.04) 0%, transparent 50%),
+        linear-gradient(180deg, var(--squid-ink-darkest) 0%, var(--squid-ink-dark) 50%, var(--squid-ink-darkest) 100%);
+      background-attachment: fixed;
+      min-height: 100vh;
+    }
+
+    /* ============================================
+       READING PROGRESS BAR
+       ============================================ */
+    .progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 0%;
+      height: 3px;
+      background: linear-gradient(90deg, var(--aws-orange), var(--aws-orange-light), var(--aws-blue-light));
+      z-index: 1000;
+      transition: width 0.1s ease-out;
+    }
+
+    /* ============================================
+       MASTHEAD - Newspaper Header
+       ============================================ */
+    .masthead {
+      text-align: center;
+      padding: 3rem 2rem 2rem;
+      border-bottom: 1px solid var(--border-subtle);
+      background: linear-gradient(180deg, rgba(35, 47, 62, 0.9) 0%, transparent 100%);
+    }
+
+    .masthead-rule {
+      width: 60%;
+      max-width: 400px;
+      height: 2px;
+      margin: 0 auto 1rem;
+      background: linear-gradient(90deg, transparent, var(--aws-orange), transparent);
+    }
+
+    .masthead h1 {
+      font-family: 'Source Sans Pro', 'Amazon Ember', sans-serif;
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin: 0;
+      color: var(--aws-orange);
+    }
+
+    .masthead-subtitle {
+      font-size: 0.85rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-top: 0.5rem;
+    }
+
+    .masthead-meta {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-top: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .meta-item {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .meta-item strong {
+      color: var(--text-secondary);
+    }
+
+    /* ============================================
+       CONTAINER
+       ============================================ */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* ============================================
+       SECTIONS & CARDS
+       ============================================ */
+    .section {
+      margin-bottom: 3rem;
+      padding: 1.5rem;
+      border-radius: 8px;
+      background: linear-gradient(145deg,
+        rgba(35, 47, 62, 0.8) 0%,
+        rgba(22, 30, 45, 0.9) 50%,
+        rgba(35, 47, 62, 0.8) 100%);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border-subtle);
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    h1 {
+      color: var(--aws-orange);
+      border-bottom: 2px solid var(--aws-orange);
+      padding-bottom: 0.5rem;
+    }
+
+    h2 {
+      font-family: 'Source Sans Pro', 'Amazon Ember', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-top: 0;
+    }
+
+    h3 {
+      font-family: 'Source Sans Pro', 'Amazon Ember', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0 0 1rem 0;
+    }
+
+    h4 {
+      font-family: 'Source Sans Pro', 'Amazon Ember', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin: 0 0 0.75rem 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .recommendations {
+      background: linear-gradient(145deg, var(--squid-ink-light), var(--squid-ink));
+      padding: 1rem;
+      border-left: 4px solid var(--aws-orange);
+      margin: 1rem 0;
+      border-radius: 0 8px 8px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 1rem 0;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    th {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--aws-orange-light);
+      background: linear-gradient(180deg, var(--squid-ink-light), var(--squid-ink));
+    }
+
+    th:first-child { border-radius: 6px 0 0 0; }
+    th:last-child { border-radius: 0 6px 0 0; }
+
+    tr:hover td {
+      background: rgba(255, 153, 0, 0.03);
+    }
+
+    td {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .card {
+      background: linear-gradient(145deg,
+        rgba(35, 47, 62, 0.8) 0%,
+        rgba(22, 30, 45, 0.9) 100%);
+      backdrop-filter: blur(10px);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1rem 0;
+      border: 1px solid var(--border-subtle);
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      border-color: var(--border-light);
+    }
+
+    /* ============================================
+       NAVIGATION
+       ============================================ */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 0.75rem 2rem;
+      background: linear-gradient(180deg, rgba(13, 17, 23, 0.97) 0%, rgba(22, 30, 45, 0.97) 100%);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .nav ul {
+      display: flex;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .nav li a {
+      display: block;
+      text-decoration: none;
+      color: var(--text-secondary);
+      padding: 0.6rem 1.2rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      background: transparent;
+      border: 1px solid transparent;
+    }
+
+    .nav li a:hover {
+      color: var(--aws-orange-light);
+      background: linear-gradient(145deg, var(--squid-ink-light), var(--squid-ink));
+      border-color: var(--border-light);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .highlight {
+      padding: 1.25rem;
+      border-radius: 6px;
+      margin: 1rem 0;
+      background: linear-gradient(145deg, rgba(35, 47, 62, 0.7), rgba(22, 30, 45, 0.9));
+      border-left: 3px solid var(--aws-orange);
+    }
+
+    .highlight h4 {
+      margin-top: 0;
+      color: var(--aws-orange-light);
+    }
+
+    .highlight p, .highlight li {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .metric-highlight {
+      font-weight: bold;
+      color: var(--aws-orange);
+    }
+
+    .radar-charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .radar-chart-container {
+      background: linear-gradient(145deg, var(--squid-ink-light), var(--squid-ink));
+      border-radius: 8px;
+      padding: 1rem;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .model-selector {
+      margin: 1rem 0;
+    }
+
+    .model-selector select {
+      appearance: none;
+      padding: 0.6rem 2.5rem 0.6rem 1rem;
+      font-size: 0.9rem;
+      font-family: 'Source Sans Pro', 'Amazon Ember', sans-serif;
+      color: var(--text-primary);
+      background:
+        linear-gradient(145deg, var(--squid-ink-light), var(--squid-ink)),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ff9900' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 1rem center;
+      border: 1px solid var(--border-light);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 200px;
+    }
+
+    .model-selector select:hover {
+      border-color: var(--aws-orange);
+    }
+
+    .model-selector select:focus {
+      outline: none;
+      border-color: var(--aws-orange);
+      box-shadow: 0 0 0 3px var(--glow-orange);
+    }
+
+    .radar-charts-container {
+      position: relative;
+      min-height: 600px;
+    }
+
+    .model-chart {
+      width: 100%;
+      text-align: center;
+    }
+
+    .task-table {
+      width: 100%;
+    }
+
+    .task-tables-container {
+      position: relative;
+      min-height: 100px;
+    }
+
+    .radar-chart-single {
+      display: flex;
+      justify-content: center;
+      padding: 1.5rem;
+      background: rgba(13, 17, 23, 0.6);
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+
+    .chart-description {
+      max-width: 700px;
+      margin: 0 auto;
+      color: var(--text-secondary);
+    }
+
+    .model-charts h4 {
+      margin-top: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .radar-chart-container h5 {
+      margin-top: 0;
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    /* ============================================
+       EXECUTIVE SUMMARY - Hero Card
+       ============================================ */
+    .executive-summary {
+      background: linear-gradient(145deg,
+        rgba(35, 47, 62, 0.95) 0%,
+        rgba(22, 30, 45, 0.98) 100%);
+      padding: 2rem;
+    }
+
+    .executive-summary h2 {
+      font-family: 'Source Sans Pro', 'Amazon Ember', sans-serif;
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .executive-summary h2::before {
+      content: '';
+      display: block;
+      width: 4px;
+      height: 1.5rem;
+      background: linear-gradient(180deg, var(--aws-orange), var(--aws-orange-dark));
+      border-radius: 2px;
+    }
+
+    .summary-text {
+      font-size: 1.1rem;
+      line-height: 1.8;
+      color: var(--text-secondary);
+    }
+
+    .summary-text::first-letter {
+      font-family: 'Source Sans Pro', 'Amazon Ember', sans-serif;
+      font-size: 3.5rem;
+      font-weight: 700;
+      float: left;
+      line-height: 1;
+      margin-right: 0.5rem;
+      margin-top: 0.1rem;
+      background: linear-gradient(180deg, var(--aws-orange), var(--aws-orange-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ============================================
+       HERO GRID & TOP PERFORMERS
+       ============================================ */
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 2rem;
+      margin-bottom: 3rem;
+    }
+
+    @media (max-width: 900px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .top-performers {
+      background: linear-gradient(145deg,
+        rgba(35, 47, 62, 0.9) 0%,
+        rgba(22, 30, 45, 0.95) 100%);
+    }
+
+    .performer-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      border-radius: 8px;
+      background: linear-gradient(145deg, var(--squid-ink-light), var(--squid-ink));
+      border: 1px solid var(--border-subtle);
+      transition: all 0.25s ease;
+    }
+
+    .performer-item:hover {
+      border-color: var(--aws-orange);
+      transform: translateX(4px);
+    }
+
+    .performer-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .performer-medal {
+      font-size: 1.8rem;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    .medal-gold {
+      background: linear-gradient(145deg, var(--aws-orange), var(--aws-orange-dark));
+      box-shadow: 0 4px 12px var(--glow-orange);
+    }
+
+    .medal-silver {
+      background: linear-gradient(145deg, var(--aws-blue-light), var(--aws-blue));
+      box-shadow: 0 4px 12px var(--glow-blue);
+    }
+
+    .medal-bronze {
+      background: linear-gradient(145deg, var(--aws-teal-light), var(--aws-teal));
+      box-shadow: 0 4px 12px rgba(26, 138, 138, 0.3);
+    }
+
+    .performer-info {
+      flex: 1;
+    }
+
+    .performer-category {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .performer-model {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 0.95rem;
+    }
+
+    .performer-value {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    /* ============================================
+       SECTION HEADER & BADGE
+       ============================================ */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .section-header h2 {
+      margin: 0;
+    }
+
+    .section-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      background: linear-gradient(135deg, var(--squid-ink-light), var(--squid-ink));
+      border: 1px solid var(--aws-orange);
+      color: var(--aws-orange);
+    }
+
+    /* ============================================
+       LEADERBOARD CARDS
+       ============================================ */
+    .leaderboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .leaderboard-task {
+      background: linear-gradient(145deg, var(--squid-ink-light), var(--squid-ink));
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      transition: all 0.3s ease;
+    }
+
+    .leaderboard-task:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-light);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .leaderboard-header {
+      padding: 1rem 1.25rem;
+      background: linear-gradient(90deg, var(--squid-ink), var(--squid-ink-light));
+      border-bottom: 2px solid var(--aws-orange);
+    }
+
+    .leaderboard-header h4 {
+      margin: 0;
+      font-size: 1rem;
+      color: var(--text-primary);
+      text-transform: none;
+    }
+
+    .leaderboard-body {
+      padding: 1rem;
+    }
+
+    .leaderboard-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.25);
+    }
+
+    .leaderboard-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .leaderboard-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .icon-accuracy {
+      background: linear-gradient(135deg, var(--aws-teal), var(--aws-teal-light));
+    }
+
+    .icon-speed {
+      background: linear-gradient(135deg, var(--aws-blue), var(--aws-blue-light));
+    }
+
+    .icon-value {
+      background: linear-gradient(135deg, var(--aws-orange-dark), var(--aws-orange));
+    }
+
+    .leaderboard-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .leaderboard-model {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .leaderboard-metric {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    /* ============================================
+       TASK ACCORDION STYLES
+       ============================================ */
+    .task-accordion {
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      background: linear-gradient(145deg,
+        rgba(35, 47, 62, 0.8) 0%,
+        rgba(22, 30, 45, 0.9) 100%);
+    }
+
+    .task-accordion-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 1.5rem;
+      cursor: pointer;
+      background: linear-gradient(90deg, var(--squid-ink), var(--squid-ink-light));
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s ease;
+    }
+
+    .task-accordion-header:hover {
+      background: linear-gradient(90deg, var(--squid-ink-light), var(--squid-ink));
+      border-bottom-color: var(--aws-orange);
+    }
+
+    .task-accordion.active .task-accordion-header {
+      border-bottom-color: var(--aws-orange);
+    }
+
+    .task-accordion-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .task-accordion-title h3 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: var(--text-primary);
+    }
+
+    .task-accordion-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      background: rgba(255, 153, 0, 0.15);
+      color: var(--aws-orange);
+      border: 1px solid var(--aws-orange);
+    }
+
+    .task-accordion-icon {
+      font-size: 1.2rem;
+      color: var(--aws-orange);
+      transition: transform 0.3s ease;
+    }
+
+    .task-accordion.active .task-accordion-icon {
+      transform: rotate(180deg);
+    }
+
+    .task-accordion-content {
+      display: none;
+      padding: 1.5rem;
+      background: rgba(13, 17, 23, 0.4);
+    }
+
+    .task-accordion.active .task-accordion-content {
+      display: block;
+    }
+
+    .task-accordion-section {
+      margin-bottom: 2rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .task-accordion-section:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .task-accordion-section-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--aws-orange-light);
+    }
+
+    .task-accordion-section-title::before {
+      content: '';
+      width: 4px;
+      height: 1rem;
+      background: linear-gradient(180deg, var(--aws-orange), var(--aws-orange-dark));
+      border-radius: 2px;
+    }
+
+    .accordion-controls {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .accordion-controls button {
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      background: linear-gradient(145deg, var(--squid-ink-light), var(--squid-ink));
+      border: 1px solid var(--border-light);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      transition: all 0.2s ease;
+    }
+
+    .accordion-controls button:hover {
+      background: linear-gradient(145deg, var(--squid-ink), var(--squid-ink-light));
+      border-color: var(--aws-orange);
+      color: var(--aws-orange);
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 6px;
+      margin: 1rem 0;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+    }
+
+    /* Legend colors matching table cell colors - AWS-inspired (vivid) */
+    .legend-good { background: rgba(46, 196, 182, 1); }       /* AWS Teal */
+    .legend-medium { background: rgba(255, 153, 0, 0.95); }   /* AWS Orange */
+    .legend-poor { background: rgba(214, 95, 118, 1); }       /* Muted rose */
+
+    /* Updated color key for dark mode */
+    .good-key {
+      background: linear-gradient(135deg, #2e7d32, #4caf50);
+      padding: 0 5px;
+      color: white;
+      border-radius: 3px;
+    }
+
+    .moderate-key {
+      background: linear-gradient(135deg, var(--aws-orange-dark), var(--aws-orange));
+      padding: 0 5px;
+      color: white;
+      border-radius: 3px;
+    }
+
+    .needs-improvement-key {
+      background: linear-gradient(135deg, #c62828, #ef5350);
+      padding: 0 5px;
+      color: white;
+      border-radius: 3px;
+    }
+
+    /* ============================================
+       FOOTER
+       ============================================ */
+    .report-footer {
+      margin-top: 4rem;
+      padding: 2rem;
+      text-align: center;
+      border-top: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .footer-rule {
+      width: 100px;
+      height: 2px;
+      margin: 0 auto 1.5rem;
+      background: linear-gradient(90deg, transparent, var(--aws-orange), transparent);
+    }
+
+    .footer-branding {
+      font-family: 'Source Sans Pro', 'Amazon Ember', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--aws-orange);
+      margin-bottom: 0.5rem;
+    }
+
+    /* ============================================
+       ANIMATIONS
+       ============================================ */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .card, .section {
+      animation: fadeInUp 0.4s ease-out;
+    }
+
+    /* ============================================
+       RESPONSIVE ADJUSTMENTS
+       ============================================ */
+    @media (max-width: 600px) {
+      .container {
+        padding: 1rem;
+      }
+
+      .masthead {
+        padding: 2rem 1rem;
+      }
+
+      .masthead h1 {
+        font-size: 2rem;
+      }
+
+      .nav ul {
+        gap: 0.25rem;
+      }
+
+      .nav li a {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Reading Progress Bar -->
+  <div class="progress-bar" id="progressBar"></div>
+
+  <!-- Masthead -->
+  <header class="masthead">
+    <div class="masthead-rule"></div>
+    <h1>LLM BENCHMARK REPORT</h1>
+    <p class="masthead-subtitle">Comprehensive Model Evaluation & Analysis</p>
+    <div class="masthead-meta">
+      <span class="meta-item"><strong>Generated:</strong> {{ timestamp }}</span>
+      <span class="meta-item"><strong>Models:</strong> {{ unique_models|length }}</span>
+      <span class="meta-item"><strong>Tasks:</strong> {{ unique_tasks|length }}</span>
+    </div>
+    <div class="masthead-rule"></div>
+  </header>
+
+  <!-- Navigation -->
+  <nav class="nav">
+    <ul>
+      <li><a onclick="scrollToSection('executive-summary')">Summary</a></li>
+      <li><a onclick="scrollToSection('recommendations')">Recommendations</a></li>
+      <li><a onclick="scrollToSection('latency-metrics')">Latency</a></li>
+      <li><a onclick="scrollToSection('ttfb-distribution')">Distributions</a></li>
+      <li><a onclick="scrollToSection('cost-metrics')">Cost</a></li>
+      <li><a onclick="scrollToSection('task-analysis')">Tasks</a></li>
+      <li><a onclick="scrollToSection('model-task-performance')">Performance</a></li>
+      <li><a onclick="scrollToSection('regional-analysis')">Regional</a></li>
+    </ul>
+  </nav>
+
+  <main class="container">
+    <!-- Hero Section: Executive Summary + Top Performers -->
+    <section class="hero-grid" id="executive-summary">
+      <div class="card executive-summary">
+        <h2>Executive Summary</h2>
+        <div class="summary-text">
+          {{ inference }}
+        </div>
+      </div>
+
+      <div class="card top-performers">
+        <h3>Top Performers</h3>
+        {% if task_recommendations and task_recommendations|length > 0 %}
+        <div class="performer-item">
+          <div class="performer-medal medal-gold">🏆</div>
+          <div class="performer-info">
+            <div class="performer-category">Best Accuracy</div>
+            <div class="performer-model">{{ task_recommendations[0].best_accuracy_model }}</div>
+            <div class="performer-value">{{ task_recommendations[0].accuracy }}</div>
+          </div>
+        </div>
+        <div class="performer-item">
+          <div class="performer-medal medal-silver">⚡</div>
+          <div class="performer-info">
+            <div class="performer-category">Fastest (E2E)</div>
+            <div class="performer-model">{{ task_recommendations[0].best_speed_model }}</div>
+            <div class="performer-value">{{ task_recommendations[0].speed }} E2E latency</div>
+          </div>
+        </div>
+        <div class="performer-item">
+          <div class="performer-medal medal-bronze">💎</div>
+          <div class="performer-info">
+            <div class="performer-category">Best Value</div>
+            <div class="performer-model">{{ task_recommendations[0].best_value_model }}</div>
+            <div class="performer-value">Score: {{ task_recommendations[0].value }}</div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- Evaluation Settings Section -->
+    <section class="section" id="eval-settings">
+      <div class="section-header">
+        <h2>Evaluation Settings</h2>
+        <span class="section-badge">Per Task</span>
+      </div>
+
+      {% for ts in task_settings %}
+      <details class="card" style="margin-bottom: 1rem; cursor: pointer;">
+        <summary style="font-size: 1.15rem; font-weight: 600; padding: 0.5rem 0; list-style: none; display: flex; justify-content: space-between; align-items: center;">
+          <span>{{ ts.task_name }}</span>
+          <span style="font-size: 0.8rem; color: rgba(255,255,255,0.4); font-weight: 400;">{{ ts.dataset_size }} prompts &middot; {{ ts.models_evaluated }} models &middot; {{ ts.eval_type }} eval &#9662;</span>
+        </summary>
+        <div style="margin-top: 0.75rem;">
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
+          <div style="background: rgba(35, 47, 62, 0.6); padding: 0.75rem; border-radius: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase;">Dataset Size</div>
+            <div style="font-size: 1.25rem; font-weight: 600; color: #ff9900;">{{ ts.dataset_size }} prompts</div>
+          </div>
+          <div style="background: rgba(35, 47, 62, 0.6); padding: 0.75rem; border-radius: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase;">Models Evaluated</div>
+            <div style="font-size: 1.25rem; font-weight: 600; color: #ff9900;">{{ ts.models_evaluated }}</div>
+          </div>
+          <div style="background: rgba(35, 47, 62, 0.6); padding: 0.75rem; border-radius: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase;">Number of Scenarios</div>
+            <div style="font-size: 1.25rem; font-weight: 600; color: #ff9900;">{{ ts.total_records }}</div>
+          </div>
+          <div style="background: rgba(35, 47, 62, 0.6); padding: 0.75rem; border-radius: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase;">Eval Type</div>
+            <div style="font-size: 1.25rem; font-weight: 600; color: #ff9900;">{{ ts.eval_type }}</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
+          <div style="background: rgba(35, 47, 62, 0.6); padding: 0.75rem; border-radius: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase;">Temperature</div>
+            <div style="font-size: 1.1rem; font-weight: 600;">{{ ts.temperature }}</div>
+          </div>
+          <div style="background: rgba(35, 47, 62, 0.6); padding: 0.75rem; border-radius: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase;">Streaming</div>
+            <div style="font-size: 1.1rem; font-weight: 600;">{{ ts.streaming }}</div>
+          </div>
+          <div style="background: rgba(35, 47, 62, 0.6); padding: 0.75rem; border-radius: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase;">Target RPM</div>
+            <div style="font-size: 1.1rem; font-weight: 600;">{{ ts.target_rpm }}</div>
+          </div>
+          <div style="background: rgba(35, 47, 62, 0.6); padding: 0.75rem; border-radius: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase;">Pass/Fail Threshold</div>
+            <div style="font-size: 1.1rem; font-weight: 600;">{{ ts.yard_stick }}</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
+          <div style="background: rgba(35, 47, 62, 0.6); padding: 0.75rem; border-radius: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase;">Evaluation Thread Pool</div>
+            <div style="font-size: 1.1rem; font-weight: 600;">{{ ts.parallel_calls }}</div>
+          </div>
+          <div style="background: rgba(35, 47, 62, 0.6); padding: 0.75rem; border-radius: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase;">Invocations/Scenario</div>
+            <div style="font-size: 1.1rem; font-weight: 600;">{{ ts.invocations_per_scenario }}</div>
+          </div>
+          <div style="background: rgba(35, 47, 62, 0.6); padding: 0.75rem; border-radius: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase;">Experiment Counts</div>
+            <div style="font-size: 1.1rem; font-weight: 600;">{{ ts.experiment_counts }}</div>
+          </div>
+          {% if ts.experiment_wait_time and ts.experiment_wait_time != 'N/A' and ts.experiment_wait_time != 0 %}
+          <div style="background: rgba(35, 47, 62, 0.6); padding: 0.75rem; border-radius: 8px;">
+            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase;">Experiment Wait Time</div>
+            <div style="font-size: 1.1rem; font-weight: 600;">{{ ts.experiment_wait_time }}s</div>
+          </div>
+          {% endif %}
+        </div>
+        {% if ts.task_criteria and ts.task_criteria != 'N/A' %}
+        <div style="background: rgba(35, 47, 62, 0.4); padding: 0.75rem; border-radius: 8px; margin-bottom: 0.5rem;">
+          <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Task Criteria</div>
+          <div style="font-size: 0.85rem; color: rgba(255,255,255,0.8); white-space: pre-wrap;">{{ ts.task_criteria }}</div>
+        </div>
+        {% endif %}
+        {% if ts.user_defined_metrics and ts.user_defined_metrics != 'N/A' %}
+        <div style="background: rgba(35, 47, 62, 0.4); padding: 0.75rem; border-radius: 8px;">
+          <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Custom Metrics</div>
+          <div style="font-size: 0.85rem; color: rgba(255,255,255,0.8);">{{ ts.user_defined_metrics }}</div>
+        </div>
+        {% endif %}
+        </div>
+      </details>
+      {% endfor %}
+    </section>
+
+    <!-- Recommendations Section -->
+    <section class="section" id="recommendations">
+      <div class="section-header">
+        <h2>Model Recommendations</h2>
+        <span class="section-badge">By Task</span>
+      </div>
+
+      {% if reliability_strength_div %}
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3>Evaluation Reliability Strength</h3>
+        <p style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">
+          Ratio of successful evaluations to total attempted. Low scores indicate unreliable metrics for that model.
+        </p>
+        {{ reliability_strength_div | safe }}
+      </div>
+      {% endif %}
+
+      <div class="leaderboard">
+        {% for rec in task_recommendations %}
+        <div class="leaderboard-task">
+          <div class="leaderboard-header">
+            <h4>{{ rec.task }}</h4>
+          </div>
+          <div class="leaderboard-body">
+            <div class="leaderboard-row">
+              <div class="leaderboard-icon icon-accuracy">🎯</div>
+              <div class="leaderboard-details">
+                <div class="leaderboard-model">{{ rec.best_accuracy_model }}</div>
+                <div class="leaderboard-metric">{{ rec.accuracy }} accuracy</div>
+              </div>
+            </div>
+            <div class="leaderboard-row">
+              <div class="leaderboard-icon icon-speed">⚡</div>
+              <div class="leaderboard-details">
+                <div class="leaderboard-model">{{ rec.best_speed_model }}</div>
+                <div class="leaderboard-metric">{{ rec.speed }} E2E latency</div>
+              </div>
+            </div>
+            <div class="leaderboard-row">
+              <div class="leaderboard-icon icon-value">💎</div>
+              <div class="leaderboard-details">
+                <div class="leaderboard-model">{{ rec.best_value_model }}</div>
+                <div class="leaderboard-metric">Score: {{ rec.value }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+  {% if sections.latency_metrics %}
+  <div class="section" id="latency-metrics">
+    <h2>Latency Metrics</h2>
+    <div class="card">
+      <h3>Time to First Token</h3>
+      {{ ttft_comparison_div | safe }}
+    </div>
+    <div class="card">
+      <h3>Output Tokens per Second</h3>
+      {{ otps_comparison_div | safe }}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if sections.latency_distribution and ttfb_histograms_by_task %}
+  <div class="section" id="ttfb-distribution">
+    <h2>Time to First Token Distribution Analysis</h2>
+    <div class="card">
+      <div class="highlight">
+        <p>The charts below show TTFT distribution for each task. Select a task to view its performance characteristics.</p>
+        <div class="model-selector">
+          <label for="ttfbTaskSelect">Select Task: </label>
+          <select id="ttfbTaskSelect" onchange="showTTFBTask(this.value)">
+            {% for task_name in ttfb_histograms_by_task.keys() %}
+            <option value="{{ task_name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') }}"
+                    {% if loop.first %}selected{% endif %}>{{ task_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="ttfb-charts-container">
+      {% for task_name, histogram_html in ttfb_histograms_by_task.items() %}
+      <div id="ttfb-hist-{{ task_name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') }}"
+           class="ttfb-task-chart"
+           style="{% if not loop.first %}display: none;{% endif %}">
+        <div class="card">
+          <h3>TTFT Distribution by Model - {{ task_name }}</h3>
+          {{ histogram_html | safe }}
+        </div>
+
+        {% if task_name in ttfb_boxplots_by_task %}
+        <div class="card">
+          <h3>TTFT Percentile Distribution Analysis - {{ task_name }}</h3>
+          <div class="chart-description">
+            <p>Stacked horizontal bars showing percentile ranges (0-25%, 25-50%, 50-75%, 75-90%, 90-95%, 95-99%, 99-100%) for each model. Wider segments indicate greater variability in that percentile range. Color gradients from green (fast) to red (slow) help identify performance patterns. The red vertical line marks the 99th percentile threshold.</p>
+          </div>
+          {{ ttfb_boxplots_by_task[task_name] | safe }}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if sections.accuracy_distribution and accuracy_histograms_by_task %}
+  <div class="section" id="accuracy-distribution">
+    <h2>Average of Evaluation Scores Distribution Analysis</h2>
+    <div class="card">
+      <div class="highlight">
+        <p>The charts below show accuracy distribution for each task. Select a task to view its performance characteristics.</p>
+        <div class="model-selector">
+          <label for="accuracyTaskSelect">Select Task: </label>
+          <select id="accuracyTaskSelect" onchange="showAccuracyTask(this.value)">
+            {% for task_name in accuracy_histograms_by_task.keys() %}
+            <option value="{{ task_name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') }}"
+                    {% if loop.first %}selected{% endif %}>{{ task_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="accuracy-charts-container">
+      {% for task_name, histogram_html in accuracy_histograms_by_task.items() %}
+      <div id="accuracy-hist-{{ task_name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') }}"
+           class="accuracy-task-chart"
+           style="{% if not loop.first %}display: none;{% endif %}">
+        <div class="card">
+          <h3>Accuracy Distribution by Model - {{ task_name }}</h3>
+          {{ histogram_html | safe }}
+        </div>
+
+        {% if task_name in accuracy_boxplots_by_task %}
+        <div class="card">
+          <h3>Accuracy Percentile Distribution Analysis - {{ task_name }}</h3>
+          <div class="chart-description">
+            <p>Stacked horizontal bars showing percentile ranges (0-25%, 25-50%, 50-75%, 75-90%, 90-95%, 95-99%, 99-100%) for each model. Wider segments indicate greater variability in that percentile range. Color gradients from red (low accuracy) to green (high accuracy) help identify performance patterns. The red vertical line marks the 1st percentile threshold.</p>
+          </div>
+          {{ accuracy_boxplots_by_task[task_name] | safe }}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <h3>Key Findings</h3>
+      <div class="highlight">
+        <ul>
+          {% for finding in accuracy_findings %}
+          <li>{{ finding }}</li>
+          {% endfor %}
+        </ul>
+        <p><strong>Outliers threshold Calculation used: Third Quantile + 1.5 * Interquartile Range (IQR) (Third Quantile - First Quantile)</strong></p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if sections.token_distribution and total_tokens_histograms_by_task %}
+  <div class="section" id="total-tokens-distribution">
+    <h2>Output Tokens Distribution Analysis</h2>
+    <div class="card">
+      <div class="highlight">
+        <p>The charts below show output token distribution for each task. Select a task to view its response length characteristics.</p>
+        <div class="model-selector">
+          <label for="outputTokensTaskSelect">Select Task: </label>
+          <select id="outputTokensTaskSelect" onchange="showOutputTokensTask(this.value)">
+            {% for task_name in total_tokens_histograms_by_task.keys() %}
+            <option value="{{ task_name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') }}"
+                    {% if loop.first %}selected{% endif %}>{{ task_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="output-tokens-charts-container">
+      {% for task_name, histogram_html in total_tokens_histograms_by_task.items() %}
+      <div id="output-tokens-hist-{{ task_name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') }}"
+           class="output-tokens-task-chart"
+           style="{% if not loop.first %}display: none;{% endif %}">
+        <div class="card">
+          <h3>Output Tokens Distribution by Model - {{ task_name }}</h3>
+          {{ histogram_html | safe }}
+        </div>
+
+        {% if task_name in total_tokens_boxplots_by_task %}
+        <div class="card">
+          <h3>Output Tokens Percentile Distribution Analysis - {{ task_name }}</h3>
+          <div class="chart-description">
+            <p>Stacked horizontal bars showing percentile ranges (0-25%, 25-50%, 50-75%, 75-90%, 90-95%, 95-99%, 99-100%) for each model. Wider segments indicate greater variability in that percentile range. This helps identify models with consistent vs. variable response lengths.</p>
+          </div>
+          {{ total_tokens_boxplots_by_task[task_name] | safe }}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="card">
+      <h3>Key Findings</h3>
+      <div class="highlight">
+        <ul>
+          {% for finding in total_tokens_findings %}
+          <li>{{ finding }}</li>
+          {% endfor %}
+        </ul>
+        <p><strong>Note:</strong> Output tokens represent the length of model responses. Higher variance indicates inconsistent response lengths, which can impact cost predictability.</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if sections.cost_metrics %}
+  <div class="section" id="cost-metrics">
+    <h2>Cost Metrics</h2>
+    <div class="card">
+      <h3>Average Cost Per Response By Model</h3>
+      {{ cost_comparison_div | safe }}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if sections.task_analysis %}
+  <div class="section" id="task-analysis">
+    <h2>Task Analysis</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <p style="color: #bbb; margin: 0;">Click on each task to expand detailed performance analysis, metrics, and judge scores.</p>
+      <div class="accordion-controls">
+        <button onclick="expandAllTasks()">Expand All</button>
+        <button onclick="collapseAllTasks()">Collapse All</button>
+      </div>
+    </div>
+
+    {% for task in task_analysis %}
+    {% set task_key = task.name|replace('.', '_')|replace(':', '_')|replace(' ', '_')|replace('-', '_')|replace('(', '_')|replace(')', '_') %}
+    <div class="task-accordion" id="accordion-{{ task_key }}">
+      <div class="task-accordion-header" onclick="toggleTaskAccordion('{{ task_key }}')">
+        <div class="task-accordion-title">
+          <h3>{{ task.name }}</h3>
+          <span class="task-accordion-badge">{{ task.findings|length }} findings</span>
+        </div>
+        <span class="task-accordion-icon">▼</span>
+      </div>
+      <div class="task-accordion-content">
+        <!-- Detailed Performance Analysis Table -->
+        {% if task.name in integrated_analysis_tables %}
+        <div class="task-accordion-section">
+          <div class="task-accordion-section-title">Detailed Performance Analysis</div>
+          {{ integrated_analysis_tables[task.name] | safe }}
+          <div class="legend">
+            <div class="legend-item"><span class="legend-color legend-good"></span> Good</div>
+            <div class="legend-item"><span class="legend-color legend-medium"></span> Medium</div>
+            <div class="legend-item"><span class="legend-color legend-poor"></span> Poor</div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Performance Metrics Chart -->
+        <div class="task-accordion-section">
+          <div class="task-accordion-section-title">Performance Metrics</div>
+          {{ task.chart | safe }}
+          <div class="highlight">
+            <h4>Key Findings</h4>
+            <ul>
+              {% for finding in task.findings %}
+              <li>{{ finding }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+
+        <!-- Judge Scores Radar Chart -->
+        {% if task.name in judge_score_radars %}
+        <div class="task-accordion-section">
+          <div class="task-accordion-section-title">Judge Scores Analysis</div>
+          <div class="radar-chart-single">
+            {{ judge_score_radars[task.name] | safe }}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if sections.model_task_performance %}
+  <div class="section" id="model-task-performance">
+    <h2>Model-Task Performance</h2>
+    <div class="card">
+      <h3>Success Rate by Model and Task</h3>
+      {{ model_task_heatmap_div | safe }}
+    </div>
+    <div class="card">
+      <h3>Detailed Performance Comparison</h3>
+      {{ model_task_bubble_div | safe }}
+    </div>
+    <div class="card">
+      <h3>Error Analysis</h3>
+      {{ error_analysis_div | safe }}
+    </div>
+    <div class="card">
+      <h3>Model Inference Errors</h3>
+      {{ model_inference_errors_div | safe }}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if sections.regional_performance %}
+  <div class="section" id="regional-analysis">
+    <h2>Regional Performance Analysis</h2>
+
+    <!-- Latency vs Cost Scatter Plot -->
+    <div class="card" style="margin-bottom: 2rem;">
+      <h3>Latency vs Cost by Region</h3>
+      {{ regional_latency_cost_div | safe }}
+      <div class="highlight" style="margin-top: 10px;">
+        <h4>Key Insights</h4>
+        <ul>
+          <li><strong>Bubble Size:</strong> Mean token size (larger = more tokens)</li>
+          <li><strong>Legend:</strong> Click to toggle visibility of region-task combinations</li>
+          <li><strong>Time Period:</strong> Analysis considers local time in each region when the tests were run</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Hourly Performance Bar Chart -->
+    <div class="card">
+      <h3>Hourly Performance by Region</h3>
+      {{ regional_hourly_div | safe }}
+      <div class="highlight" style="margin-top: 10px;">
+        <h4>Key Insights</h4>
+        <ul>
+          <li><strong>Chart:</strong> Shows how throughput (tokens per second) varies throughout the day</li>
+          <li><strong>Legend:</strong> Click to toggle visibility of individual regions</li>
+        </ul>
+        <p>Use these insights to select the optimal region and time window for your use case.</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="report-footer">
+    <div class="footer-rule"></div>
+    <div class="footer-branding">360-eval</div>
+    <p>LLM Benchmarking & Evaluation Framework</p>
+    <p style="margin-top: 0.5rem;">Generated with the LLM-as-a-Jury methodology</p>
+  </footer>
+
+  <script>
+    // Reading Progress Bar
+    window.addEventListener('scroll', function() {
+      const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const scrolled = (winScroll / height) * 100;
+      document.getElementById('progressBar').style.width = scrolled + '%';
+    });
+
+    // Task accordion toggle
+    function toggleTaskAccordion(taskKey) {
+      const accordion = document.getElementById('accordion-' + taskKey);
+      if (accordion) {
+        accordion.classList.toggle('active');
+        // Trigger resize for any Plotly charts inside
+        setTimeout(function() {
+          window.dispatchEvent(new Event('resize'));
+        }, 100);
+      }
+    }
+
+    // Expand all task accordions
+    function expandAllTasks() {
+      document.querySelectorAll('.task-accordion').forEach(function(el) {
+        el.classList.add('active');
+      });
+      window.dispatchEvent(new Event('resize'));
+    }
+
+    // Collapse all task accordions
+    function collapseAllTasks() {
+      document.querySelectorAll('.task-accordion').forEach(function(el) {
+        el.classList.remove('active');
+      });
+    }
+
+    function showTaskRadarChart(taskName) {
+      // Hide all task radar charts
+      document.querySelectorAll('.task-radar-chart').forEach(function(el) {
+        el.style.display = 'none';
+      });
+
+      // Show the selected task's chart
+      const selectedChart = document.getElementById('radar-' + taskName);
+      if (selectedChart) {
+        selectedChart.style.display = 'block';
+        // Force Plotly to resize
+        window.dispatchEvent(new Event('resize'));
+      }
+    }
+
+    function showTaskTable(taskName) {
+      console.log('Switching to table:', taskName); // Debug logging
+      
+      // Hide all task tables
+      document.querySelectorAll('.task-table').forEach(function (el) {
+        el.style.display = 'none';
+      });
+      
+      // Show selected task's table - match the ID pattern used in HTML template
+      const selectedTable = document.getElementById('table-' + taskName);
+      console.log('Found table element:', selectedTable); // Debug logging
+      
+      if (selectedTable) {
+        selectedTable.style.display = 'block';
+        
+        // Force Plotly tables to re-render properly
+        setTimeout(function() {
+          // Try multiple approaches to re-render Plotly content
+          const plotlyElements = selectedTable.querySelectorAll('div[class*="plotly"]');
+          console.log('Found Plotly elements:', plotlyElements.length); // Debug logging
+          
+          plotlyElements.forEach(function(element) {
+            // Method 1: Standard Plotly resize
+            if (window.Plotly && element._fullLayout) {
+              try {
+                window.Plotly.Plots.resize(element);
+              } catch (e) {
+                console.log('Plotly resize failed:', e);
+              }
+            }
+            
+            // Method 2: Force redraw by manipulating the element
+            if (window.Plotly && element._fullData) {
+              try {
+                window.Plotly.redraw(element);
+              } catch (e) {
+                console.log('Plotly redraw failed:', e);
+              }
+            }
+          });
+          
+          // Method 3: Force reflow by temporarily changing display
+          selectedTable.style.display = 'none';
+          setTimeout(function() {
+            selectedTable.style.display = 'block';
+            
+            // Final resize event
+            window.dispatchEvent(new Event('resize'));
+            
+            // Method 4: Force text repaint by touching font styles
+            const textElements = selectedTable.querySelectorAll('text, span, div');
+            textElements.forEach(function(el) {
+              if (el.style) {
+                const originalColor = el.style.color || '';
+                el.style.color = '#333333';
+                setTimeout(function() {
+                  el.style.color = originalColor || '#333333';
+                }, 1);
+              }
+            });
+          }, 10);
+          
+        }, 100); // Increased delay for better stability
+      } else {
+        console.log('Table not found with ID: table-' + taskName);
+      }
+    }
+    
+    function scrollToSection(sectionId) {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        const navHeight = document.querySelector('.nav').offsetHeight;
+        const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+        window.scrollTo({
+          top: elementPosition - navHeight - 20,
+          behavior: 'smooth'
+        });
+      }
+    }
+
+    function showTTFBTask(taskName) {
+      // Hide all TTFB task charts
+      document.querySelectorAll('.ttfb-task-chart').forEach(function(el) {
+        el.style.display = 'none';
+      });
+
+      // Show the selected task's charts
+      const selectedChart = document.getElementById('ttfb-hist-' + taskName);
+      if (selectedChart) {
+        selectedChart.style.display = 'block';
+        // Force Plotly to resize
+        window.dispatchEvent(new Event('resize'));
+      }
+    }
+
+    function showAccuracyTask(taskName) {
+      // Hide all accuracy task charts
+      document.querySelectorAll('.accuracy-task-chart').forEach(function(el) {
+        el.style.display = 'none';
+      });
+
+      // Show the selected task's charts
+      const selectedChart = document.getElementById('accuracy-hist-' + taskName);
+      if (selectedChart) {
+        selectedChart.style.display = 'block';
+        // Force Plotly to resize
+        window.dispatchEvent(new Event('resize'));
+      }
+    }
+
+    function showOutputTokensTask(taskName) {
+      // Hide all output tokens task charts
+      document.querySelectorAll('.output-tokens-task-chart').forEach(function(el) {
+        el.style.display = 'none';
+      });
+
+      // Show the selected task's charts
+      const selectedChart = document.getElementById('output-tokens-hist-' + taskName);
+      if (selectedChart) {
+        selectedChart.style.display = 'block';
+        // Force Plotly to resize
+        window.dispatchEvent(new Event('resize'));
+      }
+    }
+
+    // Initialize on load
+    window.addEventListener('load', function () {
+      window.dispatchEvent(new Event('resize'));
+    });
+  </script>
+</body>
+</html>

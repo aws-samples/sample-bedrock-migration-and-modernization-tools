@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>360-Evals Dashboard</title>
+    <link rel="icon" type="image/png" href="/static/assets/360-logo.png">
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Plotly.js (~3.5MB) — deferred so it doesn't block first paint; charts are
+         only rendered on user interaction (reports/unprocessed tabs), by which time
+         the deferred script has loaded. -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" defer></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="/static/assets/360-logo.png" alt="360-Evals Logo" class="sidebar-logo" onerror="this.style.display='none'">
+                <h1 class="sidebar-title">360-Evals</h1>
+                <p class="sidebar-subtitle">LLM Benchmarking Dashboard</p>
+            </div>
+
+            <nav class="sidebar-nav">
+                <!-- Radio-style Navigation (Streamlit-like) -->
+                <div class="st-radio-nav" id="main-nav">
+                    <label>
+                        <input type="radio" name="nav" value="setup" checked>
+                        <span>Setup</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="nav" value="monitor">
+                        <span>Monitor</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="nav" value="evaluations">
+                        <span>Evaluations</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="nav" value="reports">
+                        <span>Reports</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="nav" value="unprocessed">
+                        <span>Unprocessed</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="nav" value="credentials">
+                        <span>Credentials</span>
+                    </label>
+                    <label id="admin-nav-item" style="display:none;">
+                        <input type="radio" name="nav" value="admin">
+                        <span>Admin</span>
+                    </label>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div id="user-info" style="padding: 0.5rem 1rem; margin-bottom: 0.75rem; border-top: 1px solid var(--border-color, #333); font-size: 0.85rem; color: var(--text-secondary, #aaa);">
+                    <i class="bi bi-person-circle"></i> <span id="user-display">Loading...</span>
+                </div>
+                <details class="st-expander">
+                    <summary><i class="bi bi-bug"></i> Debug Info</summary>
+                    <div class="st-expander-content">
+                        <p><strong>Project Root:</strong><br><span id="debug-project-root" style="font-size: 0.8rem; word-break: break-all;">Loading...</span></p>
+                        <p><strong>Output Dir:</strong><br><span id="debug-output-dir" style="font-size: 0.8rem; word-break: break-all;">Loading...</span></p>
+                        <p><strong>Evaluations:</strong> <span id="debug-eval-count">0</span></p>
+                    </div>
+                </details>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header with Logo and Title (Streamlit-like) -->
+            <div class="st-columns-2" style="margin-bottom: 1.5rem; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <img src="/static/assets/360-logo.png" alt="360-Evals" style="width: 120px; height: 120px;" onerror="this.style.display='none'">
+                    <div>
+                        <h1 style="margin: 0; font-size: 1.75rem; color: var(--accent-orange);">360-Evals</h1>
+                        <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">Create, manage, and visualize LLM benchmark evaluations</p>
+                    </div>
+                </div>
+                <div></div>
+            </div>
+
+            <hr class="st-divider">
+
+            <!-- Setup Tab -->
+            <div id="tab-setup" class="tab-content active">
+                <!-- Setup Sub-tabs (Streamlit-like) -->
+                <div class="st-tabs" id="setup-tabs">
+                    <button class="st-tab active" data-tab="eval-setup">Evaluation Setup</button>
+                    <button class="st-tab" data-tab="model-config">Model Configuration</button>
+                    <button class="st-tab" data-tab="advanced-config">Advanced Configuration</button>
+                </div>
+
+                <div class="setup-content">
+                    <!-- Evaluation Setup Sub-tab -->
+                    <div class="st-tab-content active" id="eval-setup">
+                        <div id="evaluation-setup-content"></div>
+                    </div>
+
+                    <!-- Model Configuration Sub-tab -->
+                    <div class="st-tab-content" id="model-config">
+                        <div id="model-config-content"></div>
+                    </div>
+
+                    <!-- Advanced Configuration Sub-tab -->
+                    <div class="st-tab-content" id="advanced-config">
+                        <div id="advanced-config-content"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monitor Tab -->
+            <div id="tab-monitor" class="tab-content">
+                <div id="monitor-content"></div>
+            </div>
+
+            <!-- Evaluations Tab -->
+            <div id="tab-evaluations" class="tab-content">
+                <div id="evaluations-content"></div>
+            </div>
+
+            <!-- Reports Tab -->
+            <div id="tab-reports" class="tab-content">
+                <div id="reports-content"></div>
+            </div>
+
+            <!-- Unprocessed Tab -->
+            <div id="tab-unprocessed" class="tab-content">
+                <div id="unprocessed-content"></div>
+            </div>
+
+            <!-- Credentials Tab -->
+            <div id="tab-credentials" class="tab-content">
+                <div id="credentials-content"></div>
+            </div>
+
+            <!-- Admin Tab -->
+            <div id="tab-admin" class="tab-content">
+                <div id="admin-content"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Container for Notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notification-toast" class="toast" role="alert">
+            <div class="toast-header">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong class="me-auto" id="toast-title">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toast-message"></div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Runtime config — set API base URL for production (CloudFront → ALB) -->
+    <!-- In production, replace this with: window.__API_BASE_URL__ = 'https://api.360-eval.amazon.dev'; -->
+    <script>window.__API_BASE_URL__ = window.__API_BASE_URL__ || '';</script>
+
+    <!-- Application Scripts -->
+    <script src="/static/js/utils/api.js"></script>
+    <script src="/static/js/utils/state.js"></script>
+    <script src="/static/js/utils/charts.js"></script>
+    <script src="/static/js/components/setup.js"></script>
+    <script src="/static/js/components/monitor.js"></script>
+    <script src="/static/js/components/evaluations.js"></script>
+    <script src="/static/js/components/reports.js"></script>
+    <script src="/static/js/components/unprocessed.js"></script>
+    <script src="/static/js/components/credentials.js"></script>
+    <script src="/static/js/components/admin.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
