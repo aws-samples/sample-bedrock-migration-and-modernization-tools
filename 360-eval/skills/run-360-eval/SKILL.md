@@ -20,7 +20,7 @@ Following-instructions against a golden answer. It also records latency, tokens,
 and cost. You run it via one CLI entrypoint: `src/benchmarks_run.py`.
 
 This skill is for coding/AI agents driving the engine directly. The reference
-implementation is the `360-eval-offline` code base.
+implementation is the `360-eval` code base.
 
 ## When to use this
 - "Benchmark / evaluate / compare these models on this dataset"
@@ -33,9 +33,9 @@ implementation is the `360-eval-offline` code base.
 
 ## 1. Prerequisites (one-time)
 
-1. **Get the code** (the `360-eval-offline` repo) and install deps:
+1. **Get the code** (the `360-eval` directory of this repo) and install deps:
    ```bash
-   cd 360-eval-offline
+   cd 360-eval
    python3 -m venv .venv && source .venv/bin/activate
    pip install -r requirements.txt
    ```

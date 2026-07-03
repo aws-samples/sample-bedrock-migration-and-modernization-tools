@@ -1592,22 +1592,25 @@ def _run_apo_phase(scenarios, raw, cfg, output_dir, ts):
 # ----------------------------------------
 # Main entrypoint
 # ----------------------------------------
-def _resolve_run_file(name_or_path, eval_dir):
+def _resolve_run_file(name_or_path, eval_dir, sibling_dir=None):
     """Resolve a user-supplied file argument to an absolute path.
 
     Accepts an absolute path, a bare filename under the project runs/
-    directory, or a path relative to the current working directory (so the
-    documented `runs/input_file.jsonl` form works from the project root).
+    directory, a bare filename next to the scenarios file (sibling_dir — so
+    the three input files can live together in one folder), or a path
+    relative to the current working directory (so the documented
+    `runs/input_file.jsonl` form works from the project root).
     """
     if os.path.isabs(name_or_path):
         return name_or_path
-    in_runs = os.path.join(eval_dir, name_or_path)
-    if os.path.exists(in_runs):
-        return in_runs
-    as_given = os.path.abspath(name_or_path)
-    if os.path.exists(as_given):
-        return as_given
-    return in_runs
+    candidates = [os.path.join(eval_dir, name_or_path)]
+    if sibling_dir:
+        candidates.append(os.path.join(sibling_dir, name_or_path))
+    candidates.append(os.path.abspath(name_or_path))
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return candidates[0]
 
 
 def main(
@@ -1673,8 +1676,9 @@ def main(
 
     judge_file_name = judge_file_name if judge_file_name else f"{config_dir}/judge_profiles.jsonl"
     model_file_name = model_file_name if model_file_name else f"{config_dir}/models_profiles.jsonl"
-    judge_path = _resolve_run_file(judge_file_name, eval_dir)
-    model_path = _resolve_run_file(model_file_name, eval_dir)
+    scenarios_dir = os.path.dirname(file_path)
+    judge_path = _resolve_run_file(judge_file_name, eval_dir, sibling_dir=scenarios_dir)
+    model_path = _resolve_run_file(model_file_name, eval_dir, sibling_dir=scenarios_dir)
 
     # Validate configuration files before loading
     # Skip judge validation in latency-only mode (empty judge file is expected)
