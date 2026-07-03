@@ -1592,6 +1592,24 @@ def _run_apo_phase(scenarios, raw, cfg, output_dir, ts):
 # ----------------------------------------
 # Main entrypoint
 # ----------------------------------------
+def _resolve_run_file(name_or_path, eval_dir):
+    """Resolve a user-supplied file argument to an absolute path.
+
+    Accepts an absolute path, a bare filename under the project runs/
+    directory, or a path relative to the current working directory (so the
+    documented `runs/input_file.jsonl` form works from the project root).
+    """
+    if os.path.isabs(name_or_path):
+        return name_or_path
+    in_runs = os.path.join(eval_dir, name_or_path)
+    if os.path.exists(in_runs):
+        return in_runs
+    as_given = os.path.abspath(name_or_path)
+    if os.path.exists(as_given):
+        return as_given
+    return in_runs
+
+
 def main(
         input_file,
         output_dir,
@@ -1651,12 +1669,12 @@ def main(
     eval_dir = os.path.join(project_root, "runs")
     os.makedirs(eval_dir, exist_ok=True)
 
-    file_path = os.path.join(eval_dir, input_file)
+    file_path = _resolve_run_file(input_file, eval_dir)
 
     judge_file_name = judge_file_name if judge_file_name else f"{config_dir}/judge_profiles.jsonl"
     model_file_name = model_file_name if model_file_name else f"{config_dir}/models_profiles.jsonl"
-    judge_path = os.path.join(eval_dir, judge_file_name)
-    model_path = os.path.join(eval_dir, model_file_name)
+    judge_path = _resolve_run_file(judge_file_name, eval_dir)
+    model_path = _resolve_run_file(model_file_name, eval_dir)
 
     # Validate configuration files before loading
     # Skip judge validation in latency-only mode (empty judge file is expected)

@@ -1499,35 +1499,59 @@ def run_inference(model_name: str,
         else:
             time_to_first_token = 0
             server_usage = None
-            for chunk in payload:
-                if first:
-                    time_to_first_token = time.time() - start_time
-                    first = False
+            # completion() returns before the stream body is read, so a dead pooled
+            # connection (e.g. litellm's background logging loops closing a cached
+            # socket's fd — "[Errno 9] Bad file descriptor" on the first read)
+            # surfaces here, outside the tenacity retry above. Re-request the stream
+            # when it dies before yielding any content; once content has arrived,
+            # errors propagate unchanged so partial responses are still returned.
+            max_stream_restarts = 2
+            for stream_restart in range(max_stream_restarts + 1):
+                try:
+                    for chunk in payload:
+                        if first:
+                            time_to_first_token = time.time() - start_time
+                            first = False
 
-                # Capture provider-reported token usage when present. The final usage
-                # chunk (and some providers' interim chunks) carry usage with empty
-                # choices, so record it before skipping the chunk for content.
-                chunk_usage = getattr(chunk, 'usage', None)
-                if chunk_usage is not None:
-                    server_usage = chunk_usage
+                        # Capture provider-reported token usage when present. The final usage
+                        # chunk (and some providers' interim chunks) carry usage with empty
+                        # choices, so record it before skipping the chunk for content.
+                        chunk_usage = getattr(chunk, 'usage', None)
+                        if chunk_usage is not None:
+                            server_usage = chunk_usage
 
-                # Handle potential None or malformed chunks
-                if not chunk or not hasattr(chunk, 'choices') or len(chunk.choices) == 0:
-                    if chunk_usage is None:
-                        logger.warning("Received invalid chunk from API")
-                    continue
-                delta_obj = chunk.choices[0].delta
-                # Some models return delta as string instead of dict-like object
-                if isinstance(delta_obj, str):
-                    if delta_obj:
-                        response_chunks.append(delta_obj)
-                    continue
-                thinking_delta = delta_obj.get("reasoning_content", "") if hasattr(delta_obj, 'get') else getattr(delta_obj, 'reasoning_content', "")
-                if thinking_delta:
-                    thinking_chunks.append(thinking_delta)
-                delta = delta_obj.get("content", "") if hasattr(delta_obj, 'get') else getattr(delta_obj, 'content', "")
-                if delta:
-                    response_chunks.append(delta)
+                        # Handle potential None or malformed chunks
+                        if not chunk or not hasattr(chunk, 'choices') or len(chunk.choices) == 0:
+                            if chunk_usage is None:
+                                logger.warning("Received invalid chunk from API")
+                            continue
+                        delta_obj = chunk.choices[0].delta
+                        # Some models return delta as string instead of dict-like object
+                        if isinstance(delta_obj, str):
+                            if delta_obj:
+                                response_chunks.append(delta_obj)
+                            continue
+                        thinking_delta = delta_obj.get("reasoning_content", "") if hasattr(delta_obj, 'get') else getattr(delta_obj, 'reasoning_content', "")
+                        if thinking_delta:
+                            thinking_chunks.append(thinking_delta)
+                        delta = delta_obj.get("content", "") if hasattr(delta_obj, 'get') else getattr(delta_obj, 'content', "")
+                        if delta:
+                            response_chunks.append(delta)
+                    break
+                except RETRYABLE_EXCEPTIONS as e:
+                    if response_chunks or stream_restart == max_stream_restarts:
+                        raise
+                    logger.warning(
+                        f"Stream failed before yielding content ({type(e).__name__}); "
+                        f"re-requesting stream ({stream_restart + 1}/{max_stream_restarts})")
+                    first = True
+                    payload, start_time = _call_llm_with_retry(
+                        model_name=model_name,
+                        messages=messages,
+                        provider_params=provider_params,
+                        retry_tracker=retry_tracker,
+                        stream=stream
+                    )
 
             end = time.time()
             time_to_last_byte = round(end - start_time, 4)
@@ -1640,10 +1664,13 @@ def check_model_access(provider_params, model_id):
         messages = [{"content": 'HI', "role": "user"}]
         # Prepare model ID for litellm (adds /converse for Bedrock models)
         litellm_model = prepare_model_for_litellm(model_id)
-        completed = completion(
+        # Non-streaming: a stream=True probe left an unconsumed stream holding a
+        # pooled connection, whose GC later closed the socket under the first real
+        # invocation (httpcore.ReadError: [Errno 9] Bad file descriptor).
+        completion(
             model=litellm_model,
             messages=messages,
-            stream=True,
+            stream=False,
             timeout=60,  # 60 second timeout to prevent extreme outliers
             **provider_params
         )

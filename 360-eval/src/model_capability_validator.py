@@ -362,3 +362,39 @@ def get_available_service_tiers(model_id: str, region: str) -> List[str]:
         return ["default"]  # Fallback to default only
 
     return capabilities.get("service_tiers", ["default"])
+
+
+if __name__ == "__main__":
+    import argparse
+
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+    parser = argparse.ArgumentParser(
+        description="Validate Bedrock model availability and service tier support "
+                    "via minimal live inference calls (results cached in .cache/)."
+    )
+    parser.add_argument("--model", help="Test a single model ID (e.g. bedrock/us.amazon.nova-pro-v1:0)")
+    parser.add_argument("--region", help="AWS region for --model (e.g. us-west-2)")
+    parser.add_argument("--tier", choices=["default", "priority", "flex"],
+                        help="Test a single service tier for --model")
+    parser.add_argument("--force", action="store_true",
+                        help="Ignore the cache and re-validate all models")
+    args = parser.parse_args()
+
+    if args.model:
+        if not args.region:
+            parser.error("--model requires --region")
+        if args.tier:
+            success, error = test_service_tier(args.model, args.region, args.tier)
+            status = "available" if success else f"unavailable ({error})"
+            print(f"{args.model} @ {args.region} [{args.tier}]: {status}")
+        else:
+            print(json.dumps(test_model_availability(args.model, args.region), indent=2))
+    else:
+        cache = validate_all_models(force=args.force)
+        capabilities = cache.get("capabilities", {})
+        available = sum(1 for regions in capabilities.values()
+                        for r in regions.values() if r.get("available"))
+        total = sum(len(regions) for regions in capabilities.values())
+        print(f"\n{available}/{total} model+region combinations available. "
+              f"Cache: {CACHE_FILE}")

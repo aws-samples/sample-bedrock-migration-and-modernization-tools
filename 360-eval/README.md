@@ -174,7 +174,7 @@ Before installing and using the framework, ensure you have:
 - **Bedrock Model Access**: Enable model access in the AWS Bedrock console
   - Go to AWS Console → Bedrock → Model access
   - Request access to the models you want to evaluate
-  - **Required for reports**: `us.amazon.nova-premier-v1:0` (used for HTML report generation)
+  - **Required for reports**: `global.amazon.nova-2-lite-v1:0` (default model used for the HTML report's executive summary; a different summary model can be selected when generating a report)
 
 > Bedrock models authenticate via SigV4 from your AWS default credentials, so **no Bedrock
 > key is required**. Other-provider keys (OpenAI/Gemini/Azure) — and an optional Bedrock
@@ -528,7 +528,7 @@ Location for viewing HTML reports that are automatically generated when evaluati
 - You cannot manually create new reports - they are tied to completed evaluations
 
 **⚠️ Report Generation Requirement:**
-HTML report generation requires access to the `us.amazon.nova-premier-v1:0` model in your AWS account. This model is used to analyze evaluation results and create the report content. If this model is not accessible, evaluations will complete successfully but HTML reports will not be generated.
+HTML report generation uses a Bedrock model to write the report's executive summary (`global.amazon.nova-2-lite-v1:0` by default; a different summary model can be selected when generating a report). If the summary model is not accessible in your AWS account, evaluations will complete successfully but HTML reports will not be generated.
 
 ---
 
@@ -665,7 +665,7 @@ well-formed and contain the required fields.
 Check which models, regions, and service tiers are actually accessible in your AWS account:
 
 ```bash
-python src/validate_model_capabilities.py
+python src/model_capability_validator.py
 ```
 
 **What it does:**
@@ -1207,7 +1207,7 @@ Each tier will be evaluated separately and appear as distinct entries in reports
 
 Use the model capability validation tool to check service tier support:
 ```bash
-python src/validate_model_capabilities.py --model "bedrock/us.amazon.nova-pro-v1:0" --region "us-west-2" --tier "priority"
+python src/model_capability_validator.py --model "bedrock/us.amazon.nova-pro-v1:0" --region "us-west-2" --tier "priority"
 ```
 
 ---
@@ -1231,7 +1231,7 @@ The benchmarking tool automatically generates interactive HTML reports when eval
 
 ### Report Generation Requirement
 
-**⚠️ Important:** HTML report generation requires access to the `us.amazon.nova-premier-v1:0` model in your AWS account. This model is used to analyze evaluation results and create the report content. If this model is not accessible, evaluations will complete successfully but HTML reports will not be generated.
+**⚠️ Important:** HTML report generation uses a Bedrock model to write the report's executive summary (`global.amazon.nova-2-lite-v1:0` by default; a different summary model can be selected when generating a report). If the summary model is not accessible in your AWS account, evaluations will complete successfully but HTML reports will not be generated.
 
 ### Report Contents
 
@@ -1331,7 +1331,7 @@ In addition to HTML reports, the framework generates detailed CSV files:
 - Ensure Bedrock model access is enabled in your AWS account (AWS Console → Bedrock → Model access)
 - Confirm AWS default credentials resolve (`aws sts get-caller-identity`) and `AWS_REGION` is set — Bedrock auth uses SigV4 from those creds (no Bedrock key needed). A stored Bedrock key in the **Credentials** tab is only needed for Mantle or short-term-token use.
 - Check that you're using the correct region for the model
-- Run model capability validation: `python src/validate_model_capabilities.py`
+- Run model capability validation: `python src/model_capability_validator.py`
 
 **Note:** The system performs parallel model access checks before evaluation starts and provides immediate feedback on model availability.
 
@@ -1359,12 +1359,12 @@ In addition to HTML reports, the framework generates detailed CSV files:
 - Reports are auto-generated, not manually created
 - Ensure evaluation completed successfully (check status in Evaluations tab)
 - Verify CSV output files are present under `DATA_DIR/storage/`
-- **Check access to `us.amazon.nova-premier-v1:0` model** (required for report generation)
+- **Check access to `global.amazon.nova-2-lite-v1:0` model** (default summary model for report generation)
 
 **Note:** Each evaluation automatically creates its own report upon completion.
 
 **Prevention:**
-- Enable `us.amazon.nova-premier-v1:0` in AWS Bedrock model access
+- Enable `global.amazon.nova-2-lite-v1:0` in AWS Bedrock model access (or select an accessible summary model)
 - Monitor evaluation completion status
 - Check terminal/logs for report generation errors
 </details>
@@ -1691,7 +1691,7 @@ Currently, only **Bedrock models** are supported as judges.
 - Re-run the evaluation
 
 **Prevention:**
-- Run `python src/validate_model_capabilities.py` before evaluations
+- Run `python src/model_capability_validator.py` before evaluations
 - Validate configurations with `python src/config_validator.py config/`
 - Start with small test datasets to catch issues early
 - Monitor AWS Bedrock quotas and rate limits
@@ -1718,7 +1718,7 @@ Currently, only **Bedrock models** are supported as judges.
   - 0.4-0.6: Balanced tasks
   - 0.7-0.9: Creative tasks
 - **Multiple judges**: Use 2-3 judge models for reliable, unbiased assessment
-- **Validate first**: Run `config_validator.py` and `validate_model_capabilities.py` before evaluations
+- **Validate first**: Run `config_validator.py` and `model_capability_validator.py` before evaluations
 
 ### Execution Management
 
@@ -1771,7 +1771,7 @@ Currently, only **Bedrock models** are supported as judges.
 ├── src/
 │   ├── benchmarks_run.py           # Main benchmarking engine
 │   ├── config_validator.py         # Configuration validation tool
-│   ├── validate_model_capabilities.py # Model availability and service tier validation
+│   ├── model_capability_validator.py # Model availability and service tier validation
 │   ├── utils.py                    # Utility functions for API interactions and data processing
 │   ├── visualize_results.py        # Data visualization and reporting tools
 │   └── dashboard/                  # Dashboard components and utilities
@@ -1844,7 +1844,7 @@ All local state lives under `DATA_DIR` (default `./.localdata`):
 - **Model access** enabled for:
   - Models you want to evaluate
   - Models you want to use as judges
-  - **`us.amazon.nova-premier-v1:0`** (required for HTML report generation)
+  - **`global.amazon.nova-2-lite-v1:0`** (default summary model for HTML report generation)
 - **IAM Permissions**: `bedrock:InvokeModel`, `bedrock:InvokeModelWithResponseStream`
 - **`APO_BUCKET`** — a real S3 bucket you own, required **only** if using Advanced Prompt Optimization
 

@@ -2,7 +2,35 @@
   "permissions": {
     "allow": [
       "Bash(pip show *)",
-      "Bash(pip install *)"
+      "Bash(pip install *)",
+      "Bash(env -u VIRTUAL_ENV expect /private/tmp/claude-503/-Users-claumazz-clean-tree-sample-bedrock-migration-and-modernization-tools/b5cf7897-1067-4451-95b0-5565bd2ae0d3/scratchpad/drive_setup.exp > /private/tmp/claude-503/-Users-claumazz-clean-tree-sample-bedrock-migration-and-modernization-tools/b5cf7897-1067-4451-95b0-5565bd2ae0d3/scratchpad/setup_run.log 2>&1)",
+      "Bash(env -u VIRTUAL_ENV .venv/bin/python web-ui/app.py > /private/tmp/claude-503/-Users-claumazz-clean-tree-sample-bedrock-migration-and-modernization-tools/b5cf7897-1067-4451-95b0-5565bd2ae0d3/scratchpad/app.log 2>&1)",
+      "Bash(curl -s -X POST -F file=@/private/tmp/claude-503/-Users-claumazz-clean-tree-sample-bedrock-migration-and-modernization-tools/b5cf7897-1067-4451-95b0-5565bd2ae0d3/scratchpad/smoke_prompts.csv http://localhost:5000/api/upload-csv)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:5000/api/evaluations/f15f6857-b485-457a-b2cd-79ed5d24cc4c)",
+      "Bash(curl -s http://localhost:5000/api/queue-status)",
+      "Bash(AWS_REGION=us-east-1 .venv/bin/python -c ' *)",
+      "Bash(curl -s -X POST http://localhost:5000/api/reports/generate -H 'Content-Type: application/json' -d '{\"selected_evaluations\": [\"publish-smoke-test\"]}')",
+      "Bash(env -u VIRTUAL_ENV .venv/bin/python web-ui/app.py > /private/tmp/claude-503/-Users-claumazz-clean-tree-sample-bedrock-migration-and-modernization-tools/b5cf7897-1067-4451-95b0-5565bd2ae0d3/scratchpad/app2.log 2>&1)",
+      "Bash(curl -sf -o /dev/null http://localhost:5000/)",
+      "Bash(break)",
+      "Bash(curl -s http://localhost:5000/api/reports)",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s -o /dev/null -w \"report fetch: HTTP %{http_code}, %{size_download} bytes\\\\n\" \"http://localhost:5000/api/reports/users/localdev/reports/0c4ebd1c-e81c-4ad0-aeb4-16dfaf60e7b9/llm_benchmark_report_20260702_211323_publish-smoke-test.html\")",
+      "Bash(.venv/bin/python src/config_validator.py config/)",
+      "Bash(.venv/bin/python src/benchmarks_run.py --help)",
+      "Bash(AWS_REGION=us-east-1 .venv/bin/python src/benchmarks_run.py runs/cli_smoke.jsonl --model_file_name cli_models.jsonl --judge_file_name cli_judges.jsonl --experiment_name cli-smoke --parallel_calls 2 --invocations_per_scenario 1 --sleep_between_invocations 0 --experiment_counts 1 --report false --output_dir outputs)",
+      "Bash(AWS_REGION=us-east-1 .venv/bin/python src/benchmarks_run.py cli_smoke.jsonl --model_file_name cli_models.jsonl --judge_file_name cli_judges.jsonl --experiment_name cli-smoke --parallel_calls 2 --invocations_per_scenario 1 --sleep_between_invocations 0 --experiment_counts 1 --report false --output_dir outputs)",
+      "Bash(.venv/bin/python -)",
+      "Bash(git check-ignore *)",
+      "Bash(AWS_REGION=us-east-1 .venv/bin/python src/model_capability_validator.py --model \"bedrock/us.amazon.nova-micro-v1:0\" --region \"us-east-1\" --tier \"default\")",
+      "Bash(AWS_REGION=us-east-1 .venv/bin/python src/benchmarks_run.py runs/cli_smoke.jsonl --model_file_name cli_models.jsonl --judge_file_name cli_judges.jsonl --experiment_name path-fix-1 --parallel_calls 2 --invocations_per_scenario 1 --sleep_between_invocations 0 --experiment_counts 1 --report false)",
+      "Bash(AWS_REGION=us-east-1 .venv/bin/python src/benchmarks_run.py cli_smoke.jsonl --model_file_name cli_models.jsonl --judge_file_name cli_judges.jsonl --experiment_name path-fix-2 --parallel_calls 2 --invocations_per_scenario 1 --sleep_between_invocations 0 --experiment_counts 1 --report false)",
+      "Bash(AWS_REGION=us-east-1 .venv/bin/python src/benchmarks_run.py runs/cli_smoke.jsonl --model_file_name runs/cli_models.jsonl --judge_file_name runs/cli_judges.jsonl --experiment_name path-fix-3 --parallel_calls 2 --invocations_per_scenario 1 --sleep_between_invocations 0 --experiment_counts 1 --report false)",
+      "Bash(env -u VIRTUAL_ENV .venv/bin/python web-ui/app.py > /private/tmp/claude-503/-Users-claumazz-clean-tree-sample-bedrock-migration-and-modernization-tools/b5cf7897-1067-4451-95b0-5565bd2ae0d3/scratchpad/app3.log 2>&1)",
+      "Bash(.venv/bin/python /private/tmp/claude-503/-Users-claumazz-clean-tree-sample-bedrock-migration-and-modernization-tools/b5cf7897-1067-4451-95b0-5565bd2ae0d3/scratchpad/repro_ebadf.py)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(.venv/bin/python /private/tmp/claude-503/-Users-claumazz-clean-tree-sample-bedrock-migration-and-modernization-tools/b5cf7897-1067-4451-95b0-5565bd2ae0d3/scratchpad/repro2_no_check.py)"
     ]
   }
 }
