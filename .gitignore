@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Local Claude Code settings
+.claude/settings.local.json
+
+# Local environment files (may contain API keys)
+.env
+.env.local
+
+# 360-eval local state and generated artifacts
+360-eval/.localdata/
+360-eval/logs/
+360-eval/outputs/
+360-eval/runs/
+360-eval/.cache/
