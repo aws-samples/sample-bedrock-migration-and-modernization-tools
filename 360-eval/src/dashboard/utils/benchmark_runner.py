@@ -1,4 +1,4 @@
-"""Utilities for running benchmark evaluations from the dashboard."""
+"""Utilities for running benchmark evaluations."""
 
 import subprocess
 import threading
@@ -9,15 +9,18 @@ import logging
 import sys
 import re
 from pathlib import Path
-import streamlit as st
 from datetime import datetime
-from .state_management import update_evaluation_status
 from .constants import DEFAULT_OUTPUT_DIR, STATUS_FILES_DIR
 from .csv_processor import (
-    convert_to_jsonl, 
-    create_model_profiles_jsonl, 
+    convert_to_jsonl,
+    create_model_profiles_jsonl,
     create_judge_profiles_jsonl
 )
+
+
+def update_evaluation_status(eval_id, status, progress=None, error=None, results=None):
+    """Update evaluation status (no-op — status is tracked via JSON files)."""
+    pass
 
 # Set up dashboard logger
 from .constants import PROJECT_ROOT
@@ -429,7 +432,7 @@ def run_benchmark_process(eval_id):
         cmd = [
             "python", 
             os.path.join(script_dir, "benchmarks_run.py"),
-            str(jsonl_path),
+            jsonl_path,
             "--output_dir", str(output_dir),
             "--report", "False",
             "--parallel_calls", str(evaluation_config["parallel_calls"]),
@@ -1005,90 +1008,5 @@ def _read_status_file(status_file):
         return {"status": "unknown", "progress": 0}
 
 
-def sync_evaluations_from_files():
-    """
-    Sync evaluation statuses from status files.
-    Call this function periodically from the main thread.
-    """
-    # Make sure session state is initialized
-    if "evaluations" not in st.session_state:
-        dashboard_logger.warning("No evaluations found in session state")
-        print("No evaluations found in session state")
-        return
-        
-    # Get all evaluations and print for debugging
-    evaluations = st.session_state.evaluations
-    dashboard_logger.info(f"Syncing status for {len(evaluations)} evaluations")
-    print(f"Syncing status for {len(evaluations)} evaluations with IDs: {[e['id'] for e in evaluations]}")
-    
-    for eval_config in evaluations:
-        eval_id = eval_config["id"]
-        eval_name = eval_config.get("name", "")
-        
-        # Use new status file format
-        from .constants import DEFAULT_OUTPUT_DIR
-        output_dir = Path(DEFAULT_OUTPUT_DIR)
-
-        # Use new format: evaluation_status_{id}_{name}.json
-        composite_id = f"{eval_id}_{eval_name}"
-        status_file = Path(STATUS_FILES_DIR) / f"evaluation_status_{composite_id}.json"
-        
-        dashboard_logger.debug(f"Checking status file for evaluation {eval_id}: {status_file}")
-        
-        if status_file.exists():
-            dashboard_logger.debug(f"Status file found for evaluation {eval_id}")
-            status_data = _read_status_file(status_file)
-            
-            # Log status changes
-            old_status = eval_config.get("status", "unknown")
-            new_status = status_data.get("status", old_status)
-            
-            if old_status != new_status:
-                dashboard_logger.info(f"Evaluation {eval_id} status changed: {old_status} -> {new_status}")
-            
-            # Update evaluation status in session state
-            update_evaluation_status(
-                eval_id, 
-                new_status,
-                status_data.get("progress", eval_config.get("progress", 0))
-            )
-            
-            # Update additional fields from status file
-            for key in ["logs_dir", "error", "start_time", "end_time", "duration"]:
-                if key in status_data:
-                    for i, e in enumerate(st.session_state.evaluations):
-                        if e["id"] == eval_id:
-                            st.session_state.evaluations[i][key] = status_data[key]
-
-            # Load models and judges from status file
-            for i, e in enumerate(st.session_state.evaluations):
-                if e["id"] == eval_id:
-                    if "models_data" in status_data and status_data["models_data"]:
-                        st.session_state.evaluations[i]["selected_models"] = status_data["models_data"]
-                        dashboard_logger.debug(f"Loaded {len(status_data['models_data'])} models from status file for evaluation {eval_id}")
-
-                    if "judges_data" in status_data and status_data["judges_data"]:
-                        st.session_state.evaluations[i]["judge_models"] = status_data["judges_data"]
-                        dashboard_logger.debug(f"Loaded {len(status_data['judges_data'])} judges from status file for evaluation {eval_id}")
-
-                    # Also load evaluation config parameters if they exist
-                    if "evaluation_config" in status_data:
-                        config = status_data["evaluation_config"]
-                        for config_key in config:
-                            if config[config_key] is not None:
-                                st.session_state.evaluations[i][config_key] = config[config_key]
-                    break
-
-            # Update results if available
-            if "results" in status_data and status_data["results"]:
-                dashboard_logger.info(f"Results found for evaluation {eval_id}: {status_data['results']}")
-                for i, e in enumerate(st.session_state.evaluations):
-                    if e["id"] == eval_id:
-                        st.session_state.evaluations[i]["results"] = status_data["results"]
-                        break
-        else:
-            dashboard_logger.debug(f"No status file found for evaluation {eval_id} (tried both composite and legacy formats)")
-            
-    dashboard_logger.info("Status sync completed")
 
 

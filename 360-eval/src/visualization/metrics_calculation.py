@@ -3,9 +3,67 @@ Metrics calculation functions for benchmark results.
 """
 
 import logging
+import pandas as pd
 from .constants import EPSILON_DIVISION, VALUE_RATIO_MULTIPLIER
 
 logger = logging.getLogger(__name__)
+
+
+def expected_attempts_per_model(df_all):
+    """Derive the number of *expected* invocations per model from the dataset.
+
+    Used as the denominator for reliability scoring so the metric reflects
+    the dataset shape (n_prompts x invocations x temp_variants x experiments)
+    instead of the count of CSV rows actually produced. Without this, attempts
+    that crashed hard enough to land only in the unprocessed JSON would
+    silently vanish from the denominator, flattering broken models.
+
+    n_prompts is the *per-model* scenario count (max unique prompts over
+    model_name), NOT the global unique-prompt count. This matters whenever the
+    same scenarios are run under more than one model_name:
+      - APO produces an extra "<model>_Prompt_Optimized" model_name whose prompt
+        text differs from the original, and
+      - one-to-many prompt optimization / multi-model runs evaluate the same
+        scenarios across several target models.
+    A global df['prompt'].nunique() would sum the prompts across all those
+    model_names and inflate the denominator (e.g. APO doubles it), capping every
+    model's reliability at ~1/N. Taking the max per model_name yields the true
+    scenario count, while still penalizing a model that crashed on some prompts
+    (its successes are divided by the fullest model's count).
+
+    Returns 0 if df_all is empty or lacks a 'prompt' column.
+    """
+    if df_all is None or df_all.empty or 'prompt' not in df_all.columns:
+        return 0
+    if 'model_name' in df_all.columns and df_all['model_name'].notna().any():
+        per_model = df_all.dropna(subset=['model_name']).groupby('model_name')['prompt'].nunique()
+        n_prompts = int(per_model.max()) if not per_model.empty else df_all['prompt'].nunique()
+    else:
+        n_prompts = df_all['prompt'].nunique()
+
+    def _first_int(col, default):
+        if col not in df_all.columns:
+            return default
+        try:
+            v = pd.to_numeric(df_all[col], errors='coerce').dropna()
+            return int(v.iloc[0]) if not v.empty else default
+        except Exception:
+            return default
+
+    inv = max(_first_int('invocations_per_scenario', 1), 1)
+    experiments = max(_first_int('experiment_counts', 1), 1)
+
+    # Number of distinct temperatures actually used per model — take the MAX so
+    # a model that crashed before exhausting variants doesn't pull the count down.
+    n_temps = 1
+    if 'TEMPERATURE' in df_all.columns and 'model_id' in df_all.columns:
+        try:
+            t = df_all.groupby('model_id')['TEMPERATURE'].nunique()
+            n_temps = max(int(t.max()), 1)
+        except Exception:
+            n_temps = 1
+
+    return int(n_prompts * inv * n_temps * experiments)
 
 
 def _build_task_display_name_map(metrics_df):
@@ -117,8 +175,11 @@ def calculate_metrics_by_model_task(df):
         valid_success_rates = metrics['success_rate'].dropna()
         if not valid_success_rates.empty:
             max_raw_ratio = valid_success_rates.max() / (metrics['avg_cost'].min() + EPSILON_DIVISION)
-            # Calculate value_ratio, will be NaN for rows where success_rate is NaN (latency-only tasks)
-            metrics['value_ratio'] = VALUE_RATIO_MULTIPLIER * (metrics['success_rate'] / (metrics['avg_cost'] + EPSILON_DIVISION)) / max_raw_ratio
+            # Guard against division by zero (all success_rates are 0)
+            if max_raw_ratio == 0:
+                metrics['value_ratio'] = 0.0
+            else:
+                metrics['value_ratio'] = VALUE_RATIO_MULTIPLIER * (metrics['success_rate'] / (metrics['avg_cost'] + EPSILON_DIVISION)) / max_raw_ratio
 
     return metrics
 

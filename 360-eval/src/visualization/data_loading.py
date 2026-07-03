@@ -243,10 +243,10 @@ def load_data(directory, evaluation_names=None, model_ids=None):
     df = pd.concat(merged_dfs, ignore_index=True)
     logger.info(f"Combined data has {len(df)} total rows across {len(config_groups)} unique configurations")
 
-    # Clean and prepare data (optimized with method chaining)
-    df = (df[df['api_call_status'] == 'Success']
-          .reset_index(drop=True)
-          .assign(model_name=lambda x: x['model_id'].apply(extract_model_name)))
+    # Split into success and error DataFrames
+    df_all = df.assign(model_name=lambda x: x['model_id'].apply(extract_model_name))
+    df_errors = df_all[df_all['api_call_status'] != 'Success'].reset_index(drop=True)
+    df = df_all[df_all['api_call_status'] == 'Success'].reset_index(drop=True)
 
     # Filter by model IDs if specified
     if model_ids:
@@ -330,6 +330,11 @@ def load_data(directory, evaluation_names=None, model_ids=None):
         * (summary["num_invocations"] / df.shape[0])
         * 30
     )
-    df = pd.concat([df, summary], axis=1)
+    # Attach per-model summary stats by joining on model_name. A plain
+    # pd.concat(axis=1) would align summary's model-name index against df's
+    # RangeIndex, producing phantom all-NaN rows (one per model) and inflating
+    # the record count — merge keeps one row per original record.
+    summary = summary.reset_index()  # model_name becomes a column
+    df = df.merge(summary, on="model_name", how="left")
 
-    return df
+    return df, df_errors, df_all

@@ -2,6 +2,7 @@
 Chart generation functions for benchmark visualizations.
 """
 
+import json
 import logging
 import re
 import pandas as pd
@@ -20,7 +21,7 @@ from .constants import (
     EPSILON_DIVISION
 )
 from .analysis import identify_unique_task_configs
-from .metrics_calculation import calculate_metrics_by_model_task_temperature
+from .metrics_calculation import calculate_metrics_by_model_task_temperature, expected_attempts_per_model
 
 # Import from html_report (to avoid circular import, we'll handle this differently)
 # These functions should be called from html_report, not from chart_generators
@@ -75,14 +76,17 @@ def create_normal_distribution_histogram(df,
     df_match = df[df['model_name'].isin(frequent_values)]
 
     if df_match.empty:
-        logger.info(f"Insufficient data for {label} Distribution by Model histogram: {len(df)} records (need >{MIN_RECORDS_FOR_HISTOGRAM})")
+        logger.info(f"Insufficient data for {label} Distribution by Model histogram: {len(df)} records (need >{min_vals})")
         return None
 
     # Filter out any null values
     df_clean = df_match[df_match[key].notna()].copy()
 
     if df_clean.empty:
-        return ["No valid time_to_first_byte data found"]
+        # Match create_outlier_boxplot's contract: callers guard with `is not None`,
+        # so returning a list here would be treated as a figure and crash on .to_html().
+        logger.info(f"No valid {key} data for {label} Distribution by Model histogram")
+        return None
 
     logger.info(f"Creating {label} Distribution by Model histogram with {len(df)} records")
 
@@ -452,7 +456,37 @@ def create_outlier_boxplot(df, key='time_to_first_byte', label='Time to First To
     return fig
 
 
-def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics, has_latency_only=False):
+def classify_error_type(error_code):
+    """Normalize raw error codes into clean display categories."""
+    if not error_code or error_code == 'None' or pd.isna(error_code):
+        return 'Unknown'
+    code = str(error_code).upper()
+    if 'TIMEOUT' in code or 'TIMEDOUT' in code:
+        return 'Timeout'
+    if 'THROTTL' in code or 'RATELIMIT' in code or 'RATE_LIMIT' in code:
+        return 'Throttled'
+    if 'SERVICEUNAVAIL' in code or '503' in code:
+        return 'Service Unavailable'
+    if 'ACCESSDENIED' in code or 'ACCESS_DENIED' in code:
+        return 'Access Denied'
+    if 'EMPTY_RESPONSE' in code:
+        return 'Empty Response'
+    if 'PARTIAL_RESPONSE' in code:
+        return 'Partial Response'
+    if 'VALIDATION' in code or 'BAD_REQUEST' in code or 'BADREQUEST' in code:
+        return 'Bad Request'
+    if 'NOTFOUND' in code or 'NOT_FOUND' in code or '404' in code:
+        return 'Not Found'
+    if 'CONNECTION' in code:
+        return 'Connection Error'
+    if 'TYPEERROR' in code:
+        return 'Type Error'
+    if 'RUNTIMEERROR' in code:
+        return 'Runtime Error'
+    return 'Other'
+
+
+def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics, has_latency_only=False, df_errors=None, df_all=None):
     """Create visualizations for the report."""
     visualizations = {}
 
@@ -487,7 +521,7 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
         template="plotly_dark",  # Use the built-in dark template as a base
         x='model_name',
         y='avg_otps',
-        error_y=tokens_per_sec_round['OTPS_std'],
+        error_y=tokens_per_sec_round['OTPS_std'].fillna(0),  # std() is NaN for single-sample models
         labels={'model_name': 'Model', 'avg_otps': 'Tokens/sec'},
         title='Output Tokens Per Second by Model',
         color='avg_otps',
@@ -512,8 +546,8 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
         template="plotly_dark",  # Use the built-in dark template as a base
         x='model_name',
         y='avg_cost_1k',
-        labels={'model_name': 'Model', 'avg_cost_1k': 'Cost per 1K Requests (USD)'},
-        title='Cost per 1K Requests by Model',
+        labels={'model_name': 'Model', 'avg_cost_1k': 'Estimated Spend for 1K Requests (USD)'},
+        title='Estimated Spend for 1K Requests',
         color='avg_cost_1k',
         color_continuous_scale='Viridis_r'  # Reversed so lower is better (green)
     )
@@ -581,7 +615,7 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
             hover_data=['model_name'],
             labels={
                 'avg_latency': 'Latency (Secs)',
-                'avg_cost_1k': 'Cost per 1K Requests (USD)',
+                'avg_cost_1k': 'Estimated Spend for 1K Requests (USD)',
                 'avg_otps': 'Tokens/sec',
                 'task_display_name': 'Task Type'
             },
@@ -624,7 +658,7 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
             labels={
                 'avg_latency': 'Latency (Secs)',
                 'success_rate': 'Success Rate',
-                'avg_cost_1k': 'Cost per 1K Requests (USD)',
+                'avg_cost_1k': 'Estimated Spend for 1K Requests (USD)',
                 'avg_otps': 'Tokens/sec',
                 'task_display_name': 'Task Type'  # Add label for task_display_name
             },
@@ -698,6 +732,83 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
             visualizations['error_analysis'] = '<div id="not-found">No Errors found in the Evaluation</div>'
     else:
         visualizations['error_analysis'] = '<div id="not-found">No Jury Evaluation Found</div>'
+
+    # Model Inference Errors — stacked bar chart by model and error type
+    if df_errors is not None and not df_errors.empty:
+        error_df = df_errors.copy()
+        error_df['error_type'] = error_df['error_code'].fillna('Unknown').apply(classify_error_type)
+
+        counts = error_df.groupby(['model_name', 'error_type']).size().reset_index(name='count')
+
+        inference_error_fig = px.bar(
+            counts,
+            template="plotly_dark",
+            x='model_name',
+            y='count',
+            color='error_type',
+            title='Model Inference Errors by Type',
+            labels={'model_name': 'Model', 'count': 'Error Count', 'error_type': 'Error Type'},
+            barmode='stack',
+            color_discrete_sequence=px.colors.qualitative.Set2
+        )
+        inference_error_fig.update_layout(
+            paper_bgcolor="#161e2d",
+            plot_bgcolor="#232f3e",
+            xaxis_tickangle=-45,
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        )
+        visualizations['model_inference_errors'] = inference_error_fig.to_html(full_html=False)
+    else:
+        visualizations['model_inference_errors'] = '<div id="not-found">No model inference errors recorded</div>'
+
+    # Evaluation Reliability Strength — horizontal bar chart per model
+    # Denominator = expected attempts (n_prompts x invocations x temp_variants x
+    # experiments) so attempts that crashed into the unprocessed JSON still count.
+    if df_all is not None and not df_all.empty and 'api_call_status' in df_all.columns:
+        expected_per_model = expected_attempts_per_model(df_all)
+        success_counts = df_all[df_all['api_call_status'] == 'Success'].groupby('model_name').size()
+        all_models = sorted(df_all['model_name'].dropna().unique())
+
+        reliability_data = []
+        for model in all_models:
+            successful = int(success_counts.get(model, 0))
+            total = expected_per_model if expected_per_model > 0 else successful
+            score = (successful / total) if total > 0 else 0
+            reliability_data.append({
+                'model': model,
+                'score': score,
+                'label': f"{successful}/{total} ({score:.0%})",
+                'successful': successful,
+                'total': total,
+            })
+
+        rel_df = pd.DataFrame(reliability_data).sort_values('score', ascending=True)
+
+        rel_fig = px.bar(
+            rel_df,
+            template="plotly_dark",
+            y='model',
+            x='score',
+            orientation='h',
+            color='score',
+            color_continuous_scale='RdYlGn',
+            range_color=[0, 1],
+            text='label',
+            labels={'model': 'Model', 'score': 'Reliability Score'},
+        )
+        rel_fig.update_traces(textposition='inside', textfont_size=12)
+        rel_fig.update_layout(
+            paper_bgcolor="#161e2d",
+            plot_bgcolor="#232f3e",
+            xaxis=dict(range=[0, 1.05], tickformat='.0%'),
+            yaxis=dict(automargin=True),
+            coloraxis_showscale=False,
+            margin=dict(l=0, r=20, t=10, b=10),
+            height=max(200, len(rel_df) * 40 + 60),
+        )
+        visualizations['reliability_strength'] = rel_fig.to_html(full_html=False)
+    else:
+        visualizations['reliability_strength'] = ''
 
     # Add this inside create_visualizations() function
     # Create one radar chart per task with all models overlaid
@@ -847,7 +958,7 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
                         rows=1, cols=3,
                         subplot_titles=(
                             "Latency (Secs) by Temperature",
-                            'Cost per 1K Requests (USD) by Temperature',
+                            'Estimated Spend for 1K Requests (USD) by Temperature',
                             "Tokens per Second by Temperature"
                         )
                     )
@@ -858,7 +969,7 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
                         subplot_titles=(
                             "Success Rate by Temperature",
                             "Latency (Secs) by Temperature",
-                            'Cost per 1K Requests (USD) by Temperature',
+                            'Estimated Spend for 1K Requests (USD) by Temperature',
                             "Tokens per Second by Temperature"
                         )
                     )
@@ -930,7 +1041,7 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
                             y=y_values,
                             name=f'T={temp}',
                             marker_color=temp_color_map[temp],
-                            hovertemplate='<b>%{x}</b><br>Cost per 1K: $%{y:.2f}<br>Temperature: ' + str(temp) + '<extra></extra>',
+                            hovertemplate='<b>%{x}</b><br>Est. 1K Requests: $%{y:.2f}<br>Temperature: ' + str(temp) + '<extra></extra>',
                             showlegend=False,
                             legendgroup=f'temp_{temp}'
                         ),
@@ -985,13 +1096,13 @@ def create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics,
                     # Latency-only mode: skip success rate, use 1x3 grid
                     fig = make_subplots(
                         rows=1, cols=3,
-                        subplot_titles=("Latency (Secs)", 'Cost per 1K Requests (USD)', "Tokens per Second")
+                        subplot_titles=("Latency (Secs)", 'Estimated Spend for 1K Requests (USD)', "Tokens per Second")
                     )
                 else:
                     # Full 360 mode: include success rate, use 2x2 grid
                     fig = make_subplots(
                         rows=2, cols=2,
-                        subplot_titles=("Success Rate", "Latency (Secs)", 'Cost per 1K Requests (USD)', "Tokens per Second")
+                        subplot_titles=("Success Rate", "Latency (Secs)", 'Estimated Spend for 1K Requests (USD)', "Tokens per Second")
                     )
 
                 # Sort data for each subplot (using method chaining for efficiency)

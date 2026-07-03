@@ -14,6 +14,11 @@ class TokenBucketRateLimiter:
     request rates for reliability and throttling testing.
     """
 
+    # Seconds of request burst allowed before steady-state throttling kicks in.
+    # Keeps the average rate at target_rpm while letting the parallel_calls pool
+    # fire concurrently instead of being serialized into a 1-at-a-time drip.
+    BURST_SECONDS = 5.0
+
     def __init__(self):
         """Initialize the rate limiter with empty buckets."""
         self.buckets = {}  # key: "model_id@region" -> bucket state
@@ -52,11 +57,18 @@ class TokenBucketRateLimiter:
 
             # Initialize bucket if it doesn't exist
             if bucket_key not in self.buckets:
+                # Capacity = burst allowance. The old value (target_rpm/60) was < 1 for
+                # any target_rpm <= 60, so tokens never reached 1.0 and EVERY acquire fell
+                # into the sleep branch — serializing the whole parallel_calls pool into a
+                # 1-req-at-a-time drip. Allow a few seconds of burst so threads can fire
+                # together up to capacity; average rate is still bounded by the refill rate.
+                rate_per_sec = target_rpm / 60.0
+                capacity = max(1.0, rate_per_sec * self.BURST_SECONDS)
                 self.buckets[bucket_key] = {
-                    "tokens": target_rpm / 60.0,  # Tokens per second
+                    "tokens": capacity,  # start full so an initial burst is allowed
                     "last_update": current_time,
                     "target_rpm": target_rpm,
-                    "capacity": target_rpm / 60.0  # Max tokens (per second)
+                    "capacity": capacity,
                 }
 
             bucket = self.buckets[bucket_key]

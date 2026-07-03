@@ -23,6 +23,197 @@ litellm.drop_params = True
 
 logger = logging.getLogger(__name__)
 
+# Judge prompt template version — increment when rubric/prompt changes to invalidate cache
+JUDGE_TEMPLATE_VERSION = "2.0"
+
+# Sharpened metric definitions with boundaries and 1-5 rubrics
+METRIC_DEFINITIONS = {
+    "Correctness": {
+        "definition": "Are the facts, logic, and conclusions accurate?",
+        "boundary": "Does NOT assess whether everything was covered (that is Completeness).",
+        "rubric": {
+            "1": "Factually wrong or fabricated",
+            "2": "Major errors that change meaning",
+            "3": "Mostly correct with notable gaps in accuracy",
+            "4": "Correct with minor inaccuracies",
+            "5": "Fully correct and accurate",
+        },
+    },
+    "Completeness": {
+        "definition": "Does the response address ALL parts of the prompt?",
+        "boundary": "Does NOT assess whether what is included is accurate (that is Correctness).",
+        "rubric": {
+            "1": "Addresses almost none of the prompt",
+            "2": "Addresses some parts, major omissions",
+            "3": "Addresses most parts, some gaps",
+            "4": "Addresses nearly all parts, minor gaps",
+            "5": "Thoroughly addresses every part of the prompt",
+        },
+    },
+    "Relevance": {
+        "definition": "Is everything in the response necessary and on-topic? No fluff, no tangents.",
+        "boundary": "Does NOT assess structure or format (that is Format).",
+        "rubric": {
+            "1": "Off-topic or padded with unnecessary content",
+            "2": "Partially relevant with significant tangents",
+            "3": "Mostly relevant, some unnecessary content",
+            "4": "Relevant with minimal tangents",
+            "5": "Every sentence directly serves the prompt",
+        },
+    },
+    "Format": {
+        "definition": "Does the response match the requested output structure and syntax?",
+        "boundary": "Does NOT assess whether the content is good (only the shape).",
+        "rubric": {
+            "1": "Completely ignores requested format",
+            "2": "Partially follows format with major deviations",
+            "3": "Follows format with some inconsistencies",
+            "4": "Follows format with minor deviations",
+            "5": "Perfectly matches the requested output format",
+        },
+    },
+    "Coherence": {
+        "definition": "Is the response internally consistent, logical, and well-organized?",
+        "boundary": "Does NOT assess factual accuracy (that is Correctness).",
+        "rubric": {
+            "1": "Disorganized, contradictory, or illogical",
+            "2": "Poorly structured with logical gaps",
+            "3": "Reasonably structured, some logical issues",
+            "4": "Well-structured with minor flow issues",
+            "5": "Logically structured, clear, and well-organized",
+        },
+    },
+    "Following-instructions": {
+        "definition": "Did the response obey explicit constraints? (length, language, tone, specific requirements)",
+        "boundary": "Does NOT assess general quality (only compliance with stated constraints).",
+        "rubric": {
+            "1": "Ignores explicit constraints entirely",
+            "2": "Follows some constraints, misses key ones",
+            "3": "Follows most constraints with some deviations",
+            "4": "Follows constraints with minor oversights",
+            "5": "Precisely obeys every stated constraint",
+        },
+    },
+}
+
+STANDARD_METRICS = list(METRIC_DEFINITIONS.keys())
+
+# ----------------------------------------
+# Judge Result Cache
+# ----------------------------------------
+_judge_cache = None
+_judge_cache_lock = Lock()
+_judge_cache_path = None
+_judge_cache_stats = {"hits": 0, "misses": 0}
+_judge_cache_dirty = False
+
+
+def _get_judge_cache_path():
+    """Determine judge cache file path based on output directory."""
+    global _judge_cache_path
+    if _judge_cache_path:
+        return _judge_cache_path
+    output_dir = os.environ.get("DEFAULT_OUTPUT_DIR", "outputs")
+    _judge_cache_path = os.path.join(output_dir, ".judge_cache.json")
+    return _judge_cache_path
+
+
+def _load_judge_cache():
+    """Load judge cache from disk. Returns dict."""
+    global _judge_cache
+    if _judge_cache is not None:
+        return _judge_cache
+    path = _get_judge_cache_path()
+    if os.path.exists(path):
+        try:
+            with open(path, 'r') as f:
+                _judge_cache = json.load(f)
+            logger.info(f"Judge cache loaded: {len(_judge_cache)} entries from {path}")
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning(f"Judge cache corrupted, starting fresh: {e}")
+            _judge_cache = {}
+    else:
+        _judge_cache = {}
+    return _judge_cache
+
+
+def _save_judge_cache():
+    """Persist judge cache to disk."""
+    global _judge_cache
+    if _judge_cache is None:
+        return
+    path = _get_judge_cache_path()
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    try:
+        with open(path, 'w') as f:
+            json.dump(_judge_cache, f)
+    except IOError as e:
+        logger.warning(f"Failed to save judge cache: {e}")
+
+
+def judge_cache_key(prompt, model_response, metric, judge_model_id):
+    """
+    Generate a cache key by hashing prompt + model_response + metric + judge_model_id + template_version.
+    Template version in the key auto-invalidates on rubric/prompt changes.
+    """
+    raw = f"{prompt}|{model_response}|{metric}|{judge_model_id}|{JUDGE_TEMPLATE_VERSION}"
+    return hashlib.sha256(raw.encode('utf-8')).hexdigest()
+
+
+def judge_cache_get(prompt, model_response, metric, judge_model_id):
+    """Check cache for a judge result. Returns cached result dict or None."""
+    with _judge_cache_lock:
+        cache = _load_judge_cache()
+        key = judge_cache_key(prompt, model_response, metric, judge_model_id)
+        result = cache.get(key)
+        if result is not None:
+            _judge_cache_stats["hits"] += 1
+            logger.info(f"Judge cache HIT for {metric} (judge={judge_model_id}, hash={key[:12]})")
+            return result
+        _judge_cache_stats["misses"] += 1
+        logger.debug(f"Judge cache MISS for {metric} (judge={judge_model_id}, hash={key[:12]})")
+        return None
+
+
+def judge_cache_put(prompt, model_response, metric, judge_model_id, result):
+    """Store a judge result in the in-memory cache.
+
+    The previous implementation rewrote the entire cache file to disk on every
+    put while holding the lock — O(n) per put (O(n^2) over a run) and serializing
+    the whole judge pool on each fsync. We now just mark the cache dirty and rely
+    on a single flush_judge_cache() at the end of the run.
+    """
+    global _judge_cache_dirty
+    with _judge_cache_lock:
+        cache = _load_judge_cache()
+        key = judge_cache_key(prompt, model_response, metric, judge_model_id)
+        cache[key] = result
+        _judge_cache_dirty = True
+
+
+def flush_judge_cache():
+    """Persist the judge cache to disk once, if it has pending changes."""
+    global _judge_cache_dirty
+    with _judge_cache_lock:
+        if _judge_cache_dirty:
+            _save_judge_cache()
+            _judge_cache_dirty = False
+
+
+def get_judge_cache_stats():
+    """Return judge cache hit/miss stats."""
+    with _judge_cache_lock:
+        hits = _judge_cache_stats["hits"]
+        misses = _judge_cache_stats["misses"]
+        total = hits + misses
+        return {
+            "hits": hits,
+            "misses": misses,
+            "hit_rate": (hits / total * 100) if total > 0 else 0.0,
+            "cache_size": len(_judge_cache) if _judge_cache else 0,
+        }
+
+
 # ----------------------------------------
 # Token Counting Cache
 # ----------------------------------------
@@ -45,7 +236,7 @@ def _cached_token_count(model: str, content_hash: str, content: str) -> int:
         Token count for the content
     """
     # content_hash is used for cache key deduplication, actual counting uses content
-    return token_counter(model=model, messages=[{"user": "role", "content": content}])
+    return token_counter(model=model, messages=[{"role": "user", "content": content}])
 
 
 def cached_token_counter(model: str, content: str) -> int:
@@ -65,25 +256,16 @@ def cached_token_counter(model: str, content: str) -> int:
     # Generate SHA-256 hash of content for cache key
     content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
 
-    with _token_cache_lock:
-        # Check if this would be a cache hit by examining cache info
-        cache_info_before = _cached_token_count.cache_info()
-
+    # lru_cache is internally thread-safe, so no lock is needed here. The previous
+    # version took the lock twice per call (and read cache_info twice) purely to
+    # maintain a hit/miss counter — that serialized every token-counting thread.
+    # Stats are now derived from cache_info() on demand in get_token_cache_stats().
     try:
-        result = _cached_token_count(model, content_hash, content)
-
-        with _token_cache_lock:
-            cache_info_after = _cached_token_count.cache_info()
-            if cache_info_after.hits > cache_info_before.hits:
-                _token_cache_stats["hits"] += 1
-            else:
-                _token_cache_stats["misses"] += 1
-
-        return result
+        return _cached_token_count(model, content_hash, content)
     except Exception as e:
         logger.warning(f"Cached token counter failed, falling back to direct call: {e}")
         # Fall back to direct token_counter call
-        return token_counter(model=model, messages=[{"user": "role", "content": content}])
+        return token_counter(model=model, messages=[{"role": "user", "content": content}])
 
 
 def get_token_cache_stats() -> dict:
@@ -93,27 +275,21 @@ def get_token_cache_stats() -> dict:
     Returns:
         dict with 'hits', 'misses', 'hit_rate', and 'cache_info'
     """
-    with _token_cache_lock:
-        hits = _token_cache_stats["hits"]
-        misses = _token_cache_stats["misses"]
-        total = hits + misses
-        hit_rate = (hits / total * 100) if total > 0 else 0.0
-
-        return {
-            "hits": hits,
-            "misses": misses,
-            "total": total,
-            "hit_rate": round(hit_rate, 2),
-            "cache_info": _cached_token_count.cache_info()._asdict()
-        }
+    info = _cached_token_count.cache_info()
+    total = info.hits + info.misses
+    hit_rate = (info.hits / total * 100) if total > 0 else 0.0
+    return {
+        "hits": info.hits,
+        "misses": info.misses,
+        "total": total,
+        "hit_rate": round(hit_rate, 2),
+        "cache_info": info._asdict(),
+    }
 
 
 def clear_token_cache():
-    """Clear the token counting cache and reset statistics."""
-    with _token_cache_lock:
-        _cached_token_count.cache_clear()
-        _token_cache_stats["hits"] = 0
-        _token_cache_stats["misses"] = 0
+    """Clear the token counting cache."""
+    _cached_token_count.cache_clear()
     logger.info("Token cache cleared")
 
 # ----------------------------------------
@@ -137,11 +313,16 @@ PROMPT_OPTIMIZATION_SUPPORTED_REGIONS = [
 # Map model ID patterns to optimization target models
 # This mapping handles various model families and versions
 MODEL_FAMILY_OPTIMIZATION_MAP = {
-    # Amazon Nova family
-    "amazon.nova-lite": "amazon.nova-lite-v1:0",
-    "amazon.nova-micro": "amazon.nova-micro-v1:0",
-    "amazon.nova-pro": "amazon.nova-pro-v1:0",
-    "amazon.nova-premier": "amazon.nova-premier-v1:0",
+    # Amazon Nova family (v1)
+    "amazon.nova-lite-v1": "amazon.nova-lite-v1:0",
+    "amazon.nova-micro-v1": "amazon.nova-micro-v1:0",
+    "amazon.nova-pro-v1": "amazon.nova-pro-v1:0",
+    "amazon.nova-premier-v1": "amazon.nova-premier-v1:0",
+
+    # Amazon Nova 2 family
+    "amazon.nova-2-lite": "amazon.nova-2-lite-v1:0",
+    "amazon.nova-2-micro": "amazon.nova-2-micro-v1:0",
+    "amazon.nova-2-pro": "amazon.nova-2-pro-v1:0",
 
     # Anthropic Claude 3 family
     "anthropic.claude-3-haiku": "anthropic.claude-3-haiku-20240307-v1:0",
@@ -489,13 +670,21 @@ def calculate_average_scores(dict_list):
     # Initialize result dictionary
     result = {}
 
-    # Get the keys from the first dictionary (assuming all dictionaries have the same keys)
-    keys = dict_list[0].keys()
+    # Use the union of keys — judges may report different metric sets (e.g. one judge
+    # omits a metric it couldn't score). Averaging only over the dicts that contain a
+    # given key avoids a KeyError and prevents a missing metric from being treated as 0.
+    keys = []
+    for d in dict_list:
+        for k in d:
+            if k not in keys:
+                keys.append(k)
 
-    # Calculate the average for each key
+    # Calculate the average for each key over the judges that provided it
     for key in keys:
-        total = sum(d[key] for d in dict_list)
-        average = total / len(dict_list)
+        values = [d[key] for d in dict_list if key in d]
+        if not values:
+            continue
+        average = sum(values) / len(values)
         result[f'AVG_{key}'] = round(average, 4)
     return result
 
@@ -518,7 +707,7 @@ Extract and return the JSON object from the given text that matches the specifie
 
 Provide your response immediately without any preamble or additional information.
             """
-    resp = run_inference(model_name=judge_model_id, prompt_text=prompt, provider_params=cfg, stream=False)
+    resp = run_inference(model_name=judge_model_id, prompt_text=prompt, provider_params=cfg, stream=False, judge_eval=True)
     text = resp['text']
     payload = extract_json_from_text(text)
     if not payload:
@@ -526,29 +715,222 @@ Provide your response immediately without any preamble or additional information
     return payload
 
 
+def sanitize_judge_json(raw_json):
+    """
+    Sanitize raw JSON text from judge responses before parsing.
+
+    Fixes common issues where judges produce structurally valid JSON
+    but with characters that break json.loads():
+    - Invalid escape sequences (e.g. \\$ \\# \\@ \\& \\% from LaTeX habits)
+    - Trailing commas before closing braces/brackets
+    - Unescaped double quotes inside string values (e.g. 'free of "weasel" words')
+
+    Args:
+        raw_json: Raw JSON string from judge response
+
+    Returns:
+        Sanitized JSON string safe for json.loads()
+    """
+    # Fix invalid backslash escapes: \$ \# \@ \& \% \~ \^ etc.
+    # Valid JSON escapes are: \" \\ \/ \b \f \n \r \t \uXXXX
+    sanitized = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', raw_json)
+
+    # Remove trailing commas before } or ] (common LLM output error)
+    sanitized = re.sub(r',\s*([}\]])', r'\1', sanitized)
+
+    return sanitized
+
+
+def _fix_unescaped_quotes(raw_json):
+    """
+    Fix unescaped double quotes inside JSON string values.
+
+    Walks the JSON character by character, tracking whether we're inside
+    a string value. Quotes that appear mid-string (not after a colon/comma
+    boundary or at a structural position) are escaped.
+    """
+    result = []
+    in_string = False
+    i = 0
+    while i < len(raw_json):
+        ch = raw_json[i]
+        if ch == '\\' and in_string:
+            # Escaped character — pass through both chars
+            result.append(ch)
+            if i + 1 < len(raw_json):
+                i += 1
+                result.append(raw_json[i])
+            i += 1
+            continue
+        if ch == '"':
+            if not in_string:
+                in_string = True
+                result.append(ch)
+            else:
+                # Check if this quote ends the string or is embedded
+                # Look ahead: if next non-whitespace is : , } ] it's a structural close
+                rest = raw_json[i+1:].lstrip()
+                if rest and rest[0] in (':', ',', '}', ']'):
+                    in_string = False
+                    result.append(ch)
+                else:
+                    # Embedded quote — escape it
+                    result.append('\\"')
+        else:
+            result.append(ch)
+        i += 1
+    return ''.join(result)
+
+
+def _try_parse_json(raw):
+    """Try json.loads with progressive sanitization fallbacks."""
+    # Attempt 1: raw
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # Attempt 2: fix escape sequences + trailing commas
+    try:
+        return json.loads(sanitize_judge_json(raw))
+    except json.JSONDecodeError:
+        pass
+
+    # Attempt 3: also fix unescaped quotes
+    try:
+        return json.loads(_fix_unescaped_quotes(sanitize_judge_json(raw)))
+    except json.JSONDecodeError:
+        return None
+
+
 def extract_json_from_text(text):
-    pattern = re.compile(
-        r'\{\s*"scores"\s*:\s*\{\s*(?:[^{}]*?)\s*\}\s*\}',
-        re.VERBOSE | re.DOTALL
-    )
+    """Extract JSON from text. Handles both bundled and single-metric formats."""
+    # Try to find any JSON object in the text
+    # First try: look for ```json ... ``` code blocks
+    code_block = re.search(r'```(?:json)?\s*\n?(.*?)```', text, re.DOTALL)
+    if code_block:
+        parsed = _try_parse_json(code_block.group(1).strip())
+        if parsed:
+            return parsed
+
+    # Second try: find JSON with "scores" key (bundled mode)
+    pattern = re.compile(r'\{[^{}]*"scores"\s*:\s*\{.*?\}\s*\}', re.DOTALL)
     match = pattern.search(text)
     if match:
-        json_text = match.group(0)
-        try:
-            return json.loads(json_text)
-        except json.JSONDecodeError as e:
-            print("Found block but failed to parse JSON:", e)
-            return None
-    else:
-        print("No matching JSON block found.")
-        return None
+        parsed = _try_parse_json(match.group(0))
+        if parsed:
+            return parsed
+
+    # Third try: find JSON with "score" key (single-metric mode)
+    pattern = re.compile(r'\{\s*"score"\s*:.*?\}', re.DOTALL)
+    match = pattern.search(text)
+    if match:
+        parsed = _try_parse_json(match.group(0))
+        if parsed:
+            return parsed
+
+    # Fourth try: find any JSON object
+    for match in re.finditer(r'\{[^{}]+\}', text, re.DOTALL):
+        parsed = _try_parse_json(match.group(0))
+        if parsed and isinstance(parsed, dict) and ('score' in parsed or 'scores' in parsed):
+            return parsed
+
+    logger.warning("No matching JSON block found in judge response.")
+    return None
 
 
 def extract_json_response(all_metrics, text, judge_model_id, cfg):
     payload = extract_json_from_text(text)
+    # Validate: bundled mode must have "scores" key, single-metric must have "score" key
+    if payload:
+        if len(all_metrics) == 1:
+            # Single-metric: {"score": int, "rationale": "..."} is valid
+            if 'score' not in payload and 'scores' not in payload:
+                payload = None
+        else:
+            # Bundled: must have "scores" dict
+            if 'scores' not in payload:
+                payload = None
     if not payload:
         payload = extract_json_with_llm(all_metrics, text, judge_model_id, cfg)
     return payload
+
+
+def validate_custom_metrics(custom_metrics):
+    """
+    Validate custom metric definitions. Each must have metric_name, definition,
+    and a rubric with all 5 levels (1-5).
+
+    Args:
+        custom_metrics: list of custom metric dicts
+
+    Returns:
+        (valid: bool, errors: list of str)
+    """
+    if not custom_metrics:
+        return True, []
+    errors = []
+    for i, cm in enumerate(custom_metrics):
+        if not isinstance(cm, dict):
+            errors.append(f"Custom metric #{i+1}: must be a dict, got {type(cm).__name__}")
+            continue
+        name = cm.get("metric_name")
+        if not name:
+            errors.append(f"Custom metric #{i+1}: missing 'metric_name'")
+        if not cm.get("definition"):
+            errors.append(f"Custom metric '{name or f'#{i+1}'}': missing 'definition'")
+        rubric = cm.get("rubric")
+        if not rubric or not isinstance(rubric, dict):
+            errors.append(f"Custom metric '{name or f'#{i+1}'}': missing or invalid 'rubric'")
+        else:
+            for level in ("1", "2", "3", "4", "5"):
+                if level not in rubric:
+                    errors.append(f"Custom metric '{name}': missing rubric level {level}")
+        if not cm.get("primary"):
+            errors.append(f"Custom metric '{name or f'#{i+1}'}': missing 'primary' model assignment")
+    return len(errors) == 0, errors
+
+
+def _build_metric_block(metric_name, structure_validation=None, custom_definition=None):
+    """Build the definition + boundary + rubric block for a single metric.
+
+    Args:
+        metric_name: Name of the metric
+        structure_validation: Structure validation result (for Format metric)
+        custom_definition: Optional custom metric dict with definition/boundary/rubric
+    """
+    defn = custom_definition or METRIC_DEFINITIONS.get(metric_name)
+    if not defn:
+        # Fallback for custom metric without definition (legacy)
+        return f"- {metric_name}"
+
+    rubric_lines = "\n".join(f"  {k} = {v}" for k, v in defn["rubric"].items())
+    boundary_line = f"Does NOT assess: {defn['boundary']}\n" if defn.get("boundary") else ""
+    block = (
+        f"**{metric_name}**\n"
+        f"Definition: {defn['definition']}\n"
+        f"{boundary_line}"
+        f"{rubric_lines}"
+    )
+
+    # Add structure validation evidence for Format metric only
+    if metric_name == "Format" and structure_validation:
+        fmt = structure_validation.get("expected_format", "unknown")
+        if structure_validation["valid"]:
+            block += (
+                f"\n\nData Structure Analysis: The model response was programmatically validated "
+                f"against {fmt.upper()} format. Result: PASSED — valid {fmt.upper()}. "
+                f"Use this evidence when scoring Format."
+            )
+        else:
+            error = structure_validation.get("error", "validation failed")
+            block += (
+                f"\n\nData Structure Analysis: The model response was programmatically validated "
+                f"against {fmt.upper()} format. Result: FAILED — {error}. "
+                f"An invalid structure should score poorly on Format (1)."
+            )
+
+    return block
 
 
 def llm_judge_template(all_metrics,
@@ -556,40 +938,124 @@ def llm_judge_template(all_metrics,
                        task_criteria,
                        prompt,
                        model_response,
-                       golden_answer
+                       golden_answer,
+                       structure_validation=None,
+                       custom_metric_definitions=None,
+                       success_criteria=None,
                        ):
-    metrics_list = "\n".join(f"- {m}" for m in all_metrics)
-    metrics_entries = [f'            "{metric}": <int>' for metric in all_metrics]
-    metrics_string = ",\n".join(metrics_entries)
-    return f"""
-    ## You are an expert evaluator.  
-    # Task: {task_types}
+    """Build the judge evaluation prompt.
 
-    # Task description: {task_criteria}
+    Supports two modes:
+    - Bundled (multiple metrics): all metric definitions included, JSON output with all scores + rationales
+    - Single metric: only one metric's definition included, simpler JSON output
 
-    # Original Prompt:
-    {prompt}
+    Supports two anchor modes:
+    - Golden answer: reference response provided (default)
+    - Criteria-only: structured success criteria instead of golden answer
 
-    # Model Response:
-    {model_response}
+    Golden answer appears BEFORE model response to reduce positional bias.
+    Rationale is required for every score.
 
-    # Golden (Reference) Response:
-    {golden_answer}
+    Args:
+        custom_metric_definitions: list of custom metric dicts
+        success_criteria: dict with must_include, success_definition, must_not_include,
+            expected_format, edge_cases — used when golden_answer is empty/None
+    """
+    # Build lookup for custom metric definitions
+    custom_defs = {}
+    if custom_metric_definitions:
+        for cm in custom_metric_definitions:
+            if isinstance(cm, dict) and cm.get("metric_name"):
+                custom_defs[cm["metric_name"]] = cm
 
-    # Please evaluate the model response on the following metrics:
-    {metrics_list}
+    # Build metric blocks with definitions, boundaries, and rubrics
+    metric_blocks = []
+    for m in all_metrics:
+        custom_def = custom_defs.get(m)
+        metric_blocks.append(_build_metric_block(m, structure_validation, custom_definition=custom_def))
 
-    # For each metric, assign an integer score from 1 (worst) to 5 (best).
+    metrics_section = "\n\n".join(metric_blocks)
 
-    ## IMPORTANT: **Output JSON only** in this format:
-    ```json
-    {{
-      "scores": {{
-{metrics_string}
-      }}
-    }}
-    ```
-    """.strip()
+    # Build anchor section: golden answer or success criteria
+    has_golden = golden_answer and str(golden_answer).strip() and str(golden_answer).strip().lower() not in ('', 'nan', 'none', 'n/a')
+    if has_golden:
+        anchor_section = f"""# Golden (Reference) Response:
+{golden_answer}"""
+    elif success_criteria and isinstance(success_criteria, dict):
+        parts = []
+        if success_criteria.get('must_include'):
+            parts.append(f"- Must include: {success_criteria['must_include']}")
+        if success_criteria.get('success_definition'):
+            parts.append(f"- Success definition: {success_criteria['success_definition']}")
+        if success_criteria.get('must_not_include'):
+            parts.append(f"- Must NOT include: {success_criteria['must_not_include']}")
+        if success_criteria.get('edge_cases'):
+            parts.append(f"- Edge cases: {success_criteria['edge_cases']}")
+        criteria_text = "\n".join(parts)
+        anchor_section = f"""# Success Criteria:
+{criteria_text}"""
+    else:
+        anchor_section = "# No golden answer or success criteria provided. Evaluate the response based on the prompt and task description alone."
+
+    if len(all_metrics) == 1:
+        # Single-metric mode (specialist)
+        return f"""## You are an expert evaluator.
+
+# Task: {task_types}
+# Task description: {task_criteria}
+
+# Original Prompt:
+{prompt}
+
+{anchor_section}
+
+# Model Response (evaluate this):
+{model_response}
+
+# Evaluation Metric:
+{metrics_section}
+
+# Score this metric from 1 (worst) to 5 (best). Evaluate ONLY this metric — ignore all other quality aspects.
+
+## IMPORTANT: Output JSON only in this format:
+```json
+{{
+  "score": <int>,
+  "rationale": "<brief evidence from the response>"
+}}
+```""".strip()
+    else:
+        # Bundled mode (multiple metrics)
+        metrics_entries = [f'    "{m}": {{"score": <int>, "rationale": "<brief evidence>"}}' for m in all_metrics]
+        metrics_json = ",\n".join(metrics_entries)
+        return f"""## You are an expert evaluator.
+
+# Task: {task_types}
+# Task description: {task_criteria}
+
+# Original Prompt:
+{prompt}
+
+{anchor_section}
+
+# Model Response (evaluate this):
+{model_response}
+
+# Evaluate the model response on each of the following metrics INDEPENDENTLY.
+# Each metric has its own definition, boundary, and rubric. Do not let one metric influence another.
+
+{metrics_section}
+
+# For each metric, assign an integer score from 1 (worst) to 5 (best) and provide a brief rationale citing evidence from the response.
+
+## IMPORTANT: Output JSON only in this format:
+```json
+{{
+  "scores": {{
+{metrics_json}
+  }}
+}}
+```""".strip()
 
 
 # Define which exceptions should trigger a retry
@@ -651,6 +1117,9 @@ def _call_llm_with_retry(model_name, messages, provider_params, retry_tracker, s
                 stream=stream,
                 timeout=30,  # 60 second timeout to prevent extreme outliers
                 stream_timeout=60,
+                # Ask the provider to report token usage in the final stream chunk so we
+                # can use exact server counts instead of re-counting client-side.
+                **({"stream_options": {"include_usage": True}} if stream else {}),
                 **provider_params
                 )
             return completed, time_
@@ -679,6 +1148,13 @@ def _call_llm_with_retry(model_name, messages, provider_params, retry_tracker, s
             # Create a more informative error message and don't retry
             raise
         except RETRYABLE_EXCEPTIONS as e:
+            error_msg = str(e)
+            # Don't retry auth/token errors — they won't resolve with retries
+            auth_errors = ["expired", "invalid token", "bearer token", "not authorized",
+                           "access denied", "invalid credential", "security token"]
+            if any(phrase in error_msg.lower() for phrase in auth_errors):
+                logger.error(f"Authentication error (non-retryable): {error_msg[:200]}")
+                raise Exception(f"API key error: {error_msg[:200]}. Please update your credentials.")
             # Only log first retryable error at WARNING, rest at DEBUG to reduce noise
             if retry_tracker.attempts == 0:
                 logger.warning(f"Retryable error occurred: {type(e).__name__}: {str(e)[:100]}")
@@ -852,6 +1328,95 @@ def handle_vision(prompt_text, vision_enabled):
     return messages
 
 
+def _usage_value(usage, key):
+    """Read a token-count field from a litellm usage object (attribute- or dict-style)."""
+    if usage is None:
+        return None
+    val = getattr(usage, key, None)
+    if val is None and hasattr(usage, 'get'):
+        try:
+            val = usage.get(key)
+        except Exception:
+            val = None
+    return val
+
+
+def _run_inference_responses(model_name, prompt_text, input_cost, output_cost,
+                             provider_params, judge_eval, retry_tracker):
+    """Inference via the Bedrock Mantle OpenAI-compatible Responses API.
+
+    Mantle models (e.g. openai.gpt-5.5) are NOT Converse models — they're invoked with
+    litellm.responses() against https://bedrock-mantle.<region>.api.aws/openai/v1 using
+    a Bedrock Mantle API key. provider_params carries api_base + api_key (set by the
+    caller). Non-streaming for reliability: clean output_text + usage, with TTFT==TTLB
+    ==runtime (same convention as the non-streaming completion path).
+    """
+    # litellm routes via its OpenAI-compatible handler with the openai/ prefix
+    # (the bedrock_mantle/ prefix is buggy in litellm). Strip the catalog bedrock/ prefix:
+    # 'bedrock/openai.gpt-5.5' -> 'openai/openai.gpt-5.5'.
+    clean = model_name
+    for p in ("bedrock/converse/", "bedrock/"):
+        if clean.startswith(p):
+            clean = clean[len(p):]
+            break
+    litellm_model = f"openai/{clean}"
+
+    kwargs = {
+        "model": litellm_model,
+        "input": prompt_text,
+        "api_base": provider_params.get("api_base"),
+        "api_key": provider_params.get("api_key"),
+    }
+    # NOTE: GPT-5.x reasoning models on Mantle reject `temperature` ("unsupported_parameter")
+    # — do NOT forward it. Only bound the output length.
+    if provider_params.get("max_tokens") is not None:
+        kwargs["max_output_tokens"] = provider_params["max_tokens"]  # Responses API param name
+
+    start_time = time.time()
+    resp = litellm.responses(**kwargs)
+    total_runtime = time.time() - start_time
+
+    response_text = getattr(resp, "output_text", "") or ""
+    usage = getattr(resp, "usage", None)
+    input_tokens = _usage_value(usage, "input_tokens")
+    if input_tokens is None:
+        input_tokens = _usage_value(usage, "prompt_tokens")
+    output_tokens = _usage_value(usage, "output_tokens")
+    if output_tokens is None:
+        output_tokens = _usage_value(usage, "completion_tokens")
+    # Fall back to client-side counting only if the provider returned no usage.
+    if input_tokens is None or output_tokens is None:
+        try:
+            if output_tokens is None:
+                output_tokens = cached_token_counter(model=clean, content=response_text)
+            if input_tokens is None:
+                input_tokens = cached_token_counter(model=clean, content=prompt_text)
+        except Exception:
+            input_tokens = input_tokens if input_tokens is not None else 0.0000001
+            output_tokens = output_tokens if output_tokens is not None else 0.0000001
+
+    if judge_eval:
+        return {"text": response_text, "outputTokens": output_tokens, "inputTokens": input_tokens}
+
+    throughput_tps = output_tokens / total_runtime if total_runtime > 0 else 0
+    tot_input_cost = input_tokens * (input_cost / 1_000_000)
+    tot_output_cost = output_tokens * (output_cost / 1_000_000)
+    return {
+        "model_response": response_text,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_runtime": total_runtime,
+        "time_to_first_byte": total_runtime,  # non-streaming: TTFT == TTLB == runtime
+        "time_to_last_byte": total_runtime,
+        "throughput_tps": throughput_tps,
+        "total_cost": tot_output_cost + tot_input_cost,
+        "retry_count": retry_tracker.attempts,
+        "finish_reason": getattr(resp, "status", None),
+        "stream_metrics": None,
+        "thinking_response": "",
+    }
+
+
 # Run streaming inference and collect metrics
 def run_inference(model_name: str,
                   prompt_text: str,
@@ -860,8 +1425,14 @@ def run_inference(model_name: str,
                   provider_params: dict = dict,
                   stream: bool = True,
                   vision_enabled: str = None,
-                  judge_eval: bool = None):
-    # Concatenate user prompt for token counting
+                  judge_eval: bool = None,
+                  endpoint: str = None):
+    # Bedrock Mantle (OpenAI-compatible Responses API) models take a separate path —
+    # litellm.responses() with the Mantle api_base/key — not Converse/completion().
+    if endpoint == "bedrock_mantle":
+        retry_tracker = RetryTracker()
+        return _run_inference_responses(model_name, prompt_text, input_cost, output_cost,
+                                        provider_params, judge_eval, retry_tracker)
     if vision_enabled:
         messages = handle_vision(prompt_text, vision_enabled)
     else:
@@ -885,9 +1456,9 @@ def run_inference(model_name: str,
             stream=stream
         )
         if not stream:
-            # response = dict()
-            response = payload.choices[0].message.content
-            thinking_response = payload.choices[0].message.get("reasoning_content", "")
+            msg = payload.choices[0].message
+            response = msg.content if hasattr(msg, 'content') else str(msg)
+            thinking_response = msg.get("reasoning_content", "") if hasattr(msg, 'get') else getattr(msg, 'reasoning_content', "")
             output_tokens = payload.model_extra['usage']['completion_tokens']
             input_tokens = payload.model_extra['usage']['prompt_tokens']
 
@@ -927,36 +1498,81 @@ def run_inference(model_name: str,
             }
         else:
             time_to_first_token = 0
-            for chunk in payload:
-                if first:
-                    time_to_first_token = time.time() - start_time
-                    first = False
+            server_usage = None
+            # completion() returns before the stream body is read, so a dead pooled
+            # connection (e.g. litellm's background logging loops closing a cached
+            # socket's fd — "[Errno 9] Bad file descriptor" on the first read)
+            # surfaces here, outside the tenacity retry above. Re-request the stream
+            # when it dies before yielding any content; once content has arrived,
+            # errors propagate unchanged so partial responses are still returned.
+            max_stream_restarts = 2
+            for stream_restart in range(max_stream_restarts + 1):
+                try:
+                    for chunk in payload:
+                        if first:
+                            time_to_first_token = time.time() - start_time
+                            first = False
 
-                # Handle potential None or malformed chunks
-                if not chunk or not hasattr(chunk, 'choices') or len(chunk.choices) == 0:
-                    logger.warning("Received invalid chunk from API")
-                    continue
-                thinking_delta = chunk.choices[0].delta.get("reasoning_content", "")
-                if thinking_delta:
-                    thinking_chunks.append(thinking_delta)
-                delta = chunk.choices[0].delta.get("content", "")
-                if delta:
-                    response_chunks.append(delta)
+                        # Capture provider-reported token usage when present. The final usage
+                        # chunk (and some providers' interim chunks) carry usage with empty
+                        # choices, so record it before skipping the chunk for content.
+                        chunk_usage = getattr(chunk, 'usage', None)
+                        if chunk_usage is not None:
+                            server_usage = chunk_usage
+
+                        # Handle potential None or malformed chunks
+                        if not chunk or not hasattr(chunk, 'choices') or len(chunk.choices) == 0:
+                            if chunk_usage is None:
+                                logger.warning("Received invalid chunk from API")
+                            continue
+                        delta_obj = chunk.choices[0].delta
+                        # Some models return delta as string instead of dict-like object
+                        if isinstance(delta_obj, str):
+                            if delta_obj:
+                                response_chunks.append(delta_obj)
+                            continue
+                        thinking_delta = delta_obj.get("reasoning_content", "") if hasattr(delta_obj, 'get') else getattr(delta_obj, 'reasoning_content', "")
+                        if thinking_delta:
+                            thinking_chunks.append(thinking_delta)
+                        delta = delta_obj.get("content", "") if hasattr(delta_obj, 'get') else getattr(delta_obj, 'content', "")
+                        if delta:
+                            response_chunks.append(delta)
+                    break
+                except RETRYABLE_EXCEPTIONS as e:
+                    if response_chunks or stream_restart == max_stream_restarts:
+                        raise
+                    logger.warning(
+                        f"Stream failed before yielding content ({type(e).__name__}); "
+                        f"re-requesting stream ({stream_restart + 1}/{max_stream_restarts})")
+                    first = True
+                    payload, start_time = _call_llm_with_retry(
+                        model_name=model_name,
+                        messages=messages,
+                        provider_params=provider_params,
+                        retry_tracker=retry_tracker,
+                        stream=stream
+                    )
 
             end = time.time()
             time_to_last_byte = round(end - start_time, 4)
             total_runtime = end - start_time
             actual_response = "".join(response_chunks)
             thinking_response = "".join(thinking_chunks)
-            # Token counting with error handling (using cached counter for performance)
-            try:
-                counter_id = model_name.replace('converse/', '')  # Converse is needed for inference only
-                output_tokens = cached_token_counter(model=counter_id, content=thinking_response + actual_response)
-                input_tokens = cached_token_counter(model=counter_id, content=prompt_text)
-            except Exception as e:
-                logger.error(f"Error counting tokens: {str(e)}")
-                output_tokens = 0.0000001
-                input_tokens = 0.0000001
+            # Prefer the provider's reported token usage — it matches the non-streaming
+            # path and correctly accounts for the system/vision content that client-side
+            # counting of prompt_text alone misses (notably base64 images). Fall back to
+            # the cached client-side counter only when the provider returns no usage.
+            input_tokens = _usage_value(server_usage, 'prompt_tokens')
+            output_tokens = _usage_value(server_usage, 'completion_tokens')
+            if input_tokens is None or output_tokens is None:
+                try:
+                    counter_id = model_name.replace('converse/', '')  # Converse is needed for inference only
+                    output_tokens = cached_token_counter(model=counter_id, content=thinking_response + actual_response)
+                    input_tokens = cached_token_counter(model=counter_id, content=prompt_text)
+                except Exception as e:
+                    logger.error(f"Error counting tokens: {str(e)}")
+                    output_tokens = 0.0000001
+                    input_tokens = 0.0000001
 
             tokens_per_sec = output_tokens / total_runtime if total_runtime > 0 else 0
             tot_input_cost = input_tokens * (input_cost / 1_000_000)
@@ -996,24 +1612,25 @@ def report_summary_template(models, evaluations):
     models_str = '\n'.join(models)
     return f"""
 ## Task
-Your task is to summarize the key findings from the provided LLM model/s evaluation dataset in a single, objective paragraph. The dataset contains information on performance (speed, tokens per minute, throttle errors), accuracy, and cost metrics across one-to-many #Task/s#.
+You are writing an executive summary for an LLM model evaluation report. The report evaluates {len(models)} model(s) across one or more tasks. Your summary should give the reader a complete picture of the evaluation results in 2-4 concise paragraphs.
 
 ## Guidelines
-1. Read through the dataset carefully to understand the different metrics and their values.
-2. Identify the main points and notable observations related to performance, accuracy, and cost, but do not reference analysis we do not have data for.
-3. Write a concise paragraph summarizing these key findings using neutral, fact-based language.
-4. Avoid subjective statements or judgments about what constitutes good/bad performance, reliability, or cost-effectiveness.
-5. Condenses the entire data into a concise overview, highlighting key findings, methodologies, and conclusions.
-6. Use plain language, when data uses explicit technical terms like "fat tails" use instead language like "highly likely to vary"
-7. Use HTML tags "<b><i>TEXT</b></i>" to highlight #Model Name# and #Task Name# across your resonse
+1. Start with evaluation context: which tasks were evaluated, how many models, and any reliability concerns (models with low evaluation completion rates should be flagged — their metrics are based on fewer data points and may not be representative).
+2. Cover the top performers for accuracy, speed, and cost-efficiency. Also mention the runner-up (second-best) model in each category with the gap between #1 and #2 — this helps readers understand if the winner is a clear standout or barely ahead.
+3. Highlight any notable trade-offs (e.g., a model that is the fastest but also the most expensive, or the most accurate but slowest).
+4. If any models have low reliability scores (high failure rates), explicitly call this out and note that their accuracy/latency/cost metrics should be interpreted with caution.
+5. Use neutral, fact-based language. State numbers and percentages. Avoid subjective judgments like "good" or "poor" — let the data speak.
+6. Use plain language. When data uses technical terms like "fat tails" say "highly likely to vary" instead.
+7. Use HTML tags "<b><i>TEXT</b></i>" to highlight Model Names and Task Names throughout your response.
+8. Do not reference data or analysis sections that are empty or not provided.
 
-## Models:
+## Models Evaluated:
 {models_str}
 
-## Dataset
+## Evaluation Data
 {evaluations}
 
-Please provide your summary paragraph immediately after reading the dataset, without any preamble.
+Write the executive summary now, without any preamble or section headers. Start directly with the findings.
     """.strip()
 
 
@@ -1047,10 +1664,13 @@ def check_model_access(provider_params, model_id):
         messages = [{"content": 'HI', "role": "user"}]
         # Prepare model ID for litellm (adds /converse for Bedrock models)
         litellm_model = prepare_model_for_litellm(model_id)
-        completed = completion(
+        # Non-streaming: a stream=True probe left an unconsumed stream holding a
+        # pooled connection, whose GC later closed the socket under the first real
+        # invocation (httpcore.ReadError: [Errno 9] Bad file descriptor).
+        completion(
             model=litellm_model,
             messages=messages,
-            stream=True,
+            stream=False,
             timeout=60,  # 60 second timeout to prevent extreme outliers
             **provider_params
         )
@@ -1071,4 +1691,126 @@ def check_model_access(provider_params, model_id):
     except Exception:
         return 'denied'
 
+
+# ----------------------------------------
+# System prompt extraction (for APO)
+# ----------------------------------------
+
+def find_longest_common_block(strings, min_len=20):
+    """Return the longest contiguous substring present in ALL input strings.
+
+    Uses difflib pairwise to harvest candidate blocks, then filters to those
+    present in every string. Returns None if no shared block meets `min_len`.
+    """
+    import difflib
+    if not strings or len(strings) < 2:
+        return None
+    base = strings[0]
+    others = strings[1:]
+    if not base:
+        return None
+
+    candidates = set()
+    for other in others:
+        if not other:
+            continue
+        sm = difflib.SequenceMatcher(None, base, other, autojunk=False)
+        for block in sm.get_matching_blocks():
+            if block.size >= min_len:
+                candidates.add(base[block.a:block.a + block.size])
+
+    valid = [c for c in candidates if all(c in s for s in strings)]
+    if not valid:
+        return None
+    return max(valid, key=len)
+
+
+def _llm_extract_system_prompt(samples, *, model_id, region, api_key=None):
+    """Ask a small Bedrock model to extract the verbatim shared system prompt."""
+    if not samples:
+        return ""
+    # Cap each sample to keep the extractor prompt under ~10k tokens
+    truncated = [(s[:3000] + ("..." if len(s) > 3000 else "")) for s in samples]
+    sample_block = "".join(
+        f"\n\n--- SAMPLE {i+1} ---\n{s}" for i, s in enumerate(truncated)
+    )
+    extractor_prompt = (
+        f"You are given {len(samples)} prompts that share a common system-prompt "
+        "section (role description, task instructions, output format rules, etc.) "
+        "but differ in the variable input each prompt asks about.\n\n"
+        "Your job: extract ONLY the shared system-prompt section. Output the "
+        "system prompt VERBATIM as it appears in the prompts. Do not paraphrase. "
+        "Do not add commentary. Do not include any portion that varies between "
+        "prompts (specific questions, transcripts, examples, dates, names, etc.).\n\n"
+        f"PROMPTS:{sample_block}\n\n"
+        "Reply with ONLY the shared system-prompt text, nothing else."
+    )
+
+    params = {"max_tokens": 4000, "temperature": 0.0, "aws_region_name": region}
+    if api_key:
+        params["api_key"] = api_key
+    resp = run_inference(
+        model_id, extractor_prompt,
+        provider_params=params, stream=False, judge_eval=True,
+    )
+    return (resp.get("text") or "").strip()
+
+
+def extract_system_prompt_hybrid(samples, *, min_len=20,
+                                 fallback_model_id="us.amazon.nova-lite-v1:0",
+                                 region="us-east-1", api_key=None):
+    """Detect the shared system-prompt section across N sample prompts.
+
+    Strategy:
+      1. Heuristic — longest common contiguous block (>= min_len chars).
+      2. If no clean block found, LLM fallback (Bedrock Nova Lite by default)
+         is asked to identify the verbatim shared section.
+      3. Last-resort: return ("", samples) — caller can treat APO as a no-op.
+
+    Returns `(system_prompt: str, variable_parts: list[str])` where
+    `variable_parts[i]` is `samples[i]` minus the detected system prompt.
+    """
+    if not samples:
+        return ("", [])
+
+    block = find_longest_common_block(list(samples), min_len=min_len)
+    if block:
+        variable_parts = []
+        for s in samples:
+            # Remove only the FIRST occurrence to avoid stripping coincidental
+            # substring matches deeper in the text.
+            variable_parts.append(s.replace(block, "", 1).strip())
+        logger.info(
+            f"[APO extract] heuristic match: {len(block)} chars shared across "
+            f"{len(samples)} samples"
+        )
+        return (block.strip(), variable_parts)
+
+    logger.info(
+        f"[APO extract] heuristic found no block >= {min_len} chars; "
+        "falling back to LLM extraction"
+    )
+    try:
+        sys_prompt = _llm_extract_system_prompt(
+            samples, model_id=fallback_model_id, region=region, api_key=api_key,
+        )
+    except Exception as e:
+        logger.warning(f"[APO extract] LLM fallback failed: {e}")
+        sys_prompt = ""
+
+    if not sys_prompt:
+        logger.warning(
+            "[APO extract] no system prompt detected — caller should treat "
+            "APO as a no-op for this evaluation"
+        )
+        return ("", list(samples))
+
+    variable_parts = []
+    for s in samples:
+        if sys_prompt in s:
+            variable_parts.append(s.replace(sys_prompt, "", 1).strip())
+        else:
+            # LLM may have summarized slightly; keep original sample as-is.
+            variable_parts.append(s)
+    return (sys_prompt, variable_parts)
 

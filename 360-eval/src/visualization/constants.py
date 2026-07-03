@@ -34,7 +34,7 @@ COMPOSITE_SCORE_WEIGHTS = {
 PERFORMANCE_THRESHOLDS = {
     'success_rate': {'good': 0.95, 'medium': 0.85},
     # 'avg_latency': {'good': 1.5, 'medium': 2},
-    'avg_cost': {'good': 0.5, 'medium': 1.0},  # Per response (display shows per 1K requests)
+    'avg_cost': {'good': 0.5, 'medium': 1.0},  # Per response (display shows per 1M requests)
     'avg_otps': {'good': 100, 'medium': 35},
 }
 

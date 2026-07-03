@@ -24,7 +24,7 @@ from .constants import (
 from .data_loading import load_data
 from .metrics_calculation import (
     calculate_metrics_by_model_task, calculate_metrics_by_model_task_temperature,
-    calculate_latency_metrics, calculate_cost_metrics
+    calculate_latency_metrics, calculate_cost_metrics, expected_attempts_per_model
 )
 from .chart_generators import create_visualizations
 from .analysis import (
@@ -152,7 +152,13 @@ def create_integrated_analysis_table(model_task_metrics):
             else:
                 return colors['poor']
         elif metric == 'avg_latency':
-            if value['avg_latency'] <= thresholds[metric][value['task_types']]['good']:
+            # A task only appears in thresholds['avg_latency'] when it had at least
+            # one record with avg_latency > 0. Tasks whose latencies are all 0/NaN
+            # are absent; fall back to a neutral color instead of raising KeyError.
+            task_thr = thresholds.get(metric, {}).get(value['task_types'])
+            if task_thr is None:
+                return colors['medium']
+            if value['avg_latency'] <= task_thr['good']:
                 return colors['good']
             else:
                 return colors['medium']
@@ -235,12 +241,11 @@ def create_integrated_analysis_table(model_task_metrics):
                 ['#161e2d'] * len(task_data),
             ]
 
-        # Calculate height based on number of rows (header + rows)
-        row_height = 28  # pixels per row
-        header_height = 30  # header row height
-        total_height = header_height + (len(task_data) * row_height)
+        # Let Plotly auto-size row heights based on content.
+        # Set a generous container height to ensure no rows are clipped.
+        num_rows = len(task_data)
+        total_height = max(400, 50 + (num_rows * 50))  # 50px per row estimate for wrapped text
 
-        # Use AWS-inspired header color with explicit heights
         fig.add_trace(go.Table(
             header=dict(
                 values=header_values,
@@ -248,7 +253,6 @@ def create_integrated_analysis_table(model_task_metrics):
                 fill_color='#232f3e',
                 align='left',
                 line_color='#2a3f5f',
-                height=header_height  # Explicit height to match calculation
             ),
             cells=dict(
                 values=cell_values,
@@ -257,7 +261,6 @@ def create_integrated_analysis_table(model_task_metrics):
                 fill_color=fill_colors,
                 font_color=font_colors,
                 line_color='#2a3f5f',
-                height=row_height  # Explicit height to match calculation
             )
         ))
 
@@ -266,7 +269,8 @@ def create_integrated_analysis_table(model_task_metrics):
             paper_bgcolor="rgba(22, 30, 45, 0.9)",
             plot_bgcolor="rgba(35, 47, 62, 0.8)",
             margin=dict(l=0, r=0, t=0, b=0),
-            height=total_height
+            height=total_height,
+            autosize=True,
         )
 
         # Store the table for this task (using task_display_name as key)
@@ -281,6 +285,9 @@ def create_regional_performance_analysis(df):
     Creates a plot showing latency and cost metrics grouped by region,
     including time of day analysis and region-specific recommendations.
     """
+    # Fill NaN regions (non-Bedrock models like Gemini/OpenAI may not have a region)
+    df = df.copy()
+    df['region'] = df['region'].fillna('N/A').astype(str)
 
     # Map regions to their time zones
     region_timezones = {
@@ -378,6 +385,7 @@ def create_regional_performance_analysis(df):
     }).reset_index()
 
     # Keep numeric version for bubble sizing, create formatted string version for display
+    regional_metrics['average_input_output_token_size'] = regional_metrics['average_input_output_token_size'].fillna(0)
     regional_metrics['token_size_numeric'] = regional_metrics['average_input_output_token_size'].round(1)
     regional_metrics['average_input_output_token_size'] = regional_metrics['token_size_numeric'].astype("string")
     # Calculate time of day periods
@@ -459,7 +467,7 @@ def create_regional_performance_analysis(df):
             hovertemplate=
             f"<b>{row['composite_label']}</b><br>" +
             f"Latency: {row['time_to_last_byte']:.2f}s<br>" +
-            f"Cost per 1K: ${cost_1k:.2f}<br>" +
+            f"Cost per 1M: ${cost_1k:.2f}<br>" +
             f"Mean Token Size: {row['average_input_output_token_size']}<br>" +
             f"Local Time at Inference: {row['local_time']}<br>" +
             f"Time Period: {row['time_period']}<br><extra></extra>",
@@ -489,14 +497,14 @@ def create_regional_performance_analysis(df):
     )
 
     fig_scatter.update_layout(
-        title="Latency vs Cost per 1K Requests by Region Across All Tasks",
+        title="Latency vs Cost per 1M Requests by Region Across All Tasks",
         template="plotly_dark",
         paper_bgcolor="#161e2d",
         plot_bgcolor="#232f3e",
         height=500,
         margin=dict(t=100, b=60, r=200),
         xaxis_title="Average Latency (Secs)",
-        yaxis_title="Average Cost per 1K Requests (USD)",
+        yaxis_title="Average Cost per 1M Requests (USD)",
         legend=dict(
             title=dict(text='Region + Task'),
             y=0.5,
@@ -569,7 +577,10 @@ def create_regional_performance_analysis(df):
 
 
 
-def create_html_report(output_dir, timestamp, evaluation_names=None, model_ids=None):
+ALL_SECTIONS = ['latency_metrics', 'latency_distribution', 'accuracy_distribution', 'token_distribution', 'cost_metrics', 'task_analysis', 'model_task_performance', 'regional_performance']
+
+
+def create_html_report(output_dir, timestamp, evaluation_names=None, model_ids=None, bedrock_api_key=None, summary_model=None, summary_region=None, selected_sections=None):
     """Generate HTML benchmark report with task-specific analysis.
 
     Args:
@@ -602,10 +613,10 @@ def create_html_report(output_dir, timestamp, evaluation_names=None, model_ids=N
     if model_ids:
         logger.info(f"Filtering to {len(model_ids)} selected models")
     try:
-        df = load_data(output_dir, evaluation_names, model_ids)
+        df, df_errors, df_all = load_data(output_dir, evaluation_names, model_ids)
         evaluation_info = f" for evaluations {evaluation_names}" if evaluation_names else " (all evaluations)"
         model_info = f", filtered to {len(model_ids)} models" if model_ids else ""
-        logger.info(f"Loaded data with {len(df)} records from {output_dir}{evaluation_info}{model_info}")
+        logger.info(f"Loaded data with {len(df)} records ({len(df_errors)} error records) from {output_dir}{evaluation_info}{model_info}")
     except Exception as e:
         logger.error(f"Error loading data: {str(e)}")
         raise
@@ -638,7 +649,7 @@ def create_html_report(output_dir, timestamp, evaluation_names=None, model_ids=N
 
     # Create visualizations
     logger.info("Creating visualizations...")
-    visualizations = create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics, has_only_latency)
+    visualizations = create_visualizations(df, model_task_metrics, latency_metrics, cost_metrics, has_only_latency, df_errors=df_errors, df_all=df_all)
 
     # Add integrated analysis and regional performance (handled here to avoid circular imports)
     visualizations['integrated_analysis_tables'], analysis_df = create_integrated_analysis_table(model_task_metrics)
@@ -673,30 +684,190 @@ def create_html_report(output_dir, timestamp, evaluation_names=None, model_ids=N
     # Add this to extract unique models
     unique_models = df['model_name'].dropna().unique().tolist()
 
+    # Extract per-task evaluation settings from the data
+    task_settings = []
+    source_df = df_all if (df_all is not None and not df_all.empty) else df
+    for task_name in source_df['task_types'].dropna().unique():
+        task_rows = source_df[source_df['task_types'] == task_name]
+        first = task_rows.iloc[0]
+        unique_prompts = task_rows['prompt'].nunique() if 'prompt' in task_rows.columns else 0
+        models_in_task = task_rows['model_name'].nunique() if 'model_name' in task_rows.columns else 0
+        total_records = len(task_rows)
+        eval_type_raw = first.get('eval_type', 'N/A')
+        eval_type_display = 'Full' if str(eval_type_raw) == '360' else str(eval_type_raw)
+        settings = {
+            'task_name': task_name,
+            'task_criteria': str(first.get('task_criteria', ''))[:300],
+            'dataset_size': unique_prompts,
+            'total_records': total_records,
+            'models_evaluated': models_in_task,
+            'temperature': first.get('TEMPERATURE', first.get('temperature', 'N/A')),
+            'eval_type': eval_type_display,
+            'streaming': 'Yes' if first.get('stream', False) else 'No',
+            'target_rpm': first.get('target_rpm', 'N/A'),
+            'run_count': first.get('run_count', 'N/A'),
+            'user_defined_metrics': str(first.get('user_defined_metrics', '')),
+            'structured_output_format': str(first.get('structured_output_format', '')),
+            'parallel_calls': first.get('parallel_calls', 'N/A'),
+            'invocations_per_scenario': first.get('invocations_per_scenario', 'N/A'),
+            'sleep_between_invocations': first.get('sleep_between_invocations', 'N/A'),
+            'experiment_counts': first.get('experiment_counts', 'N/A'),
+            'experiment_wait_time': first.get('experiment_wait_time', 'N/A'),
+            'yard_stick': first.get('yard_stick', 'N/A'),
+        }
+        # Clean up NaN values
+        for k, v in settings.items():
+            if isinstance(v, float) and v != v:  # NaN check
+                settings[k] = 'N/A'
+            if v == 'nan' or v == 'None':
+                settings[k] = 'N/A'
+        task_settings.append(settings)
+
     # Distribution findings removed to reduce noise - charts are self-explanatory
     time_to_first_token_findings = []
     accuracy_findings = []
     total_tokens_findings = []
-    perf_analysis = ''
-    acc_analysis = ''
 
+    # Build comprehensive data sections for the executive summary LLM
+
+    # 1. Evaluation context
+    eval_context = f"# Evaluation Context:\n"
+    eval_context += f"- Evaluations: {', '.join(evaluation_names) if evaluation_names else 'All evaluations'}\n"
+    eval_context += f"- Models evaluated: {len(unique_models)}\n"
+    eval_context += f"- Total successful records: {len(df)}\n"
+    if df_all is not None:
+        eval_context += f"- Total records (including errors): {len(df_all)}\n"
+    task_list = df['task_types'].dropna().unique().tolist() if 'task_types' in df.columns else []
+    if task_list:
+        eval_context += f"- Tasks: {', '.join(task_list)}\n"
+
+    # 2. Reliability strength per model
+    # Denominator = expected attempts derived from the dataset shape
+    # (n_prompts x invocations x temp_variants x experiments), NOT the count
+    # of records actually written to the CSV. This way crashed attempts that
+    # went only to the unprocessed JSON still count against the model.
+    reliability_analysis = '# Evaluation Reliability Strength (successful / expected attempts per model):\n'
+    if df_all is not None and not df_all.empty:
+        expected_per_model = expected_attempts_per_model(df_all)
+        success_counts = df_all[df_all['api_call_status'] == 'Success'].groupby('model_name').size()
+        all_models = sorted(df_all['model_name'].dropna().unique())
+        if expected_per_model > 0:
+            for model in all_models:
+                successful = int(success_counts.get(model, 0))
+                score = successful / expected_per_model
+                flag = " ⚠ LOW RELIABILITY" if score < 0.7 else ""
+                reliability_analysis += f"- {model}: {successful}/{expected_per_model} ({score:.0%}){flag}\n"
+        else:
+            for model in all_models:
+                successful = int(success_counts.get(model, 0))
+                reliability_analysis += f"- {model}: {successful}/? (expected count unavailable)\n"
+    else:
+        reliability_analysis += "- No reliability data available\n"
+
+    # 3. Performance analysis (latency)
+    perf_analysis = '# Performance Analysis (Latency):\n'
+    if not latency_metrics.empty:
+        for _, row in convert_scientific_to_decimal(latency_metrics).iterrows():
+            # latency_metrics has model_name as a column (reset_index) and uses the
+            # columns avg_ttft / avg_otps — row.name here is the integer index, and
+            # avg_ttfb / avg_throughput do not exist.
+            model = row.get('model_name', 'Unknown')
+            perf_analysis += f"- {model}: avg latency {row.get('avg_latency', 'N/A')}s, "
+            perf_analysis += f"avg TTFT {row.get('avg_ttft', 'N/A')}s, "
+            perf_analysis += f"throughput {row.get('avg_otps', 'N/A')} tokens/s\n"
+    else:
+        perf_analysis = ''
+
+    # 4. Accuracy analysis (success rates + judge scores)
+    acc_analysis = '# Accuracy Analysis (per model per task):\n'
+    if not model_task_metrics.empty and 'success_rate' in model_task_metrics.columns:
+        for _, row in model_task_metrics.iterrows():
+            model = row.get('model_name', 'Unknown')
+            task = row.get('task_display_name', row.get('task_types', 'Unknown'))
+            sr = row.get('success_rate', 'N/A')
+            count = row.get('sample_count', 'N/A')
+            sr_str = f"{sr:.1%}" if isinstance(sr, (int, float)) else str(sr)
+            acc_analysis += f"- {model} on {task}: success rate {sr_str} ({count} samples)"
+            # Add judge scores if available
+            score_cols = [c for c in model_task_metrics.columns if c.startswith('avg_AVG_')]
+            scores = []
+            for col in score_cols:
+                val = row.get(col)
+                if val is not None and not (isinstance(val, float) and val != val):  # not NaN
+                    metric_name = col.replace('avg_AVG_', '')
+                    scores.append(f"{metric_name}: {val:.2f}")
+            if scores:
+                acc_analysis += f" | Judge scores: {', '.join(scores)}"
+            acc_analysis += "\n"
+    else:
+        acc_analysis = ''
+
+    # 5. Cost analysis
     whole_number_cost_metrics = convert_scientific_to_decimal(cost_metrics)
-    cost_analysis = '# Cost Analysis across all models on all Task:\n' + '\n'.join([str(i) for i in whole_number_cost_metrics.to_dict(orient='records')])
+    cost_analysis = '# Cost Analysis:\n' + '\n'.join([str(i) for i in whole_number_cost_metrics.to_dict(orient='records')])
 
-    recommendations = '# Recommendations:\n* ' + '\n* '.join([str(i) for i in task_recommendations])
+    # 6. Recommendations with runner-ups
+    recommendations = '# Recommendations (Top Performers + Runner-ups):\n'
+    if not model_task_metrics.empty and 'success_rate' in model_task_metrics.columns:
+        for task_display in model_task_metrics['task_display_name'].unique():
+            td = model_task_metrics[model_task_metrics['task_display_name'] == task_display].sort_values('success_rate', ascending=False)
+            if len(td) >= 1:
+                recommendations += f"\nTask: {task_display}\n"
+                top = td.iloc[0]
+                recommendations += f"  #1 Accuracy: {top['model_name']} ({top['success_rate']:.1%})"
+                if len(td) >= 2:
+                    runner = td.iloc[1]
+                    gap = top['success_rate'] - runner['success_rate']
+                    recommendations += f" | #2: {runner['model_name']} ({runner['success_rate']:.1%}, gap: {gap:.1%})"
+                recommendations += "\n"
+                # Speed
+                td_speed = td.sort_values('avg_latency', ascending=True)
+                top_s = td_speed.iloc[0]
+                recommendations += f"  #1 Speed: {top_s['model_name']} ({top_s['avg_latency']:.2f}s)"
+                if len(td_speed) >= 2:
+                    runner_s = td_speed.iloc[1]
+                    recommendations += f" | #2: {runner_s['model_name']} ({runner_s['avg_latency']:.2f}s)"
+                recommendations += "\n"
+    else:
+        recommendations += '* ' + '\n* '.join([str(i) for i in task_recommendations])
 
-    prompt_template = report_summary_template(models=unique_models, evaluations=f'{acc_analysis}\n\n{cost_analysis}\n\n{perf_analysis}\n\n{task_level_analysis}\n\n{recommendations}')  ## Append AND Format all evals ++ rename the columns to help the model
+    # Combine all sections
+    all_data = '\n\n'.join(filter(None, [
+        eval_context,
+        reliability_analysis,
+        acc_analysis,
+        perf_analysis,
+        cost_analysis,
+        task_level_analysis,
+        recommendations,
+    ]))
+    prompt_template = report_summary_template(models=unique_models, evaluations=all_data)
     # Model ID preparation for litellm (/converse addition) is now handled centrally in run_inference()
-    inference = run_inference(model_name='bedrock/global.amazon.nova-2-lite-v1:0',
-                              prompt_text=prompt_template,
-                              stream=False,
-                              provider_params={"maxTokens": INFERENCE_MAX_TOKENS,
-                                               "temperature": INFERENCE_TEMPERATURE,
-                                               "aws_region_name": INFERENCE_REGION},
-                              judge_eval=True)['text']
+    report_model = summary_model or 'bedrock/global.amazon.nova-2-lite-v1:0'
+    report_region = summary_region or INFERENCE_REGION
+    summary_params = {"maxTokens": INFERENCE_MAX_TOKENS,
+                      "temperature": INFERENCE_TEMPERATURE,
+                      "aws_region_name": report_region}
+    if bedrock_api_key:
+        summary_params["api_key"] = bedrock_api_key
+    logger.info(f"Generating executive summary with {report_model} in {report_region}")
+    try:
+        inference = run_inference(model_name=report_model,
+                                  prompt_text=prompt_template,
+                                  stream=False,
+                                  provider_params=summary_params,
+                                  judge_eval=True)['text']
+    except Exception as e:
+        logger.warning(f"Executive summary generation failed: {e}. Using placeholder.")
+        inference = "<p><em>Executive summary could not be generated. Please check that your Bedrock API credentials are configured in the Credentials tab and that the selected summary model is accessible.</em></p>"
+    # Build sections visibility dict
+    active_sections = selected_sections if selected_sections else ALL_SECTIONS
+    sections = {s: s in active_sections for s in ALL_SECTIONS}
+
     html = Template(HTML_TEMPLATE).render(
         timestamp=formatted_date,
         inference=inference,
+        sections=sections,
 
         # Latency charts
         ttft_comparison_div=visualizations['ttft_comparison'].to_html(full_html=False),
@@ -719,6 +890,7 @@ def create_html_report(output_dir, timestamp, evaluation_names=None, model_ids=N
 
         # Error and regional Analysis
         error_analysis_div=visualizations['error_analysis'],
+        model_inference_errors_div=visualizations.get('model_inference_errors', '<div id="not-found">No model inference errors recorded</div>'),
         integrated_analysis_tables={task: table.to_html(full_html=False, include_plotlyjs=False, config={'displayModeBar': False, 'staticPlot': True}) for task, table in visualizations['integrated_analysis_tables'].items()},
         unique_tasks=list(visualizations['integrated_analysis_tables'].keys()),
         regional_latency_cost_div=visualizations['regional_latency_cost'].to_html(full_html=False),
@@ -747,6 +919,8 @@ def create_html_report(output_dir, timestamp, evaluation_names=None, model_ids=N
 
         # Recommendations
         task_recommendations=task_recommendations,
+        reliability_strength_div=visualizations.get('reliability_strength', ''),
+        task_settings=task_settings,
     )
 
     # Write report to file with evaluation-specific naming

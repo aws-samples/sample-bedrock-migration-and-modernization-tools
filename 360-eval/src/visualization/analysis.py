@@ -259,7 +259,7 @@ def generate_histogram_findings(df, key='time_to_first_byte', label='Time to Fir
     frequent_values = value_counts[value_counts > min_records].index
     df_match = df[df['model_name'].isin(frequent_values)]
     if df_match.empty:
-        return [f"Not enough data (need >{MIN_RECORDS_FOR_HISTOGRAM} measurements per model)"]
+        return [f"Not enough data (need >{min_records} measurements per model)"]
 
     df_clean = df_match[df_match[key].notna()].copy()
     if df_clean.empty:

@@ -1,21 +1,64 @@
-# LLM Benchmarking Framework with LLM-as-a-JURY
+# LLM Benchmarking Framework with LLM-as-a-JURY — OFFLINE build
 
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![AWS Bedrock](https://img.shields.io/badge/AWS-Bedrock-orange.svg)](https://aws.amazon.com/bedrock/)
-[![Streamlit](https://img.shields.io/badge/Built%20with-Streamlit-red.svg)](https://streamlit.io/)
+[![Flask](https://img.shields.io/badge/Built%20with-Flask-blue.svg)](https://flask.palletsprojects.com/)
+
+A **fully-local** build of 360-Eval. The **UI and evaluation engine are identical** to
+the online/cloud-hosted version — only the backend infrastructure has been swapped for
+local, open-source-friendly equivalents. Everything runs as **one Flask process** on
+`http://localhost:5000` — no Docker, no AWS infrastructure to provision, no servers to
+manage.
+
+> This build still needs **real AWS at run time** for LLM inference (Amazon Bedrock).
+> It is offline for *infrastructure*, not for the model calls. See
+> [What still needs AWS](#what-still-needs-aws) below.
+
+---
+
+## Offline Architecture
+
+The backend stores have been replaced with local equivalents. The Flask app and the
+evaluation engine are unchanged.
+
+| Online (AWS)            | Offline (local)                                  |
+|-------------------------|--------------------------------------------------|
+| S3 (object storage)     | local filesystem (`DATA_DIR/storage/`)           |
+| DynamoDB (metadata)     | SQLite (`DATA_DIR/db.sqlite3`)                    |
+| KMS (key encryption)    | Fernet (`DATA_DIR/secret.key`, `cryptography`)   |
+| ECS Fargate (workers)   | local subprocess (`LOCAL_DEV_MODE=true`)         |
+| ALB/OIDC (auth)         | injected local dev user                          |
+| SNS (email)             | no-op (email is stored, never sent)              |
+
+### What still needs AWS
+
+The app is offline for *infrastructure*, not for the LLM calls:
+
+- **Bedrock model inference — always.** Evaluations call Amazon Bedrock (and other
+  providers) via LiteLLM. Set `AWS_REGION` + AWS credentials via the default credential
+  chain (`~/.aws`, environment, or SSO). **For Bedrock models you do not need to add a
+  Bedrock API key** — the app authenticates via SigV4 using those default credentials
+  automatically. You only add keys in the UI **Credentials** tab for other providers
+  (OpenAI/Gemini/Azure), for Bedrock Mantle models, or if you prefer a short-term Bedrock
+  bearer token.
+- **APO (Advanced Prompt Optimization) — only when used.** Bedrock APO can only
+  read/write a **real S3 bucket**. Set `APO_BUCKET` (a bucket you own) + AWS creds to use
+  it. Leave `APO_BUCKET` unset to keep evaluations fully local; enabling APO without it
+  fails the eval with a clear message.
+
+---
 
 ## 📑 Table of Contents
 
+- [Offline Architecture](#offline-architecture)
+  - [What still needs AWS](#what-still-needs-aws)
 - [Overview](#overview)
-- [Key Features](#key-features)
-- [Quick Start](#quick-start)
-  - [UI Quick Start (Recommended)](#ui-quick-start-recommended)
-  - [CLI Quick Start](#cli-quick-start)
+- [Features](#features)
 - [Design Introduction](#design-introduction)
 - [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Complete Dashboard Guide](#complete-dashboard-guide)
+- [Installation / Quick Start](#installation--quick-start)
+- [Dashboard User Guide](#dashboard-user-guide)
   - [Launching the Dashboard](#launching-the-dashboard)
   - [Step 1: Setting Up Your First Evaluation](#step-1-setting-up-your-first-evaluation)
   - [Step 2: Running Evaluations](#step-2-running-evaluations)
@@ -30,7 +73,7 @@
 - [Configuration Reference](#configuration-reference)
   - [Evaluation Unit Data Format](#evaluation-unit-data-format)
   - [Model Profiles Data Format](#model-profiles-data-format)
-  - [Jury Configuration](#judge-configuration)
+  - [Jury Configuration](#jury-configuration)
   - [Vision Model Compatibility](#vision-model-compatibility)
 - [Advanced Features](#advanced-features)
   - [Prompt Optimization Feature](#prompt-optimization-feature)
@@ -44,8 +87,8 @@
 - [FAQ](#faq)
 - [Best Practices](#best-practices)
 - [Project Structure](#project-structure)
+- [Local Data Layout](#local-data-layout)
 - [Requirements](#requirements)
-- [Contributing](#contributing)
 - [License](#license)
 
 ---
@@ -57,7 +100,7 @@ This project provides tools for:
 - **Running performance benchmarks** across multiple LLM models (Amazon Bedrock and third-party models)
 - **Using LLM-as-a-jury methodology** where multiple judge models evaluate other models' responses
 - **Optimizing prompts** for target models using Amazon Bedrock's prompt optimization API
-- **Managing evaluations** through an interactive Streamlit web dashboard (recommended for most users)
+- **Managing evaluations** through an interactive web dashboard (recommended for most users)
 - **Measuring key performance metrics** (latency, throughput, cost, response quality)
 - **Visualizing results** and generating interactive HTML reports with regional performance analysis
 
@@ -72,7 +115,7 @@ This project provides tools for:
 - **Interactive visualizations**: Generate holistic HTML reports with performance comparisons, heatmaps, radar charts, and error analysis
 
 ### 🖥️  Dashboard
-- **Interactive web interface**: Launch a full-featured Streamlit dashboard for managing evaluations
+- **Interactive web interface**: Launch a full-featured web dashboard for managing evaluations
 - **Real-time monitoring**: Track running evaluations with live progress updates
 - **Results visualization**: View and compare evaluation results directly in the browser
 - **Model configuration**: Easily configure models, judges, and evaluation parameters
@@ -90,85 +133,9 @@ This project provides tools for:
 
 ---
 
-## Quick Start
-
-### UI Quick Start (Recommended)
-
-**Get your first evaluation running in 5 minutes using the dashboard:**
-
-```bash
-# 1. Clone and navigate to the project
-git clone <https://github.com/aws-samples/sample-bedrock-migration-and-modernization-tools.git>
-cd 360-eval
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Configure AWS credentials (if not already configured)
-aws configure
-
-# 4. Launch the dashboard
-streamlit run src/streamlit_dashboard.py
-```
-
-The dashboard will open at `http://localhost:8501`
-
-**Now in the dashboard:**
-
-1. **Setup Tab** → Upload your CSV with prompts and golden answers
-2. **Select columns** for prompts and expected responses
-3. **Add models** to evaluate and **judges** to assess responses
-4. **Monitor Tab** → Add your evaluation to the execution queue
-5. **Evaluations Tab** → View results when complete
-6. **Reports Tab** → Explore interactive HTML reports
-
-**Sample CSV format:**
-```csv
-prompt,golden_answer
-"What is the capital of France?","Paris is the capital of France."
-"Explain machine learning","Machine learning is a subset of artificial intelligence..."
-```
-
----
-
-### CLI Quick Start
-
-**Run a benchmark from the command line:**
-
-```bash
-# 1. Clone and navigate to the project
-git clone <https://github.com/aws-samples/sample-bedrock-migration-and-modernization-tools.git>
-cd 360-eval
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Configure AWS credentials
-aws configure
-
-# 4. Create your evaluation data (JSONL format)
-# Place your input file in the runs/ directory
-cat > runs/my_first_benchmark.jsonl << 'EOF'
-{"text_prompt": "What is the capital of France?", "expected_output_tokens": 50, "task": {"task_type": "Question-Answering", "task_criteria": "Provide accurate factual information"}, "golden_answer": "Paris is the capital of France."}
-{"text_prompt": "Explain machine learning in one sentence.", "expected_output_tokens": 100, "task": {"task_type": "Summarization", "task_criteria": "Concise and accurate explanation"}, "golden_answer": "Machine learning is a subset of artificial intelligence that enables systems to learn and improve from experience without being explicitly programmed."}
-EOF
-
-# 5. Validate your configuration files (optional but recommended)
-python src/config_validator.py config/
-
-# 6. Run the benchmark
-python src/benchmarks_run.py runs/my_first_benchmark.jsonl
-```
-
-**View results:**
-- CSV results will be in `outputs/`
-- HTML report will open automatically in your browser
-
----
-
 ## Design Introduction
 
-A comprehensive framework for benchmarking and evaluating Large Language Models (LLMs) with a specific focus on Amazon Bedrock models. Features an intuitive Streamlit dashboard for easy evaluation management and interactive HTML reports for results analysis.
+A comprehensive framework for benchmarking and evaluating Large Language Models (LLMs) with a specific focus on Amazon Bedrock models. Features an intuitive web dashboard for easy evaluation management and interactive HTML reports for results analysis.
 
 <img src="./assets/llm-as-judge-background.png" alt="LLM-as-a-Jury methodology diagram showing multiple judge models evaluating model responses across six dimensions" width="600" height="700">
 
@@ -195,9 +162,11 @@ The system is designed for scalability, automatically aggregating results from m
 Before installing and using the framework, ensure you have:
 
 ### Required
-- **Python 3.12 or higher** installed ([Download Python](https://www.python.org/downloads/))
-- **AWS Account** with Amazon Bedrock access
-- **AWS Credentials** configured on your machine
+- **Python 3.11 or higher** installed ([Download Python](https://www.python.org/downloads/)) — required by the pinned `scipy==1.16.2`. Python 3.12 is recommended.
+  - On **Python 3.13/3.14**, install `pandas>=2.3.3` (already pinned in `requirements.txt`). The older `pandas==2.2.3` has no wheels for these versions and **segfaults** on datetime handling.
+- **SQLite ≥ 3.9** (provides the `json1` extension) — standard on macOS and modern Linux
+- **AWS Account** with Amazon Bedrock model access (used for inference at run time)
+- **AWS Credentials** available via the default credential chain
   ```bash
   aws configure
   # Enter your AWS Access Key ID, Secret Access Key, and default region
@@ -205,59 +174,99 @@ Before installing and using the framework, ensure you have:
 - **Bedrock Model Access**: Enable model access in the AWS Bedrock console
   - Go to AWS Console → Bedrock → Model access
   - Request access to the models you want to evaluate
-  - **Required for reports**: `us.amazon.nova-premier-v1:0` (used for HTML report generation)
+  - **Required for reports**: `global.amazon.nova-2-lite-v1:0` (default model used for the HTML report's executive summary; a different summary model can be selected when generating a report)
 
-### Optional (for third-party models)
-- **OpenAI API Key** (for GPT models)
-- **Google API Key** (for Gemini models)
-- **Azure API Key** (for Azure OpenAI models)
+> Bedrock models authenticate via SigV4 from your AWS default credentials, so **no Bedrock
+> key is required**. Other-provider keys (OpenAI/Gemini/Azure) — and an optional Bedrock
+> bearer token — are entered in the UI **Credentials** tab, not in environment variables.
 
-Create a `.env` file in the project root:
-```env
-OPENAI_API='your_openai_api_key_here'
-GOOGLE_API='your_google_api_key_here'
-AZURE_API_KEY='your_azure_api_key_here'
-```
+### Optional
+- **`APO_BUCKET`** — a real S3 bucket you own, required **only** if you use Advanced
+  Prompt Optimization (APO). Leave it unset to keep evaluations fully local.
+- Third-party model API keys (OpenAI, Google Gemini, Azure OpenAI) — enter these in the
+  UI **Credentials** tab if you want to evaluate those providers.
 
 ---
 
-## Installation
+## Installation / Quick Start
+
+A setup script is provided that creates a virtual environment, installs dependencies,
+writes `.env.local` (from `.env.example`), and initializes the local data directory and
+Fernet key.
 
 ```bash
-# Clone the repository
-git clone <https://github.com/aws-samples/sample-bedrock-migration-and-modernization-tools.git>
-cd 360-eval
-
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Verify installation
-python src/config_validator.py config/
+./setup_offline.sh
+source .venv/bin/activate
+python web-ui/app.py            # http://localhost:5000
 ```
 
+The dashboard will open at `http://localhost:5000`.
+
+### Manual setup (alternative)
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env.local        # edit AWS_REGION, optionally APO_BUCKET
+python web-ui/app.py              # http://localhost:5000
+```
+
+`.env.local` is auto-loaded by `web-ui/app.py`.
+
+### Key environment variables (from `.env.example`)
+
+- `LOCAL_DEV_MODE=true` **(required)** — runs evals as local subprocesses and injects the dev user.
+- `LOCAL_DEV_USER` — the single local user (default `localdev`).
+- `DATA_DIR` — local state directory (default `./.localdata`).
+- `AWS_REGION` + AWS credentials — for Bedrock inference.
+- `APO_BUCKET` — real S3 bucket, only if you use prompt optimization.
+- `ADMIN_USERS` — users allowed into the admin dashboard.
+
+**To stop the dashboard:** press `Ctrl+C` in the terminal where it is running.
+
+**To reset everything:** stop the app and delete `.localdata/`. See
+[Local Data Layout](#local-data-layout).
+
 **Key Dependencies:**
-- Python 3.12+
+- Python 3.11+ (3.12 recommended)
 - Boto3 (AWS SDK)
-- Streamlit (Dashboard UI)
+- Flask (Dashboard UI)
 - LiteLLM (Multi-provider LLM client)
+- `cryptography` (Fernet encryption at rest)
 - Plotly (Visualizations)
 - Pandas (Data processing)
 - Jinja2 (Report templates)
+
+### First evaluation in the dashboard
+
+1. **Setup Tab** → Upload your CSV with prompts and golden answers
+2. **Select columns** for prompts and expected responses
+3. **Add models** to evaluate and **judges** to assess responses
+4. **Monitor Tab** → Add your evaluation to the execution queue
+5. **Evaluations Tab** → View results when complete
+6. **Reports Tab** → Explore interactive HTML reports
+
+**Sample CSV format:**
+```csv
+prompt,golden_answer
+"What is the capital of France?","Paris is the capital of France."
+"Explain machine learning","Machine learning is a subset of artificial intelligence..."
+```
 
 ---
 
 ## Dashboard User Guide
 
-The Streamlit dashboard is the easiest way to use 360-Eval. It provides an interface for configuring, running, analyzing and tracking LLM benchmarks.
+The web dashboard is the easiest way to use 360-Eval. It provides an interface for configuring, running, analyzing and tracking LLM benchmarks.
 
 ### Launching the Dashboard
 
 ```bash
 # From the project root directory
-streamlit run src/streamlit_dashboard.py
+python web-ui/app.py
 ```
 
-The dashboard will be available at `http://localhost:8501`
+The dashboard will be available at `http://localhost:5000`
 
 <img src="./assets/main_ui.png" alt="Main dashboard interface showing the 4-tab navigation: Setup, Monitor, Evaluations, and Reports" width="700" height="300">
 
@@ -519,7 +528,7 @@ Location for viewing HTML reports that are automatically generated when evaluati
 - You cannot manually create new reports - they are tied to completed evaluations
 
 **⚠️ Report Generation Requirement:**
-HTML report generation requires access to the `us.amazon.nova-premier-v1:0` model in your AWS account. This model is used to analyze evaluation results and create the report content. If this model is not accessible, evaluations will complete successfully but HTML reports will not be generated.
+HTML report generation uses a Bedrock model to write the report's executive summary (`global.amazon.nova-2-lite-v1:0` by default; a different summary model can be selected when generating a report). If the summary model is not accessible in your AWS account, evaluations will complete successfully but HTML reports will not be generated.
 
 ---
 
@@ -544,7 +553,7 @@ HTML report generation requires access to the `us.amazon.nova-premier-v1:0` mode
 - Reports are linked to their source evaluations
 - If an evaluation is deleted, its report may also be removed
 - Reports combine data from the evaluation's CSV output files
-- Reports are stored in the `outputs/` directory
+- Reports are stored under the local storage directory (`DATA_DIR/storage/`)
 
 ---
 
@@ -630,9 +639,34 @@ customer_query,expected_response_type
 
 ## CLI Usage
 
-While the dashboard is recommended for most users, the CLI provides powerful options for automation, CI/CD integration, and advanced use cases.
+While the dashboard is recommended for most users, the CLI provides powerful options for automation, CI/CD integration, and advanced use cases. The CLI uses the same evaluation engine as the dashboard.
+
+> The CLI reads AWS credentials and `AWS_REGION` from your environment / default
+> credential chain. For third-party providers, set the corresponding API keys in your
+> environment before running.
+
 ---
-`
+
+### Configuration Validation
+
+Validate your model and judge profile files before running an evaluation to catch errors early:
+
+```bash
+python src/config_validator.py config/
+```
+
+This checks that `config/models_profiles.jsonl` and `config/judge_profiles.jsonl` are
+well-formed and contain the required fields.
+
+---
+
+### Model Capability Validation
+
+Check which models, regions, and service tiers are actually accessible in your AWS account:
+
+```bash
+python src/model_capability_validator.py
+```
 
 **What it does:**
 - Tests each model+region combination with a minimal API request (~1 token input, 5 tokens output)
@@ -974,7 +1008,12 @@ When using the vision functionality (`--vision_enabled true` flag or enabling "V
 
 ### Prompt Optimization Feature
 
-Amazon Bedrock supports automatic prompt optimization for specific target models. This feature can improve prompt effectiveness by adapting them to each model's strengths.
+Amazon Bedrock supports automatic prompt optimization (Advanced Prompt Optimization, "APO") for specific target models. This feature can improve prompt effectiveness by adapting them to each model's strengths.
+
+> **⚠️ APO requires a real S3 bucket.** Bedrock APO can only read/write a real S3 bucket,
+> so set `APO_BUCKET` to a bucket you own (plus valid AWS credentials) before using any
+> optimization mode. Leaving `APO_BUCKET` unset keeps evaluations fully local; enabling
+> prompt optimization without it fails the eval with a clear message.
 
 #### Available Modes
 
@@ -1003,14 +1042,14 @@ python src/benchmarks_run.py runs/input_file.jsonl \
 
 #### Output
 
-- Optimization logs are saved to `outputs/prompt_optimization_log_<experiment_name>_<timestamp>.json`
+- Optimization logs are saved alongside the evaluation results (`prompt_optimization_log_<experiment_name>_<timestamp>.json`)
 - Shows which prompts were successfully optimized, skipped, or failed
 - In `evaluate_both` mode, optimized variants are labeled with `_Prompt_Optimized` suffix in reports
 
 #### Notes
 
 - Only works with Bedrock models (non-Bedrock models will use original prompts)
-- Requires access to Amazon Bedrock's prompt optimization API
+- Requires access to Amazon Bedrock's prompt optimization API **and** an `APO_BUCKET` S3 bucket
 - Failed optimizations automatically fall back to original prompts
 - Optimization adds slight latency to the evaluation setup phase
 
@@ -1125,7 +1164,7 @@ The framework supports configurable rate limiting (target RPM) for testing model
 
 #### Viewing Results
 
-In the Streamlit dashboard, completed evaluations will display RPM metrics including target vs actual RPM, throttle events, and success/error rates for models configured with rate limiting.
+In the dashboard, completed evaluations will display RPM metrics including target vs actual RPM, throttle events, and success/error rates for models configured with rate limiting.
 
 ---
 
@@ -1168,7 +1207,7 @@ Each tier will be evaluated separately and appear as distinct entries in reports
 
 Use the model capability validation tool to check service tier support:
 ```bash
-python src/validate_model_capabilities.py --model "bedrock/us.amazon.nova-pro-v1:0" --region "us-west-2" --tier "priority"
+python src/model_capability_validator.py --model "bedrock/us.amazon.nova-pro-v1:0" --region "us-west-2" --tier "priority"
 ```
 
 ---
@@ -1188,11 +1227,11 @@ This helps identify the best AWS region for your specific use case based on late
 
 ## Reports and Visualizations
 
-The benchmarking tool automatically generates interactive HTML reports when evaluations complete. These reports can be found in the output directory specified (default: `outputs/`).
+The benchmarking tool automatically generates interactive HTML reports when evaluations complete. These reports are stored in the local storage directory (`DATA_DIR/storage/`) and surfaced in the dashboard **Reports** tab.
 
 ### Report Generation Requirement
 
-**⚠️ Important:** HTML report generation requires access to the `us.amazon.nova-premier-v1:0` model in your AWS account. This model is used to analyze evaluation results and create the report content. If this model is not accessible, evaluations will complete successfully but HTML reports will not be generated.
+**⚠️ Important:** HTML report generation uses a Bedrock model to write the report's executive summary (`global.amazon.nova-2-lite-v1:0` by default; a different summary model can be selected when generating a report). If the summary model is not accessible in your AWS account, evaluations will complete successfully but HTML reports will not be generated.
 
 ### Report Contents
 
@@ -1217,7 +1256,7 @@ The reports include:
 - View the embedded HTML report
 
 **File System:**
-- Reports are stored in `outputs/`
+- Reports are stored under `DATA_DIR/storage/` (default `./.localdata/storage/`)
 - File naming: `llm_benchmark_report_<timestamp>_<experiment_name>.html`
 - Open directly in your browser
 
@@ -1233,7 +1272,7 @@ In addition to HTML reports, the framework generates detailed CSV files:
 - **Configuration data**: Parameters used for each test
 - **Retry attempts**: Number of inference retries per evaluation
 
-**CSV Location:** `outputs/invocations_<experiment_name>_<timestamp>.csv`
+**CSV Location:** stored under `DATA_DIR/storage/` as `invocations_<experiment_name>_<timestamp>.csv`
 
 ---
 
@@ -1242,11 +1281,25 @@ In addition to HTML reports, the framework generates detailed CSV files:
 ### Common Issues and Solutions
 
 <details>
+<summary><strong>Issue: "database is locked" errors</strong></summary>
+
+**Solution:**
+- The local SQLite database runs in WAL mode, which mitigates most concurrency issues.
+- Avoid running multiple copies of the app against the same `DATA_DIR` at once.
+- If it persists, stop the app, ensure no stray `python web-ui/app.py` processes are running, then restart.
+
+**Prevention:**
+- Run a single Flask process per `DATA_DIR`.
+- Keep `DATA_DIR` on a local filesystem (not a network share), which can break SQLite locking.
+</details>
+
+<details>
 <summary><strong>Issue: Evaluation gets stuck in "queued" status</strong></summary>
 
 **Solution:**
 - Check logs for API errors or rate limiting: `tail -f logs/evaluation_status_*.json`
 - Verify AWS credentials are valid: `aws sts get-caller-identity`
+- Confirm `LOCAL_DEV_MODE=true` is set (evaluations run as local subprocesses)
 - Check for background errors in the terminal running the dashboard
 
 **Prevention:**
@@ -1276,8 +1329,9 @@ In addition to HTML reports, the framework generates detailed CSV files:
 **Solution:**
 - Verify AWS credentials and region settings: `aws configure list`
 - Ensure Bedrock model access is enabled in your AWS account (AWS Console → Bedrock → Model access)
+- Confirm AWS default credentials resolve (`aws sts get-caller-identity`) and `AWS_REGION` is set — Bedrock auth uses SigV4 from those creds (no Bedrock key needed). A stored Bedrock key in the **Credentials** tab is only needed for Mantle or short-term-token use.
 - Check that you're using the correct region for the model
-- Run model capability validation: `python src/validate_model_capabilities.py`
+- Run model capability validation: `python src/model_capability_validator.py`
 
 **Note:** The system performs parallel model access checks before evaluation starts and provides immediate feedback on model availability.
 
@@ -1288,18 +1342,29 @@ In addition to HTML reports, the framework generates detailed CSV files:
 </details>
 
 <details>
+<summary><strong>Issue: Prompt optimization fails with an APO_BUCKET error</strong></summary>
+
+**Solution:**
+- Bedrock APO requires a **real S3 bucket**. Set `APO_BUCKET` to a bucket you own and ensure your AWS credentials can read/write it.
+- If you do not need prompt optimization, leave `APO_BUCKET` unset and use `--prompt_optimization_mode none` (the default).
+
+**Prevention:**
+- Only enable prompt optimization modes when `APO_BUCKET` is configured.
+</details>
+
+<details>
 <summary><strong>Issue: Reports not generated or not available</strong></summary>
 
 **Solution:**
 - Reports are auto-generated, not manually created
 - Ensure evaluation completed successfully (check status in Evaluations tab)
-- Verify CSV output files are present in `outputs/` directory
-- **Check access to `us.amazon.nova-premier-v1:0` model** (required for report generation)
+- Verify CSV output files are present under `DATA_DIR/storage/`
+- **Check access to `global.amazon.nova-2-lite-v1:0` model** (default summary model for report generation)
 
 **Note:** Each evaluation automatically creates its own report upon completion.
 
 **Prevention:**
-- Enable `us.amazon.nova-premier-v1:0` in AWS Bedrock model access
+- Enable `global.amazon.nova-2-lite-v1:0` in AWS Bedrock model access (or select an accessible summary model)
 - Monitor evaluation completion status
 - Check terminal/logs for report generation errors
 </details>
@@ -1350,18 +1415,27 @@ In addition to HTML reports, the framework generates detailed CSV files:
 - Verify image column is correctly specified in dashboard
 </details>
 
+<details>
+<summary><strong>Issue: I want to reset all local state</strong></summary>
+
+**Solution:**
+- Stop the app and delete the `.localdata/` directory (or whatever `DATA_DIR` points to).
+- Restart the app; it will reinitialize the SQLite database, storage directory, and Fernet key.
+- Back up state instead by copying the `.localdata/` directory before deleting.
+</details>
+
 ---
 
 ### Debug Tools
 
-- **Sidebar Debug Panel**: Session information and log access in dashboard
 - **Log Files**: Detailed execution logs in `logs/` directory
   - `evaluation_status_<evaluation_id>.json` - Real-time status updates
   - Timestamped logs for each evaluation
 - **Status Files**: Check evaluation state in status JSON files
 - **Manual Refresh**: Use refresh buttons in dashboard (no auto-refresh available)
 - **Model Access Check**: Parallel validation provides immediate feedback on model availability
-- **Unprocessed Records**: Check `outputs/unprocessed/` for failed evaluation records
+- **Unprocessed Records**: Check the `unprocessed/` records under `DATA_DIR/storage/` for failed evaluation records
+- **Local data inspection**: Inspect `DATA_DIR/db.sqlite3` directly with any SQLite client for metadata, and browse `DATA_DIR/storage/` for files
 
 ---
 
@@ -1377,7 +1451,7 @@ In addition to HTML reports, the framework generates detailed CSV files:
   - Start with 5-10 prompts to validate configuration
   - Scale up to full dataset once validated
 - **Resource Monitoring**: Watch CPU and memory usage during execution
-  - Dashboard runs in-process, monitor terminal for memory usage
+  - The app and evaluation subprocess run locally; monitor the terminal for memory usage
   - Large evaluations may require significant memory for data processing
 
 ---
@@ -1395,6 +1469,9 @@ In addition to HTML reports, the framework generates detailed CSV files:
 - **Experiment counts** (number of complete evaluation runs)
 - **Token usage** (input + output tokens per model)
 - **Model pricing** (varies by model and region)
+
+The local infrastructure (SQLite, filesystem, Fernet) is free; the only charges are for
+the Bedrock/third-party model inference itself.
 
 **Example calculation:**
 - 10 prompts
@@ -1529,13 +1606,8 @@ Currently, only **Bedrock models** are supported as judges.
 - **Azure OpenAI models**
 
 **Setup for third-party models:**
-1. Create a `.env` file in the project root
-2. Add your API keys:
-   ```env
-   OPENAI_API='your_openai_api_key'
-   GOOGLE_API='your_google_api_key'
-   AZURE_API_KEY='your_azure_api_key'
-   ```
+1. Open the dashboard **Credentials** tab
+2. Add your API keys for the providers you want to use (stored encrypted at rest with Fernet)
 3. Add model profiles in `config/models_profiles.jsonl` using the format:
    - OpenAI: `"openai/gpt-4o"`
    - Google: `"gemini/gemini-2.0-flash-exp"`
@@ -1602,7 +1674,7 @@ Currently, only **Bedrock models** are supported as judges.
 
 **Partial failures:**
 - Individual model failures don't stop the entire evaluation
-- Failed evaluations are logged in `outputs/unprocessed/`
+- Failed evaluations are logged in the `unprocessed/` records under `DATA_DIR/storage/`
 - The system retries failed API calls automatically (with exponential backoff)
 - Successful models complete normally
 - Reports show which models failed and why
@@ -1619,7 +1691,7 @@ Currently, only **Bedrock models** are supported as judges.
 - Re-run the evaluation
 
 **Prevention:**
-- Run `python src/validate_model_capabilities.py` before evaluations
+- Run `python src/model_capability_validator.py` before evaluations
 - Validate configurations with `python src/config_validator.py config/`
 - Start with small test datasets to catch issues early
 - Monitor AWS Bedrock quotas and rate limits
@@ -1646,7 +1718,7 @@ Currently, only **Bedrock models** are supported as judges.
   - 0.4-0.6: Balanced tasks
   - 0.7-0.9: Creative tasks
 - **Multiple judges**: Use 2-3 judge models for reliable, unbiased assessment
-- **Validate first**: Run `config_validator.py` and `validate_model_capabilities.py` before evaluations
+- **Validate first**: Run `config_validator.py` and `model_capability_validator.py` before evaluations
 
 ### Execution Management
 
@@ -1677,7 +1749,8 @@ Currently, only **Bedrock models** are supported as judges.
 ## Project Structure
 
 ```
-360-eval/
+360-eval-offline/
+├── setup_offline.sh                # Interactive first-time setup wizard (venv, deps, .env.local, data dir, AWS preflight)
 ├── assets/
 │   ├── html_template.txt           # Web report template
 │   ├── llm-as-judge-background.png # Methodology diagram
@@ -1685,59 +1758,99 @@ Currently, only **Bedrock models** are supported as judges.
 │   └── *.png                       # Dashboard screenshots
 ├── config/
 │   ├── models_profiles.jsonl                        # Model configuration examples
-│   ├── models_profiles_service_tier_examples.jsonl # Service tier examples
-│   └── judge_profiles.jsonl                        # Jurer configuration examples
+│   ├── models_profiles_service_tier_examples.jsonl  # Service tier examples
+│   └── judge_profiles.jsonl                         # Jury configuration examples
+├── scripts/                         # Helper scripts (model-profile builders, APO benchmark, profile updates)
+│   ├── build_models_profiles.py
+│   ├── generate_profiles_from_csv.py
+│   ├── run_apo_benchmark.py
+│   └── update_profiles.sh
 ├── logs/                            # Logs of evaluation sessions
 │   └── evaluation_status_*.json    # Real-time status updates
-├── outputs/                         # Output directory for results and reports
-│   ├── invocations_*.csv           # Detailed evaluation results
-│   ├── llm_benchmark_report_*.html # Interactive HTML reports
-│   └── unprocessed/                # Records that failed to be evaluated
 ├── runs/                            # Input directory for evaluation scenarios (JSONL files)
 ├── src/
 │   ├── benchmarks_run.py           # Main benchmarking engine
 │   ├── config_validator.py         # Configuration validation tool
-│   ├── validate_model_capabilities.py # Model availability and service tier validation
+│   ├── model_capability_validator.py # Model availability and service tier validation
 │   ├── utils.py                    # Utility functions for API interactions and data processing
 │   ├── visualize_results.py        # Data visualization and reporting tools
-│   ├── streamlit_dashboard.py      # Streamlit web dashboard
 │   └── dashboard/                  # Dashboard components and utilities
+├── web-ui/                          # Flask web dashboard (single-process entry point: app.py)
+│   └── aws/                         # LOCAL backend implementations:
+│       ├── s3_client.py            #   object storage -> local filesystem
+│       ├── dynamo_client.py        #   metadata       -> SQLite
+│       ├── kms_client.py           #   encryption     -> Fernet
+│       ├── ecs_client.py           #   workers        -> local subprocess stub
+│       └── _local.py               #   shared local helpers (paths, dev user, etc.)
+├── .localdata/                      # Generated local state (db.sqlite3, storage/, secret.key)
 ├── .cache/                          # Cache for model capability validation
 │   └── model_capabilities.json
-├── .env                             # Third-party API keys (create this file)
+├── .env.example                     # Template for .env.local
+├── .env.local                       # Local environment (created by setup; auto-loaded by app.py)
 ├── requirements.txt                 # Python dependencies
 └── README.md                        # This file
 ```
 
 ---
 
+## Local Data Layout
+
+All local state lives under `DATA_DIR` (default `./.localdata`):
+
+```
+.localdata/
+  db.sqlite3        # evaluations, reports, credentials (+ WAL files)
+  storage/users/... # uploaded CSVs, results, reports (mirrors the old S3 keys)
+  secret.key        # Fernet key, mode 0600 — DO NOT commit
+```
+
+- To **reset** everything, stop the app and delete `.localdata/`.
+- To **back up** your state, copy that directory.
+- Credential API keys are encrypted at rest with Fernet; the email used for
+  "notifications" is stored but **no email is sent** in this offline build.
+
+---
+
 ## Requirements
 
 ### System Requirements
-- **Python 3.12 or higher**
+- **Python 3.11 or higher** (3.12 recommended; on Python 3.13/3.14 use `pandas>=2.3.3` — see Prerequisites)
+- **SQLite ≥ 3.9** (provides the `json1` extension) — standard on macOS and modern Linux
 - **Operating System**: macOS, Linux, Windows (with WSL recommended)
 - **Memory**: 4GB+ RAM recommended for large evaluations
-- **Disk Space**: 1GB+ for outputs and reports
+- **Disk Space**: 1GB+ for local data, outputs, and reports
 
 ### Python Dependencies
 - **Boto3**: AWS SDK for Python (Bedrock API access)
+- **cryptography**: Fernet encryption for credentials at rest
 - **Plotly**: Interactive visualizations and charts
 - **Pandas**: Data processing and analysis
 - **LiteLLM**: Multi-provider LLM client (Bedrock, OpenAI, Google, Azure)
 - **Jinja2**: HTML report templating
 - **Python-Dotenv**: Environment variable management
-- **Streamlit**: Dashboard web interface
+- **Flask**: Dashboard web interface
 - **Scipy**: Statistical analysis
 - **Pytz**: Timezone handling for regional analysis
 
-### AWS Requirements
-- **AWS Account** with active credentials
-- **Amazon Bedrock access** enabled in your account
+### Local Stack (offline backend)
+- **SQLite** — metadata store (replaces DynamoDB)
+- **Local filesystem** — object storage under `DATA_DIR/storage/` (replaces S3)
+- **Fernet** (via `cryptography`) — encryption of credentials at rest (replaces KMS)
+- **Local subprocess** — evaluation workers when `LOCAL_DEV_MODE=true` (replaces ECS Fargate)
+
+### AWS Requirements (run time)
+- **AWS Account** with active credentials available via the default credential chain
+- **Amazon Bedrock access** enabled in your account (for model inference)
 - **Model access** enabled for:
   - Models you want to evaluate
   - Models you want to use as judges
-  - **`us.amazon.nova-premier-v1:0`** (required for HTML report generation)
+  - **`global.amazon.nova-2-lite-v1:0`** (default summary model for HTML report generation)
 - **IAM Permissions**: `bedrock:InvokeModel`, `bedrock:InvokeModelWithResponseStream`
+- **`APO_BUCKET`** — a real S3 bucket you own, required **only** if using Advanced Prompt Optimization
+
+> Bedrock uses SigV4 from your AWS default credentials (no Bedrock key required). Keys for
+> other providers (OpenAI/Gemini/Azure) and an optional Bedrock bearer token are entered in
+> the UI **Credentials** tab, not in environment variables.
 
 ### Optional Requirements
 - **OpenAI API key** (for GPT models)
@@ -1746,36 +1859,6 @@ Currently, only **Bedrock models** are supported as judges.
 
 ---
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-**How to contribute:**
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-**Areas where contributions are especially welcome:**
-- Additional judge model providers (currently Bedrock only)
-- New visualization types for reports
-- Performance optimizations
-- Documentation improvements
-- Bug fixes and error handling improvements
-- Support for additional LLM providers
-- CI/CD integration examples
-
----
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-**Questions or issues?** Please open an issue on GitHub or contact the maintainers.
-
-**Documentation:** This README is comprehensive, but for specific implementation details, refer to the code comments and inline documentation.
-
-**Updates:** This framework is actively maintained. Check the repository for the latest features and improvements.

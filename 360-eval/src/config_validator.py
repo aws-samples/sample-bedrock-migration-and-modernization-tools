@@ -46,7 +46,7 @@ def validate_model_profile(profile: Dict, line_num: int) -> Tuple[List[str], Lis
         region = profile["region"]
         if not isinstance(region, str) or not region.strip():
             errors.append(f"Line {line_num}: region must be a non-empty string")
-        elif not re.match(r'^[a-z]{2}-[a-z]+-\d+$', region):
+        elif region != 'N/A' and not re.match(r'^[a-z]{2}-[a-z]+-\d+$', region):
             errors.append(f"Line {line_num}: region '{region}' doesn't match AWS region format (e.g., 'us-east-1')")
 
     # Validate costs
@@ -55,8 +55,8 @@ def validate_model_profile(profile: Dict, line_num: int) -> Tuple[List[str], Lis
             cost = profile[cost_field]
             if not isinstance(cost, (int, float)) or cost < 0:
                 errors.append(f"Line {line_num}: {cost_field} must be a non-negative number")
-            elif cost > 1.0:
-                warnings.append(f"Line {line_num}: {cost_field} ({cost}) seems unusually high (>$1 per 1K tokens)")
+            elif cost > 1000.0:
+                warnings.append(f"Line {line_num}: {cost_field} ({cost}) seems unusually high (>$1000 per 1M tokens)")
 
     # Validate target_rpm (optional field)
     if "target_rpm" in profile:
@@ -98,7 +98,7 @@ def validate_judge_profile(profile: Dict, line_num: int) -> List[str]:
     errors = []
     
     # Required fields
-    required_fields = ["model_id", "region", "input_cost_per_1m", "output_cost_per_1m"]
+    required_fields = ["model_id", "region", "input_token_cost", "output_token_cost"]
     for field in required_fields:
         if field not in profile:
             errors.append(f"Line {line_num}: Missing required field '{field}'")
@@ -116,11 +116,11 @@ def validate_judge_profile(profile: Dict, line_num: int) -> List[str]:
         region = profile["region"]
         if not isinstance(region, str) or not region.strip():
             errors.append(f"Line {line_num}: region must be a non-empty string")
-        elif not re.match(r'^[a-z]{2}-[a-z]+-\d+$', region):
+        elif region != 'N/A' and not re.match(r'^[a-z]{2}-[a-z]+-\d+$', region):
             errors.append(f"Line {line_num}: region '{region}' doesn't match AWS region format (e.g., 'us-east-1')")
     
     # Validate costs
-    for cost_field in ["input_cost_per_1m", "output_cost_per_1m"]:
+    for cost_field in ["input_token_cost", "output_token_cost"]:
         if cost_field in profile:
             cost = profile[cost_field]
             if not isinstance(cost, (int, float)) or cost < 0:
@@ -129,6 +129,54 @@ def validate_judge_profile(profile: Dict, line_num: int) -> List[str]:
                 errors.append(f"Line {line_num}: Warning: {cost_field} ({cost}) seems unusually high (>$1000 per 1M tokens)")
     
     return errors
+
+
+def validate_prompt_jsonl_file(file_path: str) -> Tuple[List[str], List[str]]:
+    """
+    Validate the prompt-evaluation JSONL the worker consumes. Each row must have
+    text_prompt + task.task_type + task.task_criteria. Returns (errors, warnings).
+    """
+    errors = []
+    warnings = []
+
+    if not os.path.exists(file_path):
+        errors.append(f"File not found: {file_path}")
+        return errors, warnings
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+    except Exception as e:
+        errors.append(f"Failed to read file {file_path}: {e}")
+        return errors, warnings
+
+    if not lines:
+        errors.append(f"File is empty: {file_path}")
+        return errors, warnings
+
+    for line_num, line in enumerate(lines, 1):
+        line = line.strip()
+        if not line:
+            warnings.append(f"Line {line_num}: empty line (will be skipped)")
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as e:
+            errors.append(f"Line {line_num}: invalid JSON - {e}")
+            continue
+        if not isinstance(row, dict):
+            errors.append(f"Line {line_num}: expected JSON object, got {type(row).__name__}")
+            continue
+
+        if not row.get("text_prompt"):
+            errors.append(f"Line {line_num}: missing 'text_prompt'")
+        task = row.get("task")
+        if not isinstance(task, dict):
+            errors.append(f"Line {line_num}: 'task' must be a JSON object")
+        elif not task.get("task_type") or not task.get("task_criteria"):
+            errors.append(f"Line {line_num}: task.task_type and task.task_criteria required")
+
+    return errors, warnings
 
 
 def validate_jsonl_file(file_path: str, profile_type: str) -> Tuple[List[str], List[str]]:
